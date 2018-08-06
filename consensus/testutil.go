@@ -37,3 +37,12 @@ func AssertFinalizedBlocksNotConflicting(assert *assert.Assertions, c1 []string,
 		}
 	}
 }
+
+func newValidatorSet(ids []string) *ValidatorSet {
+	s := NewValidatorSet()
+	for _, id := range ids {
+		v := NewValidator(id, 1)
+		s.AddValidator(v)
+	}
+	return s
+}

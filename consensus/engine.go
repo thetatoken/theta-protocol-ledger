@@ -25,9 +25,8 @@ type DefaultEngine struct {
 	lastFinalizedBlock *blockchain.ExtendedBlock
 	tip                *blockchain.ExtendedBlock
 	lastVoteHeight     uint32
-	voteLog            map[uint32]blockchain.Vote   // level -> vote
-	collectedVotes     map[string][]blockchain.Vote // block hash -> votes
-	validators         ValidatorSet
+	voteLog            map[uint32]blockchain.Vote     // level -> vote
+	collectedVotes     map[string]*blockchain.VoteSet // block hash -> votes
 	epochManager       *EpochManager
 	height             uint32
 	validatorManager   ValidatorManager
@@ -38,7 +37,7 @@ type DefaultEngine struct {
 }
 
 // NewEngine creates a instance of DefaultEngine.
-func NewEngine(chain *blockchain.Chain, network p2p.Network, validators ValidatorSet) *DefaultEngine {
+func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *ValidatorSet) *DefaultEngine {
 	e := &DefaultEngine{
 		chain:   chain,
 		network: network,
@@ -50,8 +49,7 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators Validato
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
 		voteLog:            make(map[uint32]blockchain.Vote),
-		collectedVotes:     make(map[string][]blockchain.Vote),
-		validators:         validators,
+		collectedVotes:     make(map[string]*blockchain.VoteSet),
 		validatorManager:   NewFixedValidatorManager(validators),
 		epochManager:       NewEpochManager(),
 		height:             0,
@@ -148,11 +146,11 @@ func (e *DefaultEngine) FinalizedBlocks() chan *blockchain.Block {
 }
 
 func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
-	log.WithFields(log.Fields{"id": e.network.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Start processing ccBlock")
-	defer log.WithFields(log.Fields{"id": e.network.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Done processing ccBlock")
+	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Start processing ccBlock")
+	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Done processing ccBlock")
 
 	if ccBlock.Height <= e.highestCCBlock.Height {
-		log.WithFields(log.Fields{"id": e.network.ID(), "ccBlock": ccBlock}).Debug("Skipping CCBlock since ccBlock.Height <= e.highestCCBlock.Height")
+		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock}).Debug("Skipping CCBlock since ccBlock.Height <= e.highestCCBlock.Height")
 		return
 	}
 
@@ -170,8 +168,8 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 	if ccBlock.Height >= e.height {
 		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.height": e.height}).Debug("Advancing height")
 		newHeight := ccBlock.Height + 1
-		e.epochManager.SetHeight(newHeight)
 		e.enterNewHeight(newHeight)
+		e.epochManager.SetHeight(newHeight)
 	} else {
 		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.height": e.height}).Warning("Skipping ccBlock")
 	}

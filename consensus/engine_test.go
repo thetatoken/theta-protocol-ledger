@@ -21,10 +21,10 @@ func TestConsensusBaseCase(t *testing.T) {
 
 	simnet := p2p.NewSimnet()
 
-	validators := ValidatorSet{"v1", "v2", "v3", "v4"}
+	validators := newValidatorSet([]string{"v1", "v2", "v3", "v4"})
 	nodes := []Engine{}
 
-	for _, v := range validators {
+	for _, v := range validators.Validators() {
 		nodes = append(nodes, NewEngine(blockchain.CreateTestChain(), simnet.AddEndpoint(v.ID()), validators))
 	}
 

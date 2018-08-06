@@ -36,7 +36,7 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	e := rs.engine
 
 	// TODO: check if prososal is valid
-	log.WithFields(log.Fields{"proposal": p, "id": e.network.ID()}).Debug("Received proposal")
+	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
 
 	// Process commit certificate
 	if p.commitCertificate != nil {
@@ -48,7 +48,7 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 		ccBlock.CommitCertificate = p.commitCertificate
 
 		e.chain.SaveBlock(ccBlock)
-		log.WithFields(log.Fields{"id": e.network.ID(), "error": err, "block": ccBlock, "commitCertificate": p.commitCertificate}).Debug("Update block with commit certificate")
+		log.WithFields(log.Fields{"id": e.ID(), "error": err, "block": ccBlock, "commitCertificate": p.commitCertificate}).Debug("Update block with commit certificate")
 
 		e.processCCBlock(ccBlock)
 	}
@@ -56,7 +56,7 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	// Process block
 	block, err := e.chain.AddBlock(&p.block)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.network.ID(), "block": p.block}).Error(err)
+		log.WithFields(log.Fields{"id": e.ID(), "block": p.block}).Error(err)
 		panic(err)
 	}
 
@@ -65,11 +65,11 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	tip := e.tip
 	// Note: tip's height can be smaller than lastVoteHeight due to CC branch switch.
 	if lastVoteHeight > block.Parent.Height || (lastVoteHeight == block.Parent.Height && bytes.Compare(block.Parent.Hash, tip.Hash) != 0) {
-		log.WithFields(log.Fields{"id": e.network.ID(), "lastVoteHeight": lastVoteHeight, "block.Parent.Height": block.Parent.Height, "p.block.Hash": p.block.Hash}).Debug("Skip voting since has already voted at height")
+		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": lastVoteHeight, "block.Parent.Height": block.Parent.Height, "p.block.Hash": p.block.Hash}).Debug("Skip voting since has already voted at height")
 		return
 	}
 
-	vote := blockchain.Vote{Block: &p.block.BlockHeader, ID: e.network.ID()}
+	vote := blockchain.Vote{Block: &p.block.BlockHeader, ID: e.ID()}
 	tip, err = e.chain.FindBlock(p.block.Hash)
 	if err != nil {
 		// Should not happen since we just added block a few lines above.
@@ -79,6 +79,6 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	e.tip = tip
 	e.lastVoteHeight = p.block.Height
 
-	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "p.proposerID": p.proposerID, "id": e.network.ID()}).Debug("Sending vote")
+	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "p.proposerID": p.proposerID, "id": e.ID()}).Debug("Sending vote")
 	e.network.Send(p.proposerID, vote)
 }

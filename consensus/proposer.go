@@ -67,12 +67,13 @@ func (ps *DefaultProposerStrategy) HandleVote(vote blockchain.Vote) {
 	}
 	votes, ok := e.collectedVotes[hs]
 	if !ok {
-		votes = make([]blockchain.Vote, 0)
+		votes = blockchain.NewVoteSet()
+		e.collectedVotes[hs] = votes
 	}
-	votes = append(votes, vote)
-	e.collectedVotes[hs] = votes
-	//TODO change to majority
-	if len(votes) >= 3 {
+	votes.AddVote(vote)
+
+	validators := e.validatorManager.GetValidatorSetForHeight(e.height)
+	if validators.HasMajority(votes) {
 		cc := &blockchain.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
 		block.CommitCertificate = cc
 
@@ -86,7 +87,7 @@ func (ps *DefaultProposerStrategy) propose() {
 
 	tip := ps.engine.findTip()
 	if tip.Height >= e.height {
-		log.WithFields(log.Fields{"id": e.network.ID(), "tip.Height": tip.Height, "tip.Hash": tip.Hash, "e.height": e.height}).Debug("Already voted at this round. Skipping proposal")
+		log.WithFields(log.Fields{"id": e.ID(), "tip.Height": tip.Height, "tip.Hash": tip.Hash, "e.height": e.height}).Debug("Already voted at this round. Skipping proposal")
 		return
 	}
 
@@ -101,8 +102,11 @@ func (ps *DefaultProposerStrategy) propose() {
 	block.ParentHash = tip.Hash
 
 	lastCC := e.highestCCBlock
-	proposal := Proposal{block: block, proposerID: e.network.ID(), commitCertificate: lastCC.CommitCertificate}
+	proposal := Proposal{block: block, proposerID: e.ID()}
+	if lastCC.CommitCertificate != nil {
+		proposal.commitCertificate = lastCC.CommitCertificate.Copy()
+	}
 
-	log.WithFields(log.Fields{"proposal": proposal, "id": e.network.ID()}).Info("Making proposal")
+	log.WithFields(log.Fields{"proposal": proposal, "id": e.ID()}).Info("Making proposal")
 	e.network.Broadcast(proposal)
 }
