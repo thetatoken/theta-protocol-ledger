@@ -2,6 +2,8 @@ package consensus
 
 import (
 	"errors"
+	"math/rand"
+	"sort"
 
 	"github.com/thetatoken/ukulele/blockchain"
 )
@@ -58,6 +60,13 @@ func (s *ValidatorSet) Size() int {
 	return len(s.validators)
 }
 
+// ByID implements sort.Interface for ValidatorSet based on ID.
+type ByID []Validator
+
+func (b ByID) Len() int           { return len(b) }
+func (b ByID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b ByID) Less(i, j int) bool { return b[i].ID() < b[j].ID() }
+
 // GetValidator returns a validator if a matching ID is found.
 func (s *ValidatorSet) GetValidator(id string) (Validator, error) {
 	for _, v := range s.validators {
@@ -71,6 +80,7 @@ func (s *ValidatorSet) GetValidator(id string) (Validator, error) {
 // AddValidator adds a validator to the validator set.
 func (s *ValidatorSet) AddValidator(validator Validator) {
 	s.validators = append(s.validators, validator)
+	sort.Sort(ByID(s.validators))
 }
 
 // TotalStake returns the total stake of the validators in the set.
@@ -106,6 +116,9 @@ type ValidatorManager interface {
 	GetValidatorSetForHeight(height uint32) *ValidatorSet
 }
 
+//
+// -------------------------------- FixedValidatorManager ----------------------------------
+//
 var _ ValidatorManager = &FixedValidatorManager{}
 
 // FixedValidatorManager is an implementation of ValidatorManager interface that selects a fixed validator as the proposer.
@@ -130,5 +143,63 @@ func (m *FixedValidatorManager) GetProposerForHeight(height uint32) Validator {
 
 // GetValidatorSetForHeight returns the validator set for given height.
 func (m *FixedValidatorManager) GetValidatorSetForHeight(_ uint32) *ValidatorSet {
+	return m.validators
+}
+
+//
+// -------------------------------- RotatingValidatorManager ----------------------------------
+//
+var _ ValidatorManager = &RotatingValidatorManager{}
+
+// RotatingValidatorManager is an implementation of ValidatorManager interface that selects a random validator as
+// the proposer using validator's stake as weight.
+type RotatingValidatorManager struct {
+	validators *ValidatorSet
+}
+
+// NewRotatingValidatorManager creates an instance of RotatingValidatorManager.
+func NewRotatingValidatorManager(validators *ValidatorSet) *RotatingValidatorManager {
+	m := &RotatingValidatorManager{}
+	m.validators = validators.Copy()
+	return m
+}
+
+// Generate a random uint64 in [0, max)
+func randUint64(rnd *rand.Rand, max uint64) uint64 {
+	const maxInt64 uint64 = 1<<63 - 1
+	if max <= maxInt64 {
+		return uint64(rnd.Int63n(int64(max)))
+	}
+	for {
+		r := rnd.Uint64()
+		if r < max {
+			return r
+		}
+	}
+}
+
+// GetProposerForHeight implements ValidatorManager interface.
+func (m *RotatingValidatorManager) GetProposerForHeight(height uint32) Validator {
+	if m.validators.Size() == 0 {
+		panic("No validators have been added")
+	}
+	// TODO: replace with more secure randomness.
+	rnd := rand.New(rand.NewSource(int64(height)))
+	totalStake := m.validators.TotalStake()
+	r := randUint64(rnd, totalStake)
+	curr := uint64(0)
+	validators := m.validators.Validators()
+	for _, v := range validators {
+		curr += v.Stake()
+		if r < curr {
+			return v
+		}
+	}
+	// Should not reach here.
+	panic("Failed to randomly select a validator")
+}
+
+// GetValidatorSetForHeight returns the validator set for given height.
+func (m *RotatingValidatorManager) GetValidatorSetForHeight(_ uint32) *ValidatorSet {
 	return m.validators
 }

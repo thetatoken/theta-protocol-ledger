@@ -80,5 +80,5 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	e.lastVoteHeight = p.block.Height
 
 	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "p.proposerID": p.proposerID, "id": e.ID()}).Debug("Sending vote")
-	e.network.Send(p.proposerID, vote)
+	e.network.Broadcast(vote)
 }

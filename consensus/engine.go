@@ -50,7 +50,7 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		tip:                chain.Root,
 		voteLog:            make(map[uint32]blockchain.Vote),
 		collectedVotes:     make(map[string]*blockchain.VoteSet),
-		validatorManager:   NewFixedValidatorManager(validators),
+		validatorManager:   NewRotatingValidatorManager(validators),
 		epochManager:       NewEpochManager(),
 		height:             0,
 
