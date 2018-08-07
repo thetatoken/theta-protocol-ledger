@@ -22,7 +22,7 @@ const (
 func init() {
 	viper.SetDefault(CfgConsesusMaxEpochLength, 2)
 
-	viper.SetDefault(CfgP2PMessageQueueSize, 100)
+	viper.SetDefault(CfgP2PMessageQueueSize, 5000)
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)
 

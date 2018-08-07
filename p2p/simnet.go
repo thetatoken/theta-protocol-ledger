@@ -1,8 +1,11 @@
 package p2p
 
-import "time"
+import (
+	"time"
 
-const networkMessageQueueSize = 10000
+	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/util"
+)
 
 // Envelope wraps a message with network information for delivery.
 type Envelope struct {
@@ -21,7 +24,7 @@ type Simnet struct {
 // NewSimnet creates a new instance of Simnet.
 func NewSimnet() *Simnet {
 	return &Simnet{
-		messages: make(chan Envelope, networkMessageQueueSize),
+		messages: make(chan Envelope, viper.GetInt(util.CfgP2PMessageQueueSize)),
 	}
 }
 
@@ -29,7 +32,7 @@ func NewSimnet() *Simnet {
 func NewSimnetWithHandler(msgHandler MessageHandler) *Simnet {
 	return &Simnet{
 		msgHandler: msgHandler,
-		messages:   make(chan Envelope, networkMessageQueueSize),
+		messages:   make(chan Envelope, viper.GetInt(util.CfgP2PMessageQueueSize)),
 	}
 }
 
@@ -38,8 +41,8 @@ func (sn *Simnet) AddEndpoint(id string) *SimnetEndpoint {
 	endpoint := &SimnetEndpoint{
 		id:       id,
 		network:  sn,
-		incoming: make(chan Envelope, networkMessageQueueSize),
-		outgoing: make(chan Envelope, networkMessageQueueSize),
+		incoming: make(chan Envelope, viper.GetInt(util.CfgP2PMessageQueueSize)),
+		outgoing: make(chan Envelope, viper.GetInt(util.CfgP2PMessageQueueSize)),
 	}
 	sn.Endpoints = append(sn.Endpoints, endpoint)
 	return endpoint

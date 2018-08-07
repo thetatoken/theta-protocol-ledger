@@ -42,9 +42,6 @@ func (s *RandomProposerStrategy) shouldPropose() bool {
 		s.engine.ID() == validators[1].ID())
 }
 
-// In the presence of competing proposals, current impletation's average chance of finalization at a certain level lowers, resulting in longer finalization interval or even lack of liveness. Need to investigate no how to support competing proposals.
-// Or even separating two processes. One consensus process to elect proposer, there might be competing proposers, but need to be resolved at this level. Another consensus process is to allow the elected proposer to quickly generate N blocks quickly.
-//
 func TestConsensusRandomProposers(t *testing.T) {
 	assert := assert.New(t)
 
@@ -67,7 +64,7 @@ func TestConsensusRandomProposers(t *testing.T) {
 	}
 
 	log.Info("Start sleeping")
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	log.Info("End sleeping")
 
 	// Verify safety by checking finalized blocks for each replica.
@@ -80,7 +77,7 @@ func TestConsensusRandomProposers(t *testing.T) {
 		}
 
 		// Verify liveness.
-		assert.True(len(finalizedBlocks) > 0, fmt.Sprintf("len(finalizedBlocks) should > 0: %v, %v", len(finalizedBlocks), finalizedBlocks))
+		assert.True(len(finalizedBlocks) > 100, fmt.Sprintf("len(finalizedBlocks) should > 100: %v, %v", len(finalizedBlocks), finalizedBlocks))
 
 		if len(finalizedBlocks) > len(longestFinalizedBlocks) {
 			longestFinalizedBlocks = finalizedBlocks
@@ -114,9 +111,6 @@ func (s *CompetingProposerStrategy) shouldPropose() bool {
 		s.engine.ID() == validators[1].ID()
 }
 
-// In the presence of competing proposals, current impletation's average chance of finalization at a certain level lowers, resulting in longer finalization interval or even lack of liveness. Need to investigate no how to support competing proposals.
-// Or even separating two processes. One consensus process to elect proposer, there might be competing proposers, but need to be resolved at this level. Another consensus process is to allow the elected proposer to quickly generate N blocks quickly.
-//
 func TestConsensusCompetingProposers(t *testing.T) {
 	assert := assert.New(t)
 
@@ -139,7 +133,7 @@ func TestConsensusCompetingProposers(t *testing.T) {
 	}
 
 	log.Info("Start sleeping")
-	time.Sleep(10 * time.Second)
+	time.Sleep(20 * time.Second)
 	log.Info("End sleeping")
 
 	// Verify safety by checking finalized blocks for each replica.
@@ -152,7 +146,7 @@ func TestConsensusCompetingProposers(t *testing.T) {
 		}
 
 		// Verify liveness.
-		assert.True(len(finalizedBlocks) > 0, fmt.Sprintf("len(finalizedBlocks) should > 0: %v", finalizedBlocks))
+		assert.True(len(finalizedBlocks) > 100, fmt.Sprintf("len(finalizedBlocks) should > 100: %v", finalizedBlocks))
 
 		if len(finalizedBlocks) > len(longestFinalizedBlocks) {
 			longestFinalizedBlocks = finalizedBlocks

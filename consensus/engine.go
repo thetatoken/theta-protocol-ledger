@@ -42,8 +42,8 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		chain:   chain,
 		network: network,
 
-		incoming:        make(chan interface{}, 100),
-		finalizedBlocks: make(chan *blockchain.Block, 100),
+		incoming:        make(chan interface{}, 5000),
+		finalizedBlocks: make(chan *blockchain.Block, 5000),
 
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
