@@ -136,7 +136,16 @@ func (e *DefaultEngine) handleVote(vote blockchain.Vote) {
 	e.proposerStrategy.HandleVote(vote)
 }
 
-func (e *DefaultEngine) findTip() *blockchain.ExtendedBlock {
+// setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
+// descendants as the fork-choice rule.
+func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
+	ret, _ := e.highestCCBlock.FindDeepestDescendant()
+	e.tip = ret
+	return ret
+}
+
+// getTip return the block to be extended from.
+func (e *DefaultEngine) getTip() *blockchain.ExtendedBlock {
 	return e.tip
 }
 
@@ -160,11 +169,6 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 		e.finalizeBlock(ccBlock.Parent)
 	}
 
-	// Reset tip if seeing a CC on a different branch.
-	if !e.chain.IsDescendant(ccBlock.Hash, e.tip.Hash) {
-		e.tip = ccBlock
-	}
-
 	if ccBlock.Height >= e.height {
 		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.height": e.height}).Debug("Advancing height")
 		newHeight := ccBlock.Height + 1
@@ -176,7 +180,7 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 }
 
 func (e *DefaultEngine) finalizeBlock(block *blockchain.ExtendedBlock) {
-	log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Finalized block")
+	log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Finalizing block")
 	defer log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Done Finalized block")
 
 	e.lastFinalizedBlock = block

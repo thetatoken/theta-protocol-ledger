@@ -37,6 +37,21 @@ func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash.String()
 }
 
+// FindDeepestDescendant finds the deepest descendant of given block.
+func (eb *ExtendedBlock) FindDeepestDescendant() (n *ExtendedBlock, depth int) {
+	// TODO: replace recursive implementation with stack-based implementation.
+	n = eb
+	depth = 0
+	for _, child := range eb.Children {
+		ret, retDepth := child.FindDeepestDescendant()
+		if retDepth+1 > depth {
+			n = ret
+			depth = retDepth + 1
+		}
+	}
+	return
+}
+
 // Chain represents the blockchain and also is the interface to underlying store.
 type Chain struct {
 	store store.Store

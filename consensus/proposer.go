@@ -85,12 +85,7 @@ func (ps *DefaultProposerStrategy) HandleVote(vote blockchain.Vote) {
 func (ps *DefaultProposerStrategy) propose() {
 	e := ps.engine
 
-	tip := ps.engine.findTip()
-	if tip.Height >= e.height {
-		log.WithFields(log.Fields{"id": e.ID(), "tip.Height": tip.Height, "tip.Hash": tip.Hash, "e.height": e.height}).Debug("Already voted at this round. Skipping proposal")
-		return
-	}
-
+	tip := ps.engine.getTip()
 	if _, ok := e.voteLog[tip.Height]; ok {
 		return
 	}
