@@ -112,8 +112,8 @@ func (s *ValidatorSet) Validators() []Validator {
 
 // ValidatorManager is the component for managing validator related logic for consensus engine.
 type ValidatorManager interface {
-	GetProposerForHeight(height uint32) Validator
-	GetValidatorSetForHeight(height uint32) *ValidatorSet
+	GetProposerForEpoch(epoch uint32) Validator
+	GetValidatorSetForEpoch(epoch uint32) *ValidatorSet
 }
 
 //
@@ -133,16 +133,16 @@ func NewFixedValidatorManager(validators *ValidatorSet) *FixedValidatorManager {
 	return m
 }
 
-// GetProposerForHeight implements ValidatorManager interface.
-func (m *FixedValidatorManager) GetProposerForHeight(height uint32) Validator {
+// GetProposerForEpoch implements ValidatorManager interface.
+func (m *FixedValidatorManager) GetProposerForEpoch(epoch uint32) Validator {
 	if m.validators.Size() == 0 {
 		panic("No validators have been added")
 	}
 	return m.validators.validators[0]
 }
 
-// GetValidatorSetForHeight returns the validator set for given height.
-func (m *FixedValidatorManager) GetValidatorSetForHeight(_ uint32) *ValidatorSet {
+// GetValidatorSetForEpoch returns the validator set for given epoch.
+func (m *FixedValidatorManager) GetValidatorSetForEpoch(_ uint32) *ValidatorSet {
 	return m.validators
 }
 
@@ -178,13 +178,13 @@ func randUint64(rnd *rand.Rand, max uint64) uint64 {
 	}
 }
 
-// GetProposerForHeight implements ValidatorManager interface.
-func (m *RotatingValidatorManager) GetProposerForHeight(height uint32) Validator {
+// GetProposerForEpoch implements ValidatorManager interface.
+func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint32) Validator {
 	if m.validators.Size() == 0 {
 		panic("No validators have been added")
 	}
 	// TODO: replace with more secure randomness.
-	rnd := rand.New(rand.NewSource(int64(height)))
+	rnd := rand.New(rand.NewSource(int64(epoch)))
 	totalStake := m.validators.TotalStake()
 	r := randUint64(rnd, totalStake)
 	curr := uint64(0)
@@ -199,7 +199,7 @@ func (m *RotatingValidatorManager) GetProposerForHeight(height uint32) Validator
 	panic("Failed to randomly select a validator")
 }
 
-// GetValidatorSetForHeight returns the validator set for given height.
-func (m *RotatingValidatorManager) GetValidatorSetForHeight(_ uint32) *ValidatorSet {
+// GetValidatorSetForEpoch returns the validator set for given epoch.
+func (m *RotatingValidatorManager) GetValidatorSetForEpoch(_ uint32) *ValidatorSet {
 	return m.validators
 }

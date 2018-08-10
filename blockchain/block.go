@@ -19,13 +19,13 @@ func (b *Block) String() string {
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
 	ChainID    string
-	Height     uint32
+	Epoch      uint32
 	Hash       types.Bytes
 	ParentHash types.Bytes
 }
 
 func (h BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Height: %d, Hash: %v. Parent: %v}", h.ChainID, h.Height, h.Hash, h.ParentHash)
+	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v}", h.ChainID, h.Epoch, h.Hash, h.ParentHash)
 }
 
 // Tx represents a transaction.

@@ -11,7 +11,7 @@ import (
 type ReplicaStrategy interface {
 	Init(e *DefaultEngine)
 	HandleProposal(p Proposal)
-	EnterNewHeight(newHeight uint32)
+	EnterNewEpoch(newEpoch uint32)
 }
 
 var _ ReplicaStrategy = &DefaultReplicaStrategy{}
@@ -26,25 +26,32 @@ func (rs *DefaultReplicaStrategy) Init(e *DefaultEngine) {
 	rs.engine = e
 }
 
-// EnterNewHeight implements ReplicaStrategy interface.
-func (rs *DefaultReplicaStrategy) EnterNewHeight(newHeight uint32) {
+// EnterNewEpoch implements ReplicaStrategy interface.
+func (rs *DefaultReplicaStrategy) EnterNewEpoch(newEpoch uint32) {
 }
 
 // HandleProposal implements ReplicaStrategy interface.
 func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	e := rs.engine
 
-	// TODO: check if prososal is valid
 	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
 
-	// Process block
-	block, err := e.chain.AddBlock(&p.block)
-	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "block": p.block}).Error(err)
-		panic(err)
+	// Process block.
+	var block *blockchain.ExtendedBlock
+	var err error
+	if p.block.Epoch != e.epoch {
+		log.WithFields(log.Fields{"proposal": p, "id": e.ID(), "p.block.Epoch": p.block.Epoch, "e.epoch": e.epoch}).Debug("Ignoring proposed block from another epoch")
+	} else if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.proposerID != expectedProposer {
+		log.WithFields(log.Fields{"proposal": p, "id": e.ID(), "p.proposerID": p.proposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
+	} else {
+		block, err = e.chain.AddBlock(&p.block)
+		if err != nil {
+			log.WithFields(log.Fields{"id": e.ID(), "block": p.block}).Error(err)
+			panic(err)
+		}
 	}
 
-	// Process commit certificate
+	// Process commit certificate.
 	if p.commitCertificate != nil {
 		ccBlock, err := e.chain.FindBlock(p.commitCertificate.BlockHash)
 		if err != nil {
@@ -61,13 +68,14 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 
 	tip := e.setTip()
 
-	// Vote
+	// Vote.
 	if e.lastVoteHeight >= tip.Height {
 		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "block.Parent.Height": block.Parent.Height, "block.Hash": block.Hash, "tip": tip.Hash}).Debug("Skip voting since has already voted at height")
+		return
 	}
 
 	vote := blockchain.Vote{Block: &p.block.BlockHeader, ID: e.ID()}
-	e.lastVoteHeight = p.block.Height
+	e.lastVoteHeight = block.Height
 
 	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "p.proposerID": p.proposerID, "id": e.ID()}).Debug("Sending vote")
 	e.network.Broadcast(vote)

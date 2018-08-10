@@ -33,7 +33,7 @@ func CreateTestChain() *Chain {
 	store := store.NewMemKVStore()
 	root := &Block{}
 	root.ChainID = "testchain"
-	root.Height = 0
+	root.Epoch = 0
 	root.Hash = ParseHex("a0")
 
 	chain := NewChain("testchain", store, root)

@@ -1,6 +1,7 @@
 package consensus
 
 import (
+	"bytes"
 	"context"
 
 	log "github.com/sirupsen/logrus"
@@ -28,7 +29,7 @@ type DefaultEngine struct {
 	voteLog            map[uint32]blockchain.Vote     // level -> vote
 	collectedVotes     map[string]*blockchain.VoteSet // block hash -> votes
 	epochManager       *EpochManager
-	height             uint32
+	epoch              uint32
 	validatorManager   ValidatorManager
 
 	// Strategies
@@ -52,7 +53,7 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		collectedVotes:     make(map[string]*blockchain.VoteSet),
 		validatorManager:   NewRotatingValidatorManager(validators),
 		epochManager:       NewEpochManager(),
-		height:             0,
+		epoch:              0,
 
 		proposerStrategy: &DefaultProposerStrategy{},
 		replicaStrategy:  &DefaultReplicaStrategy{},
@@ -111,16 +112,16 @@ func (e *DefaultEngine) mainLoop(ctx context.Context) {
 			default:
 				log.Errorf("Unknown message type: %v", m)
 			}
-		case newHeight := <-e.epochManager.C:
-			e.enterNewHeight(newHeight)
+		case newEpoch := <-e.epochManager.C:
+			e.enterNewEpoch(newEpoch)
 		}
 	}
 }
 
-func (e *DefaultEngine) enterNewHeight(newHeight uint32) {
-	e.height = newHeight
-	e.proposerStrategy.EnterNewHeight(newHeight)
-	e.replicaStrategy.EnterNewHeight(newHeight)
+func (e *DefaultEngine) enterNewEpoch(newEpoch uint32) {
+	e.epoch = newEpoch
+	e.proposerStrategy.EnterNewEpoch(newEpoch)
+	e.replicaStrategy.EnterNewEpoch(newEpoch)
 }
 
 // HandleMessage implements p2p.MessageHandler interface.
@@ -155,31 +156,32 @@ func (e *DefaultEngine) FinalizedBlocks() chan *blockchain.Block {
 }
 
 func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
-	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Start processing ccBlock")
-	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.height": e.height}).Debug("Done processing ccBlock")
+	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
+	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
-	if ccBlock.Height <= e.highestCCBlock.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock}).Debug("Skipping CCBlock since ccBlock.Height <= e.highestCCBlock.Height")
-		return
+	if ccBlock.Height > e.highestCCBlock.Height {
+		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
+		e.highestCCBlock = ccBlock
 	}
-
-	e.highestCCBlock = ccBlock
 
 	if ccBlock.Parent.CommitCertificate != nil {
 		e.finalizeBlock(ccBlock.Parent)
 	}
 
-	if ccBlock.Height >= e.height {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.height": e.height}).Debug("Advancing height")
-		newHeight := ccBlock.Height + 1
-		e.enterNewHeight(newHeight)
-		e.epochManager.SetHeight(newHeight)
-	} else {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.height": e.height}).Warning("Skipping ccBlock")
+	if ccBlock.Epoch >= e.epoch {
+		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
+		newEpoch := ccBlock.Epoch + 1
+		e.enterNewEpoch(newEpoch)
+		e.epochManager.SetEpoch(newEpoch)
 	}
 }
 
 func (e *DefaultEngine) finalizeBlock(block *blockchain.ExtendedBlock) {
+	// Skip blocks that have already published.
+	if bytes.Compare(block.Hash, e.lastFinalizedBlock.Hash) == 0 {
+		return
+	}
+
 	log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Finalizing block")
 	defer log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Done Finalized block")
 
