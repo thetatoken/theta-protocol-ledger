@@ -24,12 +24,12 @@ import (
 
 // Various big integer limit values.
 var (
-	tt255     = BigPow(2, 255)
-	tt256     = BigPow(2, 256)
-	tt256m1   = new(big.Int).Sub(tt256, big.NewInt(1))
-	tt63      = BigPow(2, 63)
-	MaxBig256 = new(big.Int).Set(tt256m1)
-	MaxBig63  = new(big.Int).Sub(tt63, big.NewInt(1))
+	tt255Val     = BigPow(2, 255)
+	tt256Val     = BigPow(2, 256)
+	tt256m1Val   = new(big.Int).Sub(tt256Val, big.NewInt(1))
+	tt63Val      = BigPow(2, 63)
+	MaxBig256Val = new(big.Int).Set(tt256m1Val)
+	MaxBig63Val  = new(big.Int).Sub(tt63Val, big.NewInt(1))
 )
 
 const (
@@ -174,7 +174,7 @@ func ReadBits(bigint *big.Int, buf []byte) {
 
 // U256 encodes as a 256 bit two's complement number. This operation is destructive.
 func U256(x *big.Int) *big.Int {
-	return x.And(x, tt256m1)
+	return x.And(x, tt256m1Val)
 }
 
 // S256 interprets x as a two's complement number.
@@ -185,10 +185,10 @@ func U256(x *big.Int) *big.Int {
 //   S256(2**255)   = -2**255
 //   S256(2**256-1) = -1
 func S256(x *big.Int) *big.Int {
-	if x.Cmp(tt255) < 0 {
+	if x.Cmp(tt255Val) < 0 {
 		return x
 	}
-	return new(big.Int).Sub(x, tt256)
+	return new(big.Int).Sub(x, tt256Val)
 }
 
 // Exp implements exponentiation by squaring.
