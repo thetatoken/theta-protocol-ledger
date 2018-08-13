@@ -26,7 +26,7 @@ func getDefaultRecvBufferConfig() RecvBufferConfig {
 }
 
 // receivePacket handles incoming msgPackets. It returns a msg bytes if msg is
-// complete (i.e. ends with EOF). It is not go-routine safe
+// complete (i.e. ends with EOF). It is not goroutine safe
 func (rb *RecvBuffer) receivePacket(packet Packet) ([]byte, bool) {
 	if len(rb.workspace)+len(packet.Bytes) > rb.config.workspaceCapacity {
 		return nil, false

@@ -17,6 +17,10 @@ type Packet struct {
 	IsEOF     byte // 1 means message ends here.
 }
 
+func (p *Packet) isEmpty() bool {
+	return (p.Bytes == nil || len(p.Bytes) == 0)
+}
+
 func (p Packet) String() string {
 	return fmt.Sprintf("Packet{%X:%X T:%X}", p.ChannelID, p.Bytes, p.IsEOF)
 }
