@@ -27,8 +27,8 @@ type Connection struct {
 	recvMonitor *flowrate.Monitor
 
 	channelGroup ChannelGroup
-	onReceive    receiveHandler
-	onError      errorHandler
+	onReceive    ReceiveHandler
+	onError      ErrorHandler
 	errored      uint32
 
 	sendPulse chan bool
@@ -51,11 +51,11 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
-type receiveHandler func(channelID byte, msgBytes []byte)
-type errorHandler func(interface{})
+type ReceiveHandler func(channelID byte, msgBytes []byte)
+type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
-func CreateConnection(netconn net.Conn, onReceive receiveHandler, onError errorHandler, config ConnectionConfig) *Connection {
+func CreateConnection(netconn net.Conn, onReceive ReceiveHandler, onError ErrorHandler, config ConnectionConfig) *Connection {
 	return &Connection{
 		netconn:     netconn,
 		bufWriter:   bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
@@ -83,9 +83,10 @@ func CreateDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
-func (conn *Connection) OnStart() {
+func (conn *Connection) OnStart() bool {
 	go conn.sendRoutine()
 	go conn.recvRoutine()
+	return true
 }
 
 func (conn *Connection) OnStop() {
@@ -297,6 +298,11 @@ func (conn *Connection) sendPacket() (success bool, exhausted bool) {
 }
 
 // --------------------- Utils --------------------- //
+
+// GetNetconn returns the attached network connection
+func (conn *Connection) GetNetconn() net.Conn {
+	return conn.netconn
+}
 
 func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
