@@ -80,13 +80,17 @@ func (cg *ChannelGroup) addChannel(channel *Channel) {
 	cg.channels = append(cg.channels, channel)
 }
 
-func (cg *ChannelGroup) deleteChannel(channel *Channel) {
+func (cg *ChannelGroup) deleteChannel(channelID byte) {
 	cg.mutex.Lock()
 	defer cg.mutex.Unlock()
 
-	delete(cg.channelMap, channel.id)
+	if _, ok := cg.channelMap[channelID]; !ok {
+		return
+	}
+
+	delete(cg.channelMap, channelID)
 	for idx, ch := range cg.channels {
-		if ch.id == channel.id {
+		if ch.id == channelID {
 			cg.channels = append(cg.channels[:idx], cg.channels[idx+1:]...)
 		}
 	}

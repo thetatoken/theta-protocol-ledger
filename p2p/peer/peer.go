@@ -7,6 +7,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
 	"github.com/thetatoken/ukulele/serialization/rlp"
@@ -20,6 +21,7 @@ type Peer struct {
 
 	isPersistent bool
 	isOutbound   bool
+	key          string
 
 	nodeInfo NodeInfo
 
@@ -71,15 +73,18 @@ func createPeer(nodeInfo NodeInfo, netconn net.Conn, isOutbound bool, onReceive 
 	return peer
 }
 
+// OnStart is called when the peer starts
 func (peer *Peer) OnStart() bool {
 	success := peer.connection.OnStart()
 	return success
 }
 
+// OnStop is called when the peer stops
 func (peer *Peer) OnStop() {
 	peer.connection.OnStop()
 }
 
+// Handshake handles the initial signaling between two peers
 func (peer *Peer) Handshake(timeout time.Duration) error {
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
 	var sendError error
@@ -102,39 +107,55 @@ func (peer *Peer) Handshake(timeout time.Duration) error {
 	return nil
 }
 
+// Send sends the given message through the specified channel to the target peer
 func (peer *Peer) Send(channelID byte, message interface{}) bool {
 	success := peer.connection.EnqueueMessage(channelID, message)
 	return success
 }
 
+// AttemptToSend attempts to send the given message through the specified channel to the target peer (non-blocking)
 func (peer *Peer) AttemptToSend(channelID byte, message interface{}) bool {
 	success := peer.connection.AttemptToEnqueueMessage(channelID, message)
 	return success
 }
 
+// CanSend indicates whether more messages can be sent through the specified channel
 func (peer *Peer) CanSend(channelID byte) bool {
 	canSend := peer.connection.CanEnqueueMessage(channelID)
 	return canSend
 }
 
+// GetConnection returns the connection object attached to the peer
 func (peer *Peer) GetConnection() *cn.Connection {
 	return peer.connection
 }
 
+// GetRemoteAddress returns the remote address of the peer
 func (peer *Peer) GetRemoteAddress() net.Addr {
 	return peer.connection.GetNetconn().RemoteAddr()
 }
 
+// SetPersistency sets the persistency for the given peer
 func (peer *Peer) SetPersistency(persistent bool) {
 	peer.isPersistent = persistent
 }
 
+// IsPersistent returns whether the peer is persistent
 func (peer *Peer) IsPersistent() bool {
 	return peer.isPersistent
 }
 
+// IsOutbound returns whether the peer is an outbound peer
 func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
+}
+
+func (peer *Peer) Key() string {
+	if len(peer.key) == 0 {
+		keyBytes := crypto.PubkeyToAddress(peer.nodeInfo.PubKey)
+		peer.key = string(keyBytes[:])
+	}
+	return peer.key
 }
 
 func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
