@@ -5,9 +5,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/thetatoken/ukulele/common"
 
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/util"
 )
 
 // EpochManager runs its own goroutine to manage epoch for engine. It is not thread-safe.
@@ -37,7 +37,7 @@ func (m *EpochManager) resetTimer() {
 	if m.ticker != nil {
 		m.ticker.Stop()
 	}
-	m.ticker = time.NewTicker(time.Duration(viper.GetInt(util.CfgConsesusMaxEpochLength)) * time.Second)
+	m.ticker = time.NewTicker(time.Duration(viper.GetInt(common.CfgConsesusMaxEpochLength)) * time.Second)
 }
 
 func (m *EpochManager) setHeight(newHeight uint32) {

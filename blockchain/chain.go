@@ -6,8 +6,8 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/types"
 )
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
@@ -100,7 +100,7 @@ func (ch *Chain) SaveBlock(block *ExtendedBlock) {
 }
 
 // FindBlock tries to retrieve a block by hash.
-func (ch *Chain) FindBlock(hash types.Bytes) (*ExtendedBlock, error) {
+func (ch *Chain) FindBlock(hash common.Bytes) (*ExtendedBlock, error) {
 	res, err := ch.store.Get(hash)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (ch *Chain) FindBlock(hash types.Bytes) (*ExtendedBlock, error) {
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
-func (ch *Chain) IsDescendant(ascendantHash types.Bytes, descendantHash types.Bytes) bool {
+func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes) bool {
 	i := 0
 	hash := descendantHash
 	for i < 5 {

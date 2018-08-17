@@ -1,10 +1,10 @@
 package store
 
-import "github.com/thetatoken/ukulele/types"
+import "github.com/thetatoken/ukulele/common"
 
 // Store is the interface for key/value storages.
 type Store interface {
-	Put(key types.Bytes, value interface{}) error
-	Delete(key types.Bytes) error
-	Get(key types.Bytes) (value interface{}, err error)
+	Put(key common.Bytes, value interface{}) error
+	Delete(key common.Bytes) error
+	Get(key common.Bytes) (value interface{}, err error)
 }

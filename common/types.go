@@ -43,6 +43,13 @@ var (
 	addressT = reflect.TypeOf(Address{})
 )
 
+// Bytes represents bytes type.
+type Bytes []byte
+
+func (b Bytes) String() string {
+	return fmt.Sprintf("%X", []byte(b))
+}
+
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
 type Hash [HashLength]byte
 

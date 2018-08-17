@@ -3,6 +3,7 @@ package util
 import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/common"
 )
 
 func init() {
@@ -11,7 +12,7 @@ func init() {
 	log.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
 
-	if viper.GetBool(CfgLogDebug) {
+	if viper.GetBool(common.CfgLogDebug) {
 		log.SetLevel(log.DebugLevel)
 	}
 }

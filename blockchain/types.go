@@ -3,13 +3,13 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/types"
+	"github.com/thetatoken/ukulele/common"
 )
 
 // CommitCertificate represents a commit made a majority of validators.
 type CommitCertificate struct {
 	Votes     *VoteSet
-	BlockHash types.Bytes
+	BlockHash common.Bytes
 }
 
 // Copy creates a copy of this commit certificate.

@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/types"
 )
 
 // ParseHex parse hex string into bytes.
-func ParseHex(s string) types.Bytes {
+func ParseHex(s string) common.Bytes {
 	bytes, err := hex.DecodeString(s)
 	if err != nil {
 		panic(fmt.Sprintf("Error parsing: \"%s\": %v\n", s, err))

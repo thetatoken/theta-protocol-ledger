@@ -4,8 +4,7 @@ import (
 	"encoding/hex"
 
 	"github.com/pkg/errors"
-
-	"github.com/thetatoken/ukulele/types"
+	"github.com/thetatoken/ukulele/common"
 )
 
 var _ Store = MemKVStore{}
@@ -23,25 +22,25 @@ func NewMemKVStore() MemKVStore {
 	return make(MemKVStore)
 }
 
-func getKey(key types.Bytes) string {
+func getKey(key common.Bytes) string {
 	return hex.EncodeToString(key)
 }
 
 // Put implements Store.Put().
-func (mkv MemKVStore) Put(key types.Bytes, value interface{}) error {
+func (mkv MemKVStore) Put(key common.Bytes, value interface{}) error {
 	keystr := getKey(key)
 	mkv[keystr] = value
 	return nil
 }
 
 // Delete implements Store.Delete().
-func (mkv MemKVStore) Delete(key types.Bytes) error {
+func (mkv MemKVStore) Delete(key common.Bytes) error {
 	delete(mkv, getKey(key))
 	return nil
 }
 
 // Get implements Store.Get().
-func (mkv MemKVStore) Get(key types.Bytes) (value interface{}, err error) {
+func (mkv MemKVStore) Get(key common.Bytes) (value interface{}, err error) {
 	value, ok := mkv[getKey(key)]
 	if !ok {
 		err = ErrKeyNotFound

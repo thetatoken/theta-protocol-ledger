@@ -3,7 +3,7 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/types"
+	"github.com/thetatoken/ukulele/common"
 )
 
 // Block represents a block in chain.
@@ -20,8 +20,8 @@ func (b *Block) String() string {
 type BlockHeader struct {
 	ChainID    string
 	Height     uint32
-	Hash       types.Bytes
-	ParentHash types.Bytes
+	Hash       common.Bytes
+	ParentHash common.Bytes
 }
 
 func (h BlockHeader) String() string {
