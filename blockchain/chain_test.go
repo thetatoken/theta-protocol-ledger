@@ -3,6 +3,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -36,4 +37,18 @@ func TestBlockchain(t *testing.T) {
 	assert.Nil(err)
 
 	AssertChainsEqual(assert, expected.Root, chain.Root)
+}
+
+func TestBlockchainDeepestDescendant(t *testing.T) {
+	assert := assert.New(t)
+	ch := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"b2", "a1",
+		"b3", "b2",
+		"c1", "a0"})
+
+	ret, depth := ch.Root.FindDeepestDescendant()
+	assert.True(bytes.Equal(ParseHex("b3"), ret.Hash), "Expected deepest block: %v, actual: %v", ParseHex("b3"), ret.Hash)
+	assert.Equal(3, depth)
 }

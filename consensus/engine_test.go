@@ -63,7 +63,7 @@ func TestConsensusBaseCase(t *testing.T) {
 		}
 
 		// Verify liveness.
-		assert.True(len(finalizedBlocks) > 800, fmt.Sprintf("actual len: %d", len(finalizedBlocks)))
+		assert.True(len(finalizedBlocks) > 100, fmt.Sprintf("actual len: %d", len(finalizedBlocks)))
 
 		if len(finalizedBlocks) > len(longestFinalizedBlocks) {
 			longestFinalizedBlocks = finalizedBlocks

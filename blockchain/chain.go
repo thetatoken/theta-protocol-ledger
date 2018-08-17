@@ -13,6 +13,7 @@ import (
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
+	Height            uint32
 	Children          []*ExtendedBlock
 	Parent            *ExtendedBlock
 	CommitCertificate *CommitCertificate
@@ -35,6 +36,21 @@ func (eb *ExtendedBlock) String() string {
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash.String()
+}
+
+// FindDeepestDescendant finds the deepest descendant of given block.
+func (eb *ExtendedBlock) FindDeepestDescendant() (n *ExtendedBlock, depth int) {
+	// TODO: replace recursive implementation with stack-based implementation.
+	n = eb
+	depth = 0
+	for _, child := range eb.Children {
+		ret, retDepth := child.FindDeepestDescendant()
+		if retDepth+1 > depth {
+			n = ret
+			depth = retDepth + 1
+		}
+	}
+	return
 }
 
 // Chain represents the blockchain and also is the interface to underlying store.
@@ -79,14 +95,7 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 	}
 
 	parentBlock := parentRaw.(*ExtendedBlock)
-	if block.Height == 0 {
-		block.Height = parentBlock.Height + 1
-
-	} else if block.Height != 0 && parentBlock.Height >= block.Height {
-		return nil, errors.Errorf("Block(%v) height(%v) should be greater than parent block(%v) height(%v)", block, block.Height, parentBlock, parentBlock.Height)
-	}
-
-	extendedBlock := &ExtendedBlock{Block: block, Parent: parentBlock}
+	extendedBlock := &ExtendedBlock{Block: block, Parent: parentBlock, Height: parentBlock.Height + 1}
 	parentBlock.Children = append(parentBlock.Children, extendedBlock)
 	ch.SaveBlock(parentBlock)
 	ch.SaveBlock(extendedBlock)

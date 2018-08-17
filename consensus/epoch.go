@@ -13,18 +13,18 @@ import (
 // EpochManager runs its own goroutine to manage epoch for engine. It is not thread-safe.
 type EpochManager struct {
 	e      Engine
-	height uint32
+	epoch  uint32
 	ticker *time.Ticker
 	reset  chan uint32
-	C      chan uint32 // Channel for announcing new heights
+	C      chan uint32 // Channel for announcing new epoches
 }
 
 // NewEpochManager creates a new instance of EpochManager.
 func NewEpochManager() *EpochManager {
 	return &EpochManager{
-		height: 0,
-		reset:  make(chan uint32),
-		C:      make(chan uint32),
+		epoch: 0,
+		reset: make(chan uint32),
+		C:     make(chan uint32),
 	}
 }
 
@@ -40,12 +40,12 @@ func (m *EpochManager) resetTimer() {
 	m.ticker = time.NewTicker(time.Duration(viper.GetInt(common.CfgConsesusMaxEpochLength)) * time.Second)
 }
 
-func (m *EpochManager) setHeight(newHeight uint32) {
-	m.height = newHeight
-	m.C <- m.height
+func (m *EpochManager) setEpoch(newEpoch uint32) {
+	m.epoch = newEpoch
+	m.C <- m.epoch
 }
 
-// Start is the main goroutine loop to handle timeout and newHeight.
+// Start is the main goroutine loop to handle timeout and newEpoch.
 func (m *EpochManager) Start(ctx context.Context) {
 	m.resetTimer()
 	for {
@@ -55,20 +55,20 @@ func (m *EpochManager) Start(ctx context.Context) {
 				m.ticker.Stop()
 			}
 			return
-		case newHeight := <-m.reset:
-			log.WithFields(log.Fields{"id": m.e.ID(), "m.height": m.height, "newHeight": newHeight}).Debug("Proactively moving to new height")
-			m.height = newHeight
+		case newEpoch := <-m.reset:
+			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": newEpoch}).Debug("Proactively moving to new epoch")
+			m.epoch = newEpoch
 			m.resetTimer()
 		case <-m.ticker.C:
-			log.WithFields(log.Fields{"id": m.e.ID(), "m.height": m.height, "newHeight": m.height + 1}).Debug("Timed out. Moving to new height")
-			m.height++
-			m.C <- m.height
+			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": m.epoch + 1}).Debug("Timed out. Moving to new epoch")
+			m.epoch++
+			m.C <- m.epoch
 			m.resetTimer()
 		}
 	}
 }
 
-// SetHeight notifies the EpochManager to advance to given height. This call is non-blocking.
-func (m *EpochManager) SetHeight(height uint32) {
-	m.reset <- height
+// SetEpoch notifies the EpochManager to advance to given epoch. This call is non-blocking.
+func (m *EpochManager) SetEpoch(epoch uint32) {
+	m.reset <- epoch
 }

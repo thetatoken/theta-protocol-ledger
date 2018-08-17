@@ -37,7 +37,7 @@ func (s *RandomProposerStrategy) Start(ctx context.Context) {
 
 func (s *RandomProposerStrategy) shouldPropose() bool {
 	const Probability = 0.3
-	validators := s.engine.validatorManager.GetValidatorSetForHeight(0).Validators()
+	validators := s.engine.validatorManager.GetValidatorSetForEpoch(0).Validators()
 	return rand.Float32() <= Probability && (s.engine.ID() == validators[0].ID() ||
 		s.engine.ID() == validators[1].ID())
 }
@@ -106,7 +106,7 @@ func (s *CompetingProposerStrategy) Start(ctx context.Context) {
 }
 
 func (s *CompetingProposerStrategy) shouldPropose() bool {
-	validators := s.engine.validatorManager.GetValidatorSetForHeight(0).Validators()
+	validators := s.engine.validatorManager.GetValidatorSetForEpoch(0).Validators()
 	return s.engine.ID() == validators[0].ID() ||
 		s.engine.ID() == validators[1].ID()
 }

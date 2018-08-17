@@ -15,7 +15,7 @@ import (
 type ProposerStrategy interface {
 	Init(e *DefaultEngine)
 	HandleVote(v blockchain.Vote)
-	EnterNewHeight(newHeight uint32)
+	EnterNewEpoch(newEpoch uint32)
 }
 
 var _ ProposerStrategy = &DefaultProposerStrategy{}
@@ -36,9 +36,9 @@ func (ps *DefaultProposerStrategy) Init(e *DefaultEngine) {
 	ps.rand = rand.New(rand.NewSource(int64(seed)))
 }
 
-// EnterNewHeight implements ProposerStrategy interface.
-func (ps *DefaultProposerStrategy) EnterNewHeight(newHeight uint32) {
-	if ps.shouldPropose(newHeight) {
+// EnterNewEpoch implements ProposerStrategy interface.
+func (ps *DefaultProposerStrategy) EnterNewEpoch(newEpoch uint32) {
+	if ps.shouldPropose(newEpoch) {
 		ps.propose()
 	}
 }
@@ -49,8 +49,8 @@ func (ps *DefaultProposerStrategy) randHex() []byte {
 	return bytes
 }
 
-func (ps *DefaultProposerStrategy) shouldPropose(height uint32) bool {
-	proposer := ps.engine.validatorManager.GetProposerForHeight(height)
+func (ps *DefaultProposerStrategy) shouldPropose(epoch uint32) bool {
+	proposer := ps.engine.validatorManager.GetProposerForEpoch(epoch)
 	return proposer.ID() == ps.engine.ID()
 }
 
@@ -62,7 +62,7 @@ func (ps *DefaultProposerStrategy) HandleVote(vote blockchain.Vote) {
 	hs := hex.EncodeToString(vote.Block.Hash)
 	block, err := e.Chain().FindBlock(vote.Block.Hash)
 	if err != nil {
-		log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
+		log.WithFields(log.Fields{"id": e.ID(), "vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
 		return
 	}
 	votes, ok := e.collectedVotes[hs]
@@ -72,7 +72,7 @@ func (ps *DefaultProposerStrategy) HandleVote(vote blockchain.Vote) {
 	}
 	votes.AddVote(vote)
 
-	validators := e.validatorManager.GetValidatorSetForHeight(e.height)
+	validators := e.validatorManager.GetValidatorSetForEpoch(e.epoch)
 	if validators.HasMajority(votes) {
 		cc := &blockchain.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
 		block.CommitCertificate = cc
@@ -85,20 +85,12 @@ func (ps *DefaultProposerStrategy) HandleVote(vote blockchain.Vote) {
 func (ps *DefaultProposerStrategy) propose() {
 	e := ps.engine
 
-	tip := ps.engine.findTip()
-	if tip.Height >= e.height {
-		log.WithFields(log.Fields{"id": e.ID(), "tip.Height": tip.Height, "tip.Hash": tip.Hash, "e.height": e.height}).Debug("Already voted at this round. Skipping proposal")
-		return
-	}
-
-	if _, ok := e.voteLog[tip.Height]; ok {
-		return
-	}
+	tip := ps.engine.getTip()
 
 	block := blockchain.Block{}
 	block.ChainID = e.chain.ChainID
 	block.Hash = ps.randHex()
-	block.Height = e.height
+	block.Epoch = e.epoch
 	block.ParentHash = tip.Hash
 
 	lastCC := e.highestCCBlock
