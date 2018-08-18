@@ -14,8 +14,8 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
-	"github.com/thetatoken/ukulele/util"
 )
 
 type RandomProposerStrategy struct {
@@ -91,7 +91,7 @@ type CompetingProposerStrategy struct {
 }
 
 func (s *CompetingProposerStrategy) Start(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(viper.GetInt(util.CfgConsesusMaxEpochLength)) * time.Second)
+	ticker := time.NewTicker(time.Duration(viper.GetInt(common.CfgConsesusMaxEpochLength)) * time.Second)
 	defer ticker.Stop()
 	for {
 		select {

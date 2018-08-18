@@ -7,7 +7,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/thetatoken/theta/tendermint/p2p/upnp"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 )
 
@@ -167,7 +166,7 @@ func getExternalNetAddress(localAddrIP string, localAddrPort int, listenerPort i
 
 func getUPNPExternalAddress(externalPort, internalPort int) *netutil.NetAddress {
 	log.Infof("[p2p] Getting UPNP external address")
-	nat, err := upnp.Discover()
+	nat, err := netutil.Discover()
 	if err != nil {
 		log.Infof("[p2p] Could not perform UPNP discover: %v", err)
 		return nil
