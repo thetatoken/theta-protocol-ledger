@@ -3,8 +3,8 @@
 ## Setup
 
 ```
-git clone git@github.com:thetatoken/theta-protocol-ledger-2.git $GOPATH/src/github.com/thetatoken.org/ukulele
-cd $GOPATH/src/github.com/thetatoken.org/ukulele
+git clone git@github.com:thetatoken/theta-protocol-ledger-2.git $GOPATH/src/github.com/thetatoken/ukulele
+cd $GOPATH/src/github.com/thetatoken/ukulele
 make get_vendor_deps
 ```
 
