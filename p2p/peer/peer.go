@@ -7,9 +7,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/p2p"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
@@ -23,7 +23,7 @@ type Peer struct {
 	isOutbound   bool
 	key          string
 
-	nodeInfo *p2p.NodeInfo
+	nodeInfo *p2ptypes.NodeInfo
 
 	config PeerConfig
 }
@@ -32,11 +32,12 @@ type Peer struct {
 // PeerConfig specifies the configuration of a peer
 //
 type PeerConfig struct {
-	DialTimeout time.Duration
+	HandshakeTimeout time.Duration
+	DialTimeout      time.Duration
 }
 
 // CreateOutboundPeer creates an instance of an outbound peer
-func CreateOutboundPeer(nodeInfo *p2p.NodeInfo, peerAddr *nu.NetAddress, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
+func CreateOutboundPeer(nodeInfo *p2ptypes.NodeInfo, peerAddr *nu.NetAddress, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
@@ -48,13 +49,13 @@ func CreateOutboundPeer(nodeInfo *p2p.NodeInfo, peerAddr *nu.NetAddress, onRecei
 }
 
 // CreateInboundPeer creates an instance of an inbound peer
-func CreateInboundPeer(nodeInfo *p2p.NodeInfo, netconn net.Conn, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
+func CreateInboundPeer(nodeInfo *p2ptypes.NodeInfo, netconn net.Conn, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	peer := createPeer(nodeInfo, netconn, true, onReceive, onError, peerConfig, connConfig)
 	return peer, nil
 }
 
-func createPeer(nodeInfo *p2p.NodeInfo, netconn net.Conn, isOutbound bool, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
+func createPeer(nodeInfo *p2ptypes.NodeInfo, netconn net.Conn, isOutbound bool, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
 	connection := cn.CreateConnection(netconn, onReceive, onError, connConfig)
 	peer := &Peer{
@@ -78,11 +79,12 @@ func (peer *Peer) OnStop() {
 }
 
 // Handshake handles the initial signaling between two peers
-func (peer *Peer) Handshake(timeout time.Duration) error {
+func (peer *Peer) Handshake() error {
+	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
 	var sendError error
 	var recvError error
-	targetPeerNodeInfo := p2p.NodeInfo{}
+	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
 		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), peer.nodeInfo) },
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), targetPeerNodeInfo) },

@@ -1,6 +1,6 @@
 // +build integration
 
-package p2p
+package simulation
 
 import (
 	"fmt"

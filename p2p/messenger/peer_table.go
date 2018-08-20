@@ -16,12 +16,18 @@ type PeerTable struct {
 	peers   []*pr.Peer          // For iteration with deterministic order
 }
 
-func (pt *PeerTable) addPeer(peer *pr.Peer) {
+func (pt *PeerTable) addPeer(peer *pr.Peer) bool {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
+	if pt.peerExists(peer.Key()) {
+		return false
+	}
+
 	pt.peerMap[peer.Key()] = peer
 	pt.peers = append(pt.peers, peer)
+
+	return true
 }
 
 func (pt *PeerTable) deletePeer(peerKey string) {
@@ -41,11 +47,16 @@ func (pt *PeerTable) deletePeer(peerKey string) {
 }
 
 func (pt *PeerTable) getPeer(peerKey string) *pr.Peer {
-	peer, ok := pt.peerMap[peerKey]
-	if !ok {
+	peer, exists := pt.peerMap[peerKey]
+	if !exists {
 		return nil
 	}
 	return peer
+}
+
+func (pt *PeerTable) peerExists(peerKey string) bool {
+	_, exists := pt.peerMap[peerKey]
+	return exists
 }
 
 func (pt *PeerTable) getAllPeers() *([]*pr.Peer) {

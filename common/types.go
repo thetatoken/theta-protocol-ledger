@@ -347,3 +347,42 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
+
+// ChannelIDEnum defines the channelID for different type of data for synchronization among blockchain nodes
+type ChannelIDEnum byte
+
+const (
+
+	// ChannelIDCheckpoint indicates the channel for Checkpoint
+	ChannelIDCheckpoint ChannelIDEnum = 1
+
+	// ChannelIDHeader indicates the channel for Header
+	ChannelIDHeader ChannelIDEnum = 2
+
+	// ChannelIDBlock indicates the channel for Block
+	ChannelIDBlock ChannelIDEnum = 3
+
+	// ChannelIDTransaction indicates the channel for Transaction
+	ChannelIDTransaction ChannelIDEnum = 4
+
+	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
+	ChannelIDPeerDiscovery ChannelIDEnum = 5
+)
+
+// SyncType represents the type of data for synchronization among blockchain nodes
+type SyncType int
+
+const (
+
+	// SyncCheckpoint represents the Checkpoint data
+	SyncCheckpoint SyncType = 1
+
+	// SyncHeader represents the Header data
+	SyncHeader SyncType = 2
+
+	// SyncBlock represents the Block data
+	SyncBlock SyncType = 3
+
+	// SyncTransaction represents the Transaction data
+	SyncTransaction SyncType = 4
+)

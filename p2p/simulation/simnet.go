@@ -1,10 +1,11 @@
-package p2p
+package simulation
 
 import (
 	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/p2p"
 )
 
 // Envelope wraps a message with network information for delivery.
@@ -81,7 +82,7 @@ func (sn *Simnet) Start() {
 type SimnetEndpoint struct {
 	id       string
 	network  *Simnet
-	handlers []MessageHandler
+	handlers []p2p.MessageHandler
 	incoming chan Envelope
 	outgoing chan Envelope
 }

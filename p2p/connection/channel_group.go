@@ -72,12 +72,18 @@ func getDefaultChannelGroupConfig() ChannelGroupConfig {
 	}
 }
 
-func (cg *ChannelGroup) addChannel(channel *Channel) {
+func (cg *ChannelGroup) addChannel(channel *Channel) bool {
 	cg.mutex.Lock()
 	defer cg.mutex.Unlock()
 
+	if cg.channelExists(channel.getID()) {
+		return false
+	}
+
 	cg.channelMap[channel.id] = channel
 	cg.channels = append(cg.channels, channel)
+
+	return true
 }
 
 func (cg *ChannelGroup) deleteChannel(channelID byte) {
@@ -97,11 +103,16 @@ func (cg *ChannelGroup) deleteChannel(channelID byte) {
 }
 
 func (cg *ChannelGroup) getChannel(channelID byte) *Channel {
-	channel, ok := cg.channelMap[channelID]
-	if !ok {
+	channel, exists := cg.channelMap[channelID]
+	if !exists {
 		return nil
 	}
 	return channel
+}
+
+func (cg *ChannelGroup) channelExists(channelID byte) bool {
+	_, exists := cg.channelMap[channelID]
+	return exists
 }
 
 func (cg *ChannelGroup) getAllChannels() *([]*Channel) {

@@ -37,6 +37,11 @@ func createChannel(channelID byte, channelConf ChannelConfig, sbConf SendBufferC
 	}
 }
 
+// getID returns the ID of the channel
+func (ch *Channel) getID() byte {
+	return ch.id
+}
+
 // enqueueMessage queues the the given message into the channel
 func (ch *Channel) enqueueMessage(bytes []byte) bool {
 	success := ch.sendBuf.insert(bytes)
