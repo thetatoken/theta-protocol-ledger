@@ -2,26 +2,19 @@ package p2p
 
 import (
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/p2p/types"
 )
-
-//
-// Message models the message sent/received through the P2P network
-//
-type Message struct {
-	ChannelID byte
-	Content   interface{}
-}
 
 //
 // MessageHandler interface
 //
 type MessageHandler interface {
 
-	// GetChannelID returns the ID of the channel that the message handler needs to handle
-	GetChannelID() common.ChannelIDEnum
+	// GetChannelIDs returns the list channelIDs that the message handler needs to handle
+	GetChannelIDs() []common.ChannelIDEnum
 
-	// HandleMessage handled the message received from the corresponding channel
-	HandleMessage(peerID string, rawMsgBytes common.Bytes)
+	// HandleMessage handles the message received from the peer with peerID
+	HandleMessage(peerID string, message types.Message)
 }
 
 //
@@ -30,13 +23,13 @@ type MessageHandler interface {
 type Network interface {
 
 	// Broadcast broadcasts the given message to all the neighboring peers
-	Broadcast(msg Message) error
+	Broadcast(message types.Message) error
 
 	// Send sends the given message to the peer specified by the peerID
-	Send(peerID string, msg Message) error
+	Send(peerID string, message types.Message) error
 
 	// AddMessageHandler adds message handler for the specified channel
-	AddMessageHandler(msgHandler MessageHandler)
+	AddMessageHandler(messageHandler MessageHandler)
 
 	// ID returns the ID of the network peer
 	ID() string

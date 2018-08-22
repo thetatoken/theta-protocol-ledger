@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/thetatoken/ukulele/common"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 type ChannelGroup struct {
 	mutex sync.Mutex
 
-	channelMap map[byte]*Channel // map: ChannelID |-> *Channel
-	channels   []*Channel        // For iteration with deterministic order
+	channelMap map[common.ChannelIDEnum]*Channel // map: ChannelID |-> *Channel
+	channels   []*Channel                        // For iteration with deterministic order
 
 	channelSelector ChannelSelector
 
@@ -51,7 +52,7 @@ func createChannelGroup(cgConfig ChannelGroupConfig, chConfigs []ChannelConfig) 
 		config:          cgConfig,
 	}
 
-	channelID := byte(0x0)
+	channelID := common.ChannelIDEnum(0x0)
 	if len(chConfigs) > 255 {
 		return false, channelGroup // too many channels
 	}
@@ -60,7 +61,7 @@ func createChannelGroup(cgConfig ChannelGroupConfig, chConfigs []ChannelConfig) 
 		recvBufConfig := getDefaultRecvBufferConfig()
 		channel := createChannel(channelID, chConfig, sendBufConfig, recvBufConfig)
 		channelGroup.addChannel(&channel)
-		channelID += 1
+		channelID++
 	}
 
 	return true, channelGroup
@@ -86,7 +87,7 @@ func (cg *ChannelGroup) addChannel(channel *Channel) bool {
 	return true
 }
 
-func (cg *ChannelGroup) deleteChannel(channelID byte) {
+func (cg *ChannelGroup) deleteChannel(channelID common.ChannelIDEnum) {
 	cg.mutex.Lock()
 	defer cg.mutex.Unlock()
 
@@ -102,7 +103,10 @@ func (cg *ChannelGroup) deleteChannel(channelID byte) {
 	}
 }
 
-func (cg *ChannelGroup) getChannel(channelID byte) *Channel {
+func (cg *ChannelGroup) getChannel(channelID common.ChannelIDEnum) *Channel {
+	cg.mutex.Lock()
+	defer cg.mutex.Unlock()
+
 	channel, exists := cg.channelMap[channelID]
 	if !exists {
 		return nil
@@ -110,16 +114,25 @@ func (cg *ChannelGroup) getChannel(channelID byte) *Channel {
 	return channel
 }
 
-func (cg *ChannelGroup) channelExists(channelID byte) bool {
+func (cg *ChannelGroup) channelExists(channelID common.ChannelIDEnum) bool {
+	cg.mutex.Lock()
+	defer cg.mutex.Unlock()
+
 	_, exists := cg.channelMap[channelID]
 	return exists
 }
 
 func (cg *ChannelGroup) getAllChannels() *([]*Channel) {
+	cg.mutex.Lock()
+	defer cg.mutex.Unlock()
+
 	return &cg.channels
 }
 
 func (cg *ChannelGroup) getTotalNumChannels() uint {
+	cg.mutex.Lock()
+	defer cg.mutex.Unlock()
+
 	return uint(len(cg.channels))
 }
 

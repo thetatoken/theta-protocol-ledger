@@ -42,6 +42,9 @@ type Connection struct {
 	config ConnectionConfig
 }
 
+//
+// ConnectionConfig specifies the configurations of the Connection
+//
 type ConnectionConfig struct {
 	MinWriteBufferSize int
 	MinReadBufferSize  int
@@ -52,7 +55,10 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
+// ReceiveHandler is the callback function to handle received bytes from the given channel
 type ReceiveHandler func(channelID common.ChannelIDEnum, msgBytes common.Bytes)
+
+// ErrorHandler is the callback function to handle channel read errors
 type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
@@ -72,6 +78,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	}
 }
 
+// CreateDefaultConnectionConfig creates the default ConnectionConfig
 func CreateDefaultConnectionConfig() ConnectionConfig {
 	return ConnectionConfig{
 		SendRate:        int64(512000), // 500KB/s
@@ -115,7 +122,7 @@ func (conn *Connection) SetErrorHandler(errorHandler ErrorHandler) {
 
 // EnqueueMessage enqueues the given message to the target channel.
 // The message will be send out later
-func (conn *Connection) EnqueueMessage(channelID byte, message interface{}) bool {
+func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
@@ -137,7 +144,7 @@ func (conn *Connection) EnqueueMessage(channelID byte, message interface{}) bool
 
 // AttemptToEnqueueMessage attempts to enqueue the given message to the
 // target channel. The message will be send out later (non-blocking)
-func (conn *Connection) AttemptToEnqueueMessage(channelID byte, message interface{}) bool {
+func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
@@ -159,7 +166,7 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID byte, message interfac
 
 // CanEnqueueMessage returns whether more messages can still be enqueued
 // into the connection at the moment
-func (conn *Connection) CanEnqueueMessage(channelID byte) bool {
+func (conn *Connection) CanEnqueueMessage(channelID common.ChannelIDEnum) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		return false

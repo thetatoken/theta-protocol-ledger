@@ -1,6 +1,10 @@
 package connection
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/thetatoken/ukulele/common"
+)
 
 const (
 	maxPayloadSize        = 1024
@@ -12,7 +16,7 @@ const (
 )
 
 type Packet struct {
-	ChannelID byte
+	ChannelID common.ChannelIDEnum
 	Bytes     []byte
 	IsEOF     byte // 1 means message ends here.
 }

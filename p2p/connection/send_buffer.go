@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/math"
 )
 
@@ -77,7 +78,7 @@ func (sb *SendBuffer) attemptInsert(bytes []byte) bool {
 }
 
 // EmitPacket emits a packet extracted from the bytes stored in the workspace
-func (sb *SendBuffer) emitPacket(channelID byte) Packet {
+func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
 	if sb.workspace == nil {
 		return Packet{
 			ChannelID: channelID,

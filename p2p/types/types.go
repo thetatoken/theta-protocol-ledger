@@ -3,8 +3,17 @@ package types
 import (
 	"crypto/ecdsa"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
+
+//
+// Message models the message sent/received through the P2P network
+//
+type Message struct {
+	ChannelID common.ChannelIDEnum
+	Content   common.Bytes
+}
 
 //
 // NodeInfo provides the information of the corresponding blockchain node of the peer

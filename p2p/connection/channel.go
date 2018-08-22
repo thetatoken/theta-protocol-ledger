@@ -3,6 +3,7 @@ package connection
 import (
 	"io"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
@@ -10,7 +11,7 @@ import (
 // Channel models a bi-directional channel for messsage between two peers
 //
 type Channel struct {
-	id byte
+	id common.ChannelIDEnum
 
 	sendBuf SendBuffer
 	recvBuf RecvBuffer
@@ -26,7 +27,7 @@ type ChannelConfig struct {
 }
 
 // createChannel creates a channel for the given configs
-func createChannel(channelID byte, channelConf ChannelConfig, sbConf SendBufferConfig, rbConf RecvBufferConfig) Channel {
+func createChannel(channelID common.ChannelIDEnum, channelConf ChannelConfig, sbConf SendBufferConfig, rbConf RecvBufferConfig) Channel {
 	sendBuf := createSendBuffer(sbConf)
 	recvBuf := createRecvBuffer(rbConf)
 	return Channel{
@@ -38,7 +39,7 @@ func createChannel(channelID byte, channelConf ChannelConfig, sbConf SendBufferC
 }
 
 // getID returns the ID of the channel
-func (ch *Channel) getID() byte {
+func (ch *Channel) getID() common.ChannelIDEnum {
 	return ch.id
 }
 

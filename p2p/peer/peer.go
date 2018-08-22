@@ -97,19 +97,19 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 }
 
 // Send sends the given message through the specified channel to the target peer
-func (peer *Peer) Send(channelID byte, message interface{}) bool {
+func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 	success := peer.connection.EnqueueMessage(channelID, message)
 	return success
 }
 
 // AttemptToSend attempts to send the given message through the specified channel to the target peer (non-blocking)
-func (peer *Peer) AttemptToSend(channelID byte, message interface{}) bool {
+func (peer *Peer) AttemptToSend(channelID cmn.ChannelIDEnum, message interface{}) bool {
 	success := peer.connection.AttemptToEnqueueMessage(channelID, message)
 	return success
 }
 
 // CanSend indicates whether more messages can be sent through the specified channel
-func (peer *Peer) CanSend(channelID byte) bool {
+func (peer *Peer) CanSend(channelID cmn.ChannelIDEnum) bool {
 	canSend := peer.connection.CanEnqueueMessage(channelID)
 	return canSend
 }

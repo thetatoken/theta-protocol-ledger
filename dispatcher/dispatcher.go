@@ -13,13 +13,13 @@ var dispatcher *Dispatcher
 
 func GetDispatcher() *Dispatcher {
 	if dispatcher == nil {
-		messengerConfig := p2p.CreateDefaultMessengerConfig()
-		messenger := p2p.CreateMessenger(messengerConfig)
-		dispatcher = &Dispatcher{
-			messenger: messenger,
-		}
+		dispatcher = &Dispatcher{}
 	}
 	return dispatcher
+}
+
+func (dp *Dispatcher) SetMessenger(messenger *p2p.Messenger) {
+	dp.messenger = messenger
 }
 
 func (dp *Dispatcher) OnStart() error {

@@ -59,7 +59,7 @@ func (msgr *Messenger) OnStop() {
 }
 
 // Broadcast broadcasts the given message to all the connected peers
-func (msgr *Messenger) Broadcast(message Message) (successes chan bool) {
+func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
@@ -72,7 +72,7 @@ func (msgr *Messenger) Broadcast(message Message) (successes chan bool) {
 }
 
 // Send sends the given message to the specified peer
-func (msgr *Messenger) Send(peerID string, message Message) bool {
+func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	peer := msgr.peerTable.GetPeer(peerID)
 	if peer == nil {
 		return false
@@ -85,12 +85,14 @@ func (msgr *Messenger) Send(peerID string, message Message) bool {
 
 // AddMessageHandler adds the message handler
 func (msgr *Messenger) AddMessageHandler(msgHandler *MessageHandler) bool {
-	channelID := (*msgHandler).GetChannelID()
-	if msgr.msgHandlerMap[channelID] != nil {
-		log.Errorf("[p2p] Message handlered is already added for channelID: %v", channelID)
-		return false
+	channelIDs := (*msgHandler).GetChannelIDs()
+	for _, channelID := range channelIDs {
+		if msgr.msgHandlerMap[channelID] != nil {
+			log.Errorf("[p2p] Message handlered is already added for channelID: %v", channelID)
+			return false
+		}
+		msgr.msgHandlerMap[channelID] = msgHandler
 	}
-	msgr.msgHandlerMap[channelID] = msgHandler
 	return true
 }
 
@@ -107,7 +109,11 @@ func (msgr *Messenger) AttachMessageHandlerToPeer(peer *pr.Peer) {
 			log.Errorf("[p2p] Failed to setup message handler for ")
 		}
 		peerID := peer.ID()
-		(*msgHandler).HandleMessage(peerID, msgBytes)
+		message := p2ptypes.Message{
+			ChannelID: channelID,
+			Content:   msgBytes,
+		}
+		(*msgHandler).HandleMessage(peerID, message)
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 

@@ -362,11 +362,14 @@ const (
 	// ChannelIDBlock indicates the channel for Block
 	ChannelIDBlock ChannelIDEnum = 3
 
+	// ChannelIDVote indicates the channel for Vote
+	ChannelIDVote ChannelIDEnum = 4
+
 	// ChannelIDTransaction indicates the channel for Transaction
-	ChannelIDTransaction ChannelIDEnum = 4
+	ChannelIDTransaction ChannelIDEnum = 5
 
 	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
-	ChannelIDPeerDiscovery ChannelIDEnum = 5
+	ChannelIDPeerDiscovery ChannelIDEnum = 6
 )
 
 // SyncType represents the type of data for synchronization among blockchain nodes

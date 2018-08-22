@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
+	"github.com/thetatoken/ukulele/p2p/types"
 )
 
 // PeerDiscoveryMessageType defines the types of peer discovery message
@@ -56,13 +57,20 @@ func (pdmh *PeerDiscoveryMessageHandler) OnStop() {
 }
 
 // GetChannelIDs returns the list of channels the message handler needs to handle
-func (pdmh *PeerDiscoveryMessageHandler) GetChannelID() common.ChannelIDEnum {
-	return common.ChannelIDPeerDiscovery
+func (pdmh *PeerDiscoveryMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
+	return []common.ChannelIDEnum{
+		common.ChannelIDPeerDiscovery,
+	}
 }
 
 // HandleMessage is called when a message is received on the corresponding channel
-func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msgBytes common.Bytes) {
-	message, err := decodePeerDiscoveryMessage(msgBytes)
+func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.Message) {
+	if msg.ChannelID != common.ChannelIDPeerDiscovery {
+		log.Errorf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
+		return
+	}
+
+	message, err := decodePeerDiscoveryMessage(msg.Content)
 	if err != nil {
 		log.Errorf("[p2p] Error decoding PeerDiscoveryMessage: %v", err)
 		return
@@ -119,7 +127,7 @@ func (pdmh *PeerDiscoveryMessageHandler) requestAddresses(peer *pr.Peer) {
 	message := PeerDiscoveryMessage{
 		Type: peerAddressesRequestType,
 	}
-	peer.Send(byte(common.ChannelIDPeerDiscovery), message)
+	peer.Send(common.ChannelIDPeerDiscovery, message)
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, addresses []*netutil.NetAddress) {
@@ -127,7 +135,7 @@ func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, addresses 
 		Type:      peerAddressesReplyType,
 		Addresses: addresses,
 	}
-	peer.Send(byte(common.ChannelIDPeerDiscovery), message)
+	peer.Send(common.ChannelIDPeerDiscovery, message)
 }
 
 func decodePeerDiscoveryMessage(msgBytes common.Bytes) (message PeerDiscoveryMessage, err error) {

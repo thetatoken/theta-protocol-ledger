@@ -48,6 +48,9 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 
 // GetPeer returns the peer for the given peerID (if exists)
 func (pt *PeerTable) GetPeer(peerID string) *Peer {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
 	peer, exists := pt.peerMap[peerID]
 	if !exists {
 		return nil
@@ -57,16 +60,25 @@ func (pt *PeerTable) GetPeer(peerID string) *Peer {
 
 // PeerExists indicates whether the PeerTable has a peer for the given peerID
 func (pt *PeerTable) PeerExists(peerID string) bool {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
 	_, exists := pt.peerMap[peerID]
 	return exists
 }
 
 // GetAllPeers returns all the peers
 func (pt *PeerTable) GetAllPeers() *([]*Peer) {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
 	return &pt.peers
 }
 
 // GetTotalNumPeers returns the total number of peers in the PeerTable
 func (pt *PeerTable) GetTotalNumPeers() uint {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
 	return uint(len(pt.peers))
 }
