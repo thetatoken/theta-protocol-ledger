@@ -8,6 +8,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
 	"github.com/thetatoken/ukulele/serialization/rlp"
@@ -51,19 +52,17 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
-type ReceiveHandler func(channelID byte, msgBytes []byte)
+type ReceiveHandler func(channelID common.ChannelIDEnum, msgBytes common.Bytes)
 type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
-func CreateConnection(netconn net.Conn, onReceive ReceiveHandler, onError ErrorHandler, config ConnectionConfig) *Connection {
+func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	return &Connection{
 		netconn:     netconn,
 		bufWriter:   bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
 		sendMonitor: flowrate.New(0, 0),
 		bufReader:   bufio.NewReaderSize(netconn, config.MinReadBufferSize),
 		recvMonitor: flowrate.New(0, 0),
-		onReceive:   onReceive,
-		onError:     onError,
 		sendPulse:   make(chan bool, 1),
 		pongPulse:   make(chan bool, 1),
 		quitPulse:   make(chan bool, 1),
@@ -83,12 +82,14 @@ func CreateDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
+// OnStart is called when the connection starts
 func (conn *Connection) OnStart() bool {
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
+// OnStop is called whten the connection stops
 func (conn *Connection) OnStop() {
 	if conn.sendPulse != nil {
 		close(conn.sendPulse)
@@ -100,6 +101,16 @@ func (conn *Connection) OnStop() {
 		close(conn.quitPulse)
 	}
 	conn.netconn.Close()
+}
+
+// SetReceiveHandler sets the receive handler for the connection
+func (conn *Connection) SetReceiveHandler(receiveHandler ReceiveHandler) {
+	conn.onReceive = receiveHandler
+}
+
+// SetErrorHandler sets the error handler for the connection
+func (conn *Connection) SetErrorHandler(errorHandler ErrorHandler) {
+	conn.onError = errorHandler
 }
 
 // EnqueueMessage enqueues the given message to the target channel.

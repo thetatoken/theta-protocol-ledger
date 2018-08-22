@@ -6,7 +6,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -21,9 +20,9 @@ type Peer struct {
 
 	isPersistent bool
 	isOutbound   bool
-	key          string
+	netAddress   *nu.NetAddress
 
-	nodeInfo *p2ptypes.NodeInfo
+	nodeInfo p2ptypes.NodeInfo // information of the blockchain node of the peer
 
 	config PeerConfig
 }
@@ -37,34 +36,28 @@ type PeerConfig struct {
 }
 
 // CreateOutboundPeer creates an instance of an outbound peer
-func CreateOutboundPeer(nodeInfo *p2ptypes.NodeInfo, peerAddr *nu.NetAddress, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
-	peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
+func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
 		log.Errorf("[p2p] Error dialing the peer: %v", peerAddr)
 		return nil, err
 	}
-	peer := createPeer(nodeInfo, netconn, true, onReceive, onError, peerConfig, connConfig)
+	peer := createPeer(netconn, true, peerConfig, connConfig)
 	return peer, nil
 }
 
 // CreateInboundPeer creates an instance of an inbound peer
-func CreateInboundPeer(nodeInfo *p2ptypes.NodeInfo, netconn net.Conn, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
-	peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
-	peer := createPeer(nodeInfo, netconn, true, onReceive, onError, peerConfig, connConfig)
+func CreateInboundPeer(netconn net.Conn, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
+	peer := createPeer(netconn, true, peerConfig, connConfig)
 	return peer, nil
 }
 
-func createPeer(nodeInfo *p2ptypes.NodeInfo, netconn net.Conn, isOutbound bool, onReceive cn.ReceiveHandler, onError cn.ErrorHandler,
-	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
-	connection := cn.CreateConnection(netconn, onReceive, onError, connConfig)
-	peer := &Peer{
-		connection: connection,
-		isOutbound: isOutbound,
-		nodeInfo:   nodeInfo,
-		config:     peerConfig,
+// CreateDefaultPeerConfig creates the default PeerConfig
+func CreateDefaultPeerConfig() PeerConfig {
+	return PeerConfig{
+		HandshakeTimeout: 10 * time.Second,
+		DialTimeout:      10 * time.Second,
 	}
-	return peer
 }
 
 // OnStart is called when the peer starts
@@ -79,14 +72,14 @@ func (peer *Peer) OnStop() {
 }
 
 // Handshake handles the initial signaling between two peers
-func (peer *Peer) Handshake() error {
+func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
 	var sendError error
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
-		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), peer.nodeInfo) },
+		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), *sourceNodeInfo) },
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), targetPeerNodeInfo) },
 	)
 	if sendError != nil {
@@ -98,6 +91,7 @@ func (peer *Peer) Handshake() error {
 		return recvError
 	}
 	peer.connection.GetNetconn().SetDeadline(time.Time{})
+	peer.nodeInfo = targetPeerNodeInfo
 
 	return nil
 }
@@ -145,12 +139,15 @@ func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
 }
 
-func (peer *Peer) Key() string {
-	if len(peer.key) == 0 {
-		keyBytes := crypto.PubkeyToAddress(peer.nodeInfo.PubKey)
-		peer.key = string(keyBytes[:])
-	}
-	return peer.key
+// NetAddress returns the network address of the peer
+func (peer *Peer) NetAddress() *nu.NetAddress {
+	return peer.netAddress
+}
+
+// ID returns the unique idenitifier of the peer in the P2P network
+func (peer *Peer) ID() string {
+	peerID := peer.nodeInfo.GetAddress() // use the blockchain address as the peer ID
+	return peerID
 }
 
 func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
@@ -159,4 +156,16 @@ func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
 		return nil, err
 	}
 	return conn, nil
+}
+
+func createPeer(netconn net.Conn, isOutbound bool,
+	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
+	connection := cn.CreateConnection(netconn, connConfig)
+	peer := &Peer{
+		connection: connection,
+		isOutbound: isOutbound,
+		netAddress: nu.NewNetAddress(netconn.RemoteAddr()),
+		config:     peerConfig,
+	}
+	return peer
 }

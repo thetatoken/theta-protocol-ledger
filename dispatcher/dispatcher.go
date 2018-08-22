@@ -2,24 +2,32 @@ package dispatcher
 
 import (
 	"github.com/thetatoken/ukulele/common"
-	msgr "github.com/thetatoken/ukulele/p2p/messenger"
+	"github.com/thetatoken/ukulele/p2p"
 )
 
 type Dispatcher struct {
-	messenger *msgr.Messenger
+	messenger *p2p.Messenger
 }
 
 var dispatcher *Dispatcher
 
 func GetDispatcher() *Dispatcher {
 	if dispatcher == nil {
-		messengerConfig := msgr.CreateDefaultMessengerConfig()
-		messenger := msgr.CreateMessenger(messengerConfig)
+		messengerConfig := p2p.CreateDefaultMessengerConfig()
+		messenger := p2p.CreateMessenger(messengerConfig)
 		dispatcher = &Dispatcher{
 			messenger: messenger,
 		}
 	}
 	return dispatcher
+}
+
+func (dp *Dispatcher) OnStart() error {
+	return nil
+}
+
+func (dp *Dispatcher) OnStop() {
+
 }
 
 func (dp *Dispatcher) GetInventory(syncType common.SyncType) {

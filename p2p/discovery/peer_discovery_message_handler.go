@@ -25,58 +25,52 @@ const (
 
 // PeerDiscoveryMessage defines the structure of the peer discovery message
 type PeerDiscoveryMessage struct {
-	Type      PeerDiscoveryMessageType
-	Addresses []*netutil.NetAddress
+	Type         PeerDiscoveryMessageType
+	SourcePeerID string
+	Addresses    []*netutil.NetAddress
 }
 
 //
 // PeerDiscoveryMessageHandler implements the MessageHandler interface
 //
 type PeerDiscoveryMessageHandler struct {
-	addrBook *AddrBook
+	discMgr *PeerDiscoveryManager
+}
+
+// createPeerDiscoveryMessageHandler creates an instance of PeerDiscoveryMessageHandler
+func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDiscoveryMessageHandler, error) {
+	pmdh := PeerDiscoveryMessageHandler{
+		discMgr: discMgr,
+	}
+	return pmdh, nil
 }
 
 // OnStart is called when the message handler starts
-func (pdmh *PeerDiscoveryMessageHandler) OnStart() {
-	pdmh.addrBook.OnStart()
+func (pdmh *PeerDiscoveryMessageHandler) OnStart() error {
 	go pdmh.maintainSufficientConnectivityRoutine()
+	return nil
 }
 
 // OnStop is called when the message handler stops
 func (pdmh *PeerDiscoveryMessageHandler) OnStop() {
-	pdmh.addrBook.OnStop()
-}
-
-// AttachToPeer attaches the message handler to the given peer
-func (pdmh *PeerDiscoveryMessageHandler) AttachToPeer(peer *pr.Peer) {
-	if peer.IsOutbound() {
-		if pdmh.addrBook.NeedMoreAddrs() {
-			pdmh.requestAddresses(peer)
-		}
-	} else {
-		addr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-		pdmh.addrBook.addAddress(addr, addr)
-		log.Infof("[p2p] Peer discovery - added inbound peer %v to the address book", addr)
-	}
-}
-
-// DetachFromPeer detaches the message handler from the given peer
-func (pdmh *PeerDiscoveryMessageHandler) DetachFromPeer(peer *pr.Peer) {
-	return
 }
 
 // GetChannelIDs returns the list of channels the message handler needs to handle
-func (pdmh *PeerDiscoveryMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
-	return []common.ChannelIDEnum{
-		common.ChannelIDPeerDiscovery,
-	}
+func (pdmh *PeerDiscoveryMessageHandler) GetChannelID() common.ChannelIDEnum {
+	return common.ChannelIDPeerDiscovery
 }
 
-// Receive is called when a message is received on the specified channel
-func (pdmh *PeerDiscoveryMessageHandler) Receive(peer *pr.Peer, channelID byte, msgBytes common.Bytes) {
+// HandleMessage is called when a message is received on the corresponding channel
+func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msgBytes common.Bytes) {
 	message, err := decodePeerDiscoveryMessage(msgBytes)
 	if err != nil {
 		log.Errorf("[p2p] Error decoding PeerDiscoveryMessage: %v", err)
+		return
+	}
+
+	peer := pdmh.discMgr.peerTable.GetPeer(peerID)
+	if peer == nil {
+		log.Errorf("[p2p] Cannot find peer %v in the peer table", peerID)
 		return
 	}
 
@@ -91,7 +85,7 @@ func (pdmh *PeerDiscoveryMessageHandler) Receive(peer *pr.Peer, channelID byte, 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	addresses := pdmh.addrBook.GetSelection()
+	addresses := pdmh.discMgr.addrBook.GetSelection()
 	pdmh.sendAddresses(peer, addresses)
 }
 
@@ -99,7 +93,7 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	for _, addr := range message.Addresses {
 		if addr.Valid() {
 			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			pdmh.addrBook.AddAddress(addr, srcAddr)
+			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
 		}
 	}
 }

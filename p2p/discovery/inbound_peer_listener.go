@@ -1,4 +1,4 @@
-package messenger
+package discovery
 
 import (
 	"fmt"
@@ -16,26 +16,28 @@ const (
 )
 
 //
-// PeerListener models a listener for peer connections
+// InboundPeerListener models a listener for inbound peer connections
 //
-type PeerListener struct {
+type InboundPeerListener struct {
+	discMgr *PeerDiscoveryManager
+
 	netListener  net.Listener
 	internalAddr *netutil.NetAddress
 	externalAddr *netutil.NetAddress
-	netconns     chan net.Conn
 
-	config PeerListenerConfig
+	config InboundPeerListenerConfig
 }
 
 //
-// PeerListenerConfig specifies the configuration for the PeerListener instance
+// InboundPeerListenerConfig specifies the configuration for the PeerListener instance
 //
-type PeerListenerConfig struct {
+type InboundPeerListenerConfig struct {
 	numBufferedConnections int
 }
 
-// CreatePeerListener creates a new peer listener instance
-func CreatePeerListener(protocol string, localAddr string, skipUPNP bool, config PeerListenerConfig) PeerListener {
+// createInboundPeerListener creates a new inbound peer listener instance
+func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, localAddr string,
+	skipUPNP bool, config InboundPeerListenerConfig) (InboundPeerListener, error) {
 	localAddrIP, localAddrPort := splitHostPort(localAddr)
 	netListener := initiateNetListener(protocol, localAddr)
 	netListenerIP, netListenerPort := splitHostPort(netListener.Addr().String())
@@ -44,68 +46,62 @@ func CreatePeerListener(protocol string, localAddr string, skipUPNP bool, config
 	internalNetAddr := getInternalNetAddress(localAddr)
 	externalNetAddr := getExternalNetAddress(localAddrIP, localAddrPort, netListenerPort, skipUPNP)
 
-	peerListener := PeerListener{
+	inboundPeerListener := InboundPeerListener{
+		discMgr:      discMgr,
 		netListener:  netListener,
 		internalAddr: internalNetAddr,
 		externalAddr: externalNetAddr,
-		netconns:     make(chan net.Conn, config.numBufferedConnections),
 	}
 
-	return peerListener
+	return inboundPeerListener, nil
 }
 
-// CreateDefaultPeerListenerConfig returns the default configuration for the listeners
-func CreateDefaultPeerListenerConfig() PeerListenerConfig {
-	return PeerListenerConfig{
+// CreateDefaultInboundPeerListenerConfig returns the default configuration for the listeners
+func CreateDefaultInboundPeerListenerConfig() InboundPeerListenerConfig {
+	return InboundPeerListenerConfig{
 		numBufferedConnections: 10,
 	}
 }
 
-// OnStart is called when the PeerListener instance starts
-func (pl *PeerListener) OnStart() error {
-	go pl.listenRoutine()
+// OnStart is called when the InboundPeerListener instance starts
+func (ipl *InboundPeerListener) OnStart() error {
+	go ipl.listenRoutine()
 	return nil
 }
 
-// OnStop is called when the PeerListener instance stops
-func (pl *PeerListener) OnStop() {
-	pl.netListener.Close()
+// OnStop is called when the InboundPeerListener instance stops
+func (ipl *InboundPeerListener) OnStop() {
+	ipl.netListener.Close()
 }
 
-func (pl *PeerListener) listenRoutine() {
+func (ipl *InboundPeerListener) listenRoutine() {
 	for {
-		netconn, err := pl.netListener.Accept()
+		netconn, err := ipl.netListener.Accept()
 		if err != nil {
-			close(pl.netconns)
 			panic(fmt.Sprintf("[p2p] net listener error: %v", err))
 		}
 
-		pl.netconns <- netconn
+		ipl.discMgr.connectWithInboundPeer(netconn, true)
 	}
 }
 
-// Connections returns all the network connections attached
-func (pl *PeerListener) Connections() <-chan net.Conn {
-	return pl.netconns
-}
-
 // InternalAddress returns the internal address of the current node
-func (pl *PeerListener) InternalAddress() *netutil.NetAddress {
-	return pl.internalAddr
+func (ipl *InboundPeerListener) InternalAddress() *netutil.NetAddress {
+	return ipl.internalAddr
 }
 
 // ExternalAddress returns the external address of the current node
-func (pl *PeerListener) ExternalAddress() *netutil.NetAddress {
-	return pl.externalAddr
+func (ipl *InboundPeerListener) ExternalAddress() *netutil.NetAddress {
+	return ipl.externalAddr
 }
 
 // NetListener returns the attached network listener
-func (pl *PeerListener) NetListener() net.Listener {
-	return pl.netListener
+func (ipl *InboundPeerListener) NetListener() net.Listener {
+	return ipl.netListener
 }
 
-func (pl *PeerListener) String() string {
-	return fmt.Sprintf("PeerListener(@%v)", pl.externalAddr)
+func (ipl *InboundPeerListener) String() string {
+	return fmt.Sprintf("InboundPeerListener(@%v)", ipl.externalAddr)
 }
 
 func splitHostPort(addr string) (host string, port int) {
