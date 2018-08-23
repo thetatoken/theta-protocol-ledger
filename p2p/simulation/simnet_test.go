@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/common"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 type SimMessageHandler struct {
@@ -17,10 +19,33 @@ type SimMessageHandler struct {
 	ReceivedMessages []string
 }
 
-func (sm *SimMessageHandler) HandleMessage(self Network, msg interface{}) {
+func (sm *SimMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
+	return []common.ChannelIDEnum{
+		common.ChannelIDHeader,
+		common.ChannelIDBlock,
+		common.ChannelIDVote,
+	}
+}
+
+func (sm *SimMessageHandler) ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   rawMessageBytes,
+	}
+	return message, nil
+}
+
+func (sm *SimMessageHandler) HandleMessage(peerID string, msg p2ptypes.Message) {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
-	sm.ReceivedMessages = append(sm.ReceivedMessages, fmt.Sprintf("%s <- %v", self.ID(), msg))
+	sm.ReceivedMessages = append(sm.ReceivedMessages, fmt.Sprintf("%s <- %v", peerID, msg.Content))
+}
+
+func createBlockMessage(content string) p2ptypes.Message {
+	return p2ptypes.Message{
+		ChannelID: common.ChannelIDBlock,
+		Content:   content,
+	}
 }
 
 func TestSimnetBroadcast(t *testing.T) {
@@ -32,7 +57,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	simnet.AddEndpoint("e3")
 	simnet.Start()
 
-	e2.Broadcast("hello!")
+	e2.Broadcast(createBlockMessage("hello!"))
 	time.Sleep(1 * time.Second)
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
@@ -40,7 +65,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	assert.EqualValues([]string{"e1 <- hello!", "e2 <- hello!", "e3 <- hello!"}, msgHandler.ReceivedMessages)
 
 	msgHandler.ReceivedMessages = make([]string, 0)
-	e1.Broadcast("world!")
+	e1.Broadcast(createBlockMessage("world!"))
 	time.Sleep(1 * time.Second)
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
@@ -57,7 +82,7 @@ func TestSimnetSend(t *testing.T) {
 	simnet.AddEndpoint("e3")
 	simnet.Start()
 
-	e1.Send("e3", "hello!")
+	e1.Send("e3", createBlockMessage("hello!"))
 	time.Sleep(1 * time.Second)
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
@@ -65,7 +90,7 @@ func TestSimnetSend(t *testing.T) {
 	assert.EqualValues([]string{"e3 <- hello!"}, msgHandler.ReceivedMessages)
 
 	msgHandler.ReceivedMessages = make([]string, 0)
-	e1.Send("e1", "world!")
+	e1.Send("e1", createBlockMessage("world!"))
 	time.Sleep(1 * time.Second)
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)

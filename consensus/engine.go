@@ -7,7 +7,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 var _ Engine = &DefaultEngine{}
@@ -124,9 +126,28 @@ func (e *DefaultEngine) enterNewEpoch(newEpoch uint32) {
 	e.replicaStrategy.EnterNewEpoch(newEpoch)
 }
 
+// GetChannelIDs implements the p2p.MessageHandler interface.
+func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
+	return []common.ChannelIDEnum{
+		common.ChannelIDHeader,
+		common.ChannelIDBlock,
+		common.ChannelIDVote,
+	}
+}
+
+// ParseMessage implements p2p.MessageHandler interface.
+func (e *DefaultEngine) ParseMessage(channelID common.ChannelIDEnum,
+	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+	// To be implemented..
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+	}
+	return message, nil
+}
+
 // HandleMessage implements p2p.MessageHandler interface.
-func (e *DefaultEngine) HandleMessage(network p2p.Network, msg interface{}) {
-	e.incoming <- msg
+func (e *DefaultEngine) HandleMessage(peerID string, msg p2ptypes.Message) {
+	e.incoming <- msg.Content
 }
 
 func (e *DefaultEngine) handleProposal(proposal Proposal) {

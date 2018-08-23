@@ -9,6 +9,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 // ProposerStrategy defines the proposer interface that is used by DefaultEngine.
@@ -100,5 +102,10 @@ func (ps *DefaultProposerStrategy) propose() {
 	}
 
 	log.WithFields(log.Fields{"proposal": proposal, "id": e.ID()}).Info("Making proposal")
-	e.network.Broadcast(proposal)
+
+	proposalMsg := p2ptypes.Message{
+		ChannelID: common.ChannelIDBlock,
+		Content:   proposal,
+	}
+	e.network.Broadcast(proposalMsg)
 }

@@ -13,13 +13,13 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/p2p"
+	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 )
 
 func TestConsensusBaseCase(t *testing.T) {
 	assert := assert.New(t)
 
-	simnet := p2p.NewSimnet()
+	simnet := p2psim.NewSimnet()
 
 	validators := newValidatorSet([]string{"v1", "v2", "v3", "v4"})
 	nodes := []Engine{}

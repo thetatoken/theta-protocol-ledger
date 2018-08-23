@@ -6,6 +6,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 // ReplicaStrategy defines the replica interface that is used by DefaultEngine.
@@ -79,5 +81,10 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	e.lastVoteHeight = tip.Height
 
 	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "p.proposerID": p.proposerID, "id": e.ID()}).Debug("Sending vote")
-	e.network.Broadcast(vote)
+
+	voteMsg := p2ptypes.Message{
+		ChannelID: common.ChannelIDVote,
+		Content:   vote,
+	}
+	e.network.Broadcast(voteMsg)
 }

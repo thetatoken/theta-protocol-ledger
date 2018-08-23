@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 // Envelope wraps a message with network information for delivery.
@@ -18,7 +19,7 @@ type Envelope struct {
 // Simnet represents an instance of simluated network.
 type Simnet struct {
 	Endpoints  []*SimnetEndpoint
-	msgHandler MessageHandler
+	msgHandler p2p.MessageHandler
 	messages   chan Envelope
 }
 
@@ -30,7 +31,7 @@ func NewSimnet() *Simnet {
 }
 
 // NewSimnetWithHandler creates a new instance of Simnet with given MessageHandler as the default handler.
-func NewSimnetWithHandler(msgHandler MessageHandler) *Simnet {
+func NewSimnetWithHandler(msgHandler p2p.MessageHandler) *Simnet {
 	return &Simnet{
 		msgHandler: msgHandler,
 		messages:   make(chan Envelope, viper.GetInt(common.CfgP2PMessageQueueSize)),
@@ -87,7 +88,7 @@ type SimnetEndpoint struct {
 	outgoing chan Envelope
 }
 
-var _ Network = &SimnetEndpoint{}
+var _ p2p.Network = &SimnetEndpoint{}
 
 // Start starts goroutines to receive/send message from network.
 func (se *SimnetEndpoint) Start() {
@@ -96,7 +97,11 @@ func (se *SimnetEndpoint) Start() {
 			select {
 			case envelope := <-se.incoming:
 				if envelope.To == "" || envelope.To == se.ID() {
-					se.HandleMessage(envelope.Content)
+					peerID := se.ID()
+					message := p2ptypes.Message{
+						Content: envelope.Content,
+					}
+					se.HandleMessage(peerID, message)
 				}
 			}
 		}
@@ -113,23 +118,23 @@ func (se *SimnetEndpoint) Start() {
 }
 
 // Broadcast implements Network interface.
-func (se *SimnetEndpoint) Broadcast(msg interface{}) error {
+func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) error {
 	go func() {
-		se.network.messages <- Envelope{From: se.ID(), Content: msg}
+		se.network.messages <- Envelope{From: se.ID(), Content: message.Content}
 	}()
 	return nil
 }
 
 // Send implements Network interface.
-func (se *SimnetEndpoint) Send(id string, msg interface{}) error {
+func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) error {
 	go func() {
-		se.network.messages <- Envelope{From: se.ID(), To: id, Content: msg}
+		se.network.messages <- Envelope{From: se.ID(), To: id, Content: message.Content}
 	}()
 	return nil
 }
 
 // AddMessageHandler implements Network interface.
-func (se *SimnetEndpoint) AddMessageHandler(handler MessageHandler) {
+func (se *SimnetEndpoint) AddMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
 }
 
@@ -139,11 +144,11 @@ func (se *SimnetEndpoint) ID() string {
 }
 
 // HandleMessage implements MessageHandler interface.
-func (se *SimnetEndpoint) HandleMessage(msg interface{}) {
+func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) {
 	for _, handler := range se.handlers {
-		handler.HandleMessage(se, msg)
+		handler.HandleMessage(peerID, message)
 	}
 	if se.network.msgHandler != nil {
-		se.network.msgHandler.HandleMessage(se, msg)
+		se.network.msgHandler.HandleMessage(peerID, message)
 	}
 }
