@@ -353,6 +353,9 @@ type ChannelIDEnum byte
 
 const (
 
+	// ChannelIDInvalid indicates an invalid channel
+	ChannelIDInvalid ChannelIDEnum = 0
+
 	// ChannelIDCheckpoint indicates the channel for Checkpoint
 	ChannelIDCheckpoint ChannelIDEnum = 1
 
@@ -373,7 +376,7 @@ const (
 )
 
 // SyncType represents the type of data for synchronization among blockchain nodes
-type SyncType int
+type SyncType byte
 
 const (
 
@@ -386,6 +389,9 @@ const (
 	// SyncBlock represents the Block data
 	SyncBlock SyncType = 3
 
+	// SyncVote represents the Transaction data
+	SyncVote SyncType = 4
+
 	// SyncTransaction represents the Transaction data
-	SyncTransaction SyncType = 4
+	SyncTransaction SyncType = 5
 )

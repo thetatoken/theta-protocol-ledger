@@ -49,8 +49,9 @@ func CreateMessenger(addrBookFilePath string, routabilityRestrict bool, selfNetA
 }
 
 // OnStart is called when the Messenger starts
-func (msgr *Messenger) OnStart() {
-	msgr.discMgr.OnStart()
+func (msgr *Messenger) OnStart() error {
+	err := msgr.discMgr.OnStart()
+	return err
 }
 
 // OnStop is called when the Messenger stops

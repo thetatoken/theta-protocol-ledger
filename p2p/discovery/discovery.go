@@ -72,10 +72,24 @@ func CreateDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 }
 
 // OnStart is called when the PeerDiscoveryManager starts
-func (discMgr *PeerDiscoveryManager) OnStart() {
-	discMgr.seedPeerConnector.OnStart()
-	discMgr.inboundPeerListener.OnStart()
-	discMgr.peerDiscMsgHandler.OnStart()
+func (discMgr *PeerDiscoveryManager) OnStart() error {
+	var err error
+	err = discMgr.seedPeerConnector.OnStart()
+	if err != nil {
+		return err
+	}
+
+	err = discMgr.inboundPeerListener.OnStart()
+	if err != nil {
+		return err
+	}
+
+	err = discMgr.peerDiscMsgHandler.OnStart()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // OnStop is called when the PeerDiscoveryManager stops
