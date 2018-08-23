@@ -53,7 +53,7 @@ func (sn *Simnet) AddEndpoint(id string) *SimnetEndpoint {
 // Start is the main entry point for Simnet. It starts all endpoints and start a goroutine to handle message dlivery.
 func (sn *Simnet) Start() {
 	for _, endpoint := range sn.Endpoints {
-		endpoint.Start()
+		endpoint.OnStart()
 	}
 
 	go func() {
@@ -90,8 +90,8 @@ type SimnetEndpoint struct {
 
 var _ p2p.Network = &SimnetEndpoint{}
 
-// Start starts goroutines to receive/send message from network.
-func (se *SimnetEndpoint) Start() {
+// OnStart implements the Network interface. It starts goroutines to receive/send message from network.
+func (se *SimnetEndpoint) OnStart() error {
 	go func() {
 		for {
 			select {
@@ -115,9 +115,15 @@ func (se *SimnetEndpoint) Start() {
 			}
 		}
 	}()
+
+	return nil
 }
 
-// Broadcast implements Network interface.
+// OnStop implements the Network interface.
+func (se *SimnetEndpoint) OnStop() {
+}
+
+// Broadcast implements the Network interface.
 func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) error {
 	go func() {
 		se.network.messages <- Envelope{From: se.ID(), Content: message.Content}
@@ -125,7 +131,7 @@ func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) error {
 	return nil
 }
 
-// Send implements Network interface.
+// Send implements the Network interface.
 func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) error {
 	go func() {
 		se.network.messages <- Envelope{From: se.ID(), To: id, Content: message.Content}
@@ -133,17 +139,17 @@ func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) error {
 	return nil
 }
 
-// AddMessageHandler implements Network interface.
+// AddMessageHandler implements the Network interface.
 func (se *SimnetEndpoint) AddMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
 }
 
-// ID implements Network interface.
+// ID implements the Network interface.
 func (se *SimnetEndpoint) ID() string {
 	return se.id
 }
 
-// HandleMessage implements MessageHandler interface.
+// HandleMessage implements the MessageHandler interface.
 func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) {
 	for _, handler := range se.handlers {
 		handler.HandleMessage(peerID, message)

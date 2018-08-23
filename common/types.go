@@ -374,24 +374,3 @@ const (
 	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
 	ChannelIDPeerDiscovery ChannelIDEnum = 6
 )
-
-// SyncType represents the type of data for synchronization among blockchain nodes
-type SyncType byte
-
-const (
-
-	// SyncCheckpoint represents the Checkpoint data
-	SyncCheckpoint SyncType = 1
-
-	// SyncHeader represents the Header data
-	SyncHeader SyncType = 2
-
-	// SyncBlock represents the Block data
-	SyncBlock SyncType = 3
-
-	// SyncVote represents the Transaction data
-	SyncVote SyncType = 4
-
-	// SyncTransaction represents the Transaction data
-	SyncTransaction SyncType = 5
-)

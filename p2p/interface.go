@@ -25,6 +25,12 @@ type MessageHandler interface {
 //
 type Network interface {
 
+	// OnStart is called when the network starts
+	OnStart() error
+
+	// OnStop is called when the network stops
+	OnStop()
+
 	// Broadcast broadcasts the given message to all the neighboring peers
 	Broadcast(message types.Message) error
 
