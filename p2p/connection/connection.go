@@ -11,6 +11,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
@@ -28,6 +29,7 @@ type Connection struct {
 	recvMonitor *flowrate.Monitor
 
 	channelGroup ChannelGroup
+	onParse      MessageParser
 	onReceive    ReceiveHandler
 	onError      ErrorHandler
 	errored      uint32
@@ -55,8 +57,11 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
+// MessageParser parse the raw message bytes to type p2ptypes.Message
+type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
+
 // ReceiveHandler is the callback function to handle received bytes from the given channel
-type ReceiveHandler func(channelID common.ChannelIDEnum, msgBytes common.Bytes)
+type ReceiveHandler func(message p2ptypes.Message)
 
 // ErrorHandler is the callback function to handle channel read errors
 type ErrorHandler func(interface{})
@@ -108,6 +113,11 @@ func (conn *Connection) OnStop() {
 		close(conn.quitPulse)
 	}
 	conn.netconn.Close()
+}
+
+// SetMessageParser sets the message parser for the connection
+func (conn *Connection) SetMessageParser(messageParser MessageParser) {
+	conn.onParse = messageParser
 }
 
 // SetReceiveHandler sets the receive handler for the connection

@@ -12,7 +12,7 @@ import (
 //
 type Message struct {
 	ChannelID common.ChannelIDEnum
-	Content   common.Bytes
+	Content   interface{}
 }
 
 //

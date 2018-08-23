@@ -13,6 +13,9 @@ type MessageHandler interface {
 	// GetChannelIDs returns the list channelIDs that the message handler needs to handle
 	GetChannelIDs() []common.ChannelIDEnum
 
+	// ParseMessage parses the raw message bytes
+	ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
+
 	// HandleMessage handles the message received from the peer with peerID
 	HandleMessage(peerID string, message types.Message)
 }

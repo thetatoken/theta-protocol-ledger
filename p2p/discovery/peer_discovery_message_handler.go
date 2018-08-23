@@ -56,23 +56,33 @@ func (pdmh *PeerDiscoveryMessageHandler) OnStart() error {
 func (pdmh *PeerDiscoveryMessageHandler) OnStop() {
 }
 
-// GetChannelIDs returns the list of channels the message handler needs to handle
+// GetChannelIDs implements the p2p.MessageHandler interface
 func (pdmh *PeerDiscoveryMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDPeerDiscovery,
 	}
 }
 
-// HandleMessage is called when a message is received on the corresponding channel
+// ParseMessage implements the p2p.MessageHandler interface
+func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(
+	channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
+	discMsg, err := decodePeerDiscoveryMessage(rawMessageBytes)
+	message := types.Message{
+		ChannelID: channelID,
+		Content:   discMsg,
+	}
+	if err != nil {
+		log.Errorf("[p2p] Error decoding PeerDiscoveryMessage: %v", err)
+		return message, err
+	}
+
+	return message, nil
+}
+
+// HandleMessage implements the p2p.MessageHandler interface
 func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.Message) {
 	if msg.ChannelID != common.ChannelIDPeerDiscovery {
 		log.Errorf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
-		return
-	}
-
-	message, err := decodePeerDiscoveryMessage(msg.Content)
-	if err != nil {
-		log.Errorf("[p2p] Error decoding PeerDiscoveryMessage: %v", err)
 		return
 	}
 
@@ -82,11 +92,12 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.
 		return
 	}
 
-	switch message.Type {
+	discMsg := (msg.Content).(PeerDiscoveryMessage)
+	switch discMsg.Type {
 	case peerAddressesRequestType:
-		pdmh.handlePeerAddressRequest(peer, message)
+		pdmh.handlePeerAddressRequest(peer, discMsg)
 	case peerAddressesReplyType:
-		pdmh.handlePeerAddressReply(peer, message)
+		pdmh.handlePeerAddressReply(peer, discMsg)
 	default:
 		log.Errorf("[p2p] Invalid PeerDiscoveryMessageType")
 	}
