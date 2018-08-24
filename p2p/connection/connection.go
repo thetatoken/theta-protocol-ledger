@@ -83,8 +83,8 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	}
 }
 
-// CreateDefaultConnectionConfig creates the default ConnectionConfig
-func CreateDefaultConnectionConfig() ConnectionConfig {
+// GetDefaultConnectionConfig returns the default ConnectionConfig
+func GetDefaultConnectionConfig() ConnectionConfig {
 	return ConnectionConfig{
 		SendRate:        int64(512000), // 500KB/s
 		RecvRate:        int64(512000), // 500KB/s

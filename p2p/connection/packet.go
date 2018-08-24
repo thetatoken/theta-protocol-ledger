@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	maxPayloadSize        = 1024
+	maxPayloadSize        = 1024 // 1k bytes
 	maxAdditionalDataSize = 10
 	maxPacketTotalSize    = maxPayloadSize + maxAdditionalDataSize
 	packetTypePing        = byte(0x01)
