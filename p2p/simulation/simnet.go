@@ -1,6 +1,8 @@
 package simulation
 
 import (
+	"context"
+	"sync"
 	"time"
 
 	"github.com/spf13/viper"
@@ -21,12 +23,21 @@ type Simnet struct {
 	Endpoints  []*SimnetEndpoint
 	msgHandler p2p.MessageHandler
 	messages   chan Envelope
+
+	// Life cycle.
+	wg      *sync.WaitGroup
+	mu      *sync.Mutex
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 // NewSimnet creates a new instance of Simnet.
 func NewSimnet() *Simnet {
 	return &Simnet{
 		messages: make(chan Envelope, viper.GetInt(common.CfgP2PMessageQueueSize)),
+		wg:       &sync.WaitGroup{},
+		mu:       &sync.Mutex{},
 	}
 }
 
@@ -35,6 +46,8 @@ func NewSimnetWithHandler(msgHandler p2p.MessageHandler) *Simnet {
 	return &Simnet{
 		msgHandler: msgHandler,
 		messages:   make(chan Envelope, viper.GetInt(common.CfgP2PMessageQueueSize)),
+		wg:         &sync.WaitGroup{},
+		mu:         &sync.Mutex{},
 	}
 }
 
@@ -51,32 +64,68 @@ func (sn *Simnet) AddEndpoint(id string) *SimnetEndpoint {
 }
 
 // Start is the main entry point for Simnet. It starts all endpoints and start a goroutine to handle message dlivery.
-func (sn *Simnet) Start() {
+func (sn *Simnet) Start(ctx context.Context) {
+	c, cancel := context.WithCancel(ctx)
+	sn.ctx = c
+	sn.cancel = cancel
+
 	for _, endpoint := range sn.Endpoints {
 		endpoint.OnStart()
 	}
 
-	go func() {
-		for {
-			select {
-			case envelope := <-sn.messages:
-				time.Sleep(1 * time.Microsecond)
-				for _, endpoint := range sn.Endpoints {
-					// Allow broadcast/send to self
-					if envelope.To == "" || envelope.To == endpoint.ID() {
-						go func(endpoint *SimnetEndpoint, envelope Envelope) {
-							// Simulate network delay except for messages to self.
-							if envelope.From != endpoint.ID() {
-								// time.Sleep(100 * time.Millisecond)
-							}
-							endpoint.incoming <- envelope
+	go sn.mainLoop()
+}
 
-						}(endpoint, envelope)
-					}
+// Stop notifies all goroutines to stop without blocking.
+func (sn *Simnet) Stop() {
+	sn.cancel()
+}
+
+// Wait blocks until all goroutines have stopped.
+func (sn *Simnet) Wait() {
+	sn.wg.Wait()
+}
+
+func (sn *Simnet) mainLoop() {
+	sn.wg.Add(1)
+	defer sn.wg.Done()
+
+	for {
+		select {
+		case <-sn.ctx.Done():
+			sn.mu.Lock()
+			sn.stopped = true
+			sn.mu.Unlock()
+			return
+		case envelope := <-sn.messages:
+			time.Sleep(1 * time.Microsecond)
+			for _, endpoint := range sn.Endpoints {
+				// Allow broadcast/send to self
+				if envelope.To == "" || envelope.To == endpoint.ID() {
+					go func(endpoint *SimnetEndpoint, envelope Envelope) {
+						// Simulate network delay except for messages to self.
+						if envelope.From != endpoint.ID() {
+							// time.Sleep(100 * time.Millisecond)
+						}
+						endpoint.incoming <- envelope
+
+					}(endpoint, envelope)
 				}
 			}
 		}
-	}()
+	}
+}
+
+// AddMessage send a message through the network.
+func (sn *Simnet) AddMessage(msg Envelope) {
+	sn.mu.Lock()
+	defer sn.mu.Unlock()
+
+	if sn.stopped {
+		return
+	}
+
+	sn.messages <- msg
 }
 
 // SimnetEndpoint is the implementation of Network interface for Simnet.

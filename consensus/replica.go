@@ -57,7 +57,7 @@ func (rs *DefaultReplicaStrategy) HandleProposal(p Proposal) {
 	if p.commitCertificate != nil {
 		ccBlock, err := e.chain.FindBlock(p.commitCertificate.BlockHash)
 		if err != nil {
-			log.WithFields(log.Fields{"blockhash": fmt.Sprintf("%x", p.commitCertificate.BlockHash)}).Error("Blockhash in commit certificate is not found")
+			log.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", p.commitCertificate.BlockHash)}).Error("Blockhash in commit certificate is not found")
 			return
 		}
 		ccBlock.CommitCertificate = p.commitCertificate

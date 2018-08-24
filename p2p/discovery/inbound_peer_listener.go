@@ -56,8 +56,8 @@ func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, l
 	return inboundPeerListener, nil
 }
 
-// GetDefaultInboundPeerListenerConfig returns the default configuration for the listeners
-func GetDefaultInboundPeerListenerConfig() InboundPeerListenerConfig {
+// CreateDefaultInboundPeerListenerConfig returns the default configuration for the listeners
+func CreateDefaultInboundPeerListenerConfig() InboundPeerListenerConfig {
 	return InboundPeerListenerConfig{
 		numBufferedConnections: 10,
 	}

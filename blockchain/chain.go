@@ -120,9 +120,9 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*ExtendedBlock, error) {
 
 // IsDescendant determines whether one block is the ascendant of another block.
 func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes) bool {
-	i := 0
+	const maxDistance = 50
 	hash := descendantHash
-	for i < 5 {
+	for i := 0; i < maxDistance; i++ {
 		if bytes.Compare(hash, ascendantHash) == 0 {
 			return true
 		}
@@ -132,7 +132,21 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 		}
 		currBlock := currBlockRaw.(*ExtendedBlock)
 		hash = currBlock.ParentHash
-		i++
 	}
 	return false
+}
+
+// PrintBranch return the string describing path from root to given leaf.
+func (ch *Chain) PrintBranch(hash common.Bytes) string {
+	ret := []string{}
+	for {
+		currBlockRaw, err := ch.store.Get(hash)
+		if err != nil {
+			break
+		}
+		currBlock := currBlockRaw.(*ExtendedBlock)
+		ret = append(ret, hash.String())
+		hash = currBlock.ParentHash
+	}
+	return fmt.Sprintf("%v", ret)
 }

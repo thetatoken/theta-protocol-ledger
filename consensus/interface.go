@@ -13,7 +13,10 @@ type Engine interface {
 	ID() string
 	Chain() *blockchain.Chain
 	Network() p2p.Network
-	Start(ctx context.Context)
 	HandleMessage(peerID string, msg p2ptypes.Message)
 	FinalizedBlocks() chan *blockchain.Block
+
+	Start(context.Context)
+	Stop()
+	Wait()
 }

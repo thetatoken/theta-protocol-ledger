@@ -3,16 +3,17 @@ package consensus
 import (
 	"bytes"
 	"context"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
-
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
-var _ Engine = &DefaultEngine{}
+var _ Engine = (*DefaultEngine)(nil)
 
 // DefaultEngine is the default implementation of the Engine interface.
 type DefaultEngine struct {
@@ -21,6 +22,13 @@ type DefaultEngine struct {
 
 	incoming        chan interface{}
 	finalizedBlocks chan *blockchain.Block
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 
 	// TODO: persist state
 	// Consensus state
@@ -45,8 +53,11 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		chain:   chain,
 		network: network,
 
-		incoming:        make(chan interface{}, 5000),
-		finalizedBlocks: make(chan *blockchain.Block, 5000),
+		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		finalizedBlocks: make(chan *blockchain.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+
+		wg:   &sync.WaitGroup{},
+		quit: make(chan struct{}),
 
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
@@ -96,16 +107,41 @@ func (e *DefaultEngine) SetReplicaStrategy(s ReplicaStrategy) {
 
 // Start is the main event loop.
 func (e *DefaultEngine) Start(ctx context.Context) {
-	go e.epochManager.Start(ctx)
-	go e.mainLoop(ctx)
+	c, cancel := context.WithCancel(ctx)
+	e.ctx = c
+	e.cancel = cancel
+
+	e.epochManager.Start(e.ctx)
+
+	go e.mainLoop()
 }
 
-func (e *DefaultEngine) mainLoop(ctx context.Context) {
+// Stop notifies all goroutines to stop without blocking.
+func (e *DefaultEngine) Stop() {
+	e.cancel()
+}
+
+// Wait blocks until all goroutines stop.
+func (e *DefaultEngine) Wait() {
+	e.epochManager.Wait()
+	e.wg.Wait()
+}
+
+func (e *DefaultEngine) mainLoop() {
+	e.wg.Add(1)
+	defer e.wg.Done()
+
+	e.enterNewEpoch(e.epochManager.GetEpoch())
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-e.ctx.Done():
+			e.stopped = true
 			return
-		case msg := <-e.incoming:
+		case msg, ok := <-e.incoming:
+			if !ok {
+				continue
+			}
 			switch m := msg.(type) {
 			case Proposal:
 				e.handleProposal(m)
@@ -115,6 +151,7 @@ func (e *DefaultEngine) mainLoop(ctx context.Context) {
 				log.Errorf("Unknown message type: %v", m)
 			}
 		case newEpoch := <-e.epochManager.C:
+			newEpoch = e.epochManager.GetEpoch()
 			e.enterNewEpoch(newEpoch)
 		}
 	}
@@ -198,6 +235,10 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 }
 
 func (e *DefaultEngine) finalizeBlock(block *blockchain.ExtendedBlock) {
+	if e.stopped {
+		return
+	}
+
 	// Skip blocks that have already published.
 	if bytes.Compare(block.Hash, e.lastFinalizedBlock.Hash) == 0 {
 		return

@@ -24,9 +24,8 @@ type SendBufferConfig struct {
 // createSendBuffer creates a SendBuffer instance for the given config
 func createSendBuffer(config SendBufferConfig) SendBuffer {
 	return SendBuffer{
-		workspace: make([]byte, 0),
-		queue:     make(chan []byte, config.queueCapacity),
-		config:    config,
+		queue:  make(chan []byte, config.queueCapacity),
+		config: config,
 	}
 }
 

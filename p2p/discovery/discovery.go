@@ -56,7 +56,7 @@ func CreatePeerDiscoveryManager(nodeInfo *p2ptypes.NodeInfo, addrBookFilePath st
 		return discMgr, err
 	}
 
-	inlConfig := GetDefaultInboundPeerListenerConfig()
+	inlConfig := CreateDefaultInboundPeerListenerConfig()
 	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, skipUPNP, inlConfig)
 	if err != nil {
 		return discMgr, err
@@ -64,8 +64,8 @@ func CreatePeerDiscoveryManager(nodeInfo *p2ptypes.NodeInfo, addrBookFilePath st
 	return discMgr, nil
 }
 
-// GetDefaultPeerDiscoveryManagerConfig returns the default config for the PeerDiscoveryManager
-func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
+// CreateDefaultPeerDiscoveryManagerConfig creates the default config for the PeerDiscoveryManager
+func CreateDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
 		MaxNumPeers: 128,
 	}
@@ -108,8 +108,8 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
 	log.Infof("[p2p] Connectiong to outbound peer: %v...", peerNetAddress)
-	peerConfig := pr.GetDefaultPeerConfig()
-	connConfig := cn.GetDefaultConnectionConfig()
+	peerConfig := pr.CreateDefaultPeerConfig()
+	connConfig := cn.CreateDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
 		log.Errorf("[p2p] Failed to create outbound peer: %v", peerNetAddress)
@@ -122,8 +122,8 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 
 func (discMgr *PeerDiscoveryManager) connectWithInboundPeer(netconn net.Conn, persistent bool) (*pr.Peer, error) {
 	log.Infof("[p2p] Connectiong with inbound peer: %v...", netconn.RemoteAddr())
-	peerConfig := pr.GetDefaultPeerConfig()
-	connConfig := cn.GetDefaultConnectionConfig()
+	peerConfig := pr.CreateDefaultPeerConfig()
+	connConfig := cn.CreateDefaultConnectionConfig()
 	peer, err := pr.CreateInboundPeer(netconn, peerConfig, connConfig)
 	if err != nil {
 		log.Errorf("[p2p] Failed to create inbound peer: %v", netconn.RemoteAddr())

@@ -3,6 +3,7 @@
 package simulation
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"sync"
@@ -55,7 +56,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	e1 := simnet.AddEndpoint("e1")
 	e2 := simnet.AddEndpoint("e2")
 	simnet.AddEndpoint("e3")
-	simnet.Start()
+	simnet.Start(context.Background())
 
 	e2.Broadcast(createBlockMessage("hello!"))
 	time.Sleep(1 * time.Second)
@@ -80,7 +81,7 @@ func TestSimnetSend(t *testing.T) {
 	e1 := simnet.AddEndpoint("e1")
 	simnet.AddEndpoint("e2")
 	simnet.AddEndpoint("e3")
-	simnet.Start()
+	simnet.Start(context.Background())
 
 	e1.Send("e3", createBlockMessage("hello!"))
 	time.Sleep(1 * time.Second)

@@ -52,8 +52,8 @@ func CreateInboundPeer(netconn net.Conn, peerConfig PeerConfig, connConfig cn.Co
 	return peer, nil
 }
 
-// GetDefaultPeerConfig creates the default PeerConfig
-func GetDefaultPeerConfig() PeerConfig {
+// CreateDefaultPeerConfig creates the default PeerConfig
+func CreateDefaultPeerConfig() PeerConfig {
 	return PeerConfig{
 		HandshakeTimeout: 10 * time.Second,
 		DialTimeout:      10 * time.Second,

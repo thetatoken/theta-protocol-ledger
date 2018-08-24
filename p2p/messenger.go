@@ -36,7 +36,7 @@ func CreateMessenger(addrBookFilePath string, routabilityRestrict bool, selfNetA
 	}
 
 	var err error
-	discMgrConfig := disc.GetDefaultPeerDiscoveryManagerConfig()
+	discMgrConfig := disc.CreateDefaultPeerDiscoveryManagerConfig()
 	messenger.discMgr, err = disc.CreatePeerDiscoveryManager(&messenger.nodeInfo, addrBookFilePath,
 		routabilityRestrict, selfNetAddressStr, seedPeerNetAddressStrs, networkProtocol,
 		localNetworkAddr, skipUPNP, &messenger.peerTable, discMgrConfig)
