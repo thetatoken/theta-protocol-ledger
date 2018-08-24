@@ -1,3 +1,4 @@
+// Adapted for Theta
 // Copyright Tendermint
 package netutil
 
