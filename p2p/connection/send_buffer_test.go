@@ -37,7 +37,7 @@ func TestDefaultSendBuffer(t *testing.T) {
 	assert.Equal(byte(0x1), packet.IsEOF)
 }
 
-func TestLongMessage(t *testing.T) {
+func TestSendLongMessage(t *testing.T) {
 	assert := assert.New(t)
 	dsb := newDefaultSendBuffer()
 
@@ -73,6 +73,6 @@ func TestLongMessage(t *testing.T) {
 	assert.False(packet3.isEmpty())
 	assert.Equal(byte(0x1), packet3.IsEOF)
 
-	receivedMsgStr := string(packet1.Bytes) + string(packet2.Bytes) + string(packet3.Bytes)
-	assert.Equal(msgStr, receivedMsgStr)
+	assembledMsgStr := string(packet1.Bytes) + string(packet2.Bytes) + string(packet3.Bytes)
+	assert.Equal(msgStr, assembledMsgStr)
 }
