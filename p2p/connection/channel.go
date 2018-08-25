@@ -38,6 +38,13 @@ func createChannel(channelID common.ChannelIDEnum, channelConf ChannelConfig, sb
 	}
 }
 
+// createChannel creates the default channel config
+func getDefaultChannelConfig() ChannelConfig {
+	return ChannelConfig{
+		priority: 0,
+	}
+}
+
 // getID returns the ID of the channel
 func (ch *Channel) getID() common.ChannelIDEnum {
 	return ch.id

@@ -15,7 +15,7 @@ const (
 // ChannelGroup contains multiple channels to facilitate fair scheduling
 //
 type ChannelGroup struct {
-	mutex sync.Mutex
+	mutex *sync.Mutex
 
 	channelMap map[common.ChannelIDEnum]*Channel // map: ChannelID |-> *Channel
 	channels   []*Channel                        // For iteration with deterministic order
@@ -48,6 +48,7 @@ func createChannelGroup(cgConfig ChannelGroupConfig, chConfigs []ChannelConfig) 
 	}
 
 	channelGroup := ChannelGroup{
+		mutex:           &sync.Mutex{},
 		channelSelector: channelSelector,
 		config:          cgConfig,
 	}

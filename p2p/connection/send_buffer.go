@@ -80,16 +80,16 @@ func (sb *SendBuffer) attemptInsert(bytes []byte) bool {
 
 // EmitPacket emits a packet extracted from the bytes stored in the workspace
 func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
-	if sb.workspace == nil {
-		return Packet{
-			ChannelID: channelID,
-			Bytes:     nil,
-			IsEOF:     byte(0x01),
+	if sb.workspace == nil || len(sb.workspace) == 0 {
+		if len(sb.queue) > 0 {
+			sb.workspace = <-sb.queue // update workspace if necessary
+		} else {
+			return Packet{
+				ChannelID: channelID,
+				Bytes:     nil,
+				IsEOF:     byte(0x01),
+			}
 		}
-	}
-
-	if len(sb.workspace) == 0 && len(sb.queue) > 0 {
-		sb.workspace = <-sb.queue // update workspace if necessary
 	}
 
 	bytes := sb.workspace[:math.MinInt(maxPayloadSize, len(sb.workspace))]
