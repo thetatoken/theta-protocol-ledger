@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func newTestMDB() (*MongoDatabase, func()) {
-	db, err := NewMongoDatabase()
+func newTestAerospikeDB() (*AerospikeDatabase, func()) {
+	db, err := NewAerospikeDatabase()
 	if err != nil {
 		panic("failed to create test database: " + err.Error())
 	}
@@ -15,8 +15,8 @@ func newTestMDB() (*MongoDatabase, func()) {
 	}
 }
 
-func TestMDB_PutGet(t *testing.T) {
-	db, close := newTestMDB()
+func TestAerospikeDB_PutGet(t *testing.T) {
+	db, close := newTestAerospikeDB()
 	defer close()
 	testPutGet(db, t)
 }

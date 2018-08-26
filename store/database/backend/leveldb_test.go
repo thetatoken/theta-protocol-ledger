@@ -82,6 +82,14 @@ func testPutGet(db database.Database, t *testing.T) {
 		t.Fatalf("expect to return a not found error")
 	}
 
+	exists, err := db.Has([]byte("non-exist-key"))
+	if err != nil {
+		t.Fatalf("has failed: %v", err)
+	}
+	if exists {
+		t.Fatalf("expect to return not found")
+	}
+
 	for _, v := range test_values {
 		err := db.Put([]byte(v), []byte(v))
 		if err != nil {
@@ -132,9 +140,29 @@ func testPutGet(db database.Database, t *testing.T) {
 	}
 
 	for _, v := range test_values {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if !has {
+			t.Fatalf("can't find %v", v)
+		}
+	}
+
+	for _, v := range test_values {
 		err := db.Delete([]byte(v))
 		if err != nil {
 			t.Fatalf("delete %q failed: %v", v, err)
+		}
+	}
+
+	for _, v := range test_values {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if has {
+			t.Fatalf("find deleted %v", v)
 		}
 	}
 
