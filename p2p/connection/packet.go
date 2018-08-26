@@ -1,9 +1,13 @@
 package connection
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/thetatoken/ukulele/common"
+)
 
 const (
-	maxPayloadSize        = 1024
+	maxPayloadSize        = 1024 // 1k bytes
 	maxAdditionalDataSize = 10
 	maxPacketTotalSize    = maxPayloadSize + maxAdditionalDataSize
 	packetTypePing        = byte(0x01)
@@ -12,9 +16,9 @@ const (
 )
 
 type Packet struct {
-	ChannelID byte
-	Bytes     []byte
-	IsEOF     byte // 1 means message ends here.
+	ChannelID common.ChannelIDEnum `rlp:"channel_id"`
+	Bytes     []byte               `rlp:"bytes"`
+	IsEOF     byte                 `rlp:"is_eof"` // 1 means message ends here.
 }
 
 func (p *Packet) isEmpty() bool {

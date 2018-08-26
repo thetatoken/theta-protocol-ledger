@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/math"
 )
 
@@ -23,8 +24,9 @@ type SendBufferConfig struct {
 // createSendBuffer creates a SendBuffer instance for the given config
 func createSendBuffer(config SendBufferConfig) SendBuffer {
 	return SendBuffer{
-		queue:  make(chan []byte, config.queueCapacity),
-		config: config,
+		workspace: make([]byte, 0),
+		queue:     make(chan []byte, config.queueCapacity),
+		config:    config,
 	}
 }
 
@@ -77,17 +79,17 @@ func (sb *SendBuffer) attemptInsert(bytes []byte) bool {
 }
 
 // EmitPacket emits a packet extracted from the bytes stored in the workspace
-func (sb *SendBuffer) emitPacket(channelID byte) Packet {
-	if sb.workspace == nil {
-		return Packet{
-			ChannelID: channelID,
-			Bytes:     nil,
-			IsEOF:     byte(0x01),
+func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
+	if sb.workspace == nil || len(sb.workspace) == 0 {
+		if len(sb.queue) > 0 {
+			sb.workspace = <-sb.queue // update workspace if necessary
+		} else {
+			return Packet{
+				ChannelID: channelID,
+				Bytes:     nil,
+				IsEOF:     byte(0x01),
+			}
 		}
-	}
-
-	if len(sb.workspace) == 0 && len(sb.queue) > 0 {
-		sb.workspace = <-sb.queue // update workspace if necessary
 	}
 
 	bytes := sb.workspace[:math.MinInt(maxPayloadSize, len(sb.workspace))]

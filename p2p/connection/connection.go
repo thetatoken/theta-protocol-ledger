@@ -8,8 +8,10 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
@@ -27,6 +29,7 @@ type Connection struct {
 	recvMonitor *flowrate.Monitor
 
 	channelGroup ChannelGroup
+	onParse      MessageParser
 	onReceive    ReceiveHandler
 	onError      ErrorHandler
 	errored      uint32
@@ -41,6 +44,9 @@ type Connection struct {
 	config ConnectionConfig
 }
 
+//
+// ConnectionConfig specifies the configurations of the Connection
+//
 type ConnectionConfig struct {
 	MinWriteBufferSize int
 	MinReadBufferSize  int
@@ -51,19 +57,23 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
-type ReceiveHandler func(channelID byte, msgBytes []byte)
+// MessageParser parse the raw message bytes to type p2ptypes.Message
+type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
+
+// ReceiveHandler is the callback function to handle received bytes from the given channel
+type ReceiveHandler func(message p2ptypes.Message)
+
+// ErrorHandler is the callback function to handle channel read errors
 type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
-func CreateConnection(netconn net.Conn, onReceive ReceiveHandler, onError ErrorHandler, config ConnectionConfig) *Connection {
+func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	return &Connection{
 		netconn:     netconn,
 		bufWriter:   bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
 		sendMonitor: flowrate.New(0, 0),
 		bufReader:   bufio.NewReaderSize(netconn, config.MinReadBufferSize),
 		recvMonitor: flowrate.New(0, 0),
-		onReceive:   onReceive,
-		onError:     onError,
 		sendPulse:   make(chan bool, 1),
 		pongPulse:   make(chan bool, 1),
 		quitPulse:   make(chan bool, 1),
@@ -73,7 +83,8 @@ func CreateConnection(netconn net.Conn, onReceive ReceiveHandler, onError ErrorH
 	}
 }
 
-func CreateDefaultConnectionConfig() ConnectionConfig {
+// GetDefaultConnectionConfig returns the default ConnectionConfig
+func GetDefaultConnectionConfig() ConnectionConfig {
 	return ConnectionConfig{
 		SendRate:        int64(512000), // 500KB/s
 		RecvRate:        int64(512000), // 500KB/s
@@ -83,12 +94,14 @@ func CreateDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
+// OnStart is called when the connection starts
 func (conn *Connection) OnStart() bool {
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
+// OnStop is called whten the connection stops
 func (conn *Connection) OnStop() {
 	if conn.sendPulse != nil {
 		close(conn.sendPulse)
@@ -102,9 +115,24 @@ func (conn *Connection) OnStop() {
 	conn.netconn.Close()
 }
 
+// SetMessageParser sets the message parser for the connection
+func (conn *Connection) SetMessageParser(messageParser MessageParser) {
+	conn.onParse = messageParser
+}
+
+// SetReceiveHandler sets the receive handler for the connection
+func (conn *Connection) SetReceiveHandler(receiveHandler ReceiveHandler) {
+	conn.onReceive = receiveHandler
+}
+
+// SetErrorHandler sets the error handler for the connection
+func (conn *Connection) SetErrorHandler(errorHandler ErrorHandler) {
+	conn.onError = errorHandler
+}
+
 // EnqueueMessage enqueues the given message to the target channel.
 // The message will be send out later
-func (conn *Connection) EnqueueMessage(channelID byte, message interface{}) bool {
+func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
@@ -126,7 +154,7 @@ func (conn *Connection) EnqueueMessage(channelID byte, message interface{}) bool
 
 // AttemptToEnqueueMessage attempts to enqueue the given message to the
 // target channel. The message will be send out later (non-blocking)
-func (conn *Connection) AttemptToEnqueueMessage(channelID byte, message interface{}) bool {
+func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
@@ -148,7 +176,7 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID byte, message interfac
 
 // CanEnqueueMessage returns whether more messages can still be enqueued
 // into the connection at the moment
-func (conn *Connection) CanEnqueueMessage(channelID byte) bool {
+func (conn *Connection) CanEnqueueMessage(channelID common.ChannelIDEnum) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
 		return false

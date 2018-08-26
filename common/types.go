@@ -347,3 +347,30 @@ func (ma *MixedcaseAddress) ValidChecksum() bool {
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
+
+// ChannelIDEnum defines the channelID for different type of data for synchronization among blockchain nodes
+type ChannelIDEnum byte
+
+const (
+
+	// ChannelIDInvalid indicates an invalid channel
+	ChannelIDInvalid ChannelIDEnum = 0
+
+	// ChannelIDCheckpoint indicates the channel for Checkpoint
+	ChannelIDCheckpoint ChannelIDEnum = 1
+
+	// ChannelIDHeader indicates the channel for Header
+	ChannelIDHeader ChannelIDEnum = 2
+
+	// ChannelIDBlock indicates the channel for Block
+	ChannelIDBlock ChannelIDEnum = 3
+
+	// ChannelIDVote indicates the channel for Vote
+	ChannelIDVote ChannelIDEnum = 4
+
+	// ChannelIDTransaction indicates the channel for Transaction
+	ChannelIDTransaction ChannelIDEnum = 5
+
+	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
+	ChannelIDPeerDiscovery ChannelIDEnum = 6
+)
