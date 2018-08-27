@@ -1,18 +1,35 @@
-hash: 18c0d5caea6d270519250f9ba64718b0ac798e1bce7da77ee1f4e87f7ad40376
-updated: 2018-08-18T00:46:25.104513098-07:00
+hash: 660c61b12de584877f7b4d269c9fac9239c66524305b6cfd1f6d43c57c935c0e
+updated: 2018-08-26T17:32:22.351108041-07:00
 imports:
+- name: github.com/aerospike/aerospike-client-go
+  version: 1217472956468973eac546b0f69430e81c7ef811
+  subpackages:
+  - internal/lua
+  - internal/lua/resources
+  - logger
+  - pkg/bcrypt
+  - pkg/ripemd160
+  - types
+  - types/atomic
+  - types/particle_type
+  - types/rand
+  - utils/buffer
 - name: github.com/btcsuite/btcd
   version: b8df516b4b267acf2de46be593a9d948d1d2c420
   subpackages:
   - btcec
 - name: github.com/btcsuite/fastsha256
   version: 637e656429416087660c84436a2a035d69d54e2e
+- name: github.com/buger/jsonparser
+  version: f4dd9f5a6b441265aefc1d44872a6f8c10f42b37
 - name: github.com/davecgh/go-spew
   version: 8991bc29aa16c548c550c7ff78260e27b9ab7c73
   subpackages:
   - spew
 - name: github.com/fsnotify/fsnotify
   version: 4da3e2cfbabc9f751898f250b49f2439785783a1
+- name: github.com/go-stack/stack
+  version: 100eb0c0a9c5b306ca2fb4f165df21d80ada4b82
 - name: github.com/golang/snappy
   version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
 - name: github.com/hashicorp/hcl
@@ -36,6 +53,59 @@ imports:
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
 - name: github.com/mitchellh/mapstructure
   version: cc8532a8e9a55ea36402aa21efdf403a60d34096
+- name: github.com/mongodb/mongo-go-driver
+  version: e3f321c2848b138976cf8c6143aab9702e2b2fc6
+  subpackages:
+  - bson
+  - bson/builder
+  - bson/decimal
+  - bson/elements
+  - bson/objectid
+  - bson/parser
+  - bson/parser/ast
+  - core/address
+  - core/auth
+  - core/auth/internal/gssapi
+  - core/command
+  - core/compressor
+  - core/connection
+  - core/connstring
+  - core/description
+  - core/dispatch
+  - core/event
+  - core/option
+  - core/readconcern
+  - core/readpref
+  - core/result
+  - core/session
+  - core/tag
+  - core/topology
+  - core/uuid
+  - core/version
+  - core/wiremessage
+  - core/writeconcern
+  - internal
+  - mongo
+  - mongo/aggregateopt
+  - mongo/changestreamopt
+  - mongo/clientopt
+  - mongo/collectionopt
+  - mongo/countopt
+  - mongo/dbopt
+  - mongo/deleteopt
+  - mongo/distinctopt
+  - mongo/dropcollopt
+  - mongo/findopt
+  - mongo/indexopt
+  - mongo/insertopt
+  - mongo/listcollectionopt
+  - mongo/listdbopt
+  - mongo/mongoopt
+  - mongo/replaceopt
+  - mongo/runcmdopt
+  - mongo/sessionopt
+  - mongo/transactionopt
+  - mongo/updateopt
 - name: github.com/pelletier/go-buffruneio
   version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
@@ -80,14 +150,34 @@ imports:
   - leveldb/storage
   - leveldb/table
   - leveldb/util
-- name: golang.org/x/crypto
-  version: c7af5bf2638a1164f2eb5467c39c6cffbd13a02e
+- name: github.com/xdg/scram
+  version: 7eeb5667e42c09cb51bf7b7c28aea8c56767da90
+- name: github.com/xdg/stringprep
+  version: 73f8eece6fdcd902c185bf651de50f3828bed5ed
+- name: github.com/yuin/gopher-lua
+  version: e1787a11979853335568be2967295c00e72b88ed
   subpackages:
+  - ast
+  - parse
+  - pm
+- name: golang.org/x/crypto
+  version: c3a3ad6d03f7a915c0f7e194b7152974bb73d287
+  subpackages:
+  - pbkdf2
   - ssh/terminal
+- name: golang.org/x/net
+  version: 92b859f39abd2d91a854c9f9c4621b2f5054a92d
+  subpackages:
+  - context
+- name: golang.org/x/sync
+  version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
+  subpackages:
+  - semaphore
 - name: golang.org/x/sys
-  version: e62c3de784db939836898e5c19ffd41bece347da
+  version: d8e400bc7db4870d786864138af681469693d18c
   subpackages:
   - unix
+  - windows
 - name: golang.org/x/text
   version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
   subpackages:
@@ -97,6 +187,13 @@ imports:
   version: 8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57
   subpackages:
   - collections/prque
+- name: gopkg.in/mgo.v2
+  version: 9856a29383ce1c59f308dd1cf0363a79b5bef6b5
+  subpackages:
+  - bson
+  - internal/json
+  - internal/sasl
+  - internal/scram
 - name: gopkg.in/yaml.v2
   version: cd8b52f8269e0feb286dfeef29f8fe4d5b397e0b
 testImports:
