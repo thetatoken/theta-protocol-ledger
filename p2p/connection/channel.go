@@ -74,16 +74,15 @@ func (ch *Channel) sendPacketTo(writer io.Writer) (nonemptyPacket bool, numBytes
 	if packet.isEmpty() {
 		return false, int(0), nil
 	}
+
+	// TODO: shall we use rlp.Encode() instead? But that won't return the num of bytes encoded
 	packetBytes, err := rlp.EncodeToBytes(packet)
 	if err != nil {
 		return true, int(0), nil
 	}
 
-	// FIXME: may not be efficient to first EncodeToBytes and then Encode to the writer, but needs
-	//        to get the size of the packetBytes here..
-	numBytes = len(packetBytes)
-	err = rlp.Encode(writer, packetBytes)
-	return false, numBytes, err
+	numBytes, err = writer.Write(packetBytes)
+	return true, numBytes, err
 }
 
 // canEnqueueMessage returns whether more messages can be queued into the channel
