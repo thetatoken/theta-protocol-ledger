@@ -130,6 +130,11 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 	sm.consensus.AddMessage(block)
 
+	cc := sm.orphanCCPool.TryGetCCByBlockHash(block.Hash)
+	if cc != nil {
+		sm.processMessage(cc)
+	}
+
 	nextBlock := sm.orphanBlockPool.TryGetNextBlock(block.Hash)
 	if nextBlock != nil {
 		sm.processMessage(nextBlock)
