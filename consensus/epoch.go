@@ -88,18 +88,16 @@ func (m *EpochManager) mainLoop() {
 			m.stopped = true
 			m.mu.Unlock()
 			return
-		case newEpoch, ok := <-m.reset:
-			if !ok {
-				continue
-			}
-			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": newEpoch}).Debug("Proactively moving to new epoch")
-			m.epoch = newEpoch
+		case <-m.reset:
+			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch}).Debug("Proactively moved to new epoch")
 			m.resetTimer()
 		case <-m.ticker.C:
 			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": m.epoch + 1}).Debug("Timed out. Moving to new epoch")
+			m.mu.Lock()
 			m.epoch++
-			m.C <- m.epoch
 			m.resetTimer()
+			m.mu.Unlock()
+			m.C <- m.epoch
 		}
 	}
 }
@@ -112,13 +110,14 @@ func (m *EpochManager) SetEpoch(epoch uint32) {
 	if m.stopped {
 		return
 	}
+	m.epoch = epoch
 	select {
 	case m.reset <- epoch:
 	default:
 	}
 }
 
-//
+// GetEpoch returns the current epoch.
 func (m *EpochManager) GetEpoch() uint32 {
 	m.mu.Lock()
 	defer m.mu.Unlock()

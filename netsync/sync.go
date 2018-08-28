@@ -12,6 +12,7 @@ import (
 
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -110,6 +111,8 @@ func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) {
 
 func (sm *SyncManager) processMessage(msg interface{}) {
 	switch m := msg.(type) {
+	case consensus.Proposal:
+		sm.handleProposal(&m)
 	case blockchain.Block:
 		sm.handleBlock(&m)
 	case blockchain.CommitCertificate:
@@ -118,13 +121,23 @@ func (sm *SyncManager) processMessage(msg interface{}) {
 		sm.handleInvResponse(&m)
 	case dispatcher.InventoryRequest:
 		sm.handleInvRequest(&m)
+	default:
+		sm.consensus.AddMessage(m)
 	}
+}
+
+func (sm *SyncManager) handleProposal(p *consensus.Proposal) {
+	if p.CommitCertificate != nil {
+		sm.handleCC(p.CommitCertificate)
+	}
+	sm.handleBlock(&p.Block)
 }
 
 func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 	if sm.chain.IsOrphan(block) {
 		sm.orphanBlockPool.Add(block)
 		sm.requestMgr.EnqueueBlocks(block.Hash)
+		log.WithFields(log.Fields{"id": sm.consensus.ID(), "block.Hash": block.Hash}).Debug("Received orphaned block")
 		return
 	}
 
@@ -143,6 +156,7 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 func (sm *SyncManager) handleCC(cc *blockchain.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
+		log.WithFields(log.Fields{"id": sm.consensus.ID(), "cc.BlockHash": cc.BlockHash}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
 		sm.requestMgr.EnqueueBlocks(cc.BlockHash)
 		return

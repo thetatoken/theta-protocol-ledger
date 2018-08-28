@@ -1,6 +1,6 @@
 // +build integration
 
-package consensus
+package integration
 
 import (
 	"testing"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/consensus"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 )
 
@@ -17,12 +18,12 @@ func TestConsensusBaseCase(t *testing.T) {
 
 	simnet := p2psim.NewSimnet()
 
-	validators := newValidatorSet([]string{"v1", "v2", "v3", "v4"})
-	nodes := []Engine{}
+	validators := consensus.NewTestValidatorSet([]string{"v1", "v2", "v3", "v4"})
+	nodes := []consensus.Engine{}
 
 	for _, v := range validators.Validators() {
-		nodes = append(nodes, NewEngine(blockchain.CreateTestChain(), simnet.AddEndpoint(v.ID()), validators))
+		nodes = append(nodes, consensus.NewEngine(blockchain.CreateTestChain(), simnet.AddEndpoint(v.ID()), validators))
 	}
 
-	testConsensus(assert, simnet, nodes, 5*time.Second, 10)
+	testConsensus(assert, simnet, nodes, 5*time.Second, 1)
 }
