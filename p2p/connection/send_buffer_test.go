@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-func newDefaultSendBuffer() SendBuffer {
+func newTestDefaultSendBuffer() SendBuffer {
 	defaultConfig := getDefaultSendBufferConfig()
 	sendBuffer := createSendBuffer(defaultConfig)
 	return sendBuffer
@@ -16,7 +16,7 @@ func newDefaultSendBuffer() SendBuffer {
 
 func TestDefaultSendBuffer(t *testing.T) {
 	assert := assert.New(t)
-	dsb := newDefaultSendBuffer()
+	dsb := newTestDefaultSendBuffer()
 
 	assert.True(dsb.isEmpty())
 	assert.Equal(0, dsb.getSize())
@@ -40,7 +40,7 @@ func TestDefaultSendBuffer(t *testing.T) {
 
 func TestSendLongMessage(t *testing.T) {
 	assert := assert.New(t)
-	dsb := newDefaultSendBuffer()
+	dsb := newTestDefaultSendBuffer()
 
 	// prepare a 3000-byte long []byte
 	var msgStr string
@@ -80,7 +80,7 @@ func TestSendLongMessage(t *testing.T) {
 
 func TestSequentialSendMultipleMessages(t *testing.T) {
 	assert := assert.New(t)
-	dsb := newDefaultSendBuffer()
+	dsb := newTestDefaultSendBuffer()
 
 	for i := 0; i < 16; i++ {
 		msgBytes := []byte("cool stuff!")
@@ -97,7 +97,7 @@ func TestSequentialSendMultipleMessages(t *testing.T) {
 
 func TestConcurrentSendMultipleMessages(t *testing.T) {
 	assert := assert.New(t)
-	dsb := newDefaultSendBuffer()
+	dsb := newTestDefaultSendBuffer()
 
 	msgBytesBase := []byte(" - cool stuff!")
 	numMsgs := 16
@@ -139,7 +139,7 @@ func TestConcurrentSendMultipleMessages(t *testing.T) {
 
 func TestAttemptInsert(t *testing.T) {
 	assert := assert.New(t)
-	dsb := newDefaultSendBuffer()
+	dsb := newTestDefaultSendBuffer()
 	assert.True(dsb.canInsert())
 
 	msgBytes := []byte("hello world")

@@ -7,7 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-func newDefaultRecvBuffer() RecvBuffer {
+func newTestDefaultRecvBuffer() RecvBuffer {
 	defaultConfig := getDefaultRecvBufferConfig()
 	recvBuffer := createRecvBuffer(defaultConfig)
 	return recvBuffer
@@ -15,7 +15,7 @@ func newDefaultRecvBuffer() RecvBuffer {
 
 func TestDefaultRecvBuffer(t *testing.T) {
 	assert := assert.New(t)
-	drb := newDefaultRecvBuffer()
+	drb := newTestDefaultRecvBuffer()
 
 	msgBytes := []byte("hello world")
 	packet := Packet{
@@ -31,7 +31,7 @@ func TestDefaultRecvBuffer(t *testing.T) {
 
 func TestRecvMultipleMessages(t *testing.T) {
 	assert := assert.New(t)
-	drb := newDefaultRecvBuffer()
+	drb := newTestDefaultRecvBuffer()
 
 	msgBytes1 := []byte("hello ")
 	packet1 := Packet{
@@ -103,7 +103,7 @@ func TestRecvMultipleMessages(t *testing.T) {
 
 func TestRecvExtraLongMessage(t *testing.T) {
 	assert := assert.New(t)
-	drb := newDefaultRecvBuffer()
+	drb := newTestDefaultRecvBuffer()
 
 	msgBytes := []byte("0123456789")
 	packet := Packet{

@@ -8,7 +8,7 @@ import (
 )
 
 //
-// Channel models a bi-directional channel for messsage between two peers
+// Channel models a bi-directional channel for messsaging between two peers
 //
 type Channel struct {
 	id common.ChannelIDEnum

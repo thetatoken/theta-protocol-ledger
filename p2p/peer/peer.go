@@ -80,7 +80,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
 		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), *sourceNodeInfo) },
-		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), targetPeerNodeInfo) },
+		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), &targetPeerNodeInfo) },
 	)
 	if sendError != nil {
 		log.Errorf("[p2p] error during handshake/send: %v", sendError)
