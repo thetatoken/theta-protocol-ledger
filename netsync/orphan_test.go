@@ -1,5 +1,5 @@
 // +build unit
-package sync
+package netsync
 
 import (
 	"bytes"
