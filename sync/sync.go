@@ -5,9 +5,17 @@ import (
 	"sync"
 
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/ukulele/p2p"
+
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+
+	"github.com/spf13/viper"
 )
+
+var _ p2p.MessageHandler = (*SyncManager)(nil)
 
 // SyncManager is an intermediate layer between consensus engine and p2p network. Its main responsibilities are to manage
 // fast blocks sync among peers and buffer orphaned block/CC. Otherwise messages are passed through to consensus engine.
@@ -23,9 +31,25 @@ type SyncManager struct {
 	cancel  context.CancelFunc
 	stopped bool
 
-	mu              *sync.Mutex
-	incomingMsgChan chan interface{}
-	epoch           uint32
+	mu       *sync.Mutex
+	incoming chan interface{}
+	epoch    uint32
+}
+
+func NewSyncManager(chain *blockchain.Chain, consensus consensus.Engine) *SyncManager {
+	return &SyncManager{
+		chain:           chain,
+		consensus:       consensus,
+		requestMgr:      NewRequestManager(),
+		orphanBlockPool: NewOrphanBlockPool(),
+		orphanCCPool:    NewOrphanCCPool(),
+
+		wg: &sync.WaitGroup{},
+
+		mu:       &sync.Mutex{},
+		incoming: make(chan interface{}, viper.GetInt(common.CfgSyncMessageQueueSize)),
+	}
+
 }
 
 func (sm *SyncManager) Start(ctx context.Context) {
@@ -53,13 +77,38 @@ func (sm *SyncManager) incomingMsgLoop() {
 		case <-sm.ctx.Done():
 			sm.stopped = true
 			return
-		case msg := <-sm.incomingMsgChan:
-			sm.handleMessage(msg)
+		case msg := <-sm.incoming:
+			sm.processMessage(msg)
 		}
 	}
 }
 
-func (sm *SyncManager) handleMessage(msg interface{}) {
+// GetChannelIDs implements the p2p.MessageHandler interface.
+func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
+	return []common.ChannelIDEnum{
+		common.ChannelIDHeader,
+		common.ChannelIDBlock,
+		common.ChannelIDCC,
+		common.ChannelIDVote,
+	}
+}
+
+// ParseMessage implements p2p.MessageHandler interface.
+func (sm *SyncManager) ParseMessage(channelID common.ChannelIDEnum,
+	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+	// To be implemented..
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+	}
+	return message, nil
+}
+
+// HandleMessage implements p2p.MessageHandler interface.
+func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) {
+	sm.incoming <- msg.Content
+}
+
+func (sm *SyncManager) processMessage(msg interface{}) {
 	switch m := msg.(type) {
 	case blockchain.Block:
 		sm.handleBlock(&m)
@@ -83,7 +132,7 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 	nextBlock := sm.orphanBlockPool.TryGetNextBlock(block.Hash)
 	if nextBlock != nil {
-		sm.handleMessage(nextBlock)
+		sm.processMessage(nextBlock)
 	}
 }
 

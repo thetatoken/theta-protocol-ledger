@@ -7,6 +7,10 @@ import (
 
 type RequestManager struct{}
 
+func NewRequestManager() *RequestManager {
+	return nil
+}
+
 func (rm *RequestManager) EnqueueBlocks(endHash common.Bytes) {}
 
 func (rm *RequestManager) handleInvResponse(invResp *dispatcher.InventoryResponse) {}

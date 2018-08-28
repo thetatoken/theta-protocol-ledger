@@ -7,6 +7,10 @@ import (
 
 type OrphanBlockPool struct{}
 
+func NewOrphanBlockPool() *OrphanBlockPool {
+	return nil
+}
+
 func (obp *OrphanBlockPool) Add(block *blockchain.Block) {
 
 }
@@ -16,6 +20,10 @@ func (obp *OrphanBlockPool) TryGetNextBlock(hash common.Bytes) *blockchain.Block
 }
 
 type OrphanCCPool struct{}
+
+func NewOrphanCCPool() *OrphanCCPool {
+	return nil
+}
 
 func (ocp *OrphanCCPool) Add(cc *blockchain.CommitCertificate) {
 
