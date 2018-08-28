@@ -75,16 +75,61 @@ func (bp *OrphanBlockPool) TryGetNextBlock(hash common.Bytes) *blockchain.Block 
 	return block
 }
 
-type OrphanCCPool struct{}
+type OrphanCCPool struct {
+	ccs      *list.List
+	hashToCC map[string]*list.Element
+}
 
 func NewOrphanCCPool() *OrphanCCPool {
-	return nil
+	return &OrphanCCPool{
+		ccs:      list.New(),
+		hashToCC: make(map[string]*list.Element),
+	}
+}
+
+func (cp *OrphanCCPool) Contains(cc *blockchain.CommitCertificate) bool {
+	_, ok := cp.hashToCC[cc.BlockHash.String()]
+	return ok
 }
 
 func (cp *OrphanCCPool) Add(cc *blockchain.CommitCertificate) {
+	if cp.ccs.Len() >= maxOrphanCCPoolSize {
+		cp.RemoveOldest()
+	}
 
+	if cp.Contains(cc) {
+		return
+	}
+
+	el := cp.ccs.PushBack(cc)
+	cp.hashToCC[cc.BlockHash.String()] = el
 }
 
-func (cp *OrphanCCPool) TryGetCCByBlock(hash common.Bytes) *blockchain.CommitCertificate {
-	return nil
+func (cp *OrphanCCPool) Remove(cc *blockchain.CommitCertificate) {
+	el, ok := cp.hashToCC[cc.BlockHash.String()]
+	if !ok {
+		// block is not in pool.
+		return
+	}
+	cp.ccs.Remove(el)
+	delete(cp.hashToCC, cc.BlockHash.String())
+}
+
+func (cp *OrphanCCPool) RemoveOldest() {
+	el := cp.ccs.Front()
+	if el == nil {
+		return
+	}
+	cc := el.Value.(*blockchain.CommitCertificate)
+	cp.Remove(cc)
+}
+
+func (cp *OrphanCCPool) TryGetCCByBlockHash(hash common.Bytes) *blockchain.CommitCertificate {
+	el, ok := cp.hashToCC[hash.String()]
+	if !ok {
+		return nil
+	}
+	cc := el.Value.(*blockchain.CommitCertificate)
+	cp.Remove(cc)
+	return cc
 }
