@@ -103,6 +103,11 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 	return extendedBlock, nil
 }
 
+func (ch *Chain) IsOrphan(block *Block) bool {
+	_, err := ch.store.Get(block.ParentHash)
+	return err != nil
+}
+
 // SaveBlock updates a previously stored block.
 func (ch *Chain) SaveBlock(block *ExtendedBlock) {
 	ch.store.Put(block.Hash, block)

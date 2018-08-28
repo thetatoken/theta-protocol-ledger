@@ -13,6 +13,7 @@ type Engine interface {
 	ID() string
 	Chain() *blockchain.Chain
 	Network() p2p.Network
+	AddMessage(msg interface{})
 	HandleMessage(peerID string, msg p2ptypes.Message)
 	FinalizedBlocks() chan *blockchain.Block
 

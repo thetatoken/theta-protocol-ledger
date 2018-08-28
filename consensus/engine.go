@@ -172,6 +172,10 @@ func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
+func (e *DefaultEngine) AddMessage(msg interface{}) {
+	e.incoming <- msg
+}
+
 // ParseMessage implements p2p.MessageHandler interface.
 func (e *DefaultEngine) ParseMessage(channelID common.ChannelIDEnum,
 	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
