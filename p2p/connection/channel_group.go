@@ -15,7 +15,7 @@ const (
 // ChannelGroup contains multiple channels to facilitate fair scheduling
 //
 type ChannelGroup struct {
-	mutex sync.Mutex
+	mutex *sync.Mutex
 
 	channelMap map[common.ChannelIDEnum]*Channel // map: ChannelID |-> *Channel
 	channels   []*Channel                        // For iteration with deterministic order
@@ -39,29 +39,24 @@ type ChannelSelector interface {
 	nextSelectedChannelIndex(cg *ChannelGroup) (success bool, index int)
 }
 
-func createChannelGroup(cgConfig ChannelGroupConfig, chConfigs []ChannelConfig) (bool, ChannelGroup) {
+func createChannelGroup(cgConfig ChannelGroupConfig, channels []*Channel) (bool, ChannelGroup) {
 	var channelSelector ChannelSelector
 	if cgConfig.selectionStrategy == channelSelectionRoundRobinStrategy {
-		channelSelector = &RoundRobinChannelSelector{}
+		channelSelector = createRoundRobinChannelSelector()
 	} else {
+		log.Errorf("[p2p] Invalid channel selection strategy")
 		return false, ChannelGroup{}
 	}
 
 	channelGroup := ChannelGroup{
+		mutex:           &sync.Mutex{},
+		channelMap:      make(map[common.ChannelIDEnum]*Channel),
 		channelSelector: channelSelector,
 		config:          cgConfig,
 	}
 
-	channelID := common.ChannelIDEnum(0x0)
-	if len(chConfigs) > 255 {
-		return false, channelGroup // too many channels
-	}
-	for _, chConfig := range chConfigs {
-		sendBufConfig := getDefaultSendBufferConfig()
-		recvBufConfig := getDefaultRecvBufferConfig()
-		channel := createChannel(channelID, chConfig, sendBufConfig, recvBufConfig)
-		channelGroup.addChannel(&channel)
-		channelID++
+	for _, channel := range channels {
+		channelGroup.addChannel(channel)
 	}
 
 	return true, channelGroup
@@ -77,7 +72,8 @@ func (cg *ChannelGroup) addChannel(channel *Channel) bool {
 	cg.mutex.Lock()
 	defer cg.mutex.Unlock()
 
-	if cg.channelExists(channel.getID()) {
+	_, exists := cg.channelMap[channel.getID()]
+	if exists {
 		return false
 	}
 
@@ -162,6 +158,12 @@ func (cg *ChannelGroup) nextChannelToSendPacket() (sucess bool, channel *Channel
 //
 type RoundRobinChannelSelector struct {
 	lastUsedChannelIndex int
+}
+
+func createRoundRobinChannelSelector() ChannelSelector {
+	return &RoundRobinChannelSelector{
+		lastUsedChannelIndex: -1,
+	}
 }
 
 func (rrcs *RoundRobinChannelSelector) nextSelectedChannelIndex(cg *ChannelGroup) (success bool, index int) {

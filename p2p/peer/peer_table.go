@@ -8,10 +8,17 @@ import (
 // PeerTable is a lookup table for peers
 //
 type PeerTable struct {
-	mutex sync.Mutex
+	mutex *sync.Mutex
 
 	peerMap map[string]*Peer // map: peerID |-> *Peer
 	peers   []*Peer          // For iteration with deterministic order
+}
+
+// CreatePeerTable creates an instance of the PeerTable
+func CreatePeerTable() PeerTable {
+	return PeerTable{
+		mutex: &sync.Mutex{},
+	}
 }
 
 // AddPeer adds the given peer to the PeerTable
