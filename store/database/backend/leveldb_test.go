@@ -49,15 +49,17 @@ var test_values = []string{"", "a", "1251", "\x00123\x00"}
 
 func TestLDB_PutGet(t *testing.T) {
 	db, remove := newTestLDB()
+	batch := db.NewBatch()
 	defer remove()
-	testPutGet(db, t)
+	testPutGet(db, batch, t)
 }
 
 func TestMemoryDB_PutGet(t *testing.T) {
-	testPutGet(NewMemDatabase(), t)
+	memDB := NewMemDatabase()
+	testPutGet(memDB, memDB.NewBatch(), t)
 }
 
-func testPutGet(db database.Database, t *testing.T) {
+func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	t.Parallel()
 
 	for _, k := range test_values {
@@ -172,6 +174,19 @@ func testPutGet(db database.Database, t *testing.T) {
 			t.Fatalf("got deleted value %q", v)
 		}
 	}
+
+	// test batch
+
+	// for _, v := range test_values {
+	// 	err := batch.Delete([]byte(v))
+	// 	if err != nil {
+	// 		t.Fatalf("batch delete %q failed: %v", v, err)
+	// 	}
+	// }
+	// err = batch.Write()
+	// if err != nil {
+	// 	t.Fatal("batch delete %q failed")
+	// }
 }
 
 func TestLDB_ParallelPutGet(t *testing.T) {

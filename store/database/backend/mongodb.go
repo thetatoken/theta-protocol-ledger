@@ -83,7 +83,7 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 // Delete deletes the key from the database
 func (db *MongoDatabase) Delete(key []byte) error {
 	filter := bson.NewDocument(bson.EC.Binary(Id, key))
-	_, err := db.collection.DeleteMany(nil, filter)
+	_, err := db.collection.DeleteOne(nil, filter)
 	return err
 }
 
@@ -97,5 +97,48 @@ func (db *MongoDatabase) Close() {
 }
 
 func (db *MongoDatabase) NewBatch() database.Batch {
+	return &mdbBatch{db: db, collection: db.collection, puts: []Document{}, deletes: []*bson.Value{}}
+}
+
+type mdbBatch struct {
+	db         *MongoDatabase
+	collection *mongo.Collection
+	puts       []Document
+	deletes    []*bson.Value
+	size       int
+}
+
+func (b *mdbBatch) Put(key, value []byte) error {
+	b.puts = append(b.puts, Document{Key: key, Value: value})
+	b.size += len(value)
 	return nil
+}
+
+func (b *mdbBatch) Delete(key []byte) error {
+	b.deletes = append(b.deletes, bson.VC.Binary(key))
+	b.size++
+	return nil
+}
+
+func (b *mdbBatch) Write() error {
+	for _, doc := range b.puts {
+		err := b.db.Put(doc.Key, doc.Value)
+		if err != nil {
+			return err
+		}
+	}
+
+	filter := bson.NewDocument(bson.EC.SubDocumentFromElements(Id, bson.EC.ArrayFromElements("$in", b.deletes...)))
+	_, err := b.collection.DeleteMany(nil, filter)
+	return err
+}
+
+func (b *mdbBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *mdbBatch) Reset() {
+	b.puts = nil
+	b.deletes = nil
+	b.size = 0
 }

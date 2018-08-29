@@ -42,9 +42,9 @@ func NewMgoDatabase() (*MgoDatabase, error) {
 
 // Put puts the given key / value to the database
 func (db *MgoDatabase) Put(key []byte, value []byte) error {
-	filter := bson.M{Id: key}
-	updator := bson.M{"$set": bson.M{Value: value}}
-	_, err := db.collection.Upsert(filter, updator)
+	selector := bson.M{Id: key}
+	update := bson.M{"$set": bson.M{Value: value}}
+	_, err := db.collection.Upsert(selector, update)
 	return err
 }
 
@@ -76,5 +76,43 @@ func (db *MgoDatabase) Close() {
 }
 
 func (db *MgoDatabase) NewBatch() database.Batch {
+	batch := &mgodbBatch{collection: db.collection, b: db.collection.Bulk()}
+	batch.b.Unordered()
+	return batch
+}
+
+type mgodbBatch struct {
+	collection *mgo.Collection
+	b          *mgo.Bulk
+	size       int
+}
+
+func (b *mgodbBatch) Put(key, value []byte) error {
+	selector := bson.M{Id: key}
+	update := bson.M{"$set": bson.M{Value: value}}
+	b.b.Upsert(selector, update)
+	b.size += len(value)
 	return nil
+}
+
+func (b *mgodbBatch) Delete(key []byte) error {
+	selector := bson.M{Id: key}
+	b.b.Remove(selector)
+	b.size++
+	return nil
+}
+
+func (b *mgodbBatch) Write() error {
+	_, err := b.b.Run()
+	return err
+}
+
+func (b *mgodbBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *mgodbBatch) Reset() {
+	b.b = b.collection.Bulk()
+	b.b.Unordered()
+	b.size = 0
 }
