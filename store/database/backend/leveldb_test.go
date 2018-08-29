@@ -176,17 +176,78 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 
 	// test batch
+	for _, v := range test_values {
+		err := batch.Put([]byte(v), nil)
+		if err != nil {
+			t.Fatalf("batch put %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch write %q failed")
+	}
 
-	// for _, v := range test_values {
-	// 	err := batch.Delete([]byte(v))
-	// 	if err != nil {
-	// 		t.Fatalf("batch delete %q failed: %v", v, err)
-	// 	}
-	// }
-	// err = batch.Write()
-	// if err != nil {
-	// 	t.Fatal("batch delete %q failed")
-	// }
+	for _, v := range test_values {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if !has {
+			t.Fatalf("can't find %v", v)
+		}
+	}
+
+	for _, k := range test_values {
+		data, err := db.Get([]byte(k))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(data) != 0 {
+			t.Fatalf("get returned wrong result, got %q expected nil", string(data))
+		}
+	}
+
+	for _, v := range test_values {
+		err := batch.Put([]byte(v), []byte(v))
+		if err != nil {
+			t.Fatalf("batch put %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch write %q failed")
+	}
+
+	for _, v := range test_values {
+		data, err := db.Get([]byte(v))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if !bytes.Equal(data, []byte(v)) {
+			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+	}
+
+	for _, v := range test_values {
+		err := batch.Delete([]byte(v))
+		if err != nil {
+			t.Fatalf("batch delete %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch delete %q failed")
+	}
+
+	for _, v := range test_values {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if has {
+			t.Fatalf("find deleted %v", v)
+		}
+	}
 }
 
 func TestLDB_ParallelPutGet(t *testing.T) {

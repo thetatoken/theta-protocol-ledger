@@ -121,15 +121,24 @@ func (b *mdbBatch) Delete(key []byte) error {
 }
 
 func (b *mdbBatch) Write() error {
-	for _, doc := range b.puts {
-		err := b.db.Put(doc.Key, doc.Value)
-		if err != nil {
-			return err
-		}
+	numPuts := len(b.puts)
+	semPuts := make(chan bool, numPuts)
+	for i, _ := range b.puts {
+		go func(i int) {
+			doc := b.puts[i]
+			b.db.Put(doc.Key, doc.Value)
+			semPuts <- true
+		}(i)
+	}
+	for j := 0; j < numPuts; j++ {
+		<-semPuts
 	}
 
 	filter := bson.NewDocument(bson.EC.SubDocumentFromElements(Id, bson.EC.ArrayFromElements("$in", b.deletes...)))
 	_, err := b.collection.DeleteMany(nil, filter)
+
+	b.Reset()
+
 	return err
 }
 

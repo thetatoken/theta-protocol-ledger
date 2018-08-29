@@ -104,6 +104,7 @@ func (b *mgodbBatch) Delete(key []byte) error {
 
 func (b *mgodbBatch) Write() error {
 	_, err := b.b.Run()
+	b.Reset()
 	return err
 }
 
