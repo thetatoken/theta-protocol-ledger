@@ -33,24 +33,30 @@ type SyncManager struct {
 	stopped bool
 
 	mu       *sync.Mutex
-	incoming chan interface{}
+	incoming chan *Message
 	epoch    uint32
 }
 
+// Message represents an item to be process in queue. It allows us to save peerID with the message to be processed later.
+type Message struct {
+	peerID string
+	data   interface{}
+}
+
 func NewSyncManager(chain *blockchain.Chain, consensus consensus.Engine) *SyncManager {
-	return &SyncManager{
+	sm := &SyncManager{
 		chain:           chain,
 		consensus:       consensus,
-		requestMgr:      NewRequestManager(),
 		orphanBlockPool: NewOrphanBlockPool(),
 		orphanCCPool:    NewOrphanCCPool(),
 
 		wg: &sync.WaitGroup{},
 
 		mu:       &sync.Mutex{},
-		incoming: make(chan interface{}, viper.GetInt(common.CfgSyncMessageQueueSize)),
+		incoming: make(chan *Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 	}
-
+	sm.requestMgr = NewRequestManager(sm)
+	return sm
 }
 
 func (sm *SyncManager) Start(ctx context.Context) {
@@ -106,23 +112,45 @@ func (sm *SyncManager) ParseMessage(channelID common.ChannelIDEnum,
 
 // HandleMessage implements p2p.MessageHandler interface.
 func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) {
-	sm.incoming <- msg.Content
+	sm.AddMessage(&Message{peerID: peerID, data: msg.Content})
 }
 
-func (sm *SyncManager) processMessage(msg interface{}) {
-	switch m := msg.(type) {
-	case consensus.Proposal:
-		sm.handleProposal(&m)
-	case blockchain.Block:
-		sm.handleBlock(&m)
-	case blockchain.CommitCertificate:
-		sm.handleCC(&m)
-	case dispatcher.InventoryResponse:
-		sm.handleInvResponse(&m)
+func (sm *SyncManager) AddMessage(msg *Message) {
+	sm.incoming <- msg
+}
+
+func (sm *SyncManager) AddData(data interface{}) {
+	sm.AddMessage(&Message{data: data})
+}
+
+func (sm *SyncManager) processMessage(message *Message) {
+	switch m := message.data.(type) {
+	// Messages needed for fast-sync.
 	case dispatcher.InventoryRequest:
-		sm.handleInvRequest(&m)
+		sm.requestMgr.handleInvRequest(message.peerID, &m)
+	case dispatcher.InventoryResponse:
+		sm.requestMgr.handleInvResponse(message.peerID, &m)
+	case dispatcher.DataRequest:
+		sm.requestMgr.handleDataRequest(message.peerID, &m)
+	case dispatcher.DataResponse:
+		sm.requestMgr.handleDataResponse(message.peerID, &m)
 	default:
-		sm.consensus.AddMessage(m)
+		sm.processData(message.data)
+	}
+}
+
+func (sm *SyncManager) processData(data interface{}) {
+	switch d := data.(type) {
+	// Messages need to be preprocessed.
+	case consensus.Proposal:
+		sm.handleProposal(&d)
+	case blockchain.Block:
+		sm.handleBlock(&d)
+	case blockchain.CommitCertificate:
+		sm.handleCC(&d)
+	default:
+		// Other messages are passed through to consensus engine.
+		sm.consensus.AddMessage(d)
 	}
 }
 
@@ -136,7 +164,7 @@ func (sm *SyncManager) handleProposal(p *consensus.Proposal) {
 func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 	if sm.chain.IsOrphan(block) {
 		sm.orphanBlockPool.Add(block)
-		sm.requestMgr.EnqueueBlocks(block.Hash)
+		sm.requestMgr.enqueueBlocks(block.Hash)
 		log.WithFields(log.Fields{"id": sm.consensus.ID(), "block.Hash": block.Hash}).Debug("Received orphaned block")
 		return
 	}
@@ -145,12 +173,12 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 	cc := sm.orphanCCPool.TryGetCCByBlockHash(block.Hash)
 	if cc != nil {
-		sm.processMessage(cc)
+		sm.processData(cc)
 	}
 
 	nextBlock := sm.orphanBlockPool.TryGetNextBlock(block.Hash)
 	if nextBlock != nil {
-		sm.processMessage(nextBlock)
+		sm.processData(nextBlock)
 	}
 }
 
@@ -158,15 +186,9 @@ func (sm *SyncManager) handleCC(cc *blockchain.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
 		log.WithFields(log.Fields{"id": sm.consensus.ID(), "cc.BlockHash": cc.BlockHash}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
-		sm.requestMgr.EnqueueBlocks(cc.BlockHash)
+		sm.requestMgr.enqueueBlocks(cc.BlockHash)
 		return
 	}
 
 	sm.consensus.AddMessage(cc)
 }
-
-func (sm *SyncManager) handleInvResponse(invResp *dispatcher.InventoryResponse) {
-	sm.requestMgr.handleInvResponse(invResp)
-}
-
-func (sm *SyncManager) handleInvRequest(invResp *dispatcher.InventoryRequest) {}

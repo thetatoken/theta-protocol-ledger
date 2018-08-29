@@ -211,7 +211,7 @@ func (e *DefaultEngine) handleBlock(block *blockchain.Block) {
 }
 
 func (e *DefaultEngine) tryVote() {
-	previousTip := e.getTip()
+	previousTip := e.GetTip()
 	tip := e.setTip()
 
 	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.lastVoteHeight >= tip.Height {
@@ -282,8 +282,8 @@ func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
 	return ret
 }
 
-// getTip return the block to be extended from.
-func (e *DefaultEngine) getTip() *blockchain.ExtendedBlock {
+// GetTip return the block to be extended from.
+func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
 	return e.tip
 }
 
@@ -346,7 +346,7 @@ func (e *DefaultEngine) shouldPropose(epoch uint32) bool {
 }
 
 func (e *DefaultEngine) propose() {
-	tip := e.getTip()
+	tip := e.GetTip()
 
 	block := blockchain.Block{}
 	block.ChainID = e.chain.ChainID

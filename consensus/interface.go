@@ -11,6 +11,7 @@ import (
 type Engine interface {
 	ID() string
 	Chain() *blockchain.Chain
+	GetTip() *blockchain.ExtendedBlock
 	Network() p2p.Network
 	AddMessage(msg interface{})
 	FinalizedBlocks() chan *blockchain.Block
