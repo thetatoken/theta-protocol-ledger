@@ -13,3 +13,7 @@ import:
   version: ^1.34.1
 - package: gopkg.in/mgo.v2
 - package: github.com/yuin/gopher-lua
+- package: github.com/aerospike/aerospike-client-go
+  version: ^1.34.1
+- package: github.com/mongodb/mongo-go-driver
+  version: ^0.0.12
