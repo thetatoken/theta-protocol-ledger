@@ -23,6 +23,7 @@ var _ p2p.MessageHandler = (*SyncManager)(nil)
 type SyncManager struct {
 	chain           *blockchain.Chain
 	consensus       consensus.Engine
+	dispatcher      *dispatcher.Dispatcher
 	requestMgr      *RequestManager
 	orphanBlockPool *OrphanBlockPool
 	orphanCCPool    *OrphanCCPool
@@ -43,10 +44,11 @@ type Message struct {
 	data   interface{}
 }
 
-func NewSyncManager(chain *blockchain.Chain, consensus consensus.Engine) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
 	sm := &SyncManager{
 		chain:           chain,
-		consensus:       consensus,
+		consensus:       cons,
+		dispatcher:      disp,
 		orphanBlockPool: NewOrphanBlockPool(),
 		orphanCCPool:    NewOrphanCCPool(),
 
@@ -56,6 +58,7 @@ func NewSyncManager(chain *blockchain.Chain, consensus consensus.Engine) *SyncMa
 		incoming: make(chan *Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 	}
 	sm.requestMgr = NewRequestManager(sm)
+	network.AddMessageHandler(sm)
 	return sm
 }
 

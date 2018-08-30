@@ -7,6 +7,9 @@ import (
 )
 
 const (
+	// CfgChainID defines the chain ID.
+	CfgChainID = "chain.ID"
+
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
@@ -26,6 +29,8 @@ const (
 )
 
 func init() {
+	viper.SetDefault(CfgChainID, "localchain")
+
 	viper.SetDefault(CfgConsensusMaxEpochLength, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 

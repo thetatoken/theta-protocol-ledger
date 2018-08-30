@@ -95,7 +95,7 @@ func (e *DefaultEngine) Network() p2p.Network {
 	return e.network
 }
 
-// Start is the main event loop.
+// Start starts sub components and kick off the main loop.
 func (e *DefaultEngine) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)
 	e.ctx = c

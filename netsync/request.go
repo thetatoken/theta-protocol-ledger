@@ -26,7 +26,7 @@ func (rm *RequestManager) enqueueBlocks(endHash common.Bytes) {
 	tip := rm.syncMgr.consensus.GetTip()
 	req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
 	// Fixme: since we are broadcasting GetInventory, we might be downloading blocks from multple peers later. Need to fix this.
-	dispatcher.GetDispatcher().GetInventory([]string{}, req)
+	rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 }
 
 func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
@@ -67,7 +67,7 @@ func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.Invent
 			}
 		}
 		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
-		dispatcher.GetDispatcher().SendInventory([]string{peerID}, resp)
+		rm.syncMgr.dispatcher.SendInventory([]string{peerID}, resp)
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": req.ChannelID}).Error("Unsupported channelID in received InvRequest")
 	}
@@ -91,7 +91,7 @@ func (rm *RequestManager) handleInvResponse(peerID string, resp *dispatcher.Inve
 				ChannelID: common.ChannelIDBlock,
 				Entries:   []string{hashStr},
 			}
-			dispatcher.GetDispatcher().GetData([]string{peerID}, request)
+			rm.syncMgr.dispatcher.GetData([]string{peerID}, request)
 		}
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": resp.ChannelID}).Error("Unsupported channelID in received InvRequest")
@@ -118,7 +118,7 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				return
 			}
 			dataResp := dispatcher.DataResponse{ChannelID: common.ChannelIDBlock, Payload: blockBytes}
-			dispatcher.GetDispatcher().SendData([]string{peerID}, dataResp)
+			rm.syncMgr.dispatcher.SendData([]string{peerID}, dataResp)
 		}
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID}).Error("Unsupported channelID in received DataRequest")
