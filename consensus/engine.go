@@ -38,6 +38,7 @@ type DefaultEngine struct {
 
 	// TODO: persist state
 	// Consensus state
+	mu                 *sync.Mutex
 	highestCCBlock     *blockchain.ExtendedBlock
 	lastFinalizedBlock *blockchain.ExtendedBlock
 	tip                *blockchain.ExtendedBlock
@@ -62,6 +63,7 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		wg:   &sync.WaitGroup{},
 		quit: make(chan struct{}),
 
+		mu:                 &sync.Mutex{},
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
@@ -277,13 +279,19 @@ func (e *DefaultEngine) handleVote(vote blockchain.Vote) {
 // setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
 func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
-	ret, _ := e.highestCCBlock.FindDeepestDescendant()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	ret, _ := e.Chain().FindDeepestDescendant(e.highestCCBlock.Hash)
 	e.tip = ret
 	return ret
 }
 
 // GetTip return the block to be extended from.
 func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	return e.tip
 }
 
@@ -301,8 +309,13 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 		e.highestCCBlock = ccBlock
 	}
 
-	if ccBlock.Parent.CommitCertificate != nil {
-		e.finalizeBlock(ccBlock.Parent)
+	parent, err := e.Chain().FindBlock(ccBlock.Parent)
+	if err != nil {
+		log.WithFields(log.Fields{"id": e.ID(), "err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
+		return
+	}
+	if parent.CommitCertificate != nil {
+		e.finalizeBlock(parent)
 	}
 
 	if ccBlock.Epoch >= e.epoch {

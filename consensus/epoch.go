@@ -89,11 +89,10 @@ func (m *EpochManager) mainLoop() {
 			m.mu.Unlock()
 			return
 		case <-m.reset:
-			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch}).Debug("Proactively moved to new epoch")
 			m.resetTimer()
 		case <-m.ticker.C:
-			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": m.epoch + 1}).Debug("Timed out. Moving to new epoch")
 			m.mu.Lock()
+			log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch, "newEpoch": m.epoch + 1}).Debug("Timed out. Moving to new epoch")
 			m.epoch++
 			m.resetTimer()
 			m.mu.Unlock()
@@ -111,6 +110,8 @@ func (m *EpochManager) SetEpoch(epoch uint32) {
 		return
 	}
 	m.epoch = epoch
+	log.WithFields(log.Fields{"id": m.e.ID(), "m.epoch": m.epoch}).Debug("Proactively moved to new epoch")
+
 	select {
 	case m.reset <- epoch:
 	default:

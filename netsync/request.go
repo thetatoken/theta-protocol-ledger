@@ -59,8 +59,11 @@ func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.Invent
 			}
 
 			// Fixme: should we only send blocks on the finalized branch?
-			curr = block.Children[0].Hash
-
+			curr = block.Children[0]
+			if err != nil {
+				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "err": err, "hash": curr}).Error("Failed to load block")
+				return
+			}
 			if bytes.Compare(curr, end) == 0 {
 				blocks = append(blocks, hex.EncodeToString(end))
 				break
