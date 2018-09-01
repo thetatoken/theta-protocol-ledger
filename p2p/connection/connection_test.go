@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
@@ -147,33 +148,142 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 		return nil
 	}
 
+	numMessages := 1
 	go func(port int, origNodeInfo p2ptypes.NodeInfo) {
 		netconn := getNetconn(port)
-		cfgA := GetDefaultConnectionConfig()
-		connA := CreateConnection(netconn, cfgA)
-		connA.OnStart()
-		assert.True(connA.EnqueueMessage(common.ChannelIDTransaction, origNodeInfo))
+		cfg := GetDefaultConnectionConfig()
+		conn := CreateConnection(netconn, cfg)
+		conn.OnStart()
+		//defer conn.OnStop()
+		numMsgSent := 0
+		for {
+			if conn.CanEnqueueMessage(common.ChannelIDTransaction) {
+				assert.True(conn.EnqueueMessage(common.ChannelIDTransaction, origNodeInfo))
+				numMsgSent++
+			}
+			if numMsgSent >= numMessages {
+				break
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}(port, origNodeInfo)
+
+	matched := make(chan bool)
+	go func() {
+		listener := getListener(port)
+		netconn, err := listener.Accept()
+		assert.Nil(err)
+		defer netconn.Close()
+
+		for {
+			if len(matched) >= numMessages {
+				break
+			}
+
+			var packet Packet
+			err = rlp.Decode(netconn, &packet)
+			if err != nil {
+				matched <- false
+				continue
+			}
+
+			if (common.ChannelIDTransaction != packet.ChannelID) || packet.IsEOF != byte(0x01) {
+				matched <- false
+				continue
+			}
+
+			message, err := basicMessageParser(packet.ChannelID, packet.Bytes)
+			if err != nil {
+				matched <- false
+				continue
+			}
+
+			err = basicReceiveHandler(message)
+			if err != nil {
+				matched <- false
+				continue
+			}
+
+			matched <- true
+
+			t.Logf("origNodeInfo.Address:     %v", origNodeInfo.Address)
+			t.Logf("packet.ChannelID: %v", packet.ChannelID)
+			t.Logf("packet.Bytes: %v", string(packet.Bytes[:]))
+			t.Logf("packet.IsEOF: %v", packet.IsEOF)
+		}
+	}()
+
+	for i := 0; i < numMessages; i++ {
+		resultMatched := <-matched
+		assert.True(resultMatched)
+	}
+}
+
+func TestConnectionRecvNodeInfo(t *testing.T) {
+	assert := assert.New(t)
+	port := 43255
+
+	randPrivKey, err := crypto.GenerateKey()
+	origNodeInfo := p2ptypes.CreateNodeInfo(randPrivKey.PublicKey)
+	assert.Nil(err)
+
+	basicMessageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+		message := p2ptypes.Message{
+			ChannelID: channelID,
+			Content:   rawMessageBytes,
+		}
+		return message, nil
+	}
+
+	matched := make(chan bool)
+	basicReceiveHandler := func(message p2ptypes.Message) error {
+		t.Logf("Received channelID: %v", message.ChannelID)
+		t.Logf("Received bytes: %v", message.Content)
+		receivedBytes := (message.Content).(common.Bytes)
+		var receivedNodeInfo p2ptypes.NodeInfo
+		err := rlp.DecodeBytes(receivedBytes, &receivedNodeInfo)
+		assert.Nil(err)
+
+		t.Logf("origNodeInfo.Address:     %v", origNodeInfo.Address)
+		t.Logf("receivedNodeInfo.Address: %v", receivedNodeInfo.Address)
+		if origNodeInfo.Address != receivedNodeInfo.Address {
+			matched <- false
+			return errors.New("mismatch")
+		}
+		matched <- true
+		return nil
+	}
+
+	numMessages := 8
+	go func(port int, origNodeInfo p2ptypes.NodeInfo) {
+		netconn := getNetconn(port)
+		msgBytes, err := rlp.EncodeToBytes(origNodeInfo)
+		assert.Nil(err)
+		packet := Packet{
+			ChannelID: common.ChannelIDTransaction,
+			Bytes:     msgBytes,
+			IsEOF:     byte(0x01),
+		}
+		packetBytes, err := rlp.EncodeToBytes(packet)
+		assert.Nil(err)
+		for i := 0; i < numMessages; i++ {
+			netconn.Write(packetBytes)
+		}
 	}(port, origNodeInfo)
 
 	listener := getListener(port)
 	netconn, err := listener.Accept()
 	assert.Nil(err)
-	defer netconn.Close()
 
-	var packet Packet
-	err = rlp.Decode(netconn, &packet)
-	assert.Nil(err)
+	cfg := GetDefaultConnectionConfig()
+	conn := CreateConnection(netconn, cfg)
+	conn.SetMessageParser(basicMessageParser)
+	conn.SetReceiveHandler(basicReceiveHandler)
+	conn.OnStart()
+	defer conn.OnStop()
 
-	assert.Equal(common.ChannelIDTransaction, packet.ChannelID)
-	assert.Equal(byte(0x01), packet.IsEOF)
-	message, err := basicMessageParser(packet.ChannelID, packet.Bytes)
-	assert.Nil(err)
-	err = basicReceiveHandler(message)
-	assert.Nil(err)
-
-	t.Logf("origNodeInfo.Address:     %v", origNodeInfo.Address)
-
-	t.Logf("packet.ChannelID: %v", packet.ChannelID)
-	t.Logf("packet.Bytes: %v", string(packet.Bytes[:]))
-	t.Logf("packet.IsEOF: %v", packet.IsEOF)
+	for i := 0; i < numMessages; i++ {
+		resultMatched := <-matched
+		assert.True(resultMatched)
+	}
 }
