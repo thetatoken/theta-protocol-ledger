@@ -42,11 +42,5 @@ func init() {
 
 	viper.SetDefault(CfgLogDebug, false)
 
-	viper.SetConfigName("config")
-	viper.AddConfigPath(".")
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.WithFields(log.Fields{"error": err}).Warn("No config file is loaded")
-	}
 	log.SetLevel(log.DebugLevel)
 }
