@@ -373,4 +373,7 @@ const (
 
 	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
 	ChannelIDPeerDiscovery ChannelIDEnum = 6
+
+	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
+	ChannelIDPing ChannelIDEnum = 7
 )

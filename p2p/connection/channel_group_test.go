@@ -25,18 +25,18 @@ func TestDefaultChannelGroupAddChannel(t *testing.T) {
 	cg := newTestEmptyChannelGroup()
 	assert.Equal(uint(0), cg.getTotalNumChannels())
 
-	ch1 := newTestDefaultChannel(common.ChannelIDCheckpoint)
+	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
 	success := cg.addChannel(&ch1)
 	assert.True(success)
 	assert.Equal(uint(1), cg.getTotalNumChannels())
 	assert.True(cg.channelExists(ch1.getID()))
 	assert.Equal(&ch1, cg.getChannel(ch1.getID()))
 
-	ch1a := newTestDefaultChannel(common.ChannelIDCheckpoint)
+	ch1a := createDefaultChannel(common.ChannelIDCheckpoint)
 	success = cg.addChannel(&ch1a)
 	assert.False(success) // cannot add two channels with the same ChannelID
 
-	ch2 := newTestDefaultChannel(common.ChannelIDHeader)
+	ch2 := createDefaultChannel(common.ChannelIDHeader)
 	success = cg.addChannel(&ch2)
 	assert.True(success)
 	assert.Equal(uint(2), cg.getTotalNumChannels())
@@ -50,9 +50,9 @@ func TestDefaultChannelGroupDeleteChannel(t *testing.T) {
 	cg := newTestEmptyChannelGroup()
 	assert.Equal(uint(0), cg.getTotalNumChannels())
 
-	ch1 := newTestDefaultChannel(common.ChannelIDCheckpoint)
-	ch2 := newTestDefaultChannel(common.ChannelIDHeader)
-	ch3 := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
+	ch2 := createDefaultChannel(common.ChannelIDHeader)
+	ch3 := createDefaultChannel(common.ChannelIDTransaction)
 
 	assert.True(cg.addChannel(&ch1))
 	assert.Equal(uint(1), cg.getTotalNumChannels())
@@ -81,12 +81,12 @@ func TestDefaultChannelIterationOrder(t *testing.T) {
 
 	cg := newTestEmptyChannelGroup()
 
-	ch1 := newTestDefaultChannel(common.ChannelIDCheckpoint)
-	ch2 := newTestDefaultChannel(common.ChannelIDHeader)
-	ch3 := newTestDefaultChannel(common.ChannelIDTransaction)
-	ch4 := newTestDefaultChannel(common.ChannelIDBlock)
-	ch5 := newTestDefaultChannel(common.ChannelIDVote)
-	ch6 := newTestDefaultChannel(common.ChannelIDPeerDiscovery)
+	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
+	ch2 := createDefaultChannel(common.ChannelIDHeader)
+	ch3 := createDefaultChannel(common.ChannelIDTransaction)
+	ch4 := createDefaultChannel(common.ChannelIDBlock)
+	ch5 := createDefaultChannel(common.ChannelIDVote)
+	ch6 := createDefaultChannel(common.ChannelIDPeerDiscovery)
 
 	assert.True(cg.addChannel(&ch1))
 	assert.True(cg.addChannel(&ch2))
@@ -133,11 +133,11 @@ func TestRoundRobinChannelSelector1(t *testing.T) {
 
 	cg := newTestEmptyChannelGroup()
 
-	ch1 := newTestDefaultChannel(common.ChannelIDCheckpoint)
-	ch2 := newTestDefaultChannel(common.ChannelIDHeader)
-	ch3 := newTestDefaultChannel(common.ChannelIDBlock)
-	ch4 := newTestDefaultChannel(common.ChannelIDVote)
-	ch5 := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
+	ch2 := createDefaultChannel(common.ChannelIDHeader)
+	ch3 := createDefaultChannel(common.ChannelIDBlock)
+	ch4 := createDefaultChannel(common.ChannelIDVote)
+	ch5 := createDefaultChannel(common.ChannelIDTransaction)
 
 	assert.True(cg.addChannel(&ch1))
 	assert.True(cg.addChannel(&ch2))
@@ -174,11 +174,11 @@ func TestRoundRobinChannelSelector2(t *testing.T) {
 	cg := newTestEmptyChannelGroup()
 	strBuf := bytes.NewBufferString("")
 
-	ch1 := newTestDefaultChannel(common.ChannelIDCheckpoint)
-	ch2 := newTestDefaultChannel(common.ChannelIDHeader)
-	ch3 := newTestDefaultChannel(common.ChannelIDBlock)
-	ch4 := newTestDefaultChannel(common.ChannelIDVote)
-	ch5 := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
+	ch2 := createDefaultChannel(common.ChannelIDHeader)
+	ch3 := createDefaultChannel(common.ChannelIDBlock)
+	ch4 := createDefaultChannel(common.ChannelIDVote)
+	ch5 := createDefaultChannel(common.ChannelIDTransaction)
 
 	assert.True(cg.addChannel(&ch1))
 	assert.True(cg.addChannel(&ch2))

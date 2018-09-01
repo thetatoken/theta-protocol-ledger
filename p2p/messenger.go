@@ -99,7 +99,7 @@ func (msgr *Messenger) AddMessageHandler(msgHandler *MessageHandler) bool {
 
 // ID returns the ID of the current node
 func (msgr *Messenger) ID() string {
-	return msgr.nodeInfo.GetAddress()
+	return msgr.nodeInfo.Address
 }
 
 // AttachMessageHandlerToPeer attaches the approporiate message handler to the given peer
@@ -114,14 +114,15 @@ func (msgr *Messenger) AttachMessageHandlerToPeer(peer *pr.Peer) {
 	}
 	peer.GetConnection().SetMessageParser(messageParser)
 
-	receiveHandler := func(message p2ptypes.Message) {
+	receiveHandler := func(message p2ptypes.Message) error {
 		channelID := message.ChannelID
 		msgHandler := msgr.msgHandlerMap[channelID]
 		if msgHandler == nil {
 			log.Errorf("[p2p] Failed to setup message handler for channelID %v", channelID)
 		}
 		peerID := peer.ID()
-		(*msgHandler).HandleMessage(peerID, message)
+		err := (*msgHandler).HandleMessage(peerID, message)
+		return err
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 

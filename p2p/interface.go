@@ -17,7 +17,7 @@ type MessageHandler interface {
 	ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
 
 	// HandleMessage handles the message received from the peer with peerID
-	HandleMessage(peerID string, message types.Message)
+	HandleMessage(peerID string, message types.Message) error
 }
 
 //

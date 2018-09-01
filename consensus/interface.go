@@ -14,6 +14,6 @@ type Engine interface {
 	Chain() *blockchain.Chain
 	Network() p2p.Network
 	Start(ctx context.Context)
-	HandleMessage(peerID string, msg p2ptypes.Message)
+	HandleMessage(peerID string, msg p2ptypes.Message) error
 	FinalizedBlocks() chan *blockchain.Block
 }

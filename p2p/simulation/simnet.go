@@ -150,11 +150,12 @@ func (se *SimnetEndpoint) ID() string {
 }
 
 // HandleMessage implements the MessageHandler interface.
-func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) {
+func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) error {
 	for _, handler := range se.handlers {
 		handler.HandleMessage(peerID, message)
 	}
 	if se.network.msgHandler != nil {
 		se.network.msgHandler.HandleMessage(peerID, message)
 	}
+	return nil
 }

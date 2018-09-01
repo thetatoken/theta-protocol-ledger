@@ -146,8 +146,9 @@ func (e *DefaultEngine) ParseMessage(channelID common.ChannelIDEnum,
 }
 
 // HandleMessage implements p2p.MessageHandler interface.
-func (e *DefaultEngine) HandleMessage(peerID string, msg p2ptypes.Message) {
+func (e *DefaultEngine) HandleMessage(peerID string, msg p2ptypes.Message) error {
 	e.incoming <- msg.Content
+	return nil
 }
 
 func (e *DefaultEngine) handleProposal(proposal Proposal) {
