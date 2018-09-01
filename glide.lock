@@ -1,8 +1,8 @@
-hash: 660c61b12de584877f7b4d269c9fac9239c66524305b6cfd1f6d43c57c935c0e
-updated: 2018-08-26T17:32:22.351108041-07:00
+hash: 39d0bde9507c127ff992a7788ef8aa1ac56058c95300dfbb38b3edb625e8ed67
+updated: 2018-09-01T10:39:32.497882453-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
-  version: 1217472956468973eac546b0f69430e81c7ef811
+  version: 8fc2a8c6a5dd5be93117c4bf1ba921e78a8dfab0
   subpackages:
   - internal/lua
   - internal/lua/resources
@@ -37,20 +37,25 @@ imports:
   subpackages:
   - hcl/ast
   - hcl/parser
+  - hcl/printer
   - hcl/scanner
   - hcl/strconv
   - hcl/token
   - json/parser
   - json/scanner
   - json/token
+- name: github.com/inconshreveable/mousetrap
+  version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/influxdata/influxdb
-  version: 5766854b95ae86cccf6cc8ffe4c5bb9eacc994b8
+  version: 7adf7f9d14ef38517d4bb19301b7f8d9a26d19dd
   subpackages:
   - client
   - models
   - pkg/escape
 - name: github.com/magiconair/properties
   version: 51463bfca2576e06c62a8504b5c0f06d61312647
+- name: github.com/mitchellh/go-homedir
+  version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 - name: github.com/mitchellh/mapstructure
   version: cc8532a8e9a55ea36402aa21efdf403a60d34096
 - name: github.com/mongodb/mongo-go-driver
@@ -124,12 +129,16 @@ imports:
   - mem
 - name: github.com/spf13/cast
   version: acbeb36b902d72a7a4c18e8f3241075e7ab763e4
+- name: github.com/spf13/cobra
+  version: ef82de70bb3f60c65fb8eebacbb2d122ef517385
+  subpackages:
+  - cobra
 - name: github.com/spf13/jwalterweatherman
   version: 8f07c835e5cc1450c082fe3a439cf87b0cbb2d99
 - name: github.com/spf13/pflag
-  version: e57e3eeb33f795204c1ca35f56c44f83227c6e66
+  version: 9a97c102cda95a86cec2345a6f09f55a939babf5
 - name: github.com/spf13/viper
-  version: 0967fc9aceab2ce9da34061253ac10fb99bba5b2
+  version: 907c19d40d9a6c9bb55f040ff4ae45271a4754b9
 - name: github.com/stretchr/testify
   version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:
