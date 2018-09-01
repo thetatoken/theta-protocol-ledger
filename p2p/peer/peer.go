@@ -88,7 +88,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
-		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), *sourceNodeInfo) },
+		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), sourceNodeInfo) },
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), &targetPeerNodeInfo) },
 	)
 	if sendError != nil {

@@ -35,6 +35,7 @@ func TestDefaultChannelGroupAddChannel(t *testing.T) {
 	ch1a := createDefaultChannel(common.ChannelIDCheckpoint)
 	success = cg.addChannel(&ch1a)
 	assert.False(success) // cannot add two channels with the same ChannelID
+	assert.Equal(uint(1), cg.getTotalNumChannels())
 
 	ch2 := createDefaultChannel(common.ChannelIDHeader)
 	success = cg.addChannel(&ch2)
