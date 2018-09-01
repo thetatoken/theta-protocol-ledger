@@ -36,7 +36,7 @@ func TestBlockchain(t *testing.T) {
 	_, err = chain.AddBlock(c1)
 	assert.Nil(err)
 
-	AssertChainsEqual(assert, expected.Root, chain.Root)
+	AssertChainsEqual(assert, expected, expected.Root.Hash, chain, chain.Root.Hash)
 }
 
 func TestBlockchainDeepestDescendant(t *testing.T) {
@@ -48,7 +48,7 @@ func TestBlockchainDeepestDescendant(t *testing.T) {
 		"b3", "b2",
 		"c1", "a0"})
 
-	ret, depth := ch.Root.FindDeepestDescendant()
+	ret, depth := ch.FindDeepestDescendant(ch.Root.Hash)
 	assert.True(bytes.Equal(ParseHex("b3"), ret.Hash), "Expected deepest block: %v, actual: %v", ParseHex("b3"), ret.Hash)
 	assert.Equal(3, depth)
 }

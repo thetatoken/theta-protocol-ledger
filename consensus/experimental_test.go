@@ -4,18 +4,16 @@ package consensus
 
 import (
 	"context"
-	"fmt"
 	"math/rand"
 	"testing"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/p2p"
+	p2p "github.com/thetatoken/ukulele/p2p/simulation"
 )
 
 type RandomProposerStrategy struct {
@@ -57,33 +55,7 @@ func TestConsensusRandomProposers(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	simnet.Start()
-
-	for _, node := range nodes {
-		node.Start(context.Background())
-	}
-
-	log.Info("Start sleeping")
-	time.Sleep(20 * time.Second)
-	log.Info("End sleeping")
-
-	// Verify safety by checking finalized blocks for each replica.
-	longestFinalizedBlocks := []string{}
-	longest := -1
-	for i, node := range nodes {
-		finalizedBlocks := GetFinalizedBlocks(node.FinalizedBlocks())
-		if i != 0 {
-			AssertFinalizedBlocksNotConflicting(assert, longestFinalizedBlocks, finalizedBlocks, fmt.Sprintf("Comparing %v with %v", nodes[longest].ID(), nodes[i].ID()))
-		}
-
-		// Verify liveness.
-		assert.True(len(finalizedBlocks) > 100, fmt.Sprintf("len(finalizedBlocks) should > 100: %v, %v", len(finalizedBlocks), finalizedBlocks))
-
-		if len(finalizedBlocks) > len(longestFinalizedBlocks) {
-			longestFinalizedBlocks = finalizedBlocks
-			longest = i
-		}
-	}
+	testConsensus(assert, simnet, nodes, 20*time.Second, 100)
 }
 
 type CompetingProposerStrategy struct {
@@ -91,7 +63,7 @@ type CompetingProposerStrategy struct {
 }
 
 func (s *CompetingProposerStrategy) Start(ctx context.Context) {
-	ticker := time.NewTicker(time.Duration(viper.GetInt(common.CfgConsesusMaxEpochLength)) * time.Second)
+	ticker := time.NewTicker(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
 	defer ticker.Stop()
 	for {
 		select {
@@ -126,31 +98,5 @@ func TestConsensusCompetingProposers(t *testing.T) {
 		nodes = append(nodes, node)
 	}
 
-	simnet.Start()
-
-	for _, node := range nodes {
-		node.Start(context.Background())
-	}
-
-	log.Info("Start sleeping")
-	time.Sleep(20 * time.Second)
-	log.Info("End sleeping")
-
-	// Verify safety by checking finalized blocks for each replica.
-	longestFinalizedBlocks := []string{}
-	longest := -1
-	for i, node := range nodes {
-		finalizedBlocks := GetFinalizedBlocks(node.FinalizedBlocks())
-		if i != 0 {
-			AssertFinalizedBlocksNotConflicting(assert, longestFinalizedBlocks, finalizedBlocks, fmt.Sprintf("Comparing %v with %v", nodes[longest].ID(), nodes[i].ID()))
-		}
-
-		// Verify liveness.
-		assert.True(len(finalizedBlocks) > 100, fmt.Sprintf("len(finalizedBlocks) should > 100: %v", finalizedBlocks))
-
-		if len(finalizedBlocks) > len(longestFinalizedBlocks) {
-			longestFinalizedBlocks = finalizedBlocks
-			longest = i
-		}
-	}
+	testConsensus(assert, simnet, nodes, 20*time.Second, 100)
 }

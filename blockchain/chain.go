@@ -3,6 +3,7 @@ package blockchain
 import (
 	"bytes"
 	"fmt"
+	"sync"
 
 	"github.com/pkg/errors"
 
@@ -14,8 +15,8 @@ import (
 type ExtendedBlock struct {
 	*Block
 	Height            uint32
-	Children          []*ExtendedBlock
-	Parent            *ExtendedBlock
+	Children          []common.Bytes
+	Parent            common.Bytes
 	CommitCertificate *CommitCertificate
 }
 
@@ -27,30 +28,15 @@ func (eb *ExtendedBlock) String() string {
 			children.WriteString(",")
 			start = false
 		}
-		children.WriteString(c.ShortString())
+		children.WriteString(c.String())
 	}
 	children.WriteString("]")
-	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, CC: %v}", eb.Block, eb.Parent.ShortString(), children, eb.CommitCertificate)
+	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, CC: %v}", eb.Block, eb.Parent.String(), children, eb.CommitCertificate)
 }
 
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash.String()
-}
-
-// FindDeepestDescendant finds the deepest descendant of given block.
-func (eb *ExtendedBlock) FindDeepestDescendant() (n *ExtendedBlock, depth int) {
-	// TODO: replace recursive implementation with stack-based implementation.
-	n = eb
-	depth = 0
-	for _, child := range eb.Children {
-		ret, retDepth := child.FindDeepestDescendant()
-		if retDepth+1 > depth {
-			n = ret
-			depth = retDepth + 1
-		}
-	}
-	return
 }
 
 // Chain represents the blockchain and also is the interface to underlying store.
@@ -59,18 +45,28 @@ type Chain struct {
 
 	ChainID string
 	Root    *ExtendedBlock
+
+	mu *sync.Mutex
 }
 
 // NewChain creates a new Chain instance.
 func NewChain(chainID string, store store.Store, root *Block) *Chain {
 	rootBlock := &ExtendedBlock{Block: root}
-	chain := &Chain{ChainID: chainID, store: store, Root: rootBlock}
+	chain := &Chain{
+		ChainID: chainID,
+		store:   store,
+		Root:    rootBlock,
+		mu:      &sync.Mutex{},
+	}
 	chain.SaveBlock(rootBlock)
 	return chain
 }
 
 // AddBlock adds a block to the chain and underlying store.
 func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
 	if block.ChainID != ch.ChainID {
 		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, ch.ChainID)
 	}
@@ -95,12 +91,35 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 	}
 
 	parentBlock := parentRaw.(*ExtendedBlock)
-	extendedBlock := &ExtendedBlock{Block: block, Parent: parentBlock, Height: parentBlock.Height + 1}
-	parentBlock.Children = append(parentBlock.Children, extendedBlock)
+	extendedBlock := &ExtendedBlock{Block: block, Parent: parentBlock.Hash, Height: parentBlock.Height + 1}
+	parentBlock.Children = append(parentBlock.Children, extendedBlock.Hash)
 	ch.SaveBlock(parentBlock)
 	ch.SaveBlock(extendedBlock)
 
 	return extendedBlock, nil
+}
+
+// FindDeepestDescendant finds the deepest descendant of given block.
+func (ch *Chain) FindDeepestDescendant(hash common.Bytes) (n *ExtendedBlock, depth int) {
+	// TODO: replace recursive implementation with stack-based implementation.
+	n, err := ch.FindBlock(hash)
+	if err != nil {
+		return nil, -1
+	}
+	depth = 0
+	for _, child := range n.Children {
+		ret, retDepth := ch.FindDeepestDescendant(child)
+		if retDepth+1 > depth {
+			n = ret
+			depth = retDepth + 1
+		}
+	}
+	return
+}
+
+func (ch *Chain) IsOrphan(block *Block) bool {
+	_, err := ch.store.Get(block.ParentHash)
+	return err != nil
 }
 
 // SaveBlock updates a previously stored block.
@@ -110,19 +129,32 @@ func (ch *Chain) SaveBlock(block *ExtendedBlock) {
 
 // FindBlock tries to retrieve a block by hash.
 func (ch *Chain) FindBlock(hash common.Bytes) (*ExtendedBlock, error) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
 	res, err := ch.store.Get(hash)
 	if err != nil {
 		return nil, err
 	}
 	block := res.(*ExtendedBlock)
-	return block, nil
+
+	// Returns a copy of the block.
+	ret := &ExtendedBlock{
+		Block:             block.Block,
+		Height:            block.Height,
+		Parent:            block.Parent,
+		Children:          make([]common.Bytes, len(block.Children)),
+		CommitCertificate: block.CommitCertificate,
+	}
+	copy(ret.Children, block.Children)
+	return ret, nil
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
 func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes) bool {
-	i := 0
+	const maxDistance = 50
 	hash := descendantHash
-	for i < 5 {
+	for i := 0; i < maxDistance; i++ {
 		if bytes.Compare(hash, ascendantHash) == 0 {
 			return true
 		}
@@ -132,7 +164,21 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 		}
 		currBlock := currBlockRaw.(*ExtendedBlock)
 		hash = currBlock.ParentHash
-		i++
 	}
 	return false
+}
+
+// PrintBranch return the string describing path from root to given leaf.
+func (ch *Chain) PrintBranch(hash common.Bytes) string {
+	ret := []string{}
+	for {
+		currBlockRaw, err := ch.store.Get(hash)
+		if err != nil {
+			break
+		}
+		currBlock := currBlockRaw.(*ExtendedBlock)
+		ret = append(ret, hash.String())
+		hash = currBlock.ParentHash
+	}
+	return fmt.Sprintf("%v", ret)
 }

@@ -365,15 +365,18 @@ const (
 	// ChannelIDBlock indicates the channel for Block
 	ChannelIDBlock ChannelIDEnum = 3
 
+	// ChannelIDCC indicates the channel for Commit Certificate
+	ChannelIDCC ChannelIDEnum = 4
+
 	// ChannelIDVote indicates the channel for Vote
-	ChannelIDVote ChannelIDEnum = 4
+	ChannelIDVote ChannelIDEnum = 5
 
 	// ChannelIDTransaction indicates the channel for Transaction
-	ChannelIDTransaction ChannelIDEnum = 5
+	ChannelIDTransaction ChannelIDEnum = 6
 
 	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
-	ChannelIDPeerDiscovery ChannelIDEnum = 6
+	ChannelIDPeerDiscovery ChannelIDEnum = 7
 
 	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
-	ChannelIDPing ChannelIDEnum = 7
+	ChannelIDPing ChannelIDEnum = 8
 )

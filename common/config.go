@@ -7,8 +7,17 @@ import (
 )
 
 const (
-	// CfgConsesusMaxEpochLength defines the maxium length of an epoch.
-	CfgConsesusMaxEpochLength = "consensus.maxEpochLength"
+	// CfgChainID defines the chain ID.
+	CfgChainID = "chain.ID"
+
+	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
+	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
+	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
+	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
+
+	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
+	CfgSyncMessageQueueSize = "sync.messageQueueSize"
+
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
 	// CfgP2PPort sets the port used by P2P network.
@@ -20,9 +29,14 @@ const (
 )
 
 func init() {
-	viper.SetDefault(CfgConsesusMaxEpochLength, 2)
+	viper.SetDefault(CfgChainID, "localchain")
 
-	viper.SetDefault(CfgP2PMessageQueueSize, 5000)
+	viper.SetDefault(CfgConsensusMaxEpochLength, 2)
+	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
+
+	viper.SetDefault(CfgSyncMessageQueueSize, 512)
+
+	viper.SetDefault(CfgP2PMessageQueueSize, 512)
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)
 
