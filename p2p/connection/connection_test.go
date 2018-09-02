@@ -16,23 +16,6 @@ import (
 	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
-func getNetconn(port int) net.Conn {
-	netconn, err := net.Dial("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create a net connection: %v", err))
-	}
-	return netconn
-}
-
-func getListener(port int) net.Listener {
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to listen: %v", err))
-	}
-
-	return listener
-}
-
 func TestNetconnBasics(t *testing.T) {
 	assert := assert.New(t)
 	port := 43251
@@ -286,4 +269,23 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 		resultMatched := <-matched
 		assert.True(resultMatched)
 	}
+}
+
+// --------------- Test Utilities --------------- //
+
+func getNetconn(port int) net.Conn {
+	netconn, err := net.Dial("tcp", ":"+strconv.Itoa(port))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create a net connection: %v", err))
+	}
+	return netconn
+}
+
+func getListener(port int) net.Listener {
+	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to listen: %v", err))
+	}
+
+	return listener
 }

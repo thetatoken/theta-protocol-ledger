@@ -52,7 +52,7 @@ func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConf
 
 // CreateInboundPeer creates an instance of an inbound peer
 func CreateInboundPeer(netconn net.Conn, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
-	peer := createPeer(netconn, true, peerConfig, connConfig)
+	peer := createPeer(netconn, false, peerConfig, connConfig)
 	if peer == nil {
 		return nil, errors.New("[p2p] Failed to create inbound peer")
 	}
@@ -160,11 +160,11 @@ func (peer *Peer) ID() string {
 }
 
 func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
-	conn, err := addr.DialTimeout(config.DialTimeout * time.Second)
+	netconn, err := addr.DialTimeout(config.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
-	return conn, nil
+	return netconn, nil
 }
 
 func createPeer(netconn net.Conn, isOutbound bool,

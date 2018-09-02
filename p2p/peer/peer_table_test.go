@@ -1,15 +1,15 @@
 package peer
 
 import (
+	"crypto/ecdsa"
+	"fmt"
+	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	cn "github.com/thetatoken/ukulele/p2p/connection"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
-
-func newTestEmptyPeerTable() PeerTable {
-	pt := CreatePeerTable()
-	return pt
-}
 
 func TestDefaultPeerTableAddPeer(t *testing.T) {
 	assert := assert.New(t)
@@ -23,19 +23,19 @@ func TestDefaultPeerTableAddPeer(t *testing.T) {
 	randPubKey1 := getRandPubKey()
 	randPubKey2 := getRandPubKey()
 
-	peer1 := newInboundPeer(netconn, randPubKey1)
+	peer1 := newSimulatedInboundPeer(netconn, randPubKey1)
 	success := pt.AddPeer(peer1)
 	assert.True(success)
 	assert.Equal(uint(1), pt.GetTotalNumPeers())
 	assert.True(pt.PeerExists(peer1.ID()))
 	assert.Equal(peer1, pt.GetPeer(peer1.ID()))
 
-	peer1a := newInboundPeer(netconn, randPubKey1)
+	peer1a := newSimulatedInboundPeer(netconn, randPubKey1)
 	success = pt.AddPeer(peer1a)
 	assert.False(success) // cannot add two peers with the same PeerID
 	assert.Equal(uint(1), pt.GetTotalNumPeers())
 
-	peer2 := newInboundPeer(netconn, randPubKey2)
+	peer2 := newSimulatedInboundPeer(netconn, randPubKey2)
 	success = pt.AddPeer(peer2)
 	assert.True(success)
 	assert.Equal(uint(2), pt.GetTotalNumPeers())
@@ -52,9 +52,9 @@ func TestDefaultPeerTableDeletePeer(t *testing.T) {
 	port := 37857
 	netconn := newIncomingNetconn(port)
 
-	peer1 := newInboundPeer(netconn, getRandPubKey())
-	peer2 := newInboundPeer(netconn, getRandPubKey())
-	peer3 := newInboundPeer(netconn, getRandPubKey())
+	peer1 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer2 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer3 := newSimulatedInboundPeer(netconn, getRandPubKey())
 
 	assert.True(pt.AddPeer(peer1))
 	assert.Equal(uint(1), pt.GetTotalNumPeers())
@@ -86,12 +86,12 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	port := 37858
 	netconn := newIncomingNetconn(port)
 
-	peer1 := newInboundPeer(netconn, getRandPubKey())
-	peer2 := newInboundPeer(netconn, getRandPubKey())
-	peer3 := newInboundPeer(netconn, getRandPubKey())
-	peer4 := newInboundPeer(netconn, getRandPubKey())
-	peer5 := newInboundPeer(netconn, getRandPubKey())
-	peer6 := newInboundPeer(netconn, getRandPubKey())
+	peer1 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer2 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer3 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer4 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer5 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer6 := newSimulatedInboundPeer(netconn, getRandPubKey())
 
 	assert.True(pt.AddPeer(peer1))
 	assert.True(pt.AddPeer(peer2))
@@ -131,4 +131,38 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	assert.Equal((*allPeers)[3], peer6)
 	assert.Equal((*allPeers)[4], peer5)
 	assert.Equal((*allPeers)[5], peer3)
+}
+
+// --------------- Test Utilities --------------- //
+
+func newTestEmptyPeerTable() PeerTable {
+	pt := CreatePeerTable()
+	return pt
+}
+
+func newSimulatedInboundPeer(netconn net.Conn, pubKey ecdsa.PublicKey) *Peer {
+	peerConfig := GetDefaultPeerConfig()
+	connConfig := cn.GetDefaultConnectionConfig()
+	inboundPeer, err := CreateInboundPeer(netconn, peerConfig, connConfig)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create outbound peer: %v", err))
+	}
+	inboundPeer.nodeInfo = p2ptypes.CreateNodeInfo(pubKey)
+	return inboundPeer
+}
+
+func newIncomingNetconn(port int) net.Conn {
+	go func() {
+		netconn := getNetconn(port)
+		defer netconn.Close()
+	}()
+
+	listener := getListener(port)
+	netconn, err := listener.Accept()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to listen to the netconn: %v", err))
+	}
+	defer netconn.Close()
+
+	return netconn
 }

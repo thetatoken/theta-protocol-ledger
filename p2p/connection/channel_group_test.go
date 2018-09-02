@@ -8,17 +8,6 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-func newTestEmptyChannelGroup() ChannelGroup {
-	cgCfg := getDefaultChannelGroupConfig()
-	channels := []*Channel{}
-	success, dcg := createChannelGroup(cgCfg, channels)
-	if !success {
-		panic("Failed to create channel group!")
-	}
-
-	return dcg
-}
-
 func TestDefaultChannelGroupAddChannel(t *testing.T) {
 	assert := assert.New(t)
 
@@ -258,4 +247,17 @@ func TestRoundRobinChannelSelector2(t *testing.T) {
 	success, ch = cg.nextChannelToSendPacket()
 	assert.True(success)
 	assert.Equal(&ch5, ch)
+}
+
+// --------------- Test Utilities --------------- //
+
+func newTestEmptyChannelGroup() ChannelGroup {
+	cgCfg := getDefaultChannelGroupConfig()
+	channels := []*Channel{}
+	success, dcg := createChannelGroup(cgCfg, channels)
+	if !success {
+		panic("Failed to create channel group!")
+	}
+
+	return dcg
 }
