@@ -1,4 +1,4 @@
-package discovery
+package messenger
 
 import (
 	"math/rand"

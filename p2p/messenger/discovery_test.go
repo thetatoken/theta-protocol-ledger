@@ -1,4 +1,4 @@
-package discovery
+package messenger
 
 import (
 	"fmt"
@@ -135,16 +135,17 @@ func TestInboundPeerListener(t *testing.T) {
 // --------------- Test Utilities --------------- //
 
 func newTestPeerDiscoveryManager(seedPeerNetAddressStrs []string, localNetworkAddress string) *PeerDiscoveryManager {
+	messenger := (*Messenger)(nil) // not important for the test
 	peerPubKey := p2ptypes.GetTestRandPubKey()
 	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
 	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"
 	routabilityRestrict := false
-	selfNetAddressStr := "104.105.23.91:8888" // not useful for the test
+	selfNetAddressStr := "104.105.23.91:8888" // not important for the test
 	networkProtocol := "tcp"
 	skipUPNP := true
 	peerTable := pr.CreatePeerTable()
 	config := GetDefaultPeerDiscoveryManagerConfig()
-	discMgr, err := CreatePeerDiscoveryManager(&peerNodeInfo, addrbookPath, routabilityRestrict,
+	discMgr, err := CreatePeerDiscoveryManager(messenger, &peerNodeInfo, addrbookPath, routabilityRestrict,
 		selfNetAddressStr, seedPeerNetAddressStrs, networkProtocol, localNetworkAddress,
 		skipUPNP, &peerTable, config)
 	if err != nil {

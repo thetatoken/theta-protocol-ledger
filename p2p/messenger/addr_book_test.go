@@ -1,6 +1,6 @@
 // Adapted for Theta
 // Copyright Tendermint
-package discovery
+package messenger
 
 import (
 	"fmt"
