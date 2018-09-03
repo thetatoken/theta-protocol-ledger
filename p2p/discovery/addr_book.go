@@ -319,7 +319,7 @@ type addrBookJSON struct {
 }
 
 func (a *AddrBook) saveToFile(filePath string) {
-	log.Info("[p2p] Saving AddrBook to file, size: %v", a.Size())
+	log.Infof("[p2p] Saving AddrBook to file, size: %v", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()

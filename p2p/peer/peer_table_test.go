@@ -20,8 +20,8 @@ func TestDefaultPeerTableAddPeer(t *testing.T) {
 	pt := newTestEmptyPeerTable()
 	assert.Equal(uint(0), pt.GetTotalNumPeers())
 
-	randPubKey1 := getRandPubKey()
-	randPubKey2 := getRandPubKey()
+	randPubKey1 := p2ptypes.GetTestRandPubKey()
+	randPubKey2 := p2ptypes.GetTestRandPubKey()
 
 	peer1 := newSimulatedInboundPeer(netconn, randPubKey1)
 	success := pt.AddPeer(peer1)
@@ -52,9 +52,9 @@ func TestDefaultPeerTableDeletePeer(t *testing.T) {
 	port := 37857
 	netconn := newIncomingNetconn(port)
 
-	peer1 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer2 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer3 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer1 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer2 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer3 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
 
 	assert.True(pt.AddPeer(peer1))
 	assert.Equal(uint(1), pt.GetTotalNumPeers())
@@ -86,12 +86,12 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	port := 37858
 	netconn := newIncomingNetconn(port)
 
-	peer1 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer2 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer3 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer4 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer5 := newSimulatedInboundPeer(netconn, getRandPubKey())
-	peer6 := newSimulatedInboundPeer(netconn, getRandPubKey())
+	peer1 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer2 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer3 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer4 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer5 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
+	peer6 := newSimulatedInboundPeer(netconn, p2ptypes.GetTestRandPubKey())
 
 	assert.True(pt.AddPeer(peer1))
 	assert.True(pt.AddPeer(peer2))
@@ -153,11 +153,11 @@ func newSimulatedInboundPeer(netconn net.Conn, pubKey ecdsa.PublicKey) *Peer {
 
 func newIncomingNetconn(port int) net.Conn {
 	go func() {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		defer netconn.Close()
 	}()
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 	netconn, err := listener.Accept()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to listen to the netconn: %v", err))

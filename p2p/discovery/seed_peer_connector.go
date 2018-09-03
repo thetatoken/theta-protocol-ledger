@@ -16,13 +16,17 @@ type SeedPeerConnector struct {
 
 	selfNetAddress       netutil.NetAddress
 	seedPeerNetAddresses []netutil.NetAddress
+
+	Connected chan bool
 }
 
 // createSeedPeerConnector creates an instance of the SeedPeerConnector
 func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 	selfNetAddressStr string, seedPeerNetAddressStrs []string) (SeedPeerConnector, error) {
+	numSeedPeers := len(seedPeerNetAddressStrs)
 	spc := SeedPeerConnector{
-		discMgr: discMgr,
+		discMgr:   discMgr,
+		Connected: make(chan bool, numSeedPeers),
 	}
 
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
@@ -66,7 +70,15 @@ func (spc *SeedPeerConnector) connectToSeedPeers() {
 		go func(i int) {
 			time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
 			j := perm[i]
-			spc.discMgr.connectToOutboundPeer(&spc.seedPeerNetAddresses[j], true)
+			peerNetAddress := spc.seedPeerNetAddresses[j]
+			_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
+			if err != nil {
+				spc.Connected <- false
+				log.Errorf("Failed to connect to peer %v: %v", peerNetAddress.String(), err)
+			} else {
+				spc.Connected <- true
+				log.Infof("Successfully connected to peer %v", peerNetAddress.String())
+			}
 		}(i)
 	}
 }

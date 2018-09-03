@@ -126,8 +126,9 @@ func (msgr *Messenger) AttachMessageHandlerToPeer(peer *pr.Peer) {
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 
-	errorHandler := func(interface{}) {
-		msgr.discMgr.HandlePeerWithErrors(peer)
-	}
-	peer.GetConnection().SetErrorHandler(errorHandler)
+	// TODO: error handling..
+	// errorHandler := func(interface{}) {
+	// 	msgr.discMgr.HandlePeerWithErrors(peer)
+	// }
+	// peer.GetConnection().SetErrorHandler(errorHandler)
 }

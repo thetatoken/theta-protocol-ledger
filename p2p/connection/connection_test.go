@@ -2,10 +2,7 @@ package connection
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
-	"net"
-	"strconv"
 	"testing"
 	"time"
 
@@ -21,12 +18,12 @@ func TestNetconnBasics(t *testing.T) {
 	port := 43251
 	msgBytes := []byte("Hello world")
 	go func() {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		defer netconn.Close()
 		netconn.Write(msgBytes)
 	}()
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 
 	netconn, err := listener.Accept()
 	assert.Nil(err)
@@ -44,7 +41,7 @@ func TestNetconnSendPacket(t *testing.T) {
 	port := 43252
 	msgBytes := []byte("Hello world")
 	go func() {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		defer netconn.Close()
 		packet := Packet{
 			ChannelID: common.ChannelIDTransaction,
@@ -56,7 +53,7 @@ func TestNetconnSendPacket(t *testing.T) {
 		//rlp.Encode(netconn, packet)
 	}()
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 
 	netconn, err := listener.Accept()
 	assert.Nil(err)
@@ -77,14 +74,14 @@ func TestChannelSendPacketThroughNetconn(t *testing.T) {
 	msgBytes := []byte("Hello world")
 	port := 43253
 	go func() {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		defer netconn.Close()
 		channel := createDefaultChannel(common.ChannelIDTransaction)
 		channel.enqueueMessage(msgBytes)
 		channel.sendPacketTo(netconn)
 	}()
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 
 	netconn, err := listener.Accept()
 	assert.Nil(err)
@@ -133,7 +130,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 
 	numMessages := 1
 	go func(port int, origNodeInfo p2ptypes.NodeInfo) {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		cfg := GetDefaultConnectionConfig()
 		conn := CreateConnection(netconn, cfg)
 		conn.OnStart()
@@ -153,7 +150,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 
 	matched := make(chan bool)
 	go func() {
-		listener := getListener(port)
+		listener := p2ptypes.GetTestListener(port)
 		netconn, err := listener.Accept()
 		assert.Nil(err)
 		defer netconn.Close()
@@ -239,7 +236,7 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 
 	numMessages := 8
 	go func(port int, origNodeInfo p2ptypes.NodeInfo) {
-		netconn := getNetconn(port)
+		netconn := p2ptypes.GetTestNetconn(port)
 		msgBytes, err := rlp.EncodeToBytes(origNodeInfo)
 		assert.Nil(err)
 		packet := Packet{
@@ -254,7 +251,7 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 		}
 	}(port, origNodeInfo)
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 	netconn, err := listener.Accept()
 	assert.Nil(err)
 
@@ -269,23 +266,4 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 		resultMatched := <-matched
 		assert.True(resultMatched)
 	}
-}
-
-// --------------- Test Utilities --------------- //
-
-func getNetconn(port int) net.Conn {
-	netconn, err := net.Dial("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create a net connection: %v", err))
-	}
-	return netconn
-}
-
-func getListener(port int) net.Listener {
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to listen: %v", err))
-	}
-
-	return listener
 }

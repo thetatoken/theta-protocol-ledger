@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"net"
@@ -11,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -37,7 +35,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 	go func() {
 		outboundPeer := newOutboundPeer("127.0.0.1:" + strconv.Itoa(port))
-		randPeerPubKey := getRandPubKey()
+		randPeerPubKey := p2ptypes.GetTestRandPubKey()
 		peerANodeInfo := p2ptypes.CreateNodeInfo(randPeerPubKey)
 		err := outboundPeer.Handshake(&peerANodeInfo) // send out PeerA's node info
 		assert.Nil(err)
@@ -59,20 +57,20 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 			assert.True(outboundPeer.Send(common.ChannelIDTransaction, messagesAtoB[i]))
 			time.Sleep(10 * time.Millisecond)
 		}
-
 	}()
 
 	// ------ Simulate PeerB (i.e. us) that receives the incoming connection attempt from PeerA ------ //
 
-	listener := getListener(port)
+	listener := p2ptypes.GetTestListener(port)
 	netconn, err := listener.Accept()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to listen to the netconn: %v", err))
 	}
 	defer netconn.Close()
 
+	// Handshake checks
 	inboundPeer := newInboundPeer(netconn)
-	peerBPubKey := getRandPubKey()
+	peerBPubKey := p2ptypes.GetTestRandPubKey()
 	peerBNodeInfo := p2ptypes.CreateNodeInfo(peerBPubKey)
 	err = inboundPeer.Handshake(&peerBNodeInfo) // send out PeerB's node info
 	assert.Nil(err)
@@ -89,7 +87,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	assert.Equal(generatedPeerAAddr, receivedPeerAAddr)
 	assert.Equal(generatedPeerBAddr, receivedPeerBAddr)
 
-	// ID check
+	// ID checks
 	assert.Equal(receivedPeerAAddr, inboundPeer.ID())
 
 	// Persistency checks
@@ -98,6 +96,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	inboundPeer.SetPersistency(true)
 	assert.True(inboundPeer.IsPersistent())
 
+	// Peer-to-Peer communication checks
 	basicMessageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 		message := p2ptypes.Message{
 			ChannelID: channelID,
@@ -145,31 +144,6 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 }
 
 // --------------- Test Utilities --------------- //
-
-func getRandPubKey() ecdsa.PublicKey {
-	randPrivKey, err := crypto.GenerateKey()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to generate a random private key: %v", err))
-	}
-	return randPrivKey.PublicKey
-}
-
-func getNetconn(port int) net.Conn {
-	netconn, err := net.Dial("tcp", "127.0.0.1:"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create a net connection: %v", err))
-	}
-	return netconn
-}
-
-func getListener(port int) net.Listener {
-	listener, err := net.Listen("tcp", ":"+strconv.Itoa(port))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to listen: %v", err))
-	}
-
-	return listener
-}
 
 func newOutboundPeer(ipAddr string) *Peer {
 	netaddr, err := nu.NewNetAddressString(ipAddr)
