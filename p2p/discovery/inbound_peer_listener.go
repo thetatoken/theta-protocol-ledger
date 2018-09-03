@@ -8,6 +8,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/p2p/netutil"
+	pr "github.com/thetatoken/ukulele/p2p/peer"
 )
 
 const (
@@ -25,6 +26,8 @@ type InboundPeerListener struct {
 	internalAddr *netutil.NetAddress
 	externalAddr *netutil.NetAddress
 
+	inboundCallback InboundCallback
+
 	config InboundPeerListenerConfig
 }
 
@@ -34,6 +37,9 @@ type InboundPeerListener struct {
 type InboundPeerListenerConfig struct {
 	numBufferedConnections int
 }
+
+// InboundCallback is called when an inbound peer is created
+type InboundCallback func(peer *pr.Peer, err error)
 
 // createInboundPeerListener creates a new inbound peer listener instance
 func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, localAddr string,
@@ -51,6 +57,7 @@ func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, l
 		netListener:  netListener,
 		internalAddr: internalNetAddr,
 		externalAddr: externalNetAddr,
+		config:       config,
 	}
 
 	return inboundPeerListener, nil
@@ -74,6 +81,11 @@ func (ipl *InboundPeerListener) OnStop() {
 	ipl.netListener.Close()
 }
 
+// SetInboundCallback sets the inbound callback function
+func (ipl *InboundPeerListener) SetInboundCallback(incb InboundCallback) {
+	ipl.inboundCallback = incb
+}
+
 func (ipl *InboundPeerListener) listenRoutine() {
 	for {
 		netconn, err := ipl.netListener.Accept()
@@ -81,7 +93,10 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			panic(fmt.Sprintf("[p2p] net listener error: %v", err))
 		}
 
-		ipl.discMgr.connectWithInboundPeer(netconn, true)
+		peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
+		if ipl.inboundCallback != nil {
+			ipl.inboundCallback(peer, err)
+		}
 	}
 }
 
