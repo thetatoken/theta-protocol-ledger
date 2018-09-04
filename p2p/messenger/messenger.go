@@ -35,7 +35,7 @@ type MessengerConfig struct {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(pubKey ecdsa.PublicKey, seedPeerNetAddressStrs []string,
+func CreateMessenger(pubKey ecdsa.PublicKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
@@ -45,12 +45,12 @@ func CreateMessenger(pubKey ecdsa.PublicKey, seedPeerNetAddressStrs []string,
 		config:        msgrConfig,
 	}
 
-	localNetworkAddr := "127.0.0.1:" + strconv.Itoa(port)
+	localNetAddress := "127.0.0.1:" + strconv.Itoa(port)
 	discMgrConfig := GetDefaultPeerDiscoveryManagerConfig()
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
-		seedPeerNetAddressStrs, msgrConfig.networkProtocol,
-		localNetworkAddr, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
+		seedPeerNetAddresses, msgrConfig.networkProtocol,
+		localNetAddress, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
 		log.Errorf("[p2p] Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
