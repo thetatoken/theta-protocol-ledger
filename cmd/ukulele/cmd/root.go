@@ -3,14 +3,13 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path"
 
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/common"
 )
 
-var cfgFile string
+var cfgPath string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -31,26 +30,18 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.ukulele/config.yaml)")
+	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", "config path (default is $HOME/.ukulele/)")
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		// Search config in $HOME/.ukulele/config (without extension).
-		viper.AddConfigPath(path.Join(home, ".ukulele"))
-		viper.SetConfigName("config")
+	if cfgPath == "" {
+		cfgPath = common.GetDefaultConfigPath()
 	}
+	viper.AddConfigPath(cfgPath)
+
+	// Search config (without extension).
+	viper.SetConfigName("config")
 
 	viper.AutomaticEnv() // read in environment variables that match
 

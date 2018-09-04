@@ -1,6 +1,11 @@
 package common
 
 import (
+	"fmt"
+	"os"
+	"path"
+
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 
 	log "github.com/sirupsen/logrus"
@@ -22,6 +27,8 @@ const (
 	CfgP2PName = "p2p.name"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
+	// CfgP2PSeeds sets the boostrap peers.
+	CfgP2PSeeds = "p2p.seeds"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgLogDebug sets the log level.
@@ -39,8 +46,20 @@ func init() {
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)
+	viper.SetDefault(CfgP2PSeeds, "")
 
 	viper.SetDefault(CfgLogDebug, false)
 
 	log.SetLevel(log.DebugLevel)
+}
+
+// GetDefaultConfigPath returns the default config path.
+func GetDefaultConfigPath() string {
+	// Find home directory.
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return path.Join(home, ".ukulele")
 }

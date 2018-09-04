@@ -3,9 +3,13 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
@@ -28,9 +32,18 @@ func init() {
 }
 
 func start() {
-	network := newMessenger([]string{}, "127.0.0.1:4666")
+	localNetworkAddress := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(common.CfgP2PPort))
+
+	// Parse seeds and filter out empty item.
+	f := func(c rune) bool {
+		return c == ','
+	}
+	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+
+	network := newMessenger(peerSeeds, localNetworkAddress)
 	validators := consensus.NewTestValidatorSet([]string{"v1", "v2", "v3", "v4", network.ID()})
 
+	// TODO: load from checkpoint.
 	store := store.NewMemKVStore()
 	chainID := "testchain"
 	root := &blockchain.Block{}
@@ -54,9 +67,9 @@ func start() {
 func newMessenger(seedPeerNetAddressStrs []string, localNetworkAddress string) *messenger.Messenger {
 	peerPubKey := p2ptypes.GetTestRandPubKey()
 	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
-	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"
+	addrbookPath := path.Join(cfgPath, "addrbook.json")
 	routabilityRestrict := false
-	selfNetAddressStr := "104.105.23.92:8888" // not important for the test
+	selfNetAddressStr := localNetworkAddress
 	networkProtocol := "tcp"
 	skipUPNP := true
 	messenger, err := messenger.CreateMessenger(peerNodeInfo, addrbookPath, routabilityRestrict, selfNetAddressStr,
