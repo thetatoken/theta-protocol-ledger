@@ -14,9 +14,9 @@ import (
 type ExtendedBlock struct {
 	*Block
 	Height            uint32
-	Children          []*ExtendedBlock
-	Parent            *ExtendedBlock
-	CommitCertificate *CommitCertificate
+	CommitCertificate *CommitCertificate `rlp:"nil"`
+	Parent            *ExtendedBlock     `rlp:"nil"`
+	Children          []*ExtendedBlock   `rlp:"tail"`
 }
 
 func (eb *ExtendedBlock) String() string {
@@ -58,7 +58,7 @@ type Chain struct {
 	store store.Store
 
 	ChainID string
-	Root    *ExtendedBlock
+	Root    *ExtendedBlock `rlp:"nil"`
 }
 
 // NewChain creates a new Chain instance.
@@ -75,7 +75,8 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, ch.ChainID)
 	}
 
-	_, err := ch.store.Get(block.Hash)
+	var val ExtendedBlock
+	err := ch.store.Get(block.Hash, &val)
 	if err != store.ErrKeyNotFound {
 		// Block has already been added.
 		return nil, errors.New("Block has already been added")
@@ -85,7 +86,9 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 		// Parent block hash cannot be empty.
 		return nil, errors.New("Parent block hash cannot be empty")
 	}
-	parentRaw, err := ch.store.Get(block.ParentHash)
+
+	var parentBlock ExtendedBlock
+	err = ch.store.Get(block.ParentHash, &parentBlock)
 	if err == store.ErrKeyNotFound {
 		// Parent block is not known yet, abandon block.
 		return nil, errors.Errorf("Unknown parent block: %s", block.ParentHash)
@@ -94,10 +97,9 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 		return nil, errors.Wrap(err, "Failed to find parent block")
 	}
 
-	parentBlock := parentRaw.(*ExtendedBlock)
-	extendedBlock := &ExtendedBlock{Block: block, Parent: parentBlock, Height: parentBlock.Height + 1}
+	extendedBlock := &ExtendedBlock{Block: block, Parent: &parentBlock, Height: parentBlock.Height + 1}
 	parentBlock.Children = append(parentBlock.Children, extendedBlock)
-	ch.SaveBlock(parentBlock)
+	ch.SaveBlock(&parentBlock)
 	ch.SaveBlock(extendedBlock)
 
 	return extendedBlock, nil
@@ -110,12 +112,12 @@ func (ch *Chain) SaveBlock(block *ExtendedBlock) {
 
 // FindBlock tries to retrieve a block by hash.
 func (ch *Chain) FindBlock(hash common.Bytes) (*ExtendedBlock, error) {
-	res, err := ch.store.Get(hash)
+	var block ExtendedBlock
+	err := ch.store.Get(hash, &block)
 	if err != nil {
 		return nil, err
 	}
-	block := res.(*ExtendedBlock)
-	return block, nil
+	return &block, nil
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
@@ -126,11 +128,12 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 		if bytes.Compare(hash, ascendantHash) == 0 {
 			return true
 		}
-		currBlockRaw, err := ch.store.Get(hash)
+		var currBlock ExtendedBlock
+		err := ch.store.Get(hash, &currBlock)
 		if err != nil {
 			return false
 		}
-		currBlock := currBlockRaw.(*ExtendedBlock)
+		// currBlock := currBlockRaw.(*ExtendedBlock)
 		hash = currBlock.ParentHash
 		i++
 	}

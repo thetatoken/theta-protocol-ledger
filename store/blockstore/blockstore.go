@@ -1,4 +1,4 @@
-package block_store
+package blockstore
 
 import (
 	"github.com/thetatoken/ukulele/common"
@@ -6,13 +6,24 @@ import (
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
+// NewBlockStore create a new instance of BlockStore.
+func NewBlockStore() BlockStore {
+	// db, err := backend.NewAerospikeDatabase()
+	db, err := backend.NewMgoDatabase()
+	if err != nil {
+		panic("failed to create test database: " + err.Error())
+	}
+	return BlockStore{db}
+}
+
 // BlockStore a Database wrapped object.
 type BlockStore struct {
-	db *backend.LDBDatabase
+	// db *backend.AerospikeDatabase
+	db *backend.MgoDatabase
 }
 
 // Put upserts key/value into DB
-func (store *BlockStore) Put(key common.Bytes, value interface{}) error {
+func (store BlockStore) Put(key common.Bytes, value interface{}) error {
 	encodedKey, err := rlp.EncodeToBytes(key)
 	if err != nil {
 		return err
@@ -25,7 +36,7 @@ func (store *BlockStore) Put(key common.Bytes, value interface{}) error {
 }
 
 // Delete deletes key entry from DB
-func (store *BlockStore) Delete(key common.Bytes) error {
+func (store BlockStore) Delete(key common.Bytes) error {
 	encodedKey, err := rlp.EncodeToBytes(key)
 	if err != nil {
 		return err
@@ -34,7 +45,7 @@ func (store *BlockStore) Delete(key common.Bytes) error {
 }
 
 // Get looks up DB with key and returns result into value (passed by reference)
-func (store *BlockStore) Get(key common.Bytes, value interface{}) error {
+func (store BlockStore) Get(key common.Bytes, value interface{}) error {
 	encodedKey, err := rlp.EncodeToBytes(key)
 	if err != nil {
 		return err

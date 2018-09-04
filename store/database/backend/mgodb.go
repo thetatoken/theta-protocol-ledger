@@ -1,9 +1,9 @@
 package backend
 
 import (
-	"errors"
 	"time"
 
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -60,7 +60,7 @@ func (db *MgoDatabase) Get(key []byte) ([]byte, error) {
 	result := new(Document)
 	err := db.collection.Find(bson.M{Id: key}).One(&result)
 	if err == mgo.ErrNotFound {
-		return nil, errors.New("not found")
+		return nil, store.ErrKeyNotFound
 	}
 	return []byte(result.Value), nil
 }

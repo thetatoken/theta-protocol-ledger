@@ -3,6 +3,8 @@ package backend
 import (
 	"context"
 
+	"github.com/thetatoken/ukulele/store"
+
 	"github.com/mongodb/mongo-go-driver/bson"
 	"github.com/mongodb/mongo-go-driver/mongo"
 	"github.com/mongodb/mongo-go-driver/mongo/findopt"
@@ -77,6 +79,9 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 	result := new(Document)
 	filter := bson.NewDocument(bson.EC.Binary(Id, key))
 	err := db.collection.FindOne(nil, filter).Decode(result)
+	if err == mongo.ErrNoDocuments {
+		return nil, store.ErrKeyNotFound
+	}
 	return []byte(result.Value), err
 }
 

@@ -31,6 +31,7 @@ func CreateTestBlock(hash string, parent string) *Block {
 // CreateTestChain creates a chain for testing.
 func CreateTestChain() *Chain {
 	store := store.NewMemKVStore()
+	// store := blockstore.NewBlockStore()
 	root := &Block{}
 	root.ChainID = "testchain"
 	root.Epoch = 0

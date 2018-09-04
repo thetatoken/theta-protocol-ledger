@@ -1,0 +1,202 @@
+hash: f11b058243075d074d745be812a6782cd6da5ff75a386b7b219a47e4153a40b7
+updated: 2018-09-03T23:21:28.277646-07:00
+imports:
+- name: github.com/aerospike/aerospike-client-go
+  version: 8fc2a8c6a5dd5be93117c4bf1ba921e78a8dfab0
+  subpackages:
+  - internal/lua
+  - internal/lua/resources
+  - logger
+  - pkg/bcrypt
+  - pkg/ripemd160
+  - types
+  - types/atomic
+  - types/particle_type
+  - types/rand
+  - utils/buffer
+- name: github.com/btcsuite/btcd
+  version: cff30e1d23fc9e800b2b5b4b41ef1817dda07e9f
+  subpackages:
+  - btcec
+- name: github.com/buger/jsonparser
+  version: f4dd9f5a6b441265aefc1d44872a6f8c10f42b37
+- name: github.com/davecgh/go-spew
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  subpackages:
+  - spew
+- name: github.com/fsnotify/fsnotify
+  version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
+- name: github.com/go-stack/stack
+  version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
+- name: github.com/golang/snappy
+  version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
+- name: github.com/hashicorp/hcl
+  version: 8cb6e5b959231cc1119e43259c4a608f9c51a241
+  subpackages:
+  - hcl/ast
+  - hcl/parser
+  - hcl/printer
+  - hcl/scanner
+  - hcl/strconv
+  - hcl/token
+  - json/parser
+  - json/scanner
+  - json/token
+- name: github.com/influxdata/influxdb
+  version: 7adf7f9d14ef38517d4bb19301b7f8d9a26d19dd
+  subpackages:
+  - client
+  - models
+  - pkg/escape
+- name: github.com/magiconair/properties
+  version: c2353362d570a7bfa228149c62842019201cfb71
+- name: github.com/mitchellh/mapstructure
+  version: fa473d140ef3c6adf42d6b391fe76707f1f243c8
+- name: github.com/mongodb/mongo-go-driver
+  version: e3f321c2848b138976cf8c6143aab9702e2b2fc6
+  subpackages:
+  - bson
+  - bson/builder
+  - bson/decimal
+  - bson/elements
+  - bson/objectid
+  - bson/parser
+  - bson/parser/ast
+  - core/address
+  - core/auth
+  - core/auth/internal/gssapi
+  - core/command
+  - core/compressor
+  - core/connection
+  - core/connstring
+  - core/description
+  - core/dispatch
+  - core/event
+  - core/option
+  - core/readconcern
+  - core/readpref
+  - core/result
+  - core/session
+  - core/tag
+  - core/topology
+  - core/uuid
+  - core/version
+  - core/wiremessage
+  - core/writeconcern
+  - internal
+  - mongo
+  - mongo/aggregateopt
+  - mongo/changestreamopt
+  - mongo/clientopt
+  - mongo/collectionopt
+  - mongo/countopt
+  - mongo/dbopt
+  - mongo/deleteopt
+  - mongo/distinctopt
+  - mongo/dropcollopt
+  - mongo/findopt
+  - mongo/indexopt
+  - mongo/insertopt
+  - mongo/listcollectionopt
+  - mongo/listdbopt
+  - mongo/mongoopt
+  - mongo/replaceopt
+  - mongo/runcmdopt
+  - mongo/sessionopt
+  - mongo/transactionopt
+  - mongo/updateopt
+- name: github.com/pelletier/go-toml
+  version: c2dbbc24a97911339e01bda0b8cabdbd8f13b602
+- name: github.com/pkg/errors
+  version: 816c9085562cd7ee03e7f8188a1cfd942858cded
+- name: github.com/pmezard/go-difflib
+  version: 792786c7400a136282c1664665ae0a8db921c6c2
+  subpackages:
+  - difflib
+- name: github.com/sirupsen/logrus
+  version: 3e01752db0189b9157070a0e1668a620f9a85da2
+- name: github.com/spf13/afero
+  version: 787d034dfe70e44075ccc060d346146ef53270ad
+  subpackages:
+  - mem
+- name: github.com/spf13/cast
+  version: 8965335b8c7107321228e3e3702cab9832751bac
+- name: github.com/spf13/jwalterweatherman
+  version: 14d3d4c518341bea657dd8a226f5121c0ff8c9f2
+- name: github.com/spf13/pflag
+  version: 298182f68c66c05229eb03ac171abe6e309ee79a
+- name: github.com/spf13/viper
+  version: 0ac2068de99fd349edc4954d0e9b4a600d75da44
+- name: github.com/stretchr/testify
+  version: f35b8ab0b5a2cef36673838d662e249dd9c94686
+  subpackages:
+  - assert
+  - require
+- name: github.com/syndtr/goleveldb
+  version: ae2bd5eed72d46b28834ec3f60db3a3ebedd8dbd
+  subpackages:
+  - leveldb
+  - leveldb/cache
+  - leveldb/comparer
+  - leveldb/errors
+  - leveldb/filter
+  - leveldb/iterator
+  - leveldb/journal
+  - leveldb/memdb
+  - leveldb/opt
+  - leveldb/storage
+  - leveldb/table
+  - leveldb/util
+- name: github.com/xdg/scram
+  version: 7eeb5667e42c09cb51bf7b7c28aea8c56767da90
+- name: github.com/xdg/stringprep
+  version: 73f8eece6fdcd902c185bf651de50f3828bed5ed
+- name: github.com/yuin/gopher-lua
+  version: b942cacc89fe49895d145e8b360612a9a51d0423
+  subpackages:
+  - ast
+  - parse
+  - pm
+- name: golang.org/x/crypto
+  version: c3a3ad6d03f7a915c0f7e194b7152974bb73d287
+  subpackages:
+  - pbkdf2
+  - ssh/terminal
+- name: golang.org/x/net
+  version: 92b859f39abd2d91a854c9f9c4621b2f5054a92d
+  subpackages:
+  - context
+- name: golang.org/x/sync
+  version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
+  subpackages:
+  - semaphore
+- name: golang.org/x/sys
+  version: d8e400bc7db4870d786864138af681469693d18c
+  subpackages:
+  - unix
+  - windows
+- name: golang.org/x/text
+  version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
+  subpackages:
+  - transform
+  - unicode/norm
+- name: gopkg.in/karalabe/cookiejar.v2
+  version: 8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57
+  subpackages:
+  - collections/prque
+- name: gopkg.in/mgo.v2
+  version: 9856a29383ce1c59f308dd1cf0363a79b5bef6b5
+  subpackages:
+  - bson
+  - internal/json
+  - internal/sasl
+  - internal/scram
+- name: gopkg.in/yaml.v2
+  version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+testImports:
+- name: github.com/kr/pretty
+  version: 73f6ac0b30a98e433b289500d779f50c1a6f0712
+- name: github.com/kr/text
+  version: e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f
+- name: gopkg.in/check.v1
+  version: 788fd78401277ebd861206a03c884797c6ec5541

@@ -1,10 +1,10 @@
 package backend
 
 import (
-	"errors"
 	"time"
 
 	"github.com/aerospike/aerospike-client-go"
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -63,7 +63,7 @@ func (db *AerospikeDatabase) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	if rec == nil {
-		return nil, errors.New("not found")
+		return nil, store.ErrKeyNotFound
 	}
 
 	value := rec.Bins[ValueBin].([]byte)

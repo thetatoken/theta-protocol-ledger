@@ -18,10 +18,10 @@
 package backend
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -68,7 +68,7 @@ func (db *MemDatabase) Get(key []byte) ([]byte, error) {
 	if entry, ok := db.db[string(key)]; ok {
 		return common.CopyBytes(entry), nil
 	}
-	return nil, errors.New("not found")
+	return nil, store.ErrKeyNotFound //errors.New("not found")
 }
 
 func (db *MemDatabase) Keys() [][]byte {

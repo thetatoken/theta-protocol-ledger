@@ -17,11 +17,13 @@ func TestMemStore(t *testing.T) {
 	key, _ := hex.DecodeString("a0")
 	memstore.Put(key, "hello!")
 
-	val, err := memstore.Get(key)
+	var val string
+	err := memstore.Get(key, &val)
 	assert.Nil(err)
 	assert.Equal("hello!", val)
 
 	memstore.Delete(key)
-	val, err = memstore.Get(key)
+	var val2 string
+	err = memstore.Get(key, &val2)
 	assert.NotNil(err)
 }
