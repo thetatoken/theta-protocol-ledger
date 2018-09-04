@@ -37,8 +37,8 @@ type Network interface {
 	// Send sends the given message to the peer specified by the peerID
 	Send(peerID string, message types.Message) bool
 
-	// AddMessageHandler adds message handler for the specified channel
-	AddMessageHandler(messageHandler MessageHandler)
+	// RegisterMessageHandler registers message handler for the specified channel
+	RegisterMessageHandler(messageHandler MessageHandler)
 
 	// ID returns the ID of the network peer
 	ID() string

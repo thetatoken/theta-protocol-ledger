@@ -190,8 +190,8 @@ func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	return true
 }
 
-// AddMessageHandler implements the Network interface.
-func (se *SimnetEndpoint) AddMessageHandler(handler p2p.MessageHandler) {
+// RegisterMessageHandler implements the Network interface.
+func (se *SimnetEndpoint) RegisterMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
 }
 

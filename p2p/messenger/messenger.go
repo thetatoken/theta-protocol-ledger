@@ -117,8 +117,8 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	return success
 }
 
-// AddMessageHandler adds the message handler
-func (msgr *Messenger) AddMessageHandler(msgHandler p2p.MessageHandler) {
+// RegisterMessageHandler registers the message handler
+func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
 	for _, channelID := range channelIDs {
 		if msgr.msgHandlerMap[channelID] != nil {

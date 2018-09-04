@@ -38,7 +38,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerAPort)
 		peerID := messenger.nodeInfo.Address
 		peerAMessageHandler = newTestMessageHandler(peerID, t, assert)
-		messenger.AddMessageHandler(peerAMessageHandler)
+		messenger.RegisterMessageHandler(peerAMessageHandler)
 		messenger.OnStart()
 
 		peerAReady <- true // Peer A is ready, it has started
@@ -54,7 +54,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerBPort)
 		peerID := messenger.nodeInfo.Address
 		peerBMessageHandler = newTestMessageHandler(peerID, t, assert)
-		messenger.AddMessageHandler(peerBMessageHandler)
+		messenger.RegisterMessageHandler(peerBMessageHandler)
 		messenger.OnStart()
 
 		numPeers := len(seedPeerNetAddressStrs)
@@ -72,7 +72,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	messenger := newTestMessenger(seedPeerNetAddressStrs, peerCPort)
 	peerID := messenger.nodeInfo.Address
 	peerCMessageHandler := newTestMessageHandler(peerID, t, assert)
-	messenger.AddMessageHandler(peerCMessageHandler)
+	messenger.RegisterMessageHandler(peerCMessageHandler)
 	messenger.OnStart()
 
 	numPeers := len(seedPeerNetAddressStrs)

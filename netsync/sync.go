@@ -58,7 +58,7 @@ func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.
 		incoming: make(chan *Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 	}
 	sm.requestMgr = NewRequestManager(sm)
-	network.AddMessageHandler(sm)
+	network.RegisterMessageHandler(sm)
 	return sm
 }
 
