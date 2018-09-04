@@ -65,7 +65,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
 	msgHandler.lock.Unlock()
-	assert.EqualValues([]string{"e1 <- hello!", "e2 <- hello!", "e3 <- hello!"}, msgHandler.ReceivedMessages)
+	assert.EqualValues([]string{"e1 <- hello!", "e3 <- hello!"}, msgHandler.ReceivedMessages)
 
 	msgHandler.ReceivedMessages = make([]string, 0)
 	e1.Broadcast(createBlockMessage("world!"))
@@ -73,7 +73,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
 	msgHandler.lock.Unlock()
-	assert.EqualValues([]string{"e1 <- world!", "e2 <- world!", "e3 <- world!"}, msgHandler.ReceivedMessages)
+	assert.EqualValues([]string{"e2 <- world!", "e3 <- world!"}, msgHandler.ReceivedMessages)
 }
 
 func TestSimnetSend(t *testing.T) {
