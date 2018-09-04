@@ -100,8 +100,7 @@ func (sn *Simnet) mainLoop() {
 		case envelope := <-sn.messages:
 			time.Sleep(1 * time.Microsecond)
 			for _, endpoint := range sn.Endpoints {
-				// Allow broadcast/send to self
-				if envelope.To == "" || envelope.To == endpoint.ID() {
+				if (envelope.To == "" && envelope.From != endpoint.ID()) || envelope.To == endpoint.ID() {
 					go func(endpoint *SimnetEndpoint, envelope Envelope) {
 						// Simulate network delay except for messages to self.
 						if envelope.From != endpoint.ID() {
@@ -145,14 +144,12 @@ func (se *SimnetEndpoint) OnStart() error {
 		for {
 			select {
 			case envelope := <-se.incoming:
-				if envelope.To == "" || envelope.To == se.ID() {
-					peerID := se.ID()
-					message := p2ptypes.Message{
-						PeerID:  peerID,
-						Content: envelope.Content,
-					}
-					se.HandleMessage(message)
+				peerID := se.ID()
+				message := p2ptypes.Message{
+					PeerID:  peerID,
+					Content: envelope.Content,
 				}
+				se.HandleMessage(message)
 			}
 		}
 	}()
