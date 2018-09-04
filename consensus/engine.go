@@ -232,6 +232,7 @@ func (e *DefaultEngine) tryVote() {
 		ChannelID: common.ChannelIDVote,
 		Content:   vote,
 	}
+	e.AddMessage(vote)
 	e.network.Broadcast(voteMsg)
 }
 
@@ -381,5 +382,6 @@ func (e *DefaultEngine) propose() {
 		ChannelID: common.ChannelIDBlock,
 		Content:   proposal,
 	}
+	e.AddMessage(proposal)
 	e.network.Broadcast(proposalMsg)
 }
