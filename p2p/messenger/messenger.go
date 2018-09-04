@@ -69,9 +69,11 @@ func (msgr *Messenger) OnStop() {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
+	log.Debugf("[p2p] Broadcasting messages...")
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
+		log.Debugf("[p2p] Broadcasting \"%v\" to %v", message.Content, peer.ID())
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success

@@ -74,10 +74,10 @@ func (spc *SeedPeerConnector) connectToSeedPeers() {
 			_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
 			if err != nil {
 				spc.Connected <- false
-				log.Errorf("Failed to connect to peer %v: %v", peerNetAddress.String(), err)
+				log.Errorf("[p2p] Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
 			} else {
 				spc.Connected <- true
-				log.Infof("Successfully connected to peer %v", peerNetAddress.String())
+				log.Infof("[p2p] Successfully connected to seed peer %v", peerNetAddress.String())
 			}
 		}(i)
 	}
