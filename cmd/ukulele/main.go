@@ -1,7 +1,7 @@
 package main
 
-import "fmt"
+import "github.com/thetatoken/ukulele/cmd/ukulele/cmd"
 
 func main() {
-	fmt.Printf("Hi from Ukulele!")
+	cmd.Execute()
 }
