@@ -12,6 +12,8 @@ import (
 //
 // Messenger implements the Network interface
 //
+var _ p2p.Network = (*Messenger)(nil)
+
 type Messenger struct {
 	discMgr       *PeerDiscoveryManager
 	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
@@ -95,16 +97,15 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 }
 
 // AddMessageHandler adds the message handler
-func (msgr *Messenger) AddMessageHandler(msgHandler p2p.MessageHandler) bool {
+func (msgr *Messenger) AddMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
 	for _, channelID := range channelIDs {
 		if msgr.msgHandlerMap[channelID] != nil {
 			log.Errorf("[p2p] Message handlered is already added for channelID: %v", channelID)
-			return false
+			return
 		}
 		msgr.msgHandlerMap[channelID] = msgHandler
 	}
-	return true
 }
 
 // ID returns the ID of the current node

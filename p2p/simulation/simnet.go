@@ -173,19 +173,21 @@ func (se *SimnetEndpoint) OnStop() {
 }
 
 // Broadcast implements the Network interface.
-func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) error {
+func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) (successes chan bool) {
+	successes = make(chan bool, 10)
 	go func() {
 		se.network.messages <- Envelope{From: se.ID(), Content: message.Content}
+		successes <- true
 	}()
-	return nil
+	return successes
 }
 
 // Send implements the Network interface.
-func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) error {
+func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	go func() {
 		se.network.messages <- Envelope{From: se.ID(), To: id, Content: message.Content}
 	}()
-	return nil
+	return true
 }
 
 // AddMessageHandler implements the Network interface.
