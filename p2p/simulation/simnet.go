@@ -148,9 +148,10 @@ func (se *SimnetEndpoint) OnStart() error {
 				if envelope.To == "" || envelope.To == se.ID() {
 					peerID := se.ID()
 					message := p2ptypes.Message{
+						PeerID:  peerID,
 						Content: envelope.Content,
 					}
-					se.HandleMessage(peerID, message)
+					se.HandleMessage(message)
 				}
 			}
 		}
@@ -201,12 +202,12 @@ func (se *SimnetEndpoint) ID() string {
 }
 
 // HandleMessage implements the MessageHandler interface.
-func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) error {
+func (se *SimnetEndpoint) HandleMessage(message p2ptypes.Message) error {
 	for _, handler := range se.handlers {
-		handler.HandleMessage(peerID, message)
+		handler.HandleMessage(message)
 	}
 	if se.network.msgHandler != nil {
-		se.network.msgHandler.HandleMessage(peerID, message)
+		se.network.msgHandler.HandleMessage(message)
 	}
 	return nil
 }

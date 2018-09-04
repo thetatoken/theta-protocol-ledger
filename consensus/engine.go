@@ -160,10 +160,11 @@ func (e *DefaultEngine) AddMessage(msg interface{}) {
 }
 
 // ParseMessage implements p2p.MessageHandler interface.
-func (e *DefaultEngine) ParseMessage(channelID common.ChannelIDEnum,
+func (e *DefaultEngine) ParseMessage(peerID string, channelID common.ChannelIDEnum,
 	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 	// To be implemented..
 	message := p2ptypes.Message{
+		PeerID:    peerID,
 		ChannelID: channelID,
 	}
 	return message, nil

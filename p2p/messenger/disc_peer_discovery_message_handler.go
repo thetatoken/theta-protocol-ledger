@@ -66,10 +66,11 @@ func (pdmh *PeerDiscoveryMessageHandler) GetChannelIDs() []common.ChannelIDEnum 
 }
 
 // ParseMessage implements the p2p.MessageHandler interface
-func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(
+func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(peerID string,
 	channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
 	discMsg, err := decodePeerDiscoveryMessage(rawMessageBytes)
 	message := types.Message{
+		PeerID:    peerID,
 		ChannelID: channelID,
 		Content:   discMsg,
 	}
@@ -82,13 +83,14 @@ func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(
 }
 
 // HandleMessage implements the p2p.MessageHandler interface
-func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.Message) error {
+func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error {
 	if msg.ChannelID != common.ChannelIDPeerDiscovery {
 		errMsg := fmt.Sprintf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
 		log.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 
+	peerID := msg.PeerID
 	peer := pdmh.discMgr.peerTable.GetPeer(peerID)
 	if peer == nil {
 		errMsg := fmt.Sprintf("[p2p] Cannot find peer %v in the peer table", peerID)

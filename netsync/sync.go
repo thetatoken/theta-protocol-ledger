@@ -104,18 +104,19 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 }
 
 // ParseMessage implements p2p.MessageHandler interface.
-func (sm *SyncManager) ParseMessage(channelID common.ChannelIDEnum,
+func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnum,
 	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 	// To be implemented..
 	message := p2ptypes.Message{
+		PeerID:    peerID,
 		ChannelID: channelID,
 	}
 	return message, nil
 }
 
 // HandleMessage implements p2p.MessageHandler interface.
-func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) error {
-	sm.AddMessage(&Message{peerID: peerID, data: msg.Content})
+func (sm *SyncManager) HandleMessage(msg p2ptypes.Message) error {
+	sm.AddMessage(&Message{peerID: msg.PeerID, data: msg.Content})
 	return nil
 }
 
