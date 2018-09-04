@@ -34,14 +34,8 @@ type SyncManager struct {
 	stopped bool
 
 	mu       *sync.Mutex
-	incoming chan *Message
+	incoming chan *p2ptypes.Message
 	epoch    uint32
-}
-
-// Message represents an item to be process in queue. It allows us to save peerID with the message to be processed later.
-type Message struct {
-	peerID string
-	data   interface{}
 }
 
 func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
@@ -55,7 +49,7 @@ func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.
 		wg: &sync.WaitGroup{},
 
 		mu:       &sync.Mutex{},
-		incoming: make(chan *Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
+		incoming: make(chan *p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
@@ -116,31 +110,27 @@ func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnu
 
 // HandleMessage implements p2p.MessageHandler interface.
 func (sm *SyncManager) HandleMessage(msg p2ptypes.Message) error {
-	sm.AddMessage(&Message{peerID: msg.PeerID, data: msg.Content})
+	sm.AddMessage(&msg)
 	return nil
 }
 
-func (sm *SyncManager) AddMessage(msg *Message) {
+func (sm *SyncManager) AddMessage(msg *p2ptypes.Message) {
 	sm.incoming <- msg
 }
 
-func (sm *SyncManager) AddData(data interface{}) {
-	sm.AddMessage(&Message{data: data})
-}
-
-func (sm *SyncManager) processMessage(message *Message) {
-	switch m := message.data.(type) {
+func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
+	switch content := message.Content.(type) {
 	// Messages needed for fast-sync.
 	case dispatcher.InventoryRequest:
-		sm.requestMgr.handleInvRequest(message.peerID, &m)
+		sm.requestMgr.handleInvRequest(message.PeerID, &content)
 	case dispatcher.InventoryResponse:
-		sm.requestMgr.handleInvResponse(message.peerID, &m)
+		sm.requestMgr.handleInvResponse(message.PeerID, &content)
 	case dispatcher.DataRequest:
-		sm.requestMgr.handleDataRequest(message.peerID, &m)
+		sm.requestMgr.handleDataRequest(message.PeerID, &content)
 	case dispatcher.DataResponse:
-		sm.requestMgr.handleDataResponse(message.peerID, &m)
+		sm.requestMgr.handleDataResponse(message.PeerID, &content)
 	default:
-		sm.processData(message.data)
+		sm.processData(message.Content)
 	}
 }
 

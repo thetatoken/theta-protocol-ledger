@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/dispatcher"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 
 	log "github.com/sirupsen/logrus"
@@ -136,7 +137,11 @@ func (rm *RequestManager) handleDataResponse(peerID string, data *dispatcher.Dat
 			log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID()}).Error("Failed to decode block")
 			return
 		}
-		rm.syncMgr.AddData(block)
+		msg := &p2ptypes.Message{
+			PeerID:  peerID,
+			Content: block,
+		}
+		rm.syncMgr.AddMessage(msg)
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID}).Error("Unsupported channelID in received DataResponse")
 	}
