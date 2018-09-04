@@ -8,12 +8,6 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-func newTestDefaultSendBuffer() SendBuffer {
-	defaultConfig := getDefaultSendBufferConfig()
-	sendBuffer := createSendBuffer(defaultConfig)
-	return sendBuffer
-}
-
 func TestDefaultSendBuffer(t *testing.T) {
 	assert := assert.New(t)
 	dsb := newTestDefaultSendBuffer()
@@ -166,4 +160,12 @@ func TestAttemptInsert(t *testing.T) {
 	packet = dsb.emitPacket(common.ChannelIDTransaction)
 	assert.Equal(msgBytes, packet.Bytes)
 	assert.Equal(byte(0x01), packet.IsEOF)
+}
+
+// --------------- Test Utilities --------------- //
+
+func newTestDefaultSendBuffer() SendBuffer {
+	defaultConfig := getDefaultSendBufferConfig()
+	sendBuffer := createSendBuffer(defaultConfig)
+	return sendBuffer
 }

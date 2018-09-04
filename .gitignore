@@ -1,3 +1,4 @@
-ukulele
 vendor/
 _vendor*/
+local/
+p2p/messenger/.addrbooks

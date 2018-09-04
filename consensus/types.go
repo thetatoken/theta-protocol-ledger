@@ -8,11 +8,11 @@ import (
 
 // Proposal represents a proposal of a new block.
 type Proposal struct {
-	block             blockchain.Block
-	proposerID        string
-	commitCertificate *blockchain.CommitCertificate
+	Block             blockchain.Block
+	ProposerID        string
+	CommitCertificate *blockchain.CommitCertificate
 }
 
 func (p Proposal) String() string {
-	return fmt.Sprintf("Proposal{block: %v, proposer: %v, CC: %v}", p.block, p.proposerID, p.commitCertificate)
+	return fmt.Sprintf("Proposal{block: %v, proposer: %v, CC: %v}", p.Block, p.ProposerID, p.CommitCertificate)
 }

@@ -3,6 +3,7 @@
 package blockchain
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,43 +12,43 @@ import (
 func TestBlockchain(t *testing.T) {
 	assert := assert.New(t)
 
-	// expected := CreateTestChainByBlocks([]string{
-	// 	"a1", "a0",
-	// 	"a2", "a1",
-	// 	"b2", "a1",
-	// 	"c1", "a0"})
-	// var err error
+	expected := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"b2", "a1",
+		"c1", "a0"})
+	var err error
 
 	chain := CreateTestChain()
 	a1 := CreateTestBlock("a1", "a0")
-	_, err := chain.AddBlock(a1)
+	_, err = chain.AddBlock(a1)
 	assert.Nil(err)
 
-	// a2 := CreateTestBlock("a2", "a1")
-	// _, err = chain.AddBlock(a2)
-	// assert.Nil(err)
+	a2 := CreateTestBlock("a2", "a1")
+	_, err = chain.AddBlock(a2)
+	assert.Nil(err)
 
-	// b2 := CreateTestBlock("b2", "a1")
-	// _, err = chain.AddBlock(b2)
-	// assert.Nil(err)
+	b2 := CreateTestBlock("b2", "a1")
+	_, err = chain.AddBlock(b2)
+	assert.Nil(err)
 
-	// c1 := CreateTestBlock("c1", "a0")
-	// _, err = chain.AddBlock(c1)
-	// assert.Nil(err)
+	c1 := CreateTestBlock("c1", "a0")
+	_, err = chain.AddBlock(c1)
+	assert.Nil(err)
 
-	// AssertChainsEqual(assert, expected.Root, chain.Root)
+	AssertChainsEqual(assert, expected, expected.Root.Hash, chain, chain.Root.Hash)
 }
 
-// func TestBlockchainDeepestDescendant(t *testing.T) {
-// 	assert := assert.New(t)
-// 	ch := CreateTestChainByBlocks([]string{
-// 		"a1", "a0",
-// 		"a2", "a1",
-// 		"b2", "a1",
-// 		"b3", "b2",
-// 		"c1", "a0"})
+func TestBlockchainDeepestDescendant(t *testing.T) {
+	assert := assert.New(t)
+	ch := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"b2", "a1",
+		"b3", "b2",
+		"c1", "a0"})
 
-// 	ret, depth := ch.Root.FindDeepestDescendant()
-// 	assert.True(bytes.Equal(ParseHex("b3"), ret.Hash), "Expected deepest block: %v, actual: %v", ParseHex("b3"), ret.Hash)
-// 	assert.Equal(3, depth)
-// }
+	ret, depth := ch.FindDeepestDescendant(ch.Root.Hash)
+	assert.True(bytes.Equal(ParseHex("b3"), ret.Hash), "Expected deepest block: %v, actual: %v", ParseHex("b3"), ret.Hash)
+	assert.Equal(3, depth)
+}

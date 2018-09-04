@@ -61,25 +61,48 @@ type ConnectionConfig struct {
 type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
 
 // ReceiveHandler is the callback function to handle received bytes from the given channel
-type ReceiveHandler func(message p2ptypes.Message)
+type ReceiveHandler func(message p2ptypes.Message) error
 
 // ErrorHandler is the callback function to handle channel read errors
 type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
 func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
+	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
+	channelHeader := createDefaultChannel(common.ChannelIDHeader)
+	channelBlock := createDefaultChannel(common.ChannelIDBlock)
+	channelVote := createDefaultChannel(common.ChannelIDVote)
+	channelTransaction := createDefaultChannel(common.ChannelIDTransaction)
+	channelPeerDiscover := createDefaultChannel(common.ChannelIDPeerDiscovery)
+	channelPing := createDefaultChannel(common.ChannelIDPing)
+	channels := []*Channel{
+		&channelCheckpoint,
+		&channelHeader,
+		&channelBlock,
+		&channelVote,
+		&channelTransaction,
+		&channelPeerDiscover,
+		&channelPing,
+	}
+
+	success, channelGroup := createChannelGroup(getDefaultChannelGroupConfig(), channels)
+	if !success {
+		return nil
+	}
+
 	return &Connection{
-		netconn:     netconn,
-		bufWriter:   bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
-		sendMonitor: flowrate.New(0, 0),
-		bufReader:   bufio.NewReaderSize(netconn, config.MinReadBufferSize),
-		recvMonitor: flowrate.New(0, 0),
-		sendPulse:   make(chan bool, 1),
-		pongPulse:   make(chan bool, 1),
-		quitPulse:   make(chan bool, 1),
-		flushTimer:  timer.NewThrottleTimer("flush", config.FlushThrottle),
-		pingTimer:   timer.NewRepeatTimer("ping", config.PingTimeout),
-		config:      config,
+		netconn:      netconn,
+		bufWriter:    bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
+		sendMonitor:  flowrate.New(0, 0),
+		bufReader:    bufio.NewReaderSize(netconn, config.MinReadBufferSize),
+		recvMonitor:  flowrate.New(0, 0),
+		channelGroup: channelGroup,
+		sendPulse:    make(chan bool, 1),
+		pongPulse:    make(chan bool, 1),
+		quitPulse:    make(chan bool, 1),
+		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
+		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
+		config:       config,
 	}
 }
 
@@ -213,14 +236,24 @@ func (conn *Connection) sendRoutine() {
 }
 
 func (conn *Connection) sendPingSignal() error {
-	err := rlp.Encode(conn.bufWriter, packetTypePing)
+	pingPacket := Packet{
+		ChannelID: common.ChannelIDPing,
+		Bytes:     []byte{p2ptypes.PingSignal},
+		IsEOF:     byte(0x01),
+	}
+	err := rlp.Encode(conn.bufWriter, pingPacket)
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
 	return err
 }
 
 func (conn *Connection) sendPongSignal() error {
-	err := rlp.Encode(conn.bufWriter, packetTypePong)
+	pongPacket := Packet{
+		ChannelID: common.ChannelIDPing,
+		Bytes:     []byte{p2ptypes.PongSignal},
+		IsEOF:     byte(0x01),
+	}
+	err := rlp.Encode(conn.bufWriter, pongPacket)
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
 	return err
@@ -242,25 +275,19 @@ func (conn *Connection) recvRoutine() {
 		// Block until recvMonitor allows reading
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
-		// Read packet type
-		var packetType byte
-		err := rlp.Decode(conn.bufReader, packetType)
+		var packet Packet
+		err := rlp.Decode(conn.bufReader, &packet)
 		conn.recvMonitor.Update(int(1))
 		if err != nil {
-			log.Errorf("[p2p] recvRoutine: failed to decode packetType")
+			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
 			break
 		}
 
-		// Read more data based on the packet type
-		switch packetType {
-		case packetTypePing:
-			conn.schedulePongPulse()
-		case packetTypePong:
-			// Do nothing for now
-		case packetTypeMsg:
-			conn.handleReceivedPacket()
+		switch packet.ChannelID {
+		case common.ChannelIDPing:
+			conn.handlePingPong(&packet)
 		default:
-			log.Errorf("[p2p] recvRoutine: unknown packetType %v", packetType)
+			conn.handleReceivedPacket(&packet)
 		}
 
 		conn.pingTimer.Reset()
@@ -269,9 +296,44 @@ func (conn *Connection) recvRoutine() {
 	close(conn.pongPulse)
 }
 
-func (conn *Connection) handleReceivedPacket() (success bool) {
-	//pkt, n, err := Packet{}, int(0), error(nil)
-	return false
+func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
+	if packet.ChannelID != common.ChannelIDPing {
+		log.Errorf("[p2p] Invalid channel for Ping/Pong signal")
+		return false
+	}
+	if len(packet.Bytes) != 1 {
+		log.Errorf("[p2p] Invalid Ping/Pong packet")
+		return false
+	}
+
+	pingpong := packet.Bytes[0]
+	switch pingpong {
+	case p2ptypes.PingSignal:
+		conn.schedulePongPulse()
+	case p2ptypes.PongSignal:
+		// do nothing for now
+	default:
+		log.Errorf("[p2p] Invalid Ping/Pong signal")
+		return false
+	}
+
+	return true
+}
+
+func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
+	message, err := conn.onParse(packet.ChannelID, packet.Bytes)
+	if err != nil {
+		log.Errorf("[p2p] Error parsing packet: %v, err: %v", packet, err)
+		return false
+	}
+
+	err = conn.onReceive(message)
+	if err != nil {
+		log.Errorf("[p2p] Error handling message: %v, err: %v", message, err)
+		return false
+	}
+
+	return true
 }
 
 // --------------------- IO Handling --------------------- //

@@ -17,7 +17,7 @@ type MessageHandler interface {
 	ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
 
 	// HandleMessage handles the message received from the peer with peerID
-	HandleMessage(peerID string, message types.Message)
+	HandleMessage(peerID string, message types.Message) error
 }
 
 //
@@ -32,10 +32,10 @@ type Network interface {
 	OnStop()
 
 	// Broadcast broadcasts the given message to all the neighboring peers
-	Broadcast(message types.Message) error
+	Broadcast(message types.Message) chan bool
 
 	// Send sends the given message to the peer specified by the peerID
-	Send(peerID string, message types.Message) error
+	Send(peerID string, message types.Message) bool
 
 	// AddMessageHandler adds message handler for the specified channel
 	AddMessageHandler(messageHandler MessageHandler)

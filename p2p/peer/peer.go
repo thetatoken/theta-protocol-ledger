@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"errors"
 	"net"
 	"time"
 
@@ -43,12 +44,18 @@ func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConf
 		return nil, err
 	}
 	peer := createPeer(netconn, true, peerConfig, connConfig)
+	if peer == nil {
+		return nil, errors.New("[p2p] Failed to create outbound peer")
+	}
 	return peer, nil
 }
 
 // CreateInboundPeer creates an instance of an inbound peer
 func CreateInboundPeer(netconn net.Conn, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
-	peer := createPeer(netconn, true, peerConfig, connConfig)
+	peer := createPeer(netconn, false, peerConfig, connConfig)
+	if peer == nil {
+		return nil, errors.New("[p2p] Failed to create inbound peer")
+	}
 	return peer, nil
 }
 
@@ -61,6 +68,7 @@ func GetDefaultPeerConfig() PeerConfig {
 }
 
 // OnStart is called when the peer starts
+// NOTE: need to call peer.Handshake() before peer.OnStart()
 func (peer *Peer) OnStart() bool {
 	success := peer.connection.OnStart()
 	return success
@@ -72,6 +80,7 @@ func (peer *Peer) OnStop() {
 }
 
 // Handshake handles the initial signaling between two peers
+// NOTE: need to call peer.Handshake() before peer.OnStart()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
@@ -79,7 +88,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
-		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), *sourceNodeInfo) },
+		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), sourceNodeInfo) },
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), &targetPeerNodeInfo) },
 	)
 	if sendError != nil {
@@ -146,21 +155,25 @@ func (peer *Peer) NetAddress() *nu.NetAddress {
 
 // ID returns the unique idenitifier of the peer in the P2P network
 func (peer *Peer) ID() string {
-	peerID := peer.nodeInfo.GetAddress() // use the blockchain address as the peer ID
+	peerID := peer.nodeInfo.Address // use the blockchain address as the peer ID
 	return peerID
 }
 
 func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
-	conn, err := addr.DialTimeout(config.DialTimeout * time.Second)
+	netconn, err := addr.DialTimeout(config.DialTimeout)
 	if err != nil {
 		return nil, err
 	}
-	return conn, nil
+	return netconn, nil
 }
 
 func createPeer(netconn net.Conn, isOutbound bool,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
 	connection := cn.CreateConnection(netconn, connConfig)
+	if connection == nil {
+		log.Errorf("[p2p] Failed to create connection")
+		return nil
+	}
 	peer := &Peer{
 		connection: connection,
 		isOutbound: isOutbound,

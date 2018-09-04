@@ -3,6 +3,7 @@ package blockstore
 import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
@@ -18,8 +19,7 @@ func NewBlockStore() BlockStore {
 
 // BlockStore a Database wrapped object.
 type BlockStore struct {
-	// db *backend.AerospikeDatabase
-	db *backend.MgoDatabase
+	db database.Database
 }
 
 // Put upserts key/value into DB

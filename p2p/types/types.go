@@ -2,6 +2,7 @@ package types
 
 import (
 	"crypto/ecdsa"
+	"encoding/hex"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
@@ -19,22 +20,29 @@ type Message struct {
 // NodeInfo provides the information of the corresponding blockchain node of the peer
 //
 type NodeInfo struct {
-	PubKey  ecdsa.PublicKey
-	address string
+	PubKey  ecdsa.PublicKey `rlp:"-"`
+	Address string
 }
 
 // CreateNodeInfo creates an instance of NodeInfo
 func CreateNodeInfo(pubKey ecdsa.PublicKey) NodeInfo {
-	return NodeInfo{
-		PubKey: pubKey,
+	nodeInfo := NodeInfo{
+		PubKey:  pubKey,
+		Address: calculateAddress(pubKey),
 	}
+	return nodeInfo
 }
 
-// GetAddress returns the ledger address of the node
-func (ni *NodeInfo) GetAddress() string {
-	if len(ni.address) == 0 {
-		addrBytes := crypto.PubkeyToAddress(ni.PubKey)
-		ni.address = string(addrBytes[:])
-	}
-	return ni.address
+func calculateAddress(pubKey ecdsa.PublicKey) string {
+	addrBytes := crypto.PubkeyToAddress(pubKey)
+	address := hex.EncodeToString(addrBytes[:])
+	return address
 }
+
+const (
+	// PingSignal represents a ping signal to a peer
+	PingSignal = byte(0x0)
+
+	// PongSignal represents a pong respond to a peer
+	PongSignal = byte(0x1)
+)

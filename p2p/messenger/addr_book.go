@@ -3,7 +3,7 @@
 // Originally Copyright (c) 2013-2014 Conformal Systems LLC.
 // https://github.com/conformal/btcd/blob/master/LICENSE
 
-package discovery
+package messenger
 
 import (
 	"crypto/sha256"
@@ -319,7 +319,7 @@ type addrBookJSON struct {
 }
 
 func (a *AddrBook) saveToFile(filePath string) {
-	log.Info("[p2p] Saving AddrBook to file, size: %v", a.Size())
+	log.Infof("[p2p] Saving AddrBook to file, size: %v", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
