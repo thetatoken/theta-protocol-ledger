@@ -164,3 +164,8 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	// }
 	// peer.GetConnection().SetErrorHandler(errorHandler)
 }
+
+// SetAddressBookFilePath sets the address book file path
+func (msgrConfig *MessengerConfig) SetAddressBookFilePath(filePath string) {
+	msgrConfig.addrBookFilePath = filePath
+}

@@ -32,7 +32,7 @@ func init() {
 }
 
 func start() {
-	localNetworkAddress := fmt.Sprintf("127.0.0.1:%d", viper.GetInt(common.CfgP2PPort))
+	port := viper.GetInt(common.CfgP2PPort)
 
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
@@ -40,7 +40,7 @@ func start() {
 	}
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 
-	network := newMessenger(peerSeeds, localNetworkAddress)
+	network := newMessenger(peerSeeds, port)
 	validators := consensus.NewTestValidatorSet([]string{"v1", "v2", "v3", "v4", network.ID()})
 
 	// TODO: load from checkpoint.
@@ -64,16 +64,11 @@ func start() {
 	n.Wait()
 }
 
-func newMessenger(seedPeerNetAddressStrs []string, localNetworkAddress string) *messenger.Messenger {
+func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	peerPubKey := p2ptypes.GetTestRandPubKey()
-	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
-	addrbookPath := path.Join(cfgPath, "addrbook.json")
-	routabilityRestrict := false
-	selfNetAddressStr := localNetworkAddress
-	networkProtocol := "tcp"
-	skipUPNP := true
-	messenger, err := messenger.CreateMessenger(peerNodeInfo, addrbookPath, routabilityRestrict, selfNetAddressStr,
-		seedPeerNetAddressStrs, networkProtocol, localNetworkAddress, skipUPNP)
+	msgrConfig := messenger.GetDefaultMessengerConfig()
+	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
+	messenger, err := messenger.CreateMessenger(peerPubKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create PeerDiscoveryManager instance: %v", err))
 	}
