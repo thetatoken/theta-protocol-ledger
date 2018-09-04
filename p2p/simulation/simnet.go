@@ -100,8 +100,7 @@ func (sn *Simnet) mainLoop() {
 		case envelope := <-sn.messages:
 			time.Sleep(1 * time.Microsecond)
 			for _, endpoint := range sn.Endpoints {
-				// Allow broadcast/send to self
-				if envelope.To == "" || envelope.To == endpoint.ID() {
+				if (envelope.To == "" && envelope.From != endpoint.ID()) || envelope.To == endpoint.ID() {
 					go func(endpoint *SimnetEndpoint, envelope Envelope) {
 						// Simulate network delay except for messages to self.
 						if envelope.From != endpoint.ID() {
@@ -145,13 +144,12 @@ func (se *SimnetEndpoint) OnStart() error {
 		for {
 			select {
 			case envelope := <-se.incoming:
-				if envelope.To == "" || envelope.To == se.ID() {
-					peerID := se.ID()
-					message := p2ptypes.Message{
-						Content: envelope.Content,
-					}
-					se.HandleMessage(peerID, message)
+				peerID := se.ID()
+				message := p2ptypes.Message{
+					PeerID:  peerID,
+					Content: envelope.Content,
 				}
+				se.HandleMessage(message)
 			}
 		}
 	}()
@@ -190,8 +188,8 @@ func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	return true
 }
 
-// AddMessageHandler implements the Network interface.
-func (se *SimnetEndpoint) AddMessageHandler(handler p2p.MessageHandler) {
+// RegisterMessageHandler implements the Network interface.
+func (se *SimnetEndpoint) RegisterMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
 }
 
@@ -201,12 +199,12 @@ func (se *SimnetEndpoint) ID() string {
 }
 
 // HandleMessage implements the MessageHandler interface.
-func (se *SimnetEndpoint) HandleMessage(peerID string, message p2ptypes.Message) error {
+func (se *SimnetEndpoint) HandleMessage(message p2ptypes.Message) error {
 	for _, handler := range se.handlers {
-		handler.HandleMessage(peerID, message)
+		handler.HandleMessage(message)
 	}
 	if se.network.msgHandler != nil {
-		se.network.msgHandler.HandleMessage(peerID, message)
+		se.network.msgHandler.HandleMessage(message)
 	}
 	return nil
 }

@@ -28,18 +28,19 @@ func (sm *SimMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
-func (sm *SimMessageHandler) ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+func (sm *SimMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 	message := p2ptypes.Message{
+		PeerID:    peerID,
 		ChannelID: channelID,
 		Content:   rawMessageBytes,
 	}
 	return message, nil
 }
 
-func (sm *SimMessageHandler) HandleMessage(peerID string, msg p2ptypes.Message) error {
+func (sm *SimMessageHandler) HandleMessage(msg p2ptypes.Message) error {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
-	sm.ReceivedMessages = append(sm.ReceivedMessages, fmt.Sprintf("%s <- %v", peerID, msg.Content))
+	sm.ReceivedMessages = append(sm.ReceivedMessages, fmt.Sprintf("%s <- %v", msg.PeerID, msg.Content))
 	return nil
 }
 
@@ -64,7 +65,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
 	msgHandler.lock.Unlock()
-	assert.EqualValues([]string{"e1 <- hello!", "e2 <- hello!", "e3 <- hello!"}, msgHandler.ReceivedMessages)
+	assert.EqualValues([]string{"e1 <- hello!", "e3 <- hello!"}, msgHandler.ReceivedMessages)
 
 	msgHandler.ReceivedMessages = make([]string, 0)
 	e1.Broadcast(createBlockMessage("world!"))
@@ -72,7 +73,7 @@ func TestSimnetBroadcast(t *testing.T) {
 	msgHandler.lock.Lock()
 	sort.Strings(msgHandler.ReceivedMessages)
 	msgHandler.lock.Unlock()
-	assert.EqualValues([]string{"e1 <- world!", "e2 <- world!", "e3 <- world!"}, msgHandler.ReceivedMessages)
+	assert.EqualValues([]string{"e2 <- world!", "e3 <- world!"}, msgHandler.ReceivedMessages)
 }
 
 func TestSimnetSend(t *testing.T) {

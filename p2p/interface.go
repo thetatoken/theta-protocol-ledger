@@ -14,10 +14,10 @@ type MessageHandler interface {
 	GetChannelIDs() []common.ChannelIDEnum
 
 	// ParseMessage parses the raw message bytes
-	ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
+	ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
 
-	// HandleMessage handles the message received from the peer with peerID
-	HandleMessage(peerID string, message types.Message) error
+	// HandleMessage processes the received message
+	HandleMessage(message types.Message) error
 }
 
 //
@@ -37,8 +37,8 @@ type Network interface {
 	// Send sends the given message to the peer specified by the peerID
 	Send(peerID string, message types.Message) bool
 
-	// AddMessageHandler adds message handler for the specified channel
-	AddMessageHandler(messageHandler MessageHandler)
+	// RegisterMessageHandler registers message handler
+	RegisterMessageHandler(messageHandler MessageHandler)
 
 	// ID returns the ID of the network peer
 	ID() string

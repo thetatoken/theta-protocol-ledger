@@ -2,18 +2,20 @@ package cmd
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"fmt"
 	"path"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/store"
 )
 
@@ -41,7 +43,7 @@ func start() {
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 
 	network := newMessenger(peerSeeds, port)
-	validators := consensus.NewTestValidatorSet([]string{"v1", "v2", "v3", "v4", network.ID()})
+	validators := consensus.NewTestValidatorSet([]string{network.ID()})
 
 	// TODO: load from checkpoint.
 	store := store.NewMemKVStore()
@@ -64,13 +66,32 @@ func start() {
 	n.Wait()
 }
 
+func loadOrCreateKey() *ecdsa.PrivateKey {
+	filepath := path.Join(cfgPath, "key")
+	privKey, err := crypto.LoadECDSA(filepath)
+	if err == nil {
+		return privKey
+	}
+	log.WithFields(log.Fields{"err": err}).Warning("Failed to load private key. Generating new key")
+	privKey, err = crypto.GenerateKey()
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to generate private key")
+	}
+	err = crypto.SaveECDSA(filepath, privKey)
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to save private key")
+	}
+	return privKey
+}
+
 func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
-	peerPubKey := p2ptypes.GetTestRandPubKey()
+	privKey := loadOrCreateKey()
+	log.WithFields(log.Fields{"pubKey": fmt.Sprintf("%X", crypto.FromECDSAPub(&privKey.PublicKey))}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(peerPubKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := messenger.CreateMessenger(privKey.PublicKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create PeerDiscoveryManager instance: %v", err))
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}
 	return messenger
 }

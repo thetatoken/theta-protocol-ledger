@@ -38,7 +38,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerAPort)
 		peerID := messenger.nodeInfo.Address
 		peerAMessageHandler = newTestMessageHandler(peerID, t, assert)
-		messenger.AddMessageHandler(peerAMessageHandler)
+		messenger.RegisterMessageHandler(peerAMessageHandler)
 		messenger.OnStart()
 
 		peerAReady <- true // Peer A is ready, it has started
@@ -54,7 +54,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerBPort)
 		peerID := messenger.nodeInfo.Address
 		peerBMessageHandler = newTestMessageHandler(peerID, t, assert)
-		messenger.AddMessageHandler(peerBMessageHandler)
+		messenger.RegisterMessageHandler(peerBMessageHandler)
 		messenger.OnStart()
 
 		numPeers := len(seedPeerNetAddressStrs)
@@ -72,7 +72,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	messenger := newTestMessenger(seedPeerNetAddressStrs, peerCPort)
 	peerID := messenger.nodeInfo.Address
 	peerCMessageHandler := newTestMessageHandler(peerID, t, assert)
-	messenger.AddMessageHandler(peerCMessageHandler)
+	messenger.RegisterMessageHandler(peerCMessageHandler)
 	messenger.OnStart()
 
 	numPeers := len(seedPeerNetAddressStrs)
@@ -132,15 +132,16 @@ func (thm *TestMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
-func (thm *TestMessageHandler) ParseMessage(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+func (thm *TestMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 	message := p2ptypes.Message{
+		PeerID:    peerID,
 		ChannelID: channelID,
 		Content:   rawMessageBytes,
 	}
 	return message, nil
 }
 
-func (thm *TestMessageHandler) HandleMessage(peerID string, message p2ptypes.Message) error {
+func (thm *TestMessageHandler) HandleMessage(message p2ptypes.Message) error {
 	receivedBytes := (message.Content).(common.Bytes)
 	var receivedMsgStr string
 	err := rlp.DecodeBytes(receivedBytes, &receivedMsgStr)
@@ -148,7 +149,7 @@ func (thm *TestMessageHandler) HandleMessage(peerID string, message p2ptypes.Mes
 	thm.recvMsgChan <- receivedMsgStr
 
 	log.Infof(">>> HandleMessage\nPeer %v received a message on channelID: %v\nfrom %v\nReceived message: \"%v\"\n",
-		thm.selfPeerID, message.ChannelID, peerID, receivedMsgStr)
+		thm.selfPeerID, message.ChannelID, message.PeerID, receivedMsgStr)
 
 	return nil
 }
