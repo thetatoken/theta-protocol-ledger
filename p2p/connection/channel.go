@@ -26,6 +26,16 @@ type ChannelConfig struct {
 	priority uint
 }
 
+// createDefaultChannel creates a channel with default configs
+func createDefaultChannel(channelID common.ChannelIDEnum) Channel {
+	chCfg := getDefaultChannelConfig()
+	sbCfg := getDefaultSendBufferConfig()
+	rbCfg := getDefaultRecvBufferConfig()
+
+	channel := createChannel(channelID, chCfg, sbCfg, rbCfg)
+	return channel
+}
+
 // createChannel creates a channel for the given configs
 func createChannel(channelID common.ChannelIDEnum, channelConf ChannelConfig, sbConf SendBufferConfig, rbConf RecvBufferConfig) Channel {
 	sendBuf := createSendBuffer(sbConf)

@@ -10,18 +10,9 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-func newTestDefaultChannel(channelID common.ChannelIDEnum) Channel {
-	chCfg := getDefaultChannelConfig()
-	sbCfg := getDefaultSendBufferConfig()
-	rbCfg := getDefaultRecvBufferConfig()
-
-	channel := createChannel(channelID, chCfg, sbCfg, rbCfg)
-	return channel
-}
-
 func TestDefaultChannelEnqueueShortMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	assert.Equal(common.ChannelIDTransaction, ch.getID())
 
@@ -50,7 +41,7 @@ func TestDefaultChannelEnqueueShortMsg(t *testing.T) {
 
 func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	assert.Equal(common.ChannelIDTransaction, ch.getID())
 
@@ -94,7 +85,7 @@ func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 
 func TestDefaultChannelAttemptEnqueueMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	msgBytes := []byte("hello world")
 	success := ch.enqueueMessage(msgBytes)
@@ -108,7 +99,7 @@ func TestDefaultChannelAttemptEnqueueMsg(t *testing.T) {
 
 func TestDefaultChannelRecvSingleMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	msgBytes := []byte("0123456789")
 	packet := Packet{
@@ -124,7 +115,7 @@ func TestDefaultChannelRecvSingleMsg(t *testing.T) {
 
 func TestDefaultChannelRecvMultipleMsgs(t *testing.T) {
 	assert := assert.New(t)
-	ch := newTestDefaultChannel(common.ChannelIDTransaction)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	partBytes := []byte("0123456789")
 	partPacket := Packet{

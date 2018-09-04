@@ -1,6 +1,8 @@
-package discovery
+package messenger
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -80,16 +82,18 @@ func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(
 }
 
 // HandleMessage implements the p2p.MessageHandler interface
-func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.Message) {
+func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.Message) error {
 	if msg.ChannelID != common.ChannelIDPeerDiscovery {
-		log.Errorf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
-		return
+		errMsg := fmt.Sprintf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
+		log.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	peer := pdmh.discMgr.peerTable.GetPeer(peerID)
 	if peer == nil {
-		log.Errorf("[p2p] Cannot find peer %v in the peer table", peerID)
-		return
+		errMsg := fmt.Sprintf("[p2p] Cannot find peer %v in the peer table", peerID)
+		log.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	discMsg := (msg.Content).(PeerDiscoveryMessage)
@@ -99,8 +103,12 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(peerID string, msg types.
 	case peerAddressesReplyType:
 		pdmh.handlePeerAddressReply(peer, discMsg)
 	default:
-		log.Errorf("[p2p] Invalid PeerDiscoveryMessageType")
+		errMsg := "[p2p] Invalid PeerDiscoveryMessageType"
+		log.Errorf(errMsg)
+		return errors.New(errMsg)
 	}
+
+	return nil
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {

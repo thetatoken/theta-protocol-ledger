@@ -114,8 +114,9 @@ func (sm *SyncManager) ParseMessage(channelID common.ChannelIDEnum,
 }
 
 // HandleMessage implements p2p.MessageHandler interface.
-func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) {
+func (sm *SyncManager) HandleMessage(peerID string, msg p2ptypes.Message) error {
 	sm.AddMessage(&Message{peerID: peerID, data: msg.Content})
+	return nil
 }
 
 func (sm *SyncManager) AddMessage(msg *Message) {

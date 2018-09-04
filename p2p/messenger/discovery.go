@@ -1,4 +1,4 @@
-package discovery
+package messenger
 
 import (
 	"errors"
@@ -15,6 +15,8 @@ import (
 // PeerDiscoveryManager manages the peer discovery process
 //
 type PeerDiscoveryManager struct {
+	messenger *Messenger
+
 	addrBook  *AddrBook
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
@@ -33,12 +35,13 @@ type PeerDiscoveryManagerConfig struct {
 }
 
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
-func CreatePeerDiscoveryManager(nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
+func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
 	routabilityRestrict bool, selfNetAddressStr string, seedPeerNetAddressStrs []string,
 	networkProtocol string, localNetworkAddr string, skipUPNP bool, peerTable *pr.PeerTable,
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
+		messenger: msgr,
 		nodeInfo:  nodeInfo,
 		peerTable: peerTable,
 	}
@@ -69,6 +72,11 @@ func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
 		MaxNumPeers: 128,
 	}
+}
+
+// SetMessenger sets the Messenger for the PeerDiscoveryManager
+func (discMgr *PeerDiscoveryManager) SetMessenger(msgr *Messenger) {
+	discMgr.messenger = msgr
 }
 
 // OnStart is called when the PeerDiscoveryManager starts
@@ -140,6 +148,12 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	if err := peer.Handshake(discMgr.nodeInfo); err != nil {
 		log.Errorf("[p2p] Failed to handshake with peer, error: %v", err)
 		return err
+	}
+
+	if discMgr.messenger != nil {
+		discMgr.messenger.AttachMessageHandlersToPeer(peer)
+	} else {
+		log.Warnf("[p2p] discMgr.messenger not set, cannot attach message handlers")
 	}
 
 	if !peer.OnStart() {

@@ -17,7 +17,8 @@ type PeerTable struct {
 // CreatePeerTable creates an instance of the PeerTable
 func CreatePeerTable() PeerTable {
 	return PeerTable{
-		mutex: &sync.Mutex{},
+		mutex:   &sync.Mutex{},
+		peerMap: make(map[string]*Peer),
 	}
 }
 
@@ -26,7 +27,8 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	if pt.PeerExists(peer.ID()) {
+	_, exists := pt.peerMap[peer.ID()]
+	if exists {
 		return false
 	}
 

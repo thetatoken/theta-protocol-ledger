@@ -1,10 +1,10 @@
-package p2p
+package messenger
 
 import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
-	disc "github.com/thetatoken/ukulele/p2p/discovery"
+	"github.com/thetatoken/ukulele/p2p"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
@@ -13,8 +13,8 @@ import (
 // Messenger implements the Network interface
 //
 type Messenger struct {
-	discMgr       *disc.PeerDiscoveryManager
-	msgHandlerMap map[common.ChannelIDEnum](*MessageHandler)
+	discMgr       *PeerDiscoveryManager
+	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
 	peerTable     pr.PeerTable
 	nodeInfo      p2ptypes.NodeInfo // information of our blockchain node
 }
@@ -26,18 +26,18 @@ type MessengerConfig struct {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(addrBookFilePath string, routabilityRestrict bool, selfNetAddressStr string,
+func CreateMessenger(nodeInfo p2ptypes.NodeInfo, addrBookFilePath string, routabilityRestrict bool, selfNetAddressStr string,
 	seedPeerNetAddressStrs []string, networkProtocol string, localNetworkAddr string,
-	skipUPNP bool, nodeInfo p2ptypes.NodeInfo) (*Messenger, error) {
+	skipUPNP bool) (*Messenger, error) {
 
 	messenger := &Messenger{
-		peerTable: pr.PeerTable{},
-		nodeInfo:  nodeInfo,
+		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
+		peerTable:     pr.CreatePeerTable(),
+		nodeInfo:      nodeInfo,
 	}
 
-	var err error
-	discMgrConfig := disc.GetDefaultPeerDiscoveryManagerConfig()
-	messenger.discMgr, err = disc.CreatePeerDiscoveryManager(&messenger.nodeInfo, addrBookFilePath,
+	discMgrConfig := GetDefaultPeerDiscoveryManagerConfig()
+	discMgr, err := CreatePeerDiscoveryManager(messenger, &nodeInfo, addrBookFilePath,
 		routabilityRestrict, selfNetAddressStr, seedPeerNetAddressStrs, networkProtocol,
 		localNetworkAddr, skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
@@ -45,7 +45,15 @@ func CreateMessenger(addrBookFilePath string, routabilityRestrict bool, selfNetA
 		return messenger, err
 	}
 
+	discMgr.SetMessenger(messenger)
+	messenger.SetPeerDiscoveryManager(discMgr)
+
 	return messenger, nil
+}
+
+// SetPeerDiscoveryManager sets the PeerDiscoveryManager for the Messenger
+func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
+	msgr.discMgr = discMgr
 }
 
 // OnStart is called when the Messenger starts
@@ -61,9 +69,11 @@ func (msgr *Messenger) OnStop() {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
+	log.Debugf("[p2p] Broadcasting messages...")
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
+		log.Debugf("[p2p] Broadcasting \"%v\" to %v", message.Content, peer.ID())
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success
@@ -85,8 +95,8 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 }
 
 // AddMessageHandler adds the message handler
-func (msgr *Messenger) AddMessageHandler(msgHandler *MessageHandler) bool {
-	channelIDs := (*msgHandler).GetChannelIDs()
+func (msgr *Messenger) AddMessageHandler(msgHandler p2p.MessageHandler) bool {
+	channelIDs := msgHandler.GetChannelIDs()
 	for _, channelID := range channelIDs {
 		if msgr.msgHandlerMap[channelID] != nil {
 			log.Errorf("[p2p] Message handlered is already added for channelID: %v", channelID)
@@ -99,34 +109,36 @@ func (msgr *Messenger) AddMessageHandler(msgHandler *MessageHandler) bool {
 
 // ID returns the ID of the current node
 func (msgr *Messenger) ID() string {
-	return msgr.nodeInfo.GetAddress()
+	return msgr.nodeInfo.Address
 }
 
-// AttachMessageHandlerToPeer attaches the approporiate message handler to the given peer
-func (msgr *Messenger) AttachMessageHandlerToPeer(peer *pr.Peer) {
+// AttachMessageHandlersToPeer attaches the registerred message handlers to the given peer
+func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	messageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 		msgHandler := msgr.msgHandlerMap[channelID]
 		if msgHandler == nil {
 			log.Errorf("[p2p] Failed to setup message parser for channelID %v", channelID)
 		}
-		message, err := (*msgHandler).ParseMessage(channelID, rawMessageBytes)
+		message, err := msgHandler.ParseMessage(channelID, rawMessageBytes)
 		return message, err
 	}
 	peer.GetConnection().SetMessageParser(messageParser)
 
-	receiveHandler := func(message p2ptypes.Message) {
+	receiveHandler := func(message p2ptypes.Message) error {
 		channelID := message.ChannelID
 		msgHandler := msgr.msgHandlerMap[channelID]
 		if msgHandler == nil {
 			log.Errorf("[p2p] Failed to setup message handler for channelID %v", channelID)
 		}
 		peerID := peer.ID()
-		(*msgHandler).HandleMessage(peerID, message)
+		err := msgHandler.HandleMessage(peerID, message)
+		return err
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 
-	errorHandler := func(interface{}) {
-		msgr.discMgr.HandlePeerWithErrors(peer)
-	}
-	peer.GetConnection().SetErrorHandler(errorHandler)
+	// TODO: error handling..
+	// errorHandler := func(interface{}) {
+	// 	msgr.discMgr.HandlePeerWithErrors(peer)
+	// }
+	// peer.GetConnection().SetErrorHandler(errorHandler)
 }

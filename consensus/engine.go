@@ -169,7 +169,7 @@ func (e *DefaultEngine) ParseMessage(channelID common.ChannelIDEnum,
 	return message, nil
 }
 
-func (e *DefaultEngine) processMessage(msg interface{}) {
+func (e *DefaultEngine) processMessage(msg interface{}) error {
 	switch m := msg.(type) {
 	case Proposal:
 		e.handleProposal(m)
@@ -182,6 +182,8 @@ func (e *DefaultEngine) processMessage(msg interface{}) {
 	default:
 		log.Errorf("Unknown message type: %v", m)
 	}
+
+	return nil
 }
 
 func (e *DefaultEngine) handleProposal(p Proposal) {

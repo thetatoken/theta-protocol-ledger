@@ -1,9 +1,5 @@
 package backend
 
-import (
-	"testing"
-)
-
 func newTestMDB() (*MongoDatabase, func()) {
 	db, err := NewMongoDatabase()
 	if err != nil {
@@ -15,8 +11,10 @@ func newTestMDB() (*MongoDatabase, func()) {
 	}
 }
 
+/*
 func TestMDB_PutGet(t *testing.T) {
 	db, close := newTestMDB()
 	defer close()
 	testPutGet(db, t)
 }
+*/

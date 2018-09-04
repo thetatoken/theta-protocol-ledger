@@ -36,10 +36,11 @@ func (sm *SimMessageHandler) ParseMessage(channelID common.ChannelIDEnum, rawMes
 	return message, nil
 }
 
-func (sm *SimMessageHandler) HandleMessage(peerID string, msg p2ptypes.Message) {
+func (sm *SimMessageHandler) HandleMessage(peerID string, msg p2ptypes.Message) error {
 	sm.lock.Lock()
 	defer sm.lock.Unlock()
 	sm.ReceivedMessages = append(sm.ReceivedMessages, fmt.Sprintf("%s <- %v", peerID, msg.Content))
+	return nil
 }
 
 func createBlockMessage(content string) p2ptypes.Message {
