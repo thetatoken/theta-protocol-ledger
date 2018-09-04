@@ -140,13 +140,12 @@ func newTestPeerDiscoveryManager(seedPeerNetAddressStrs []string, localNetworkAd
 	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
 	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"
 	routabilityRestrict := false
-	selfNetAddressStr := "104.105.23.91:8888" // not important for the test
 	networkProtocol := "tcp"
 	skipUPNP := true
 	peerTable := pr.CreatePeerTable()
 	config := GetDefaultPeerDiscoveryManagerConfig()
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &peerNodeInfo, addrbookPath, routabilityRestrict,
-		selfNetAddressStr, seedPeerNetAddressStrs, networkProtocol, localNetworkAddress,
+		seedPeerNetAddressStrs, networkProtocol, localNetworkAddress,
 		skipUPNP, &peerTable, config)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create PeerDiscoveryManager instance: %v", err))

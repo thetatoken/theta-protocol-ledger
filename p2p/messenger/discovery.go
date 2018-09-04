@@ -36,7 +36,7 @@ type PeerDiscoveryManagerConfig struct {
 
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
 func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
-	routabilityRestrict bool, selfNetAddressStr string, seedPeerNetAddressStrs []string,
+	routabilityRestrict bool, seedPeerNetAddressStrs []string,
 	networkProtocol string, localNetworkAddr string, skipUPNP bool, peerTable *pr.PeerTable,
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
@@ -49,7 +49,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
 
 	var err error
-	discMgr.seedPeerConnector, err = createSeedPeerConnector(discMgr, selfNetAddressStr, seedPeerNetAddressStrs)
+	discMgr.seedPeerConnector, err = createSeedPeerConnector(discMgr, localNetworkAddr, seedPeerNetAddressStrs)
 	if err != nil {
 		return discMgr, err
 	}

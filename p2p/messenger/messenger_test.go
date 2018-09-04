@@ -2,6 +2,7 @@ package messenger
 
 import (
 	"fmt"
+	"strconv"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -15,9 +16,12 @@ import (
 func TestMessengerBroadcastMessages(t *testing.T) {
 	assert := assert.New(t)
 
-	peerANetAddr := "127.0.0.1:24611"
-	peerBNetAddr := "127.0.0.1:24612"
-	peerCNetAddr := "127.0.0.1:24613"
+	peerAPort := 24611
+	peerBPort := 24612
+	peerCPort := 24613
+	peerANetAddr := "127.0.0.1:" + strconv.Itoa(peerAPort)
+	//peerBNetAddr := "127.0.0.1:" + strconv.Itoa(peerBPort)
+	peerCNetAddr := "127.0.0.1:" + strconv.Itoa(peerCPort)
 
 	peerCMessages := []string{
 		"Hi this is Peer C",
@@ -31,8 +35,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	var peerAMessageHandler p2p.MessageHandler
 	go func() {
 		seedPeerNetAddressStrs := []string{} // passively listen
-		localNetworkAddress := peerANetAddr
-		messenger := newTestMessenger(seedPeerNetAddressStrs, localNetworkAddress)
+		messenger := newTestMessenger(seedPeerNetAddressStrs, peerAPort)
 		peerID := messenger.nodeInfo.Address
 		peerAMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.AddMessageHandler(peerAMessageHandler)
@@ -48,8 +51,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	var peerBMessageHandler p2p.MessageHandler
 	go func() {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // passively listen + actively connect to Peer C
-		localNetworkAddress := peerBNetAddr
-		messenger := newTestMessenger(seedPeerNetAddressStrs, localNetworkAddress)
+		messenger := newTestMessenger(seedPeerNetAddressStrs, peerBPort)
 		peerID := messenger.nodeInfo.Address
 		peerBMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.AddMessageHandler(peerBMessageHandler)
@@ -67,8 +69,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	// ---------------- Simulate PeerC (i.e. us) ---------------- //
 
 	seedPeerNetAddressStrs := []string{peerANetAddr} // passively listen + actively connect to Peer A
-	localNetworkAddress := peerCNetAddr
-	messenger := newTestMessenger(seedPeerNetAddressStrs, localNetworkAddress)
+	messenger := newTestMessenger(seedPeerNetAddressStrs, peerCPort)
 	peerID := messenger.nodeInfo.Address
 	peerCMessageHandler := newTestMessageHandler(peerID, t, assert)
 	messenger.AddMessageHandler(peerCMessageHandler)
@@ -152,18 +153,18 @@ func (thm *TestMessageHandler) HandleMessage(peerID string, message p2ptypes.Mes
 	return nil
 }
 
-func newTestMessenger(seedPeerNetAddressStrs []string, localNetworkAddress string) *Messenger {
+func newTestMessenger(seedPeerNetAddressStrs []string, port int) *Messenger {
 	peerPubKey := p2ptypes.GetTestRandPubKey()
-	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
-	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"
-	routabilityRestrict := false
-	selfNetAddressStr := "104.105.23.92:8888" // not important for the test
-	networkProtocol := "tcp"
-	skipUPNP := true
-	messenger, err := CreateMessenger(peerNodeInfo, addrbookPath, routabilityRestrict, selfNetAddressStr,
-		seedPeerNetAddressStrs, networkProtocol, localNetworkAddress, skipUPNP)
+	localNetworkAddress := "127.0.0.1:" + strconv.Itoa(port)
+	testMsgrConfig := MessengerConfig{
+		addrBookFilePath:    "./.addrbooks/addrbook_" + localNetworkAddress + ".json",
+		routabilityRestrict: false,
+		skipUPNP:            true,
+		networkProtocol:     "tcp",
+	}
+	messenger, err := CreateMessenger(peerPubKey, seedPeerNetAddressStrs, port, testMsgrConfig)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create PeerDiscoveryManager instance: %v", err))
+		panic(fmt.Sprintf("Failed to create Messenger instance: %v", err))
 	}
 	return messenger
 }

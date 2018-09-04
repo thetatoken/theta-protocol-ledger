@@ -1,6 +1,9 @@
 package messenger
 
 import (
+	"crypto/ecdsa"
+	"strconv"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
@@ -17,29 +20,37 @@ type Messenger struct {
 	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
 	peerTable     pr.PeerTable
 	nodeInfo      p2ptypes.NodeInfo // information of our blockchain node
+
+	config MessengerConfig
 }
 
 //
 // MessengerConfig specifies the configuration for Messenger
 //
 type MessengerConfig struct {
+	addrBookFilePath    string
+	routabilityRestrict bool
+	skipUPNP            bool
+	networkProtocol     string
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(nodeInfo p2ptypes.NodeInfo, addrBookFilePath string, routabilityRestrict bool, selfNetAddressStr string,
-	seedPeerNetAddressStrs []string, networkProtocol string, localNetworkAddr string,
-	skipUPNP bool) (*Messenger, error) {
+func CreateMessenger(pubKey ecdsa.PublicKey, seedPeerNetAddressStrs []string,
+	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      nodeInfo,
+		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey),
+		config:        msgrConfig,
 	}
 
+	localNetworkAddr := "127.0.0.1:" + strconv.Itoa(port)
 	discMgrConfig := GetDefaultPeerDiscoveryManagerConfig()
-	discMgr, err := CreatePeerDiscoveryManager(messenger, &nodeInfo, addrBookFilePath,
-		routabilityRestrict, selfNetAddressStr, seedPeerNetAddressStrs, networkProtocol,
-		localNetworkAddr, skipUPNP, &messenger.peerTable, discMgrConfig)
+	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
+		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
+		seedPeerNetAddressStrs, msgrConfig.networkProtocol,
+		localNetworkAddr, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
 		log.Errorf("[p2p] Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
@@ -49,6 +60,16 @@ func CreateMessenger(nodeInfo p2ptypes.NodeInfo, addrBookFilePath string, routab
 	messenger.SetPeerDiscoveryManager(discMgr)
 
 	return messenger, nil
+}
+
+// GetDefaultMessengerConfig returns the default config for messenger
+func GetDefaultMessengerConfig() MessengerConfig {
+	return MessengerConfig{
+		addrBookFilePath:    "./.addrbook/addrbook.json",
+		routabilityRestrict: false,
+		skipUPNP:            false,
+		networkProtocol:     "tcp",
+	}
 }
 
 // SetPeerDiscoveryManager sets the PeerDiscoveryManager for the Messenger
