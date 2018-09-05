@@ -167,7 +167,6 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 		if err != nil {
 			return false
 		}
-		// currBlock := currBlockRaw.(*ExtendedBlock)
 		hash = currBlock.ParentHash
 	}
 	return false

@@ -4,19 +4,58 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/database/backend"
 )
+
+type BlockHeader struct {
+	ChainID    string
+	Epoch      uint32
+	Hash       common.Bytes
+	ParentHash common.Bytes
+}
+
+type Tx struct {
+}
+
+type Block struct {
+	BlockHeader
+	Txs []Tx
+}
+
+type Vote struct {
+	Block *BlockHeader
+	ID    string
+}
+
+type VoteSet struct {
+	votes []Vote
+}
+
+type CommitCertificate struct {
+	Votes     *VoteSet `rlp:"nil"`
+	BlockHash common.Bytes
+}
+
+type ExtendedBlock struct {
+	*Block
+	Height            uint32
+	Children          []common.Bytes
+	Parent            common.Bytes
+	CommitCertificate *CommitCertificate `rlp:"nil"`
+}
 
 func TestBlockStore(t *testing.T) {
 	assert := assert.New(t)
 
-	blockStore := NewBlockStore()
+	db, err := backend.NewMgoDatabase()
+	assert.Nil(err)
+	blockStore := NewBlockStore(db)
 
-	key := blockchain.ParseHex("abc123")
+	key := []byte("abc123")
 
-	err := blockStore.Put(key, "hello!")
+	err = blockStore.Put(key, "hello!")
 	assert.Nil(err)
 
 	var str string
@@ -31,31 +70,31 @@ func TestBlockStore(t *testing.T) {
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)
 
-	blockHash := blockchain.ParseHex("b1")
+	blockHash := []byte("b1")
 
-	parent := &blockchain.Block{}
+	parent := &Block{}
 	parent.ChainID = "testparent"
 	parent.Epoch = 0
-	parent.Hash = blockchain.ParseHex("a0")
-	extendedParent := blockchain.ExtendedBlock{Block: parent, Height: 6, Children: []common.Bytes{blockHash}, Parent: nil, CommitCertificate: nil}
+	parent.Hash = []byte("a0")
+	extendedParent := ExtendedBlock{Block: parent, Height: 6, Children: []common.Bytes{blockHash}, Parent: nil, CommitCertificate: nil}
 
-	child1 := &blockchain.Block{}
+	child1 := &Block{}
 	child1.ChainID = "testchild1"
 	child1.Epoch = 2
-	child1.Hash = blockchain.ParseHex("c1")
-	extendedChild1 := blockchain.ExtendedBlock{Block: child1, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
+	child1.Hash = []byte("c1")
+	extendedChild1 := ExtendedBlock{Block: child1, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
 
-	child2 := &blockchain.Block{}
+	child2 := &Block{}
 	child2.ChainID = "testchild2"
 	child2.Epoch = 3
-	child2.Hash = blockchain.ParseHex("c2")
-	extendedChild2 := blockchain.ExtendedBlock{Block: child2, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
+	child2.Hash = []byte("c2")
+	extendedChild2 := ExtendedBlock{Block: child2, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
 
-	block := &blockchain.Block{}
+	block := &Block{}
 	block.ChainID = "testblock"
 	block.Epoch = 1
 	block.Hash = blockHash
-	extendedBlock := blockchain.ExtendedBlock{Block: block, Height: 7, Children: []common.Bytes{extendedChild1.Hash, extendedChild2.Hash}, Parent: extendedParent.Hash, CommitCertificate: nil}
+	extendedBlock := ExtendedBlock{Block: block, Height: 7, Children: []common.Bytes{extendedChild1.Hash, extendedChild2.Hash}, Parent: extendedParent.Hash, CommitCertificate: nil}
 
 	err = blockStore.Put(extendedParent.Hash, extendedParent)
 	assert.Nil(err)
@@ -69,7 +108,7 @@ func TestBlockStore(t *testing.T) {
 	err = blockStore.Put(extendedChild2.Hash, extendedChild2)
 	assert.Nil(err)
 
-	var blockVal blockchain.ExtendedBlock
+	var blockVal ExtendedBlock
 	err = blockStore.Get(extendedBlock.Hash, &blockVal)
 	assert.Nil(err)
 	assert.Equal(extendedBlock.Height, blockVal.Height)
@@ -80,7 +119,7 @@ func TestBlockStore(t *testing.T) {
 	assert.Equal(extendedBlock.Children[0], blockVal.Children[0])
 	assert.Equal(extendedBlock.Children[1], blockVal.Children[1])
 
-	var parentVal blockchain.ExtendedBlock
+	var parentVal ExtendedBlock
 	err = blockStore.Get(blockVal.Parent, &parentVal)
 	assert.Nil(err)
 	assert.Equal(extendedParent.Height, parentVal.Height)
@@ -97,7 +136,7 @@ func TestBlockStore(t *testing.T) {
 	err = blockStore.Delete(blockVal.Hash)
 	assert.Nil(err)
 
-	var res blockchain.ExtendedBlock
+	var res ExtendedBlock
 	err = blockStore.Get(extendedBlock.Hash, &res)
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)

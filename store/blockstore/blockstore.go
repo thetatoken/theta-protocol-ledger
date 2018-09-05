@@ -4,16 +4,10 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/serialization/rlp"
 	"github.com/thetatoken/ukulele/store/database"
-	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
 // NewBlockStore create a new instance of BlockStore.
-func NewBlockStore() BlockStore {
-	// db, err := backend.NewAerospikeDatabase()
-	db, err := backend.NewMgoDatabase()
-	if err != nil {
-		panic("failed to create test database: " + err.Error())
-	}
+func NewBlockStore(db database.Database) BlockStore {
 	return BlockStore{db}
 }
 
