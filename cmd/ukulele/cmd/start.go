@@ -25,16 +25,14 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Theta node.",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		start()
-	},
+	Run:   runStart,
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
 }
 
-func start() {
+func runStart(cmd *cobra.Command, args []string) {
 	port := viper.GetInt(common.CfgP2PPort)
 
 	// Parse seeds and filter out empty item.
@@ -51,8 +49,8 @@ func start() {
 	}
 	validators := checkpoint.Validators
 	chainID := checkpoint.ChainID
-	rootEpoch := checkpoint.StartingEpoch
-	rootHash, err := hex.DecodeString(checkpoint.StartingHash)
+	rootEpoch := checkpoint.Epoch
+	rootHash, err := hex.DecodeString(checkpoint.Hash)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to parse checkpoint hash")
 	}

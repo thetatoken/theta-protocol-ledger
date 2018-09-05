@@ -35,6 +35,13 @@ const (
 	CfgLogDebug = "log.debug"
 )
 
+// InitialConfig is the default configuartion produced by init command.
+const InitialConfig = `# Theta configuration
+p2p:
+  port: 5000
+  seeds: 127.0.0.1:6000,127.0.0.1:7000
+`
+
 func init() {
 	viper.SetDefault(CfgChainID, "localchain")
 
@@ -62,4 +69,9 @@ func GetDefaultConfigPath() string {
 		os.Exit(1)
 	}
 	return path.Join(home, ".ukulele")
+}
+
+// WriteInitialConfig writes initial config file to file system.
+func WriteInitialConfig(filePath string) error {
+	return WriteFileAtomic(filePath, []byte(InitialConfig), 0600)
 }

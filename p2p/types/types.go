@@ -3,6 +3,7 @@ package types
 import (
 	"crypto/ecdsa"
 	"encoding/hex"
+	"strings"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
@@ -36,7 +37,7 @@ func CreateNodeInfo(pubKey ecdsa.PublicKey) NodeInfo {
 
 func calculateAddress(pubKey ecdsa.PublicKey) string {
 	addrBytes := crypto.PubkeyToAddress(pubKey)
-	address := hex.EncodeToString(addrBytes[:])
+	address := strings.ToUpper(hex.EncodeToString(addrBytes[:]))
 	return address
 }
 
