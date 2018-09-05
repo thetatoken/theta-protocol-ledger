@@ -71,7 +71,7 @@ func (ch *Chain) AddBlock(block *Block) (*ExtendedBlock, error) {
 		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, ch.ChainID)
 	}
 
-	var val *ExtendedBlock
+	var val ExtendedBlock
 	err := ch.store.Get(block.Hash, &val)
 	if err != store.ErrKeyNotFound {
 		// Block has already been added.
@@ -176,8 +176,8 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 func (ch *Chain) PrintBranch(hash common.Bytes) string {
 	ret := []string{}
 	for {
-		var currBlock *ExtendedBlock
-		err := ch.store.Get(hash, currBlock)
+		var currBlock ExtendedBlock
+		err := ch.store.Get(hash, &currBlock)
 		if err != nil {
 			break
 		}

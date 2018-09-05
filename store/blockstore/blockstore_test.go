@@ -9,41 +9,40 @@ import (
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
-type BlockHeader struct {
+type NodeHeader struct {
 	ChainID    string
 	Epoch      uint32
 	Hash       common.Bytes
 	ParentHash common.Bytes
 }
 
-type Tx struct {
+type Record struct {
 }
 
-type Block struct {
-	BlockHeader
-	Txs []Tx
+type Node struct {
+	NodeHeader
+	Records []Record
 }
 
-type Vote struct {
-	Block *BlockHeader
-	ID    string
+type Choice struct {
+	ID string
 }
 
-type VoteSet struct {
-	votes []Vote
+type ChoiceSet struct {
+	Choices []Choice
 }
 
-type CommitCertificate struct {
-	Votes     *VoteSet `rlp:"nil"`
-	BlockHash common.Bytes
+type Certificate struct {
+	Choices  *ChoiceSet `rlp:"nil"`
+	NodeHash common.Bytes
 }
 
-type ExtendedBlock struct {
-	*Block
-	Height            uint32
-	Children          []common.Bytes
-	Parent            common.Bytes
-	CommitCertificate *CommitCertificate `rlp:"nil"`
+type ExtendedNode struct {
+	*Node
+	Height      uint32
+	Children    []common.Bytes
+	Parent      common.Bytes
+	Certificate *Certificate `rlp:"nil"`
 }
 
 func TestBlockStore(t *testing.T) {
@@ -70,36 +69,41 @@ func TestBlockStore(t *testing.T) {
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)
 
-	blockHash := []byte("b1")
+	nodeHash := common.Bytes("b1")
 
-	parent := &Block{}
+	parent := &Node{}
 	parent.ChainID = "testparent"
 	parent.Epoch = 0
 	parent.Hash = []byte("a0")
-	extendedParent := ExtendedBlock{Block: parent, Height: 6, Children: []common.Bytes{blockHash}, Parent: nil, CommitCertificate: nil}
+	extendedParent := ExtendedNode{Node: parent, Height: 6, Children: []common.Bytes{nodeHash}, Parent: nil, Certificate: nil}
 
-	child1 := &Block{}
+	child1 := &Node{}
 	child1.ChainID = "testchild1"
 	child1.Epoch = 2
 	child1.Hash = []byte("c1")
-	extendedChild1 := ExtendedBlock{Block: child1, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
+	extendedChild1 := ExtendedNode{Node: child1, Height: 8, Children: nil, Parent: extendedParent.Hash, Certificate: nil}
 
-	child2 := &Block{}
+	child2 := &Node{}
 	child2.ChainID = "testchild2"
 	child2.Epoch = 3
 	child2.Hash = []byte("c2")
-	extendedChild2 := ExtendedBlock{Block: child2, Height: 8, Children: nil, Parent: extendedParent.Hash, CommitCertificate: nil}
+	extendedChild2 := ExtendedNode{Node: child2, Height: 8, Children: nil, Parent: extendedParent.Hash, Certificate: nil}
 
-	block := &Block{}
-	block.ChainID = "testblock"
-	block.Epoch = 1
-	block.Hash = blockHash
-	extendedBlock := ExtendedBlock{Block: block, Height: 7, Children: []common.Bytes{extendedChild1.Hash, extendedChild2.Hash}, Parent: extendedParent.Hash, CommitCertificate: nil}
+	node := &Node{}
+	node.ChainID = "testblock"
+	node.Epoch = 1
+	node.Hash = nodeHash
+	nodeHash = []byte("zz")
+	choice1 := Choice{"aa"}
+	choice2 := Choice{"bb"}
+	choices := ChoiceSet{[]Choice{choice1, choice2}}
+	cert := Certificate{NodeHash: nodeHash, Choices: &choices}
+	extendedNode := ExtendedNode{Node: node, Height: 7, Children: []common.Bytes{extendedChild1.Hash, extendedChild2.Hash}, Parent: extendedParent.Hash, Certificate: &cert}
 
 	err = blockStore.Put(extendedParent.Hash, extendedParent)
 	assert.Nil(err)
 
-	err = blockStore.Put(extendedBlock.Hash, extendedBlock)
+	err = blockStore.Put(extendedNode.Hash, extendedNode)
 	assert.Nil(err)
 
 	err = blockStore.Put(extendedChild1.Hash, extendedChild1)
@@ -108,36 +112,41 @@ func TestBlockStore(t *testing.T) {
 	err = blockStore.Put(extendedChild2.Hash, extendedChild2)
 	assert.Nil(err)
 
-	var blockVal ExtendedBlock
-	err = blockStore.Get(extendedBlock.Hash, &blockVal)
+	var nodeVal ExtendedNode
+	err = blockStore.Get(extendedNode.Hash, &nodeVal)
 	assert.Nil(err)
-	assert.Equal(extendedBlock.Height, blockVal.Height)
-	assert.Equal(extendedBlock.Block.Hash, blockVal.Block.Hash)
-	assert.Equal(extendedBlock.Block.ChainID, blockVal.Block.ChainID)
-	assert.Equal(extendedBlock.Block.Epoch, blockVal.Block.Epoch)
-	assert.Equal(2, len(blockVal.Children))
-	assert.Equal(extendedBlock.Children[0], blockVal.Children[0])
-	assert.Equal(extendedBlock.Children[1], blockVal.Children[1])
+	assert.Equal(extendedNode.Height, nodeVal.Height)
+	assert.Equal(extendedNode.Node.Hash, nodeVal.Node.Hash)
+	assert.Equal(extendedNode.Node.ChainID, nodeVal.Node.ChainID)
+	assert.Equal(extendedNode.Node.Epoch, nodeVal.Node.Epoch)
+	assert.Equal(nodeHash, nodeVal.Certificate.NodeHash)
 
-	var parentVal ExtendedBlock
-	err = blockStore.Get(blockVal.Parent, &parentVal)
+	assert.Equal(choice1.ID, (*(nodeVal.Certificate.Choices)).Choices[0].ID)
+	assert.Equal(choice2.ID, (*(nodeVal.Certificate.Choices)).Choices[1].ID)
+
+	assert.Equal(2, len(nodeVal.Children))
+	assert.Equal(extendedNode.Children[0], nodeVal.Children[0])
+	assert.Equal(extendedNode.Children[1], nodeVal.Children[1])
+
+	var parentVal ExtendedNode
+	err = blockStore.Get(nodeVal.Parent, &parentVal)
 	assert.Nil(err)
 	assert.Equal(extendedParent.Height, parentVal.Height)
-	assert.Equal(extendedParent.Block.Hash, parentVal.Block.Hash)
-	assert.Equal(extendedParent.Block.ChainID, parentVal.Block.ChainID)
-	assert.Equal(extendedParent.Block.Epoch, parentVal.Block.Epoch)
+	assert.Equal(extendedParent.Node.Hash, parentVal.Node.Hash)
+	assert.Equal(extendedParent.Node.ChainID, parentVal.Node.ChainID)
+	assert.Equal(extendedParent.Node.Epoch, parentVal.Node.Epoch)
 	assert.Empty(parentVal.Parent)
 	assert.Equal(1, len(parentVal.Children))
-	assert.Equal(parentVal.Children[0], blockVal.Hash)
+	assert.Equal(parentVal.Children[0], nodeVal.Hash)
 
-	err = blockStore.Delete(blockVal.Parent)
-	err = blockStore.Delete(blockVal.Children[0])
-	err = blockStore.Delete(blockVal.Children[1])
-	err = blockStore.Delete(blockVal.Hash)
+	err = blockStore.Delete(nodeVal.Parent)
+	err = blockStore.Delete(nodeVal.Children[0])
+	err = blockStore.Delete(nodeVal.Children[1])
+	err = blockStore.Delete(nodeVal.Hash)
 	assert.Nil(err)
 
-	var res ExtendedBlock
-	err = blockStore.Get(extendedBlock.Hash, &res)
+	var res ExtendedNode
+	err = blockStore.Get(extendedNode.Hash, &res)
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)
 }
