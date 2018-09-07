@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"crypto/ecdsa"
+	"encoding/hex"
 	"fmt"
 	"path"
 	"strings"
@@ -24,16 +25,14 @@ var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Theta node.",
 	Long:  ``,
-	Run: func(cmd *cobra.Command, args []string) {
-		start()
-	},
+	Run:   runStart,
 }
 
 func init() {
 	rootCmd.AddCommand(startCmd)
 }
 
-func start() {
+func runStart(cmd *cobra.Command, args []string) {
 	port := viper.GetInt(common.CfgP2PPort)
 
 	// Parse seeds and filter out empty item.
@@ -43,21 +42,30 @@ func start() {
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 
 	network := newMessenger(peerSeeds, port)
-	validators := consensus.NewTestValidatorSet([]string{network.ID()})
 
-	// TODO: load from checkpoint.
+	checkpoint, err := consensus.LoadCheckpoint(path.Join(cfgPath, "checkpoint.json"))
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load checkpoint")
+	}
+	validators := checkpoint.Validators
+	chainID := checkpoint.ChainID
+	rootEpoch := checkpoint.Epoch
+	rootHash, err := hex.DecodeString(checkpoint.Hash)
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to parse checkpoint hash")
+	}
+
 	store := store.NewMemKVStore()
-	chainID := "testchain"
 	root := &blockchain.Block{}
 	root.ChainID = chainID
-	root.Epoch = 0
-	root.Hash = blockchain.ParseHex("a0")
+	root.Epoch = rootEpoch
+	root.Hash = rootHash
 
 	params := &node.Params{
 		Store:      store,
 		ChainID:    chainID,
 		Root:       root,
-		Validators: validators,
+		Validators: consensus.NewTestValidatorSet(validators),
 		Network:    network,
 	}
 	n := node.NewNode(params)
@@ -86,7 +94,10 @@ func loadOrCreateKey() *ecdsa.PrivateKey {
 
 func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	privKey := loadOrCreateKey()
-	log.WithFields(log.Fields{"pubKey": fmt.Sprintf("%X", crypto.FromECDSAPub(&privKey.PublicKey))}).Info("Using key")
+	log.WithFields(log.Fields{
+		"pubKey":  fmt.Sprintf("%X", crypto.FromECDSAPub(&privKey.PublicKey)),
+		"address": fmt.Sprintf("%X", crypto.PubkeyToAddress(privKey.PublicKey)),
+	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
 	messenger, err := messenger.CreateMessenger(privKey.PublicKey, seedPeerNetAddresses, port, msgrConfig)

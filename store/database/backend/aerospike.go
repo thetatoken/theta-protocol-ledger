@@ -1,10 +1,10 @@
 package backend
 
 import (
-	"errors"
 	"time"
 
 	"github.com/aerospike/aerospike-client-go"
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -63,7 +63,7 @@ func (db *AerospikeDatabase) Get(key []byte) ([]byte, error) {
 		return nil, err
 	}
 	if rec == nil {
-		return nil, errors.New("not found")
+		return nil, store.ErrKeyNotFound
 	}
 
 	value := rec.Bins[ValueBin].([]byte)
@@ -81,5 +81,78 @@ func (db *AerospikeDatabase) Close() {
 }
 
 func (db *AerospikeDatabase) NewBatch() database.Batch {
+	return &adbBatch{db: db, puts: []Document{}, deletes: []Document{}}
+}
+
+type adbBatch struct {
+	db      *AerospikeDatabase
+	puts    []Document
+	deletes []Document
+	size    int
+}
+
+func (b *adbBatch) Put(key, value []byte) error {
+	b.puts = append(b.puts, Document{Key: key, Value: value})
+	b.size += len(value)
 	return nil
+}
+
+func (b *adbBatch) Delete(key []byte) error {
+	b.deletes = append(b.deletes, Document{Key: key})
+	b.size++
+	return nil
+}
+
+func (b *adbBatch) Write() error {
+	// for _, doc := range b.puts {
+	// 	err := b.db.Put(doc.Key, doc.Value)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+	// for _, doc := range b.deletes {
+	// 	err := b.db.Delete(doc.Key)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
+
+	numPuts := len(b.puts)
+	semPuts := make(chan bool, numPuts)
+	for i, _ := range b.puts {
+		go func(i int) {
+			doc := b.puts[i]
+			b.db.Put(doc.Key, doc.Value)
+			semPuts <- true
+		}(i)
+	}
+	for j := 0; j < numPuts; j++ {
+		<-semPuts
+	}
+
+	numDels := len(b.deletes)
+	semDels := make(chan bool, numDels)
+	for i, _ := range b.deletes {
+		go func(i int) {
+			b.db.Delete(b.deletes[i].Key)
+			semDels <- true
+		}(i)
+	}
+	for j := 0; j < numDels; j++ {
+		<-semDels
+	}
+
+	b.Reset()
+
+	return nil
+}
+
+func (b *adbBatch) ValueSize() int {
+	return b.size
+}
+
+func (b *adbBatch) Reset() {
+	b.puts = nil
+	b.deletes = nil
+	b.size = 0
 }

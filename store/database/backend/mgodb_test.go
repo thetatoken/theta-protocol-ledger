@@ -2,21 +2,25 @@ package backend
 
 import (
 	"testing"
+
+	"github.com/thetatoken/ukulele/store/database"
 )
 
-func newTestMgoDB() (*MgoDatabase, func()) {
+func newTestMgoDB() (*MgoDatabase, database.Batch, func()) {
 	db, err := NewMgoDatabase()
 	if err != nil {
 		panic("failed to create test database: " + err.Error())
 	}
 
-	return db, func() {
+	batch := db.NewBatch()
+
+	return db, batch, func() {
 		db.Close()
 	}
 }
 
 func TestMgoDB_PutGet(t *testing.T) {
-	db, close := newTestMgoDB()
+	db, batch, close := newTestMgoDB()
 	defer close()
-	testPutGet(db, t)
+	testPutGet(db, batch, t)
 }

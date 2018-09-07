@@ -4,16 +4,11 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/serialization/rlp"
 )
 
 var _ Store = MemKVStore{}
-
-var (
-	// ErrKeyNotFound for key is not found in store.
-	ErrKeyNotFound = errors.New("KeyNotFound")
-)
 
 // MemKVStore is a in-memory implementation of Store to be used in testing.
 type MemKVStore struct {
@@ -39,7 +34,13 @@ func (mkv MemKVStore) Put(key common.Bytes, value interface{}) error {
 	defer mkv.Unlock()
 
 	keystr := getKey(key)
-	mkv.data[keystr] = value
+
+	encodedValue, err := rlp.EncodeToBytes(value)
+	if err != nil {
+		return err
+	}
+	mkv.data[keystr] = encodedValue
+
 	return nil
 }
 
@@ -53,13 +54,13 @@ func (mkv MemKVStore) Delete(key common.Bytes) error {
 }
 
 // Get implements Store.Get().
-func (mkv MemKVStore) Get(key common.Bytes) (value interface{}, err error) {
+func (mkv MemKVStore) Get(key common.Bytes, value interface{}) error {
 	mkv.RLock()
 	defer mkv.RUnlock()
 
-	value, ok := mkv.data[getKey(key)]
+	encodedValue, ok := mkv.data[getKey(key)]
 	if !ok {
-		err = ErrKeyNotFound
+		return ErrKeyNotFound
 	}
-	return
+	return rlp.DecodeBytes(encodedValue.([]byte), value)
 }
