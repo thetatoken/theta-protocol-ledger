@@ -8,7 +8,7 @@ import (
 
 // CommitCertificate represents a commit made a majority of validators.
 type CommitCertificate struct {
-	Votes     *VoteSet
+	Votes     *VoteSet `rlp:"nil"`
 	BlockHash common.Bytes
 }
 

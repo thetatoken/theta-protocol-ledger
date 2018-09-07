@@ -1,20 +1,26 @@
 package backend
 
-func newTestMDB() (*MongoDatabase, func()) {
-	db, err := NewMongoDatabase()
-	if err != nil {
-		panic("failed to create test database: " + err.Error())
-	}
+// import (
+// 	"testing"
 
-	return db, func() {
-		db.Close()
-	}
-}
+// 	"github.com/thetatoken/ukulele/store/database"
+// )
 
-/*
-func TestMDB_PutGet(t *testing.T) {
-	db, close := newTestMDB()
-	defer close()
-	testPutGet(db, t)
-}
-*/
+// func newTestMDB() (*MongoDatabase, database.Batch, func()) {
+// 	db, err := NewMongoDatabase()
+// 	if err != nil {
+// 		panic("failed to create test database: " + err.Error())
+// 	}
+
+// 	batch := db.NewBatch()
+
+// 	return db, batch, func() {
+// 		db.Close()
+// 	}
+// }
+
+// func TestMDB_PutGet(t *testing.T) {
+// 	db, batch, close := newTestMDB()
+// 	defer close()
+// 	testPutGet(db, batch, t)
+// }

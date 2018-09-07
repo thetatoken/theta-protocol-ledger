@@ -2,21 +2,25 @@ package backend
 
 import (
 	"testing"
+
+	"github.com/thetatoken/ukulele/store/database"
 )
 
-func newTestAerospikeDB() (*AerospikeDatabase, func()) {
+func newTestAerospikeDB() (*AerospikeDatabase, database.Batch, func()) {
 	db, err := NewAerospikeDatabase()
 	if err != nil {
 		panic("failed to create test database: " + err.Error())
 	}
 
-	return db, func() {
+	batch := db.NewBatch()
+
+	return db, batch, func() {
 		db.Close()
 	}
 }
 
 func TestAerospikeDB_PutGet(t *testing.T) {
-	db, close := newTestAerospikeDB()
+	db, batch, close := newTestAerospikeDB()
 	defer close()
-	testPutGet(db, t)
+	testPutGet(db, batch, t)
 }

@@ -45,29 +45,31 @@ func newTestLDB() (*LDBDatabase, func()) {
 	}
 }
 
-var test_values = []string{"", "a", "1251", "\x00123\x00"}
+var testValues = []string{"", "a", "1251", "\x00123\x00"}
 
 func TestLDB_PutGet(t *testing.T) {
 	db, remove := newTestLDB()
+	batch := db.NewBatch()
 	defer remove()
-	testPutGet(db, t)
+	testPutGet(db, batch, t)
 }
 
 func TestMemoryDB_PutGet(t *testing.T) {
-	testPutGet(NewMemDatabase(), t)
+	memDB := NewMemDatabase()
+	testPutGet(memDB, memDB.NewBatch(), t)
 }
 
-func testPutGet(db database.Database, t *testing.T) {
+func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	t.Parallel()
 
-	for _, k := range test_values {
+	for _, k := range testValues {
 		err := db.Put([]byte(k), nil)
 		if err != nil {
 			t.Fatalf("put failed: %v", err)
 		}
 	}
 
-	for _, k := range test_values {
+	for _, k := range testValues {
 		data, err := db.Get([]byte(k))
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
@@ -90,14 +92,14 @@ func testPutGet(db database.Database, t *testing.T) {
 		t.Fatalf("expect to return not found")
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		err := db.Put([]byte(v), []byte(v))
 		if err != nil {
 			t.Fatalf("put failed: %v", err)
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		data, err := db.Get([]byte(v))
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
@@ -107,14 +109,14 @@ func testPutGet(db database.Database, t *testing.T) {
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		err := db.Put([]byte(v), []byte("?"))
 		if err != nil {
 			t.Fatalf("put override failed: %v", err)
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		data, err := db.Get([]byte(v))
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
@@ -124,7 +126,7 @@ func testPutGet(db database.Database, t *testing.T) {
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		orig, err := db.Get([]byte(v))
 		if err != nil {
 			t.Fatalf("get failed: %v", err)
@@ -139,7 +141,7 @@ func testPutGet(db database.Database, t *testing.T) {
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		has, err := db.Has([]byte(v))
 		if err != nil {
 			t.Fatalf("has failed: %v", err)
@@ -149,14 +151,14 @@ func testPutGet(db database.Database, t *testing.T) {
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		err := db.Delete([]byte(v))
 		if err != nil {
 			t.Fatalf("delete %q failed: %v", v, err)
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		has, err := db.Has([]byte(v))
 		if err != nil {
 			t.Fatalf("has failed: %v", err)
@@ -166,10 +168,84 @@ func testPutGet(db database.Database, t *testing.T) {
 		}
 	}
 
-	for _, v := range test_values {
+	for _, v := range testValues {
 		_, err := db.Get([]byte(v))
 		if err == nil {
 			t.Fatalf("got deleted value %q", v)
+		}
+	}
+
+	// test batch
+	for _, v := range testValues {
+		err := batch.Put([]byte(v), nil)
+		if err != nil {
+			t.Fatalf("batch put %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch write %q failed")
+	}
+
+	for _, v := range testValues {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if !has {
+			t.Fatalf("can't find %v", v)
+		}
+	}
+
+	for _, k := range testValues {
+		data, err := db.Get([]byte(k))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(data) != 0 {
+			t.Fatalf("get returned wrong result, got %q expected nil", string(data))
+		}
+	}
+
+	for _, v := range testValues {
+		err := batch.Put([]byte(v), []byte(v))
+		if err != nil {
+			t.Fatalf("batch put %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch write %q failed")
+	}
+
+	for _, v := range testValues {
+		data, err := db.Get([]byte(v))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if !bytes.Equal(data, []byte(v)) {
+			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+	}
+
+	for _, v := range testValues {
+		err := batch.Delete([]byte(v))
+		if err != nil {
+			t.Fatalf("batch delete %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatal("batch delete %q failed")
+	}
+
+	for _, v := range testValues {
+		has, err := db.Has([]byte(v))
+		if err != nil {
+			t.Fatalf("has failed: %v", err)
+		}
+		if has {
+			t.Fatalf("find deleted %v", v)
 		}
 	}
 }
