@@ -2,12 +2,13 @@ package mempool
 
 import (
 	"container/list"
+	"encoding/hex"
 	"sync"
 
 	"github.com/thetatoken/ukulele/crypto"
 )
 
-const maxCacheSize = uint(200000)
+const defaultMaxNumTxs = uint(200000)
 
 //
 // transactionBookkeeper keeps tracks of recently seen transactions
@@ -16,20 +17,23 @@ type transactionBookkeeper struct {
 	mutex *sync.Mutex
 
 	txMap  map[string]bool // map: transaction hash -> bool
-	txList list.List
+	txList list.List       // FIFO list of transaction hashes
+
+	maxNumTxs uint
 }
 
-func createTransactionBookkeeper() transactionBookkeeper {
+func createTransactionBookkeeper(maxNumTxs uint) transactionBookkeeper {
 	return transactionBookkeeper{
-		mutex: &sync.Mutex{},
-		txMap: make(map[string]bool, maxCacheSize),
+		mutex:     &sync.Mutex{},
+		txMap:     make(map[string]bool),
+		maxNumTxs: maxNumTxs,
 	}
 }
 
 func (tb *transactionBookkeeper) reset() {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	tb.txMap = make(map[string]bool, maxCacheSize)
+	tb.txMap = make(map[string]bool)
 	tb.txList.Init()
 }
 
@@ -50,7 +54,7 @@ func (tb *transactionBookkeeper) record(mptx *mempoolTransaction) bool {
 		return false
 	}
 
-	if uint(tb.txList.Len()) > maxCacheSize { // remove the oldest transactions
+	if uint(tb.txList.Len()) >= tb.maxNumTxs { // remove the oldest transactions
 		popped := tb.txList.Front()
 		poppedTxhash := popped.Value.(string)
 		delete(tb.txMap, poppedTxhash)
@@ -72,6 +76,6 @@ func (tb *transactionBookkeeper) remove(mptx *mempoolTransaction) {
 
 func getTransactionHash(mptx *mempoolTransaction) string {
 	txhash := crypto.Keccak256Hash(mptx.rawTransaction)
-	txhashStr := string(txhash[:])
+	txhashStr := hex.EncodeToString(txhash[:])
 	return txhashStr
 }
