@@ -40,6 +40,9 @@ func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
 
 // ProcessTransaction processes the incoming transaction (submitted by the clients or relayed from peers)
 func (mp *Mempool) ProcessTransaction(mptx *mempoolTransaction) error {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
 	if mp.txBookeepper.hasSeen(mptx) {
 		log.Infof("Transaction already seen: %v", mptx)
 		return nil
@@ -146,6 +149,7 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 		if next == nil {
 			next = mp.txCandidates.FrontWait() // Wait until a tx is available
 		}
+
 		mptx := next.Value.(*mempoolTransaction)
 
 		// Broadcast the transaction
@@ -154,6 +158,8 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			Checksum:  []byte(""), // TODO: calculate the checksum
 			Payload:   mptx.rawTransaction,
 		}
+
+		log.Debugf(">>>>> broadcasting mptx: %v", string(mptx.rawTransaction[:]))
 		peerIDs := []string{} // empty peerID list means broadcasting to all neighboring peers
 		mp.dispatcher.SendData(peerIDs, data)
 

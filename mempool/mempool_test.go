@@ -1,6 +1,8 @@
 package mempool
 
 import (
+	"context"
+	"sync"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -8,6 +10,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	dp "github.com/thetatoken/ukulele/dispatcher"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
+	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
 func TestMempoolBasics(t *testing.T) {
@@ -31,7 +34,8 @@ func TestMempoolBasics(t *testing.T) {
 	log.Infof("tx7 hash: %v", getTransactionHash(tx7))
 	log.Infof("tx8 hash: %v", getTransactionHash(tx8))
 
-	mempool := newMempool()
+	p2psimnet := p2psim.NewSimnetWithHandler(nil)
+	mempool := newTestMempool(p2psimnet)
 
 	// ProcessTransaction operation
 	log.Infof("----- Process tx1, tx2, tx3 -----")
@@ -117,16 +121,115 @@ func TestMempoolBasics(t *testing.T) {
 	assert.Equal("tx4", string(reapedRawTxs[0][:]))
 	assert.Equal("tx5", string(reapedRawTxs[1][:]))
 	assert.Equal("tx8", string(reapedRawTxs[2][:]))
+
+	// Flush operation
+	assert.Equal(3, mempool.Size())
+	assert.True(mempool.txBookeepper.hasSeen(tx1))
+	assert.True(mempool.txBookeepper.hasSeen(tx2))
+	assert.True(mempool.txBookeepper.hasSeen(tx3))
+	assert.True(mempool.txBookeepper.hasSeen(tx4))
+	assert.True(mempool.txBookeepper.hasSeen(tx5))
+	assert.True(mempool.txBookeepper.hasSeen(tx6))
+	assert.True(mempool.txBookeepper.hasSeen(tx7))
+	assert.True(mempool.txBookeepper.hasSeen(tx8))
+
+	mempool.Flush()
+
+	assert.Equal(0, mempool.Size())
+	assert.False(mempool.txBookeepper.hasSeen(tx1))
+	assert.False(mempool.txBookeepper.hasSeen(tx2))
+	assert.False(mempool.txBookeepper.hasSeen(tx3))
+	assert.False(mempool.txBookeepper.hasSeen(tx4))
+	assert.False(mempool.txBookeepper.hasSeen(tx5))
+	assert.False(mempool.txBookeepper.hasSeen(tx6))
+	assert.False(mempool.txBookeepper.hasSeen(tx7))
+	assert.False(mempool.txBookeepper.hasSeen(tx8))
+}
+
+func TestMempoolTransactionGossip(t *testing.T) {
+	assert := assert.New(t)
+
+	netMsgIntercepter := newTestNetworkMessageInterceptor()
+	p2psimnet := p2psim.NewSimnetWithHandler(netMsgIntercepter)
+
+	// Add two peer nodes
+	peer1 := p2psimnet.AddEndpoint("peer1")
+	peer1.OnStart()
+
+	peer2 := p2psimnet.AddEndpoint("peer2")
+	peer2.OnStart()
+
+	// Add the current node
+	mempool := newTestMempool(p2psimnet)
+	mempool.OnStart()
+
+	p2psimnet.Start(context.Background())
+
+	tx1 := createTestMempoolTx("tx1")
+	tx2 := createTestMempoolTx("tx2")
+	tx3 := createTestMempoolTx("tx3")
+
+	log.Infof(">>> Client submitted tx1, tx2, tx3")
+	assert.Nil(mempool.ProcessTransaction(tx1))
+	assert.Nil(mempool.ProcessTransaction(tx2))
+	assert.Nil(mempool.ProcessTransaction(tx3))
+	assert.Equal(3, mempool.Size())
+
+	numGossippedTxs := 2 * 3 // 2 peers, each should receive 3 transactions
+	for i := 0; i < numGossippedTxs; i++ {
+		receivedMsg := <-netMsgIntercepter.ReceivedMessages
+		receiverPeerID := receivedMsg.PeerID
+		dataResponse := receivedMsg.Content.(dp.DataResponse)
+		rawTx := string(dataResponse.Payload[:])
+		log.Infof("received transaction, receiver: %v, rawTx: %v", receiverPeerID, rawTx)
+
+		assert.True(receiverPeerID == "peer1" || receiverPeerID == "peer2")
+		assert.True(rawTx == "tx1" || rawTx == "tx2" || rawTx == "tx3")
+	}
 }
 
 // --------------- Test Utilities --------------- //
 
-func newMempool() *Mempool {
-	simnet := p2psim.NewSimnetWithHandler(nil)
-	messenger := simnet.AddEndpoint("messenger1")
+func newTestMempool(simnet *p2psim.Simnet) *Mempool {
+	messenger := simnet.AddEndpoint("peer0")
 	dispatcher := dp.NewDispatcher(messenger)
 	mempool := CreateMempool(dispatcher)
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
+	messenger.OnStart()
 	return mempool
+}
+
+type TestNetworkMessageInterceptor struct {
+	lock             *sync.Mutex
+	ReceivedMessages chan p2ptypes.Message
+}
+
+func newTestNetworkMessageInterceptor() *TestNetworkMessageInterceptor {
+	return &TestNetworkMessageInterceptor{
+		lock:             &sync.Mutex{},
+		ReceivedMessages: make(chan p2ptypes.Message),
+	}
+}
+
+func (tnmi *TestNetworkMessageInterceptor) GetChannelIDs() []common.ChannelIDEnum {
+	return []common.ChannelIDEnum{
+		common.ChannelIDTransaction,
+	}
+}
+
+func (tnmi *TestNetworkMessageInterceptor) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+	message := p2ptypes.Message{
+		PeerID:    peerID,
+		ChannelID: channelID,
+		Content:   rawMessageBytes,
+	}
+	return message, nil
+}
+
+func (tnmi *TestNetworkMessageInterceptor) HandleMessage(msg p2ptypes.Message) error {
+	tnmi.lock.Lock()
+	defer tnmi.lock.Unlock()
+	tnmi.ReceivedMessages <- msg
+	return nil
 }
