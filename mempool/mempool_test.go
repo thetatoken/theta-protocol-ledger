@@ -35,7 +35,7 @@ func TestMempoolBasics(t *testing.T) {
 	log.Infof("tx8 hash: %v", getTransactionHash(tx8))
 
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
-	mempool := newTestMempool(p2psimnet)
+	mempool := newTestMempool("peer0", p2psimnet)
 
 	// ProcessTransaction operation
 	log.Infof("----- Process tx1, tx2, tx3 -----")
@@ -152,6 +152,10 @@ func TestMempoolTransactionGossip(t *testing.T) {
 	netMsgIntercepter := newTestNetworkMessageInterceptor()
 	p2psimnet := p2psim.NewSimnetWithHandler(netMsgIntercepter)
 
+	// Add our node
+	mempool := newTestMempool("peer0", p2psimnet)
+	mempool.OnStart()
+
 	// Add two peer nodes
 	peer1 := p2psimnet.AddEndpoint("peer1")
 	peer1.OnStart()
@@ -159,21 +163,17 @@ func TestMempoolTransactionGossip(t *testing.T) {
 	peer2 := p2psimnet.AddEndpoint("peer2")
 	peer2.OnStart()
 
-	// Add the current node
-	mempool := newTestMempool(p2psimnet)
-	mempool.OnStart()
-
 	p2psimnet.Start(context.Background())
 
 	tx1 := createTestMempoolTx("tx1")
 	tx2 := createTestMempoolTx("tx2")
 	tx3 := createTestMempoolTx("tx3")
 
-	log.Infof(">>> Client submitted tx1, tx2, tx3")
 	assert.Nil(mempool.ProcessTransaction(tx1))
 	assert.Nil(mempool.ProcessTransaction(tx2))
 	assert.Nil(mempool.ProcessTransaction(tx3))
 	assert.Equal(3, mempool.Size())
+	log.Infof(">>> Client submitted tx1, tx2, tx3")
 
 	numGossippedTxs := 2 * 3 // 2 peers, each should receive 3 transactions
 	for i := 0; i < numGossippedTxs; i++ {
@@ -190,8 +190,8 @@ func TestMempoolTransactionGossip(t *testing.T) {
 
 // --------------- Test Utilities --------------- //
 
-func newTestMempool(simnet *p2psim.Simnet) *Mempool {
-	messenger := simnet.AddEndpoint("peer0")
+func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
+	messenger := simnet.AddEndpoint(peerID)
 	dispatcher := dp.NewDispatcher(messenger)
 	mempool := CreateMempool(dispatcher)
 	txMsgHandler := CreateMempoolMessageHandler(mempool)

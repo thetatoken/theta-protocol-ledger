@@ -27,14 +27,14 @@ func CreateMempoolMessageHandler(mempool *Mempool) *MempoolMessageHandler {
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface
-func (mmp *MempoolMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
+func (mmh *MempoolMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDTransaction,
 	}
 }
 
 // ParseMessage implements the p2p.MessageHandler interface
-func (mmp *MempoolMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
+func (mmh *MempoolMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
 	var dataResponse dp.DataResponse
 	rlp.DecodeBytes(rawMessageBytes, &dataResponse)
 
@@ -51,11 +51,11 @@ func (mmp *MempoolMessageHandler) ParseMessage(peerID string, channelID common.C
 }
 
 // HandleMessage implements the p2p.MessageHandler interface
-func (mmp *MempoolMessageHandler) HandleMessage(message types.Message) error {
+func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 	if message.ChannelID != common.ChannelIDTransaction {
 		return fmt.Errorf("Invalid channel for MempoolMessageHandler: %v", message.ChannelID)
 	}
-	mptx := message.Content.(*mempoolTransaction)
-	err := mmp.mempool.ProcessTransaction(mptx)
+	mptx := message.Content.(mempoolTransaction)
+	err := mmh.mempool.ProcessTransaction(&mptx)
 	return err
 }
