@@ -1,7 +1,6 @@
 package mempool
 
 import (
-	"fmt"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -30,8 +29,8 @@ type Mempool struct {
 }
 
 // CreateMempool creates an instance of Mempool
-func CreateMempool(dispatcher *dp.Dispatcher) Mempool {
-	return Mempool{
+func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
+	return &Mempool{
 		mutex:        &sync.Mutex{},
 		dispatcher:   dispatcher,
 		txCandidates: clist.New(),
@@ -42,9 +41,8 @@ func CreateMempool(dispatcher *dp.Dispatcher) Mempool {
 // ProcessTransaction processes the incoming transaction (submitted by the clients or relayed from peers)
 func (mp *Mempool) ProcessTransaction(mptx *mempoolTransaction) error {
 	if mp.txBookeepper.hasSeen(mptx) {
-		errMsg := fmt.Sprintf("Transaction already seen: %v", mptx)
-		log.Errorf(errMsg)
-		return fmt.Errorf(errMsg)
+		log.Infof("Transaction already seen: %v", mptx)
+		return nil
 	}
 
 	mp.txBookeepper.record(mptx)
@@ -100,7 +98,7 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 
 	txs := make([]common.Bytes, 0, maxNumTxs)
 	for e := mp.txCandidates.Front(); e != nil && len(txs) < maxNumTxs; e = e.Next() {
-		mptx := e.Value.(mempoolTransaction)
+		mptx := e.Value.(*mempoolTransaction)
 		txs = append(txs, mptx.rawTransaction)
 	}
 
@@ -156,10 +154,9 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			Checksum:  []byte(""), // TODO: calculate the checksum
 			Payload:   mptx.rawTransaction,
 		}
-		peerIDs := []string{} // empty peerID list means broadcast to all neighboring peers
+		peerIDs := []string{} // empty peerID list means broadcasting to all neighboring peers
 		mp.dispatcher.SendData(peerIDs, data)
 
 		next = next.NextWait()
-		continue
 	}
 }

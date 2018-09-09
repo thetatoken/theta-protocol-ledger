@@ -13,10 +13,9 @@ type Dispatcher struct {
 	p2pnet p2p.Network
 }
 
-// GetDispatcher returns the pointer to the Dispatcher singleton
+// NewDispatcher returns the pointer to the Dispatcher singleton
 func NewDispatcher(p2pnet p2p.Network) *Dispatcher {
 	return &Dispatcher{p2pnet: p2pnet}
-
 }
 
 // OnStart is called when the dispatcher starts
