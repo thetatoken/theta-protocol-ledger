@@ -12,7 +12,7 @@ import (
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 //

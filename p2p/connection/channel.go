@@ -4,7 +4,7 @@ import (
 	"io"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 //

@@ -3,7 +3,7 @@ package mempool
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p/types"

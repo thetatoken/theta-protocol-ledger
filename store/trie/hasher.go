@@ -23,7 +23,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto/sha3"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 type hasher struct {

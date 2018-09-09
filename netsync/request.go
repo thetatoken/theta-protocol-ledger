@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/dispatcher"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 
 	log "github.com/sirupsen/logrus"
 )
