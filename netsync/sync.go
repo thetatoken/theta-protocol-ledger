@@ -122,59 +122,61 @@ func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnu
 		ChannelID: channelID,
 	}
 
+	data, err := decodeMessage(rawMessageBytes)
+	message.Content = data
+	return message, err
+}
+
+func decodeMessage(raw common.Bytes) (interface{}, error) {
 	var msgID MessageIDEnum
-	err := rlp.DecodeBytes(rawMessageBytes[:1], &msgID)
+	err := rlp.DecodeBytes(raw[:1], &msgID)
 	if err != nil {
-		return message, err
+		return nil, err
 	}
 
 	if msgID == MessageIDInvRequest {
 		data := dispatcher.InventoryRequest{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDInvResponse {
 		data := dispatcher.InventoryResponse{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDDataRequest {
 		data := dispatcher.DataRequest{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDDataResponse {
 		data := dispatcher.DataResponse{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDBlock {
 		data := blockchain.Block{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDProposal {
 		data := consensus.Proposal{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDVote {
 		data := blockchain.Vote{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else if msgID == MessageIDCommitCertificate {
 		data := blockchain.CommitCertificate{}
-		err = rlp.DecodeBytes(rawMessageBytes[1:], &data)
-		message.Content = data
-		return message, err
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
 	} else {
-		return message, fmt.Errorf("Unknown message ID: %v", msgID)
+		return nil, fmt.Errorf("Unknown message ID: %v", msgID)
 	}
 }
 
 // EncodeMessage implements p2p.MessageHandler interface.
 func (sm *SyncManager) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return encodeMessage(message)
+}
+
+func encodeMessage(message interface{}) (common.Bytes, error) {
 	var buf bytes.Buffer
 	var msgID MessageIDEnum
 	switch message.(type) {
@@ -190,6 +192,8 @@ func (sm *SyncManager) EncodeMessage(message interface{}) (common.Bytes, error) 
 		msgID = MessageIDProposal
 	case blockchain.Block:
 		msgID = MessageIDBlock
+	case blockchain.Vote:
+		msgID = MessageIDVote
 	case blockchain.CommitCertificate:
 		msgID = MessageIDCommitCertificate
 	default:
@@ -256,9 +260,13 @@ func (sm *SyncManager) handleProposal(p *consensus.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 	if sm.chain.IsOrphan(block) {
+		log.WithFields(log.Fields{
+			"id":               sm.consensus.ID(),
+			"block.Hash":       block.Hash,
+			"block.ParentHash": block.ParentHash,
+		}).Debug("Received orphaned block")
 		sm.orphanBlockPool.Add(block)
 		sm.requestMgr.enqueueBlocks(block.Hash)
-		log.WithFields(log.Fields{"id": sm.consensus.ID(), "block.Hash": block.Hash}).Debug("Received orphaned block")
 		return
 	}
 
@@ -277,7 +285,10 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 func (sm *SyncManager) handleCC(cc *blockchain.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
-		log.WithFields(log.Fields{"id": sm.consensus.ID(), "cc.BlockHash": cc.BlockHash}).Debug("Received orphaned CC")
+		log.WithFields(log.Fields{
+			"id":           sm.consensus.ID(),
+			"cc.BlockHash": cc.BlockHash,
+		}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
 		sm.requestMgr.enqueueBlocks(cc.BlockHash)
 		return

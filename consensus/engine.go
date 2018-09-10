@@ -203,7 +203,11 @@ func (e *DefaultEngine) handleProposal(p Proposal) {
 func (e *DefaultEngine) handleBlock(block *blockchain.Block) {
 	var err error
 	if block.Epoch != e.epoch {
-		log.WithFields(log.Fields{"id": e.ID(), "block.Epoch": block.Epoch, "e.epoch": e.epoch}).Debug("Ignoring block from another epoch")
+		log.WithFields(log.Fields{"id": e.ID(),
+			"block.Epoch": block.Epoch,
+			"block.Hash":  block.Hash,
+			"e.epoch":     e.epoch,
+		}).Debug("Ignoring block from another epoch")
 	} else {
 		_, err = e.chain.AddBlock(block)
 		if err != nil {

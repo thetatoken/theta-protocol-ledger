@@ -179,7 +179,7 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 
 	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
+		log.Errorf("[p2p] Failed to encode message to bytes: %v, err: %v", message, err)
 		return false
 	}
 	success := channel.enqueueMessage(msgBytes)
@@ -201,7 +201,7 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, 
 
 	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
+		log.Errorf("[p2p] Failed to encode message to bytes: %v, error: %v", message, err)
 		return false
 	}
 	success := channel.attemptToEnqueueMessage(msgBytes)

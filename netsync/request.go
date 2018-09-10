@@ -8,7 +8,6 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/dispatcher"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/rlp"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -27,10 +26,20 @@ func (rm *RequestManager) enqueueBlocks(endHash common.Bytes) {
 	tip := rm.syncMgr.consensus.GetTip()
 	req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
 	// Fixme: since we are broadcasting GetInventory, we might be downloading blocks from multple peers later. Need to fix this.
+	log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(),
+		"channelID": req.ChannelID,
+		"startHash": req.Start,
+		"endHash":   req.End,
+	}).Debug("Sending inventory request")
 	rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 }
 
 func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
+	log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(),
+		"channelID": req.ChannelID,
+		"startHash": req.Start,
+		"endHash":   req.End,
+	}).Debug("Received inventory request")
 	switch req.ChannelID {
 	case common.ChannelIDBlock:
 		blocks := []string{}
@@ -71,6 +80,10 @@ func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.Invent
 			}
 		}
 		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
+		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(),
+			"channelID":         resp.ChannelID,
+			"len(resp.Entries)": len(resp.Entries),
+		}).Debug("Sending inventory response")
 		rm.syncMgr.dispatcher.SendInventory([]string{peerID}, resp)
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": req.ChannelID}).Error("Unsupported channelID in received InvRequest")
@@ -95,6 +108,10 @@ func (rm *RequestManager) handleInvResponse(peerID string, resp *dispatcher.Inve
 				ChannelID: common.ChannelIDBlock,
 				Entries:   []string{hashStr},
 			}
+			log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(),
+				"channelID":       request.ChannelID,
+				"request.Entries": request.Entries,
+			}).Debug("Sending data request")
 			rm.syncMgr.dispatcher.GetData([]string{peerID}, request)
 		}
 	default:
@@ -116,12 +133,17 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to find hash string locally")
 				return
 			}
-			blockBytes, err := rlp.EncodeToBytes(block)
+			blockBytes, err := encodeMessage(block)
 			if err != nil {
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to serialize block")
 				return
 			}
 			dataResp := dispatcher.DataResponse{ChannelID: common.ChannelIDBlock, Payload: blockBytes}
+			log.WithFields(log.Fields{
+				"id":        rm.syncMgr.consensus.ID(),
+				"channelID": data.ChannelID,
+				"hashStr":   hashStr,
+			}).Debug("Requesting block")
 			rm.syncMgr.dispatcher.SendData([]string{peerID}, dataResp)
 		}
 	default:
@@ -132,15 +154,23 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 func (rm *RequestManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
-		block := &blockchain.Block{}
-		if err := rlp.DecodeBytes(data.Payload, &block); err != nil {
-			log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID()}).Error("Failed to decode block")
+		block, err := decodeMessage(data.Payload)
+		if err != nil {
+			log.WithFields(log.Fields{
+				"id":    rm.syncMgr.consensus.ID(),
+				"error": err,
+			}).Error("Failed to decode block")
 			return
 		}
 		msg := &p2ptypes.Message{
 			PeerID:  peerID,
 			Content: block,
 		}
+		log.WithFields(log.Fields{
+			"id":         rm.syncMgr.consensus.ID(),
+			"channelID":  data.ChannelID,
+			"block.Hash": block.(blockchain.Block).Hash,
+		}).Debug("Requested block received")
 		rm.syncMgr.AddMessage(msg)
 	default:
 		log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID}).Error("Unsupported channelID in received DataResponse")
