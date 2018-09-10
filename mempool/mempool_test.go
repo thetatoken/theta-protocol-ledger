@@ -11,6 +11,7 @@ import (
 	dp "github.com/thetatoken/ukulele/dispatcher"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 func TestMempoolBasics(t *testing.T) {
@@ -216,6 +217,10 @@ func (tnmi *TestNetworkMessageInterceptor) GetChannelIDs() []common.ChannelIDEnu
 	return []common.ChannelIDEnum{
 		common.ChannelIDTransaction,
 	}
+}
+
+func (tnmi *TestNetworkMessageInterceptor) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
 }
 
 func (tnmi *TestNetworkMessageInterceptor) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {

@@ -33,6 +33,11 @@ func (mmh *MempoolMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
+// EncodeMessage implements the p2p.MessageHandler interface
+func (mmh *MempoolMessageHandler) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
+}
+
 // ParseMessage implements the p2p.MessageHandler interface
 func (mmh *MempoolMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
 	var dataResponse dp.DataResponse

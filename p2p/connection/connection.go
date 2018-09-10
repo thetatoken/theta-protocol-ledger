@@ -30,6 +30,7 @@ type Connection struct {
 
 	channelGroup ChannelGroup
 	onParse      MessageParser
+	onEncode     MessageEncoder
 	onReceive    ReceiveHandler
 	onError      ErrorHandler
 	errored      uint32
@@ -59,6 +60,13 @@ type ConnectionConfig struct {
 
 // MessageParser parse the raw message bytes to type p2ptypes.Message
 type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
+
+// MessageEncoder encode the raw message bytes to type p2ptypes.Message
+type MessageEncoder func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error)
+
+var defaultMessageEncoder MessageEncoder = func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
+}
 
 // ReceiveHandler is the callback function to handle received bytes from the given channel
 type ReceiveHandler func(message p2ptypes.Message) error
@@ -103,6 +111,8 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
 		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
 		config:       config,
+
+		onEncode: defaultMessageEncoder,
 	}
 }
 
@@ -143,6 +153,11 @@ func (conn *Connection) SetMessageParser(messageParser MessageParser) {
 	conn.onParse = messageParser
 }
 
+// SetMessageEncoder sets the message encoder for the connection
+func (conn *Connection) SetMessageEncoder(messageEncoder MessageEncoder) {
+	conn.onEncode = messageEncoder
+}
+
 // SetReceiveHandler sets the receive handler for the connection
 func (conn *Connection) SetReceiveHandler(receiveHandler ReceiveHandler) {
 	conn.onReceive = receiveHandler
@@ -162,7 +177,7 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 		return false
 	}
 
-	msgBytes, err := rlp.EncodeToBytes(message)
+	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
 		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
 		return false
@@ -184,7 +199,7 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, 
 		return false
 	}
 
-	msgBytes, err := rlp.EncodeToBytes(message)
+	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
 		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
 		return false

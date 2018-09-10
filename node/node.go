@@ -60,6 +60,7 @@ func (n *Node) Start(ctx context.Context) {
 
 	n.Consensus.Start(n.ctx)
 	n.SyncManager.Start(n.ctx)
+	n.Network.OnStart()
 }
 
 // Stop notifies all sub components to stop without blocking.

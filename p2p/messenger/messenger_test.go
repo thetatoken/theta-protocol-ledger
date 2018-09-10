@@ -132,6 +132,10 @@ func (thm *TestMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
+func (thm *TestMessageHandler) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
+}
+
 func (thm *TestMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 	message := p2ptypes.Message{
 		PeerID:    peerID,
