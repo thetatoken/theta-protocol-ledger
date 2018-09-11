@@ -45,7 +45,8 @@ func init() {
 
 // Used for testing
 func newEmpty() *Trie {
-	trie, _ := New(common.Hash{}, NewDatabase(dbbackend.NewMemDatabase()))
+	db, _ := dbbackend.NewMgoDatabase()
+	trie, _ := New(common.Hash{}, NewDatabase(db))
 	return trie
 }
 
