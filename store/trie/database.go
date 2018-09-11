@@ -82,7 +82,7 @@ type Database struct {
 	nodesSize     common.StorageSize // Storage size of the nodes cache (exc. flushlist)
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
-	noFlush bool
+	noWrite bool
 
 	lock sync.RWMutex
 }
@@ -270,7 +270,7 @@ func NewDatabaseWithoutFlush(diskdb database.Database) *Database {
 		diskdb:    diskdb,
 		nodes:     map[common.Hash]*cachedNode{{}: {}},
 		preimages: make(map[common.Hash][]byte),
-		noFlush:   true,
+		noWrite:   true,
 	}
 }
 
@@ -511,7 +511,7 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 // Cap iteratively flushes old but still referenced trie nodes until the total
 // memory usage goes below the given threshold.
 func (db *Database) Cap(limit common.StorageSize) error {
-	if db.noFlush {
+	if db.noWrite {
 		return nil
 	}
 	// Create a database batch to flush persistent data out. It is important that
@@ -617,7 +617,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 //
 // As a side effect, all pre-images accumulated up to this point are also written.
 func (db *Database) Commit(node common.Hash, report bool) error {
-	if db.noFlush {
+	if db.noWrite {
 		return nil
 	}
 

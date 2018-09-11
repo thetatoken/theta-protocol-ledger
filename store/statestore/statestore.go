@@ -1,16 +1,18 @@
 package statestore
 
 import (
+	"bytes"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/trie"
 )
 
 // NewStateStore create a new instance of StateStore.
-func NewStateStore(root common.Hash, db database.Database, noFlush bool) *StateStore {
+func NewStateStore(root common.Hash, db database.Database, noWrite bool) *StateStore {
 	var tr *trie.Trie
 	var err error
-	if noFlush {
+	if noWrite {
 		tr, err = trie.New(root, trie.NewDatabaseWithoutFlush(db))
 	} else {
 		tr, err = trie.New(root, trie.NewDatabase(db))
@@ -37,10 +39,14 @@ func (store *StateStore) Set(key, value []byte) {
 
 // Traverse traverses the trie and calls cb callback func on every key/value pair
 // Traversal starts at the key after the given start key.
-func (store *StateStore) Traverse(start []byte, number int, cb func([]byte, []byte) bool) bool {
-	it := trie.NewIterator(store.Trie.NodeIterator(start))
-	for i := 0; i < number && it.Next(); i++ {
-		cb(it.Key, it.Value)
+func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bool {
+	it := trie.NewIterator(store.Trie.NodeIterator(prefix))
+	for it.Next() {
+		if bytes.Compare(it.Key, prefix) < 0 {
+			cb(it.Key, it.Value)
+		} else {
+			break
+		}
 	}
 	return true
 }
