@@ -38,11 +38,11 @@ func (store *StateStore) Set(key, value []byte) {
 }
 
 // Traverse traverses the trie and calls cb callback func on every key/value pair
-// Traversal starts at the key after the given start key.
-func (store *StateStore) Traverse(start, end []byte, cb func([]byte, []byte) bool) bool {
-	it := trie.NewIterator(store.Trie.NodeIterator(start))
+// with key having prefix
+func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bool {
+	it := trie.NewIterator(store.Trie.NodeIterator(prefix))
 	for it.Next() {
-		if bytes.Compare(it.Key, end) < 0 {
+		if bytes.HasPrefix(it.Key, prefix) {
 			cb(it.Key, it.Value)
 		} else {
 			break
