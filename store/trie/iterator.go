@@ -23,7 +23,7 @@ import (
 	"errors"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.

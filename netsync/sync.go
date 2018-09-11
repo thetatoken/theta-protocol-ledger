@@ -1,7 +1,10 @@
 package netsync
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/thetatoken/ukulele/blockchain"
@@ -9,11 +12,25 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
+	"github.com/thetatoken/ukulele/rlp"
 
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+)
+
+type MessageIDEnum uint8
+
+const (
+	MessageIDBlock MessageIDEnum = iota
+	MessageIDVote
+	MessageIDProposal
+	MessageIDCommitCertificate
+	MessageIDInvRequest
+	MessageIDInvResponse
+	MessageIDDataRequest
+	MessageIDDataResponse
 )
 
 var _ p2p.MessageHandler = (*SyncManager)(nil)
@@ -100,12 +117,97 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 // ParseMessage implements p2p.MessageHandler interface.
 func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnum,
 	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
-	// To be implemented..
 	message := p2ptypes.Message{
 		PeerID:    peerID,
 		ChannelID: channelID,
 	}
-	return message, nil
+
+	data, err := decodeMessage(rawMessageBytes)
+	message.Content = data
+	return message, err
+}
+
+func decodeMessage(raw common.Bytes) (interface{}, error) {
+	var msgID MessageIDEnum
+	err := rlp.DecodeBytes(raw[:1], &msgID)
+	if err != nil {
+		return nil, err
+	}
+
+	if msgID == MessageIDInvRequest {
+		data := dispatcher.InventoryRequest{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDInvResponse {
+		data := dispatcher.InventoryResponse{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDDataRequest {
+		data := dispatcher.DataRequest{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDDataResponse {
+		data := dispatcher.DataResponse{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDBlock {
+		data := blockchain.Block{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDProposal {
+		data := consensus.Proposal{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDVote {
+		data := blockchain.Vote{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else if msgID == MessageIDCommitCertificate {
+		data := blockchain.CommitCertificate{}
+		err = rlp.DecodeBytes(raw[1:], &data)
+		return data, err
+	} else {
+		return nil, fmt.Errorf("Unknown message ID: %v", msgID)
+	}
+}
+
+// EncodeMessage implements p2p.MessageHandler interface.
+func (sm *SyncManager) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return encodeMessage(message)
+}
+
+func encodeMessage(message interface{}) (common.Bytes, error) {
+	var buf bytes.Buffer
+	var msgID MessageIDEnum
+	switch message.(type) {
+	case dispatcher.InventoryRequest:
+		msgID = MessageIDInvRequest
+	case dispatcher.InventoryResponse:
+		msgID = MessageIDInvResponse
+	case dispatcher.DataRequest:
+		msgID = MessageIDDataRequest
+	case dispatcher.DataResponse:
+		msgID = MessageIDDataResponse
+	case consensus.Proposal:
+		msgID = MessageIDProposal
+	case blockchain.Block:
+		msgID = MessageIDBlock
+	case blockchain.Vote:
+		msgID = MessageIDVote
+	case blockchain.CommitCertificate:
+		msgID = MessageIDCommitCertificate
+	default:
+		return nil, errors.New("Unsupported message type")
+	}
+	err := rlp.Encode(&buf, msgID)
+	if err != nil {
+		return nil, err
+	}
+	err = rlp.Encode(&buf, message)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // HandleMessage implements p2p.MessageHandler interface.
@@ -158,9 +260,13 @@ func (sm *SyncManager) handleProposal(p *consensus.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 	if sm.chain.IsOrphan(block) {
+		log.WithFields(log.Fields{
+			"id":               sm.consensus.ID(),
+			"block.Hash":       block.Hash,
+			"block.ParentHash": block.ParentHash,
+		}).Debug("Received orphaned block")
 		sm.orphanBlockPool.Add(block)
 		sm.requestMgr.enqueueBlocks(block.Hash)
-		log.WithFields(log.Fields{"id": sm.consensus.ID(), "block.Hash": block.Hash}).Debug("Received orphaned block")
 		return
 	}
 
@@ -179,7 +285,10 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 
 func (sm *SyncManager) handleCC(cc *blockchain.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
-		log.WithFields(log.Fields{"id": sm.consensus.ID(), "cc.BlockHash": cc.BlockHash}).Debug("Received orphaned CC")
+		log.WithFields(log.Fields{
+			"id":           sm.consensus.ID(),
+			"cc.BlockHash": cc.BlockHash,
+		}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
 		sm.requestMgr.enqueueBlocks(cc.BlockHash)
 		return

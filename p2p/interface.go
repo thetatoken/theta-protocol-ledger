@@ -16,6 +16,9 @@ type MessageHandler interface {
 	// ParseMessage parses the raw message bytes
 	ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error)
 
+	// EncodeMessage encodes message to bytes
+	EncodeMessage(message interface{}) (common.Bytes, error)
+
 	// HandleMessage processes the received message
 	HandleMessage(message types.Message) error
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 func TestMessengerBroadcastMessages(t *testing.T) {
@@ -130,6 +130,10 @@ func (thm *TestMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDTransaction,
 	}
+}
+
+func (thm *TestMessageHandler) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
 }
 
 func (thm *TestMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {

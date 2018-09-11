@@ -20,8 +20,9 @@ var _ p2p.Network = (*Messenger)(nil)
 type Messenger struct {
 	discMgr       *PeerDiscoveryManager
 	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
-	peerTable     pr.PeerTable
-	nodeInfo      p2ptypes.NodeInfo // information of our blockchain node
+
+	peerTable pr.PeerTable
+	nodeInfo  p2ptypes.NodeInfo // information of our blockchain node
 
 	config MessengerConfig
 }
@@ -122,7 +123,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
 	for _, channelID := range channelIDs {
 		if msgr.msgHandlerMap[channelID] != nil {
-			log.Errorf("[p2p] Message handlered is already added for channelID: %v", channelID)
+			log.Errorf("[p2p] Message handler is already added for channelID: %v", channelID)
 			return
 		}
 		msgr.msgHandlerMap[channelID] = msgHandler
@@ -146,6 +147,12 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		return message, err
 	}
 	peer.GetConnection().SetMessageParser(messageParser)
+
+	messageEncoder := func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
+		msgHandler := msgr.msgHandlerMap[channelID]
+		return msgHandler.EncodeMessage(message)
+	}
+	peer.GetConnection().SetMessageEncoder(messageEncoder)
 
 	receiveHandler := func(message p2ptypes.Message) error {
 		channelID := message.ChannelID

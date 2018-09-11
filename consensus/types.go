@@ -10,7 +10,7 @@ import (
 type Proposal struct {
 	Block             blockchain.Block
 	ProposerID        string
-	CommitCertificate *blockchain.CommitCertificate
+	CommitCertificate *blockchain.CommitCertificate `rlp:"nil"`
 }
 
 func (p Proposal) String() string {

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 type SimMessageHandler struct {
@@ -26,6 +27,10 @@ func (sm *SimMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
 		common.ChannelIDBlock,
 		common.ChannelIDVote,
 	}
+}
+
+func (sm *SimMessageHandler) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
 }
 
 func (sm *SimMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"

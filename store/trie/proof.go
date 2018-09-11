@@ -24,7 +24,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/database"
 )
 

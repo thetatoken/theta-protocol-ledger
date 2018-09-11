@@ -12,7 +12,7 @@ import (
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/serialization/rlp"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 //
@@ -30,6 +30,7 @@ type Connection struct {
 
 	channelGroup ChannelGroup
 	onParse      MessageParser
+	onEncode     MessageEncoder
 	onReceive    ReceiveHandler
 	onError      ErrorHandler
 	errored      uint32
@@ -59,6 +60,13 @@ type ConnectionConfig struct {
 
 // MessageParser parse the raw message bytes to type p2ptypes.Message
 type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
+
+// MessageEncoder encode the raw message bytes to type p2ptypes.Message
+type MessageEncoder func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error)
+
+var defaultMessageEncoder MessageEncoder = func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
+}
 
 // ReceiveHandler is the callback function to handle received bytes from the given channel
 type ReceiveHandler func(message p2ptypes.Message) error
@@ -103,6 +111,8 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
 		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
 		config:       config,
+
+		onEncode: defaultMessageEncoder,
 	}
 }
 
@@ -143,6 +153,11 @@ func (conn *Connection) SetMessageParser(messageParser MessageParser) {
 	conn.onParse = messageParser
 }
 
+// SetMessageEncoder sets the message encoder for the connection
+func (conn *Connection) SetMessageEncoder(messageEncoder MessageEncoder) {
+	conn.onEncode = messageEncoder
+}
+
 // SetReceiveHandler sets the receive handler for the connection
 func (conn *Connection) SetReceiveHandler(receiveHandler ReceiveHandler) {
 	conn.onReceive = receiveHandler
@@ -162,9 +177,9 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 		return false
 	}
 
-	msgBytes, err := rlp.EncodeToBytes(message)
+	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
+		log.Errorf("[p2p] Failed to encode message to bytes: %v, err: %v", message, err)
 		return false
 	}
 	success := channel.enqueueMessage(msgBytes)
@@ -184,9 +199,9 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, 
 		return false
 	}
 
-	msgBytes, err := rlp.EncodeToBytes(message)
+	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v", message)
+		log.Errorf("[p2p] Failed to encode message to bytes: %v, error: %v", message, err)
 		return false
 	}
 	success := channel.attemptToEnqueueMessage(msgBytes)
@@ -321,6 +336,8 @@ func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
 }
 
 func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
+	// TODO: handle packet whose IsEOF is 0x0 properly, should combine packets into a complete message
+	//       with RecvBuffer.receivePacket()
 	message, err := conn.onParse(packet.ChannelID, packet.Bytes)
 	if err != nil {
 		log.Errorf("[p2p] Error parsing packet: %v, err: %v", packet, err)
