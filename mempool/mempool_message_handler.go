@@ -61,6 +61,6 @@ func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 		return fmt.Errorf("Invalid channel for MempoolMessageHandler: %v", message.ChannelID)
 	}
 	mptx := message.Content.(mempoolTransaction)
-	err := mmh.mempool.ProcessTransaction(&mptx)
+	err := mmh.mempool.InsertTransaction(&mptx)
 	return err
 }

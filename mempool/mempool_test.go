@@ -40,14 +40,14 @@ func TestMempoolBasics(t *testing.T) {
 
 	// ProcessTransaction operation
 	log.Infof("----- Process tx1, tx2, tx3 -----")
-	assert.Nil(mempool.ProcessTransaction(tx1))
-	assert.Nil(mempool.ProcessTransaction(tx2))
-	assert.Nil(mempool.ProcessTransaction(tx3))
+	assert.Nil(mempool.InsertTransaction(tx1))
+	assert.Nil(mempool.InsertTransaction(tx2))
+	assert.Nil(mempool.InsertTransaction(tx3))
 	assert.Equal(3, mempool.Size())
 
 	log.Infof("----- Process tx4, tx5 -----")
-	assert.Nil(mempool.ProcessTransaction(tx4))
-	assert.Nil(mempool.ProcessTransaction(tx5))
+	assert.Nil(mempool.InsertTransaction(tx4))
+	assert.Nil(mempool.InsertTransaction(tx5))
 	assert.Equal(5, mempool.Size())
 
 	// Reap operation
@@ -79,11 +79,11 @@ func TestMempoolBasics(t *testing.T) {
 	assert.Equal("tx2", string(reapedRawTxs[0][:]))
 	assert.Equal("tx4", string(reapedRawTxs[1][:]))
 
-	// ProcessTransaction operation
-	log.Infof("----- Process tx6, tx7, tx8 -----")
-	assert.Nil(mempool.ProcessTransaction(tx6))
-	assert.Nil(mempool.ProcessTransaction(tx7))
-	assert.Nil(mempool.ProcessTransaction(tx8))
+	// InsertTransaction operation
+	log.Infof("----- Insert tx6, tx7, tx8 -----")
+	assert.Nil(mempool.InsertTransaction(tx6))
+	assert.Nil(mempool.InsertTransaction(tx7))
+	assert.Nil(mempool.InsertTransaction(tx8))
 
 	// Reap operation
 	log.Infof("----- Reap 5 transactions -----")
@@ -155,7 +155,7 @@ func TestMempoolTransactionGossip(t *testing.T) {
 
 	// Add our node
 	mempool := newTestMempool("peer0", p2psimnet)
-	mempool.OnStart()
+	mempool.Start()
 
 	// Add two peer nodes
 	peer1 := p2psimnet.AddEndpoint("peer1")
@@ -170,9 +170,9 @@ func TestMempoolTransactionGossip(t *testing.T) {
 	tx2 := createTestMempoolTx("tx2")
 	tx3 := createTestMempoolTx("tx3")
 
-	assert.Nil(mempool.ProcessTransaction(tx1))
-	assert.Nil(mempool.ProcessTransaction(tx2))
-	assert.Nil(mempool.ProcessTransaction(tx3))
+	assert.Nil(mempool.InsertTransaction(tx1))
+	assert.Nil(mempool.InsertTransaction(tx2))
+	assert.Nil(mempool.InsertTransaction(tx3))
 	assert.Equal(3, mempool.Size())
 	log.Infof(">>> Client submitted tx1, tx2, tx3")
 
