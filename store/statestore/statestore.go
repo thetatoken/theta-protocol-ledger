@@ -9,11 +9,11 @@ import (
 )
 
 // NewStateStore create a new instance of StateStore.
-func NewStateStore(root common.Hash, db database.Database, noWrite bool) *StateStore {
+func NewStateStore(root common.Hash, db database.Database, nonpersistent bool) *StateStore {
 	var tr *trie.Trie
 	var err error
-	if noWrite {
-		tr, err = trie.New(root, trie.NewDatabaseWithoutFlush(db))
+	if nonpersistent {
+		tr, err = trie.New(root, trie.NewNonpersistentDatabase(db))
 	} else {
 		tr, err = trie.New(root, trie.NewDatabase(db))
 	}
@@ -40,6 +40,7 @@ func (store *StateStore) Set(key, value []byte) {
 // Traverse traverses the trie and calls cb callback func on every key/value pair
 // with key having prefix
 func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bool {
+	// TODO: find alternative way without traversal
 	it := trie.NewIterator(store.Trie.NodeIterator(prefix))
 	for it.Next() {
 		if bytes.HasPrefix(it.Key, prefix) {

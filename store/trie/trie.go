@@ -77,6 +77,11 @@ type Trie struct {
 	cachegen, cachelimit uint16
 }
 
+// GetDB for testing purpose only
+func (t *Trie) GetDB() *Database {
+	return t.db
+}
+
 // SetCacheLimit sets the number of 'cache generations' to keep.
 // A cache generation is created by a call to Commit.
 func (t *Trie) SetCacheLimit(l uint16) {

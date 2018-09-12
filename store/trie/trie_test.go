@@ -45,7 +45,11 @@ func init() {
 
 // Used for testing
 func newEmpty() *Trie {
-	db, _ := dbbackend.NewMgoDatabase()
+	dirname, err := ioutil.TempDir(os.TempDir(), "trie_test_")
+	if err != nil {
+		panic("failed to create test file: " + err.Error())
+	}
+	db, _ := dbbackend.NewLDBDatabase(dirname, 0, 0)
 	trie, _ := New(common.Hash{}, NewDatabase(db))
 	return trie
 }
