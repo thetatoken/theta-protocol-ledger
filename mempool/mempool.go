@@ -38,8 +38,8 @@ func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
 	}
 }
 
-// ProcessTransaction processes the incoming transaction (submitted by the clients or relayed from peers)
-func (mp *Mempool) ProcessTransaction(mptx *mempoolTransaction) error {
+// InsertTransaction inserts the incoming transaction to mempool (submitted by the clients or relayed from peers)
+func (mp *Mempool) InsertTransaction(mptx *mempoolTransaction) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
@@ -57,14 +57,14 @@ func (mp *Mempool) ProcessTransaction(mptx *mempoolTransaction) error {
 	return nil
 }
 
-// OnStart needs to be called when the Mempool starts
-func (mp *Mempool) OnStart() error {
+// Start needs to be called when the Mempool starts
+func (mp *Mempool) Start() error {
 	go mp.broadcastTransactionsRoutine()
 	return nil
 }
 
-// OnStop needs to be called when the Mempool stops
-func (mp *Mempool) OnStop() {
+// Stop needs to be called when the Mempool stops
+func (mp *Mempool) Stop() {
 }
 
 // Lock is for the caller to lock/unlock the Mempool and perform safely update
