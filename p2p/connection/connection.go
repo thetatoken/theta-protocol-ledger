@@ -336,9 +336,22 @@ func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
 }
 
 func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
-	// TODO: handle packet whose IsEOF is 0x0 properly, should combine packets into a complete message
-	//       with RecvBuffer.receivePacket()
-	message, err := conn.onParse(packet.ChannelID, packet.Bytes)
+	channelID := packet.ChannelID
+	channel := conn.channelGroup.getChannel(channelID)
+	if channel == nil {
+		return false
+	}
+
+	aggregatedBytes, success := channel.receivePacket(packet)
+	if !success {
+		return false
+	}
+
+	if aggregatedBytes == nil {
+		return true
+	}
+
+	message, err := conn.onParse(packet.ChannelID, aggregatedBytes)
 	if err != nil {
 		log.Errorf("[p2p] Error parsing packet: %v, err: %v", packet, err)
 		return false

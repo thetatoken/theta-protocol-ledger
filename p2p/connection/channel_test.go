@@ -45,12 +45,13 @@ func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 
 	assert.Equal(common.ChannelIDTransaction, ch.getID())
 
-	partStr := "0123456789"
+	partStr := "0123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345" // 256 Bytes
 	longStr := ""
-	numParts := 1024
+	numParts := 4096
 	for i := 0; i < numParts; i++ {
 		longStr += partStr
 	}
+	assert.Equal(1024*1024, len(longStr)) // 1MB message
 
 	longBytes := []byte(longStr)
 	success := ch.enqueueMessage(longBytes)
@@ -79,8 +80,8 @@ func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 	assert.Equal(longStr, recvStr)
 
 	t.Logf("totalBytes: %v", totalBytes)
-	t.Logf("Long string sent: %v", longStr)
-	t.Logf("received string: %v", recvStr)
+	//t.Logf("Long string sent: %v", longStr)
+	//t.Logf("received string: %v", recvStr)
 }
 
 func TestDefaultChannelAttemptEnqueueMsg(t *testing.T) {
@@ -102,7 +103,7 @@ func TestDefaultChannelRecvSingleMsg(t *testing.T) {
 	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	msgBytes := []byte("0123456789")
-	packet := Packet{
+	packet := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes,
 		IsEOF:     byte(0x01),
@@ -118,14 +119,14 @@ func TestDefaultChannelRecvMultipleMsgs(t *testing.T) {
 	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	partBytes := []byte("0123456789")
-	partPacket := Packet{
+	partPacket := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     partBytes,
 		IsEOF:     byte(0x00),
 	}
 
 	endBytes := []byte("abcdef")
-	endPacket := Packet{
+	endPacket := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     endBytes,
 		IsEOF:     byte(0x01),
@@ -151,4 +152,45 @@ func TestDefaultChannelRecvMultipleMsgs(t *testing.T) {
 	t.Logf("received message: %v", string(recvBytes))
 
 	assert.Equal(completeMsgBytes, recvBytes)
+}
+
+func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
+	assert := assert.New(t)
+	ch := createDefaultChannel(common.ChannelIDTransaction)
+
+	expectedMsgBytes := []byte{}
+	msgBytes := []byte("01234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345") // 128 Bytes
+	packet := &Packet{
+		ChannelID: common.ChannelIDTransaction,
+		Bytes:     msgBytes,
+		IsEOF:     byte(0x00),
+	}
+
+	var success bool
+	var recvBytes []byte
+	for i := 0; i < 32767; i++ {
+		recvBytes, success = ch.receivePacket(packet)
+		assert.True(success)
+		assert.Nil(recvBytes)
+
+		expectedMsgBytes = append(expectedMsgBytes, packet.Bytes...)
+	}
+
+	endPacket := &Packet{
+		ChannelID: common.ChannelIDTransaction,
+		Bytes:     msgBytes,
+		IsEOF:     byte(0x01),
+	}
+	aggregatedBytes, success := ch.receivePacket(endPacket)
+	assert.True(success)
+	assert.NotNil(aggregatedBytes)
+	expectedMsgBytes = append(expectedMsgBytes, endPacket.Bytes...)
+
+	t.Logf("Length of the expectedMsgBytes: %v", len(expectedMsgBytes))
+	t.Logf("Length of the aggregatedBytes:  %v", len(aggregatedBytes))
+
+	assert.Equal(4194304, len(expectedMsgBytes)) // should be 4 MB
+	assert.Equal(4194304, len(aggregatedBytes))  // should be 4 MB
+	sameBytes := (bytes.Compare(expectedMsgBytes, aggregatedBytes) == 0)
+	assert.True(sameBytes)
 }

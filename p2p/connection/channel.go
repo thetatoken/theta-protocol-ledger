@@ -73,7 +73,7 @@ func (ch *Channel) attemptToEnqueueMessage(bytes []byte) bool {
 }
 
 // receivePacket receives packet and return the converted bytes
-func (ch *Channel) receivePacket(packet Packet) ([]byte, bool) {
+func (ch *Channel) receivePacket(packet *Packet) ([]byte, bool) {
 	bytes, success := ch.recvBuf.receivePacket(packet)
 	return bytes, success
 }
