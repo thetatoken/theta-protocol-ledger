@@ -7,9 +7,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 )
 
 func TestMessageEncoding(t *testing.T) {
@@ -17,7 +16,7 @@ func TestMessageEncoding(t *testing.T) {
 
 	sm := &SyncManager{}
 
-	block := blockchain.Block{}
+	block := core.Block{}
 	block.Hash = common.Bytes("hello")
 
 	b, err := sm.EncodeMessage(block)
@@ -25,13 +24,13 @@ func TestMessageEncoding(t *testing.T) {
 
 	parsed, err := sm.ParseMessage("", common.ChannelIDBlock, b)
 	assert.Nil(err)
-	assert.Equal(0, bytes.Compare(block.Hash, parsed.Content.(blockchain.Block).Hash))
+	assert.Equal(0, bytes.Compare(block.Hash, parsed.Content.(core.Block).Hash))
 
-	proposal := consensus.Proposal{ProposerID: "James"}
+	proposal := core.Proposal{ProposerID: "James"}
 	p, err := sm.EncodeMessage(proposal)
 	assert.Nil(err)
 
 	parsed, err = sm.ParseMessage("", common.ChannelIDBlock, p)
 	assert.Nil(err)
-	assert.Equal(proposal.ProposerID, parsed.Content.(consensus.Proposal).ProposerID)
+	assert.Equal(proposal.ProposerID, parsed.Content.(core.Proposal).ProposerID)
 }

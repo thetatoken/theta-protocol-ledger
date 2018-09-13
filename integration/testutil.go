@@ -8,9 +8,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/node"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 )
@@ -58,7 +58,7 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 
 	log.Info("End simulation")
 
-	var highestFinalizedBlock *blockchain.ExtendedBlock
+	var highestFinalizedBlock *core.ExtendedBlock
 	var nodeWithHighestBlock *node.Node
 	for _, node := range nodes {
 		finalizedBlocks := finalizedBlocksByNode[node.Consensus.ID()]

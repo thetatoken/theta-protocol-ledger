@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
@@ -28,7 +29,7 @@ type DefaultEngine struct {
 	network p2p.Network
 
 	incoming        chan interface{}
-	finalizedBlocks chan *blockchain.Block
+	finalizedBlocks chan *core.Block
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -40,13 +41,13 @@ type DefaultEngine struct {
 	// TODO: persist state
 	// Consensus state
 	mu                 *sync.Mutex
-	highestCCBlock     *blockchain.ExtendedBlock
-	lastFinalizedBlock *blockchain.ExtendedBlock
-	tip                *blockchain.ExtendedBlock
+	highestCCBlock     *core.ExtendedBlock
+	lastFinalizedBlock *core.ExtendedBlock
+	tip                *core.ExtendedBlock
 	lastVoteHeight     uint32
-	voteLog            map[uint32]blockchain.Vote     // level -> vote
-	collectedVotes     map[string]*blockchain.VoteSet // block hash -> votes
-	epochVotes         map[string]blockchain.Vote     // Validator ID -> latest vote from this validator
+	voteLog            map[uint32]core.Vote     // level -> vote
+	collectedVotes     map[string]*core.VoteSet // block hash -> votes
+	epochVotes         map[string]core.Vote     // Validator ID -> latest vote from this validator
 	epochTimer         *time.Timer
 	epoch              uint32
 	validatorManager   ValidatorManager
@@ -54,13 +55,13 @@ type DefaultEngine struct {
 }
 
 // NewEngine creates a instance of DefaultEngine.
-func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *ValidatorSet) *DefaultEngine {
+func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *DefaultEngine {
 	e := &DefaultEngine{
 		chain:   chain,
 		network: network,
 
 		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
-		finalizedBlocks: make(chan *blockchain.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 
 		wg:   &sync.WaitGroup{},
 		quit: make(chan struct{}),
@@ -69,9 +70,9 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
-		voteLog:            make(map[uint32]blockchain.Vote),
-		collectedVotes:     make(map[string]*blockchain.VoteSet),
-		epochVotes:         make(map[string]blockchain.Vote),
+		voteLog:            make(map[uint32]core.Vote),
+		collectedVotes:     make(map[string]*core.VoteSet),
+		epochVotes:         make(map[string]core.Vote),
 		validatorManager:   NewRotatingValidatorManager(validators),
 		epoch:              0,
 	}
@@ -170,13 +171,13 @@ func (e *DefaultEngine) AddMessage(msg interface{}) {
 
 func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
-	case Proposal:
+	case core.Proposal:
 		e.handleProposal(m)
-	case blockchain.Vote:
+	case core.Vote:
 		return e.handleVote(m)
-	case *blockchain.Block:
+	case *core.Block:
 		e.handleBlock(m)
-	case *blockchain.CommitCertificate:
+	case *core.CommitCertificate:
 		e.handleCC(m)
 	default:
 		log.Errorf("Unknown message type: %v", m)
@@ -185,7 +186,7 @@ func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *DefaultEngine) handleProposal(p Proposal) {
+func (e *DefaultEngine) handleProposal(p core.Proposal) {
 	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
 
 	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.ProposerID != expectedProposer {
@@ -198,7 +199,7 @@ func (e *DefaultEngine) handleProposal(p Proposal) {
 	e.vote()
 }
 
-func (e *DefaultEngine) handleBlock(block *blockchain.Block) {
+func (e *DefaultEngine) handleBlock(block *core.Block) {
 	var err error
 	if block.Epoch != e.epoch {
 		log.WithFields(log.Fields{"id": e.ID(),
@@ -217,7 +218,7 @@ func (e *DefaultEngine) vote() {
 	previousTip := e.GetTip()
 	tip := e.setTip()
 
-	var header *blockchain.BlockHeader
+	var header *core.BlockHeader
 	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.lastVoteHeight >= tip.Height {
 		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "tip.Hash": tip.Hash}).Debug("Voting nil since already voted at height")
 	} else {
@@ -225,7 +226,7 @@ func (e *DefaultEngine) vote() {
 		e.lastVoteHeight = tip.Height
 	}
 
-	vote := blockchain.Vote{
+	vote := core.Vote{
 		Block: header,
 		ID:    e.ID(),
 		Epoch: e.epoch,
@@ -241,7 +242,7 @@ func (e *DefaultEngine) vote() {
 	e.network.Broadcast(voteMsg)
 }
 
-func (e *DefaultEngine) handleCC(cc *blockchain.CommitCertificate) {
+func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
 	if cc == nil {
 		return
 	}
@@ -258,14 +259,14 @@ func (e *DefaultEngine) handleCC(cc *blockchain.CommitCertificate) {
 	e.processCCBlock(ccBlock)
 }
 
-func (e *DefaultEngine) handleVote(vote blockchain.Vote) (endEpoch bool) {
+func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	log.WithFields(log.Fields{"vote": vote, "id": e.ID()}).Debug("Received vote")
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(0)
 	e.epochVotes[vote.ID] = vote
 
 	if vote.Epoch >= e.epoch {
-		epochVoteSet := blockchain.NewVoteSet()
+		epochVoteSet := core.NewVoteSet()
 		for _, v := range e.epochVotes {
 			if v.Epoch >= vote.Epoch {
 				epochVoteSet.AddVote(v)
@@ -291,12 +292,12 @@ func (e *DefaultEngine) handleVote(vote blockchain.Vote) (endEpoch bool) {
 	}
 	votes, ok := e.collectedVotes[hs]
 	if !ok {
-		votes = blockchain.NewVoteSet()
+		votes = core.NewVoteSet()
 		e.collectedVotes[hs] = votes
 	}
 	votes.AddVote(vote)
 	if validators.HasMajority(votes) {
-		cc := &blockchain.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
+		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
 		block.CommitCertificate = cc
 
 		e.chain.SaveBlock(block)
@@ -307,7 +308,7 @@ func (e *DefaultEngine) handleVote(vote blockchain.Vote) (endEpoch bool) {
 
 // setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
-func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
+func (e *DefaultEngine) setTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -317,7 +318,7 @@ func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
 }
 
 // GetTip return the block to be extended from.
-func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
+func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -325,11 +326,11 @@ func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
 }
 
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
-func (e *DefaultEngine) FinalizedBlocks() chan *blockchain.Block {
+func (e *DefaultEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
 }
 
-func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
+func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
 	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
@@ -354,7 +355,7 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 	}
 }
 
-func (e *DefaultEngine) finalizeBlock(block *blockchain.ExtendedBlock) {
+func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 	if e.stopped {
 		return
 	}
@@ -389,14 +390,14 @@ func (e *DefaultEngine) shouldPropose(epoch uint32) bool {
 func (e *DefaultEngine) propose() {
 	tip := e.GetTip()
 
-	block := blockchain.Block{}
+	block := core.Block{}
 	block.ChainID = e.chain.ChainID
 	block.Hash = e.randHex()
 	block.Epoch = e.epoch
 	block.ParentHash = tip.Hash
 
 	lastCC := e.highestCCBlock
-	proposal := Proposal{Block: block, ProposerID: e.ID()}
+	proposal := core.Proposal{Block: block, ProposerID: e.ID()}
 	if lastCC.CommitCertificate != nil {
 		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
 	}

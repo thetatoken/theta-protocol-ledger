@@ -1,10 +1,21 @@
-package blockchain
+package core
 
 import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
 )
+
+// Proposal represents a proposal of a new block.
+type Proposal struct {
+	Block             Block
+	ProposerID        string
+	CommitCertificate *CommitCertificate `rlp:"nil"`
+}
+
+func (p Proposal) String() string {
+	return fmt.Sprintf("Proposal{block: %v, proposer: %v, CC: %v}", p.Block, p.ProposerID, p.CommitCertificate)
+}
 
 // CommitCertificate represents a commit made a majority of validators.
 type CommitCertificate struct {

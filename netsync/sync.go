@@ -10,6 +10,7 @@ import (
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
 	"github.com/thetatoken/ukulele/rlp"
@@ -151,19 +152,19 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else if msgID == MessageIDBlock {
-		data := blockchain.Block{}
+		data := core.Block{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else if msgID == MessageIDProposal {
-		data := consensus.Proposal{}
+		data := core.Proposal{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else if msgID == MessageIDVote {
-		data := blockchain.Vote{}
+		data := core.Vote{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else if msgID == MessageIDCommitCertificate {
-		data := blockchain.CommitCertificate{}
+		data := core.CommitCertificate{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else {
@@ -188,13 +189,13 @@ func encodeMessage(message interface{}) (common.Bytes, error) {
 		msgID = MessageIDDataRequest
 	case dispatcher.DataResponse:
 		msgID = MessageIDDataResponse
-	case consensus.Proposal:
+	case core.Proposal:
 		msgID = MessageIDProposal
-	case blockchain.Block:
+	case core.Block:
 		msgID = MessageIDBlock
-	case blockchain.Vote:
+	case core.Vote:
 		msgID = MessageIDVote
-	case blockchain.CommitCertificate:
+	case core.CommitCertificate:
 		msgID = MessageIDCommitCertificate
 	default:
 		return nil, errors.New("Unsupported message type")
@@ -239,11 +240,11 @@ func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
 func (sm *SyncManager) processData(data interface{}) {
 	switch d := data.(type) {
 	// Messages need to be preprocessed.
-	case consensus.Proposal:
+	case core.Proposal:
 		sm.handleProposal(&d)
-	case blockchain.Block:
+	case core.Block:
 		sm.handleBlock(&d)
-	case blockchain.CommitCertificate:
+	case core.CommitCertificate:
 		sm.handleCC(&d)
 	default:
 		// Other messages are passed through to consensus engine.
@@ -251,14 +252,14 @@ func (sm *SyncManager) processData(data interface{}) {
 	}
 }
 
-func (sm *SyncManager) handleProposal(p *consensus.Proposal) {
+func (sm *SyncManager) handleProposal(p *core.Proposal) {
 	if p.CommitCertificate != nil {
 		sm.handleCC(p.CommitCertificate)
 	}
 	sm.handleBlock(&p.Block)
 }
 
-func (sm *SyncManager) handleBlock(block *blockchain.Block) {
+func (sm *SyncManager) handleBlock(block *core.Block) {
 	if sm.chain.IsOrphan(block) {
 		log.WithFields(log.Fields{
 			"id":               sm.consensus.ID(),
@@ -283,7 +284,7 @@ func (sm *SyncManager) handleBlock(block *blockchain.Block) {
 	}
 }
 
-func (sm *SyncManager) handleCC(cc *blockchain.CommitCertificate) {
+func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
 		log.WithFields(log.Fields{
 			"id":           sm.consensus.ID(),

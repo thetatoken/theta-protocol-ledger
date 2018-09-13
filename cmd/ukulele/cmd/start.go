@@ -11,9 +11,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
@@ -56,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	store := store.NewMemKVStore()
-	root := &blockchain.Block{}
+	root := &core.Block{}
 	root.ChainID = chainID
 	root.Epoch = rootEpoch
 	root.Hash = rootHash
