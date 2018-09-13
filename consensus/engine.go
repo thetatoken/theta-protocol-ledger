@@ -10,6 +10,7 @@ import (
 	"io"
 	"math/rand"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -46,7 +47,7 @@ type DefaultEngine struct {
 	voteLog            map[uint32]blockchain.Vote     // level -> vote
 	collectedVotes     map[string]*blockchain.VoteSet // block hash -> votes
 	epochVotes         map[string]blockchain.Vote     // Validator ID -> latest vote from this validator
-	epochManager       *EpochManager
+	epochTimer         *time.Timer
 	epoch              uint32
 	validatorManager   ValidatorManager
 	rand               *rand.Rand
@@ -72,10 +73,8 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		collectedVotes:     make(map[string]*blockchain.VoteSet),
 		epochVotes:         make(map[string]blockchain.Vote),
 		validatorManager:   NewRotatingValidatorManager(validators),
-		epochManager:       NewEpochManager(),
 		epoch:              0,
 	}
-	e.epochManager.Init(e)
 
 	h := md5.New()
 	io.WriteString(h, network.ID())
@@ -105,8 +104,6 @@ func (e *DefaultEngine) Start(ctx context.Context) {
 	e.ctx = c
 	e.cancel = cancel
 
-	e.epochManager.Start(e.ctx)
-
 	go e.mainLoop()
 }
 
@@ -117,7 +114,6 @@ func (e *DefaultEngine) Stop() {
 
 // Wait blocks until all goroutines stop.
 func (e *DefaultEngine) Wait() {
-	e.epochManager.Wait()
 	e.wg.Wait()
 }
 
@@ -138,7 +134,7 @@ func (e *DefaultEngine) mainLoop() {
 				if endEpoch {
 					break Epoch
 				}
-			case <-e.epochManager.C:
+			case <-e.epochTimer.C:
 				log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
@@ -148,6 +144,12 @@ func (e *DefaultEngine) mainLoop() {
 }
 
 func (e *DefaultEngine) enterEpoch() {
+	// Reset timer.
+	if e.epochTimer != nil {
+		e.epochTimer.Stop()
+	}
+	e.epochTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
+
 	if e.shouldPropose(e.epoch) {
 		e.propose()
 	}
@@ -347,9 +349,8 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 
 	if ccBlock.Epoch >= e.epoch {
 		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
-		newEpoch := ccBlock.Epoch + 1
+		e.epoch = ccBlock.Epoch + 1
 		e.enterEpoch()
-		e.epochManager.SetEpoch(newEpoch)
 	}
 }
 
