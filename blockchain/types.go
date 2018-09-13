@@ -34,12 +34,13 @@ func (cc *CommitCertificate) IsValid() bool {
 
 // Vote represents a vote on a block by a validaor.
 type Vote struct {
-	Block *BlockHeader
+	Block *BlockHeader `rlp:"nil"`
 	ID    string
+	Epoch uint32
 }
 
 func (v Vote) String() string {
-	return fmt.Sprintf("Vote{block: %s, ID: %s}", v.Block.Hash, v.ID)
+	return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block, v.ID, v.Epoch)
 }
 
 // VoteSet represents a set of votes on a proposal.

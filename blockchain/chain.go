@@ -155,8 +155,7 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*ExtendedBlock, error) {
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
-func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes) bool {
-	const maxDistance = 50
+func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes, maxDistance int) bool {
 	hash := descendantHash
 	for i := 0; i < maxDistance; i++ {
 		if bytes.Compare(hash, ascendantHash) == 0 {

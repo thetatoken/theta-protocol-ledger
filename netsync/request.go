@@ -133,7 +133,7 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to find hash string locally")
 				return
 			}
-			blockBytes, err := encodeMessage(block)
+			blockBytes, err := encodeMessage(*(block.Block))
 			if err != nil {
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to serialize block")
 				return
@@ -143,7 +143,7 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				"id":        rm.syncMgr.consensus.ID(),
 				"channelID": data.ChannelID,
 				"hashStr":   hashStr,
-			}).Debug("Requesting block")
+			}).Debug("Sending requested block")
 			rm.syncMgr.dispatcher.SendData([]string{peerID}, dataResp)
 		}
 	default:
