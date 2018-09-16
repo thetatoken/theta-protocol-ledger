@@ -127,15 +127,15 @@ func GetDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
-// OnStart is called when the connection starts
-func (conn *Connection) OnStart() bool {
+// Start is called when the connection starts
+func (conn *Connection) Start() bool {
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
-// OnStop is called whten the connection stops
-func (conn *Connection) OnStop() {
+// Stop is called whten the connection stops
+func (conn *Connection) Stop() {
 	if conn.sendPulse != nil {
 		close(conn.sendPulse)
 	}

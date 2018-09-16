@@ -18,15 +18,15 @@ func NewDispatcher(p2pnet p2p.Network) *Dispatcher {
 	return &Dispatcher{p2pnet: p2pnet}
 }
 
-// OnStart is called when the dispatcher starts
-func (dp *Dispatcher) OnStart() error {
-	err := dp.p2pnet.OnStart()
+// Start is called when the dispatcher starts
+func (dp *Dispatcher) Start() error {
+	err := dp.p2pnet.Start()
 	return err
 }
 
-// OnStop is called when the dispatcher stops
-func (dp *Dispatcher) OnStop() {
-	dp.p2pnet.OnStop()
+// Stop is called when the dispatcher stops
+func (dp *Dispatcher) Stop() {
+	dp.p2pnet.Stop()
 }
 
 // GetInventory sents out the InventoryRequest

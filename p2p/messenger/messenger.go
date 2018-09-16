@@ -80,15 +80,15 @@ func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
 	msgr.discMgr = discMgr
 }
 
-// OnStart is called when the Messenger starts
-func (msgr *Messenger) OnStart() error {
-	err := msgr.discMgr.OnStart()
+// Start is called when the Messenger starts
+func (msgr *Messenger) Start() error {
+	err := msgr.discMgr.Start()
 	return err
 }
 
-// OnStop is called when the Messenger stops
-func (msgr *Messenger) OnStop() {
-	msgr.discMgr.OnStop()
+// Stop is called when the Messenger stops
+func (msgr *Messenger) Stop() {
+	msgr.discMgr.Stop()
 }
 
 // Broadcast broadcasts the given message to all the connected peers

@@ -33,7 +33,9 @@ func (rb *RecvBuffer) receivePacket(packet *Packet) ([]byte, bool) {
 	// 	return nil, false
 	// }
 
-	// TODO: out-of-order packet delivery handling?
+	// Note: we do NOT need to worry about the order of the packets.
+	//       TCP guarantees that if bytes arrive, they will be in the
+	//       order they were sent, as long as the TCP connection stays open
 
 	rb.workspace = append(rb.workspace, packet.Bytes...)
 	if packet.IsEOF == byte(0x01) {
