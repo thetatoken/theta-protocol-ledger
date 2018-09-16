@@ -8,9 +8,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/node"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 )
@@ -58,7 +58,7 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 
 	log.Info("End simulation")
 
-	var highestFinalizedBlock *blockchain.ExtendedBlock
+	var highestFinalizedBlock *core.ExtendedBlock
 	var nodeWithHighestBlock *node.Node
 	for _, node := range nodes {
 		finalizedBlocks := finalizedBlocksByNode[node.Consensus.ID()]
@@ -71,10 +71,10 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 		} else if bytes.Compare(highestFinalizedBlock.Hash, lastFinalizedBlock.Hash) != 0 {
 			if highestFinalizedBlock.Height < lastFinalizedBlock.Height {
 				nodeWithHighestBlock = node
-				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(highestFinalizedBlock.Hash, lastFinalizedBlock.Hash), "Conflict found in finalized blocks: %v, %v, %v, %v", highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
+				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
 				highestFinalizedBlock = lastFinalizedBlock
 			} else {
-				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(lastFinalizedBlock.Hash, highestFinalizedBlock.Hash), "Conflict found in finalized blocks: %v, %v, %v, %v", highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
+				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(lastFinalizedBlock.Hash, highestFinalizedBlock.Hash, 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", lastFinalizedBlock.Hash, highestFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
 			}
 		}
 	}

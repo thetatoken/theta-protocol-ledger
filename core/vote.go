@@ -1,10 +1,21 @@
-package blockchain
+package core
 
 import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
 )
+
+// Proposal represents a proposal of a new block.
+type Proposal struct {
+	Block             Block
+	ProposerID        string
+	CommitCertificate *CommitCertificate `rlp:"nil"`
+}
+
+func (p Proposal) String() string {
+	return fmt.Sprintf("Proposal{block: %v, proposer: %v, CC: %v}", p.Block, p.ProposerID, p.CommitCertificate)
+}
 
 // CommitCertificate represents a commit made a majority of validators.
 type CommitCertificate struct {
@@ -34,12 +45,13 @@ func (cc *CommitCertificate) IsValid() bool {
 
 // Vote represents a vote on a block by a validaor.
 type Vote struct {
-	Block *BlockHeader
+	Block *BlockHeader `rlp:"nil"`
 	ID    string
+	Epoch uint32
 }
 
 func (v Vote) String() string {
-	return fmt.Sprintf("Vote{block: %s, ID: %s}", v.Block.Hash, v.ID)
+	return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block, v.ID, v.Epoch)
 }
 
 // VoteSet represents a set of votes on a proposal.

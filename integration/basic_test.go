@@ -10,6 +10,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/node"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 	"github.com/thetatoken/ukulele/store"
@@ -27,7 +28,7 @@ func TestConsensusBaseCase(t *testing.T) {
 	for _, v := range validators.Validators() {
 		store := store.NewMemKVStore()
 		chainID := "testchain"
-		root := &blockchain.Block{}
+		root := &core.Block{}
 		root.ChainID = chainID
 		root.Epoch = 0
 		root.Hash = blockchain.ParseHex("a0")

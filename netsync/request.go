@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/hex"
 
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 
@@ -133,7 +133,7 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to find hash string locally")
 				return
 			}
-			blockBytes, err := encodeMessage(block)
+			blockBytes, err := encodeMessage(*(block.Block))
 			if err != nil {
 				log.WithFields(log.Fields{"id": rm.syncMgr.consensus.ID(), "channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to serialize block")
 				return
@@ -143,7 +143,7 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				"id":        rm.syncMgr.consensus.ID(),
 				"channelID": data.ChannelID,
 				"hashStr":   hashStr,
-			}).Debug("Requesting block")
+			}).Debug("Sending requested block")
 			rm.syncMgr.dispatcher.SendData([]string{peerID}, dataResp)
 		}
 	default:
@@ -169,7 +169,7 @@ func (rm *RequestManager) handleDataResponse(peerID string, data *dispatcher.Dat
 		log.WithFields(log.Fields{
 			"id":         rm.syncMgr.consensus.ID(),
 			"channelID":  data.ChannelID,
-			"block.Hash": block.(blockchain.Block).Hash,
+			"block.Hash": block.(core.Block).Hash,
 		}).Debug("Requested block received")
 		rm.syncMgr.AddMessage(msg)
 	default:

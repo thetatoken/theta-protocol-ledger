@@ -2,11 +2,11 @@ package consensus
 
 import (
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/core"
 )
 
 // GetFinalizedBlocks drains the FinalizedBlocks channel and return a slice of block hashes.
-func GetFinalizedBlocks(ch chan *blockchain.Block) []string {
+func GetFinalizedBlocks(ch chan *core.Block) []string {
 	res := []string{}
 loop:
 	for {
@@ -21,7 +21,7 @@ loop:
 }
 
 // AssertFinalizedBlocks asserts finalized blocks are as expected.
-func AssertFinalizedBlocks(assert *assert.Assertions, expected []string, ch chan *blockchain.Block) {
+func AssertFinalizedBlocks(assert *assert.Assertions, expected []string, ch chan *core.Block) {
 	assert.Equal(expected, GetFinalizedBlocks(ch))
 }
 
@@ -38,10 +38,10 @@ func AssertFinalizedBlocksNotConflicting(assert *assert.Assertions, c1 []string,
 	}
 }
 
-func NewTestValidatorSet(ids []string) *ValidatorSet {
-	s := NewValidatorSet()
+func NewTestValidatorSet(ids []string) *core.ValidatorSet {
+	s := core.NewValidatorSet()
 	for _, id := range ids {
-		v := NewValidator(id, 1)
+		v := core.NewValidator(id, 1)
 		s.AddValidator(v)
 	}
 	return s
