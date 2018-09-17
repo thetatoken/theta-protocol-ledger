@@ -17,7 +17,8 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/blockstore"
+	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
 // startCmd represents the start command
@@ -55,7 +56,8 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to parse checkpoint hash")
 	}
 
-	store := store.NewMemKVStore()
+	db, err := backend.NewLDBDatabase(common.GetDefaultConfigPath(), 256, 0)
+	store := blockstore.NewBlockStore(db)
 	root := &core.Block{}
 	root.ChainID = chainID
 	root.Epoch = rootEpoch

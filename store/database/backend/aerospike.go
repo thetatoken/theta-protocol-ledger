@@ -104,22 +104,9 @@ func (b *adbBatch) Delete(key []byte) error {
 }
 
 func (b *adbBatch) Write() error {
-	// for _, doc := range b.puts {
-	// 	err := b.db.Put(doc.Key, doc.Value)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-	// for _, doc := range b.deletes {
-	// 	err := b.db.Delete(doc.Key)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
-
 	numPuts := len(b.puts)
 	semPuts := make(chan bool, numPuts)
-	for i, _ := range b.puts {
+	for i := range b.puts {
 		go func(i int) {
 			doc := b.puts[i]
 			b.db.Put(doc.Key, doc.Value)
@@ -132,7 +119,7 @@ func (b *adbBatch) Write() error {
 
 	numDels := len(b.deletes)
 	semDels := make(chan bool, numDels)
-	for i, _ := range b.deletes {
+	for i := range b.deletes {
 		go func(i int) {
 			b.db.Delete(b.deletes[i].Key)
 			semDels <- true

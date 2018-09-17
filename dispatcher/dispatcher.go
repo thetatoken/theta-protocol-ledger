@@ -29,17 +29,17 @@ func (dp *Dispatcher) Stop() {
 	dp.p2pnet.Stop()
 }
 
-// GetInventory sents out the InventoryRequest
+// GetInventory sends out the InventoryRequest
 func (dp *Dispatcher) GetInventory(peerIDs []string, invreq InventoryRequest) {
 	dp.send(peerIDs, invreq.ChannelID, invreq)
 }
 
-// SendInventory sents out the InventoryResponse
+// SendInventory sends out the InventoryResponse
 func (dp *Dispatcher) SendInventory(peerIDs []string, invrsp InventoryResponse) {
 	dp.send(peerIDs, invrsp.ChannelID, invrsp)
 }
 
-// GetData sents out the DataRequest
+// GetData sends out the DataRequest
 func (dp *Dispatcher) GetData(peerIDs []string, datareq DataRequest) {
 	dp.send(peerIDs, datareq.ChannelID, datareq)
 }
