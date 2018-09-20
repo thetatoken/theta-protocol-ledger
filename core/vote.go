@@ -2,8 +2,10 @@ package core
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 // Proposal represents a proposal of a new block.
@@ -56,17 +58,19 @@ func (v Vote) String() string {
 
 // VoteSet represents a set of votes on a proposal.
 type VoteSet struct {
-	votes []Vote
+	votes map[string]Vote
 }
 
 // NewVoteSet creates an instance of VoteSet.
 func NewVoteSet() *VoteSet {
-	return &VoteSet{}
+	return &VoteSet{
+		votes: make(map[string]Vote),
+	}
 }
 
 // Copy creates a copy of this vote set.
 func (s *VoteSet) Copy() *VoteSet {
-	ret := &VoteSet{}
+	ret := NewVoteSet()
 	for _, vote := range s.Votes() {
 		ret.AddVote(vote)
 	}
@@ -75,7 +79,7 @@ func (s *VoteSet) Copy() *VoteSet {
 
 // AddVote adds a vote to vote set.
 func (s *VoteSet) AddVote(vote Vote) {
-	s.votes = append(s.votes, vote)
+	s.votes[vote.ID] = vote
 }
 
 // Size returns the number of votes in the vote set.
@@ -85,5 +89,35 @@ func (s *VoteSet) Size() int {
 
 // Votes return a slice of votes in the vote set.
 func (s *VoteSet) Votes() []Vote {
-	return s.votes
+	ret := make([]Vote, 0, len(s.votes))
+	for _, v := range s.votes {
+		ret = append(ret, v)
+	}
+	return ret
+}
+
+var _ rlp.Encoder = (*VoteSet)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (s *VoteSet) EncodeRLP(w io.Writer) error {
+	if s == nil {
+		return rlp.Encode(w, []Vote{})
+	}
+	return rlp.Encode(w, s.Votes())
+}
+
+var _ rlp.Decoder = (*VoteSet)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (s *VoteSet) DecodeRLP(stream *rlp.Stream) error {
+	votes := []Vote{}
+	err := stream.Decode(&votes)
+	if err != nil {
+		return err
+	}
+	s.votes = make(map[string]Vote)
+	for _, v := range votes {
+		s.votes[v.ID] = v
+	}
+	return nil
 }
