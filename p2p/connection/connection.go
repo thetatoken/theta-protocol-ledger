@@ -428,6 +428,8 @@ func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
 		if conn.onError != nil {
 			conn.onError(r)
+		} else {
+			log.Errorf("[p2p] Connection error: %v", r)
 		}
 	}
 }
@@ -435,10 +437,7 @@ func (conn *Connection) stopForError(r interface{}) {
 func (conn *Connection) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := struct {
-			Srr   interface{}
-			Stack []byte
-		}{
+		err := common.StackError{
 			r, stack,
 		}
 		conn.stopForError(err)
