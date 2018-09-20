@@ -211,3 +211,10 @@ func zeroBytes(bytes []byte) {
 		bytes[i] = 0
 	}
 }
+
+// ----------------------- Crypto Utils for Other Modules ----------------------- //
+
+// HexToECDSA parses a secp256k1 private key.
+func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
+	return hexToECDSA(hexkey)
+}

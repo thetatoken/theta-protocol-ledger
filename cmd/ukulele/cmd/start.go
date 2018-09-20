@@ -77,7 +77,7 @@ func runStart(cmd *cobra.Command, args []string) {
 
 func loadOrCreateKey(scheme crypto.CrytoScheme) crypto.PrivateKey {
 	filepath := path.Join(cfgPath, "key")
-	privKey, err := crypto.LoadPrivateKeyFromFile(filepath, scheme)
+	privKey, err := crypto.PrivateKeyFromFile(filepath, scheme)
 	if err == nil {
 		return privKey
 	}

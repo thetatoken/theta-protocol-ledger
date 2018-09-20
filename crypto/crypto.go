@@ -2,13 +2,29 @@ package crypto
 
 import (
 	"crypto/ecdsa"
-	"crypto/elliptic"
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
 )
 
-// ----------------------- Crypto Interfaces ----------------------- //
+//
+// ----------------------------- Hash APIs ----------------------------- //
+//
+
+// Keccak256 calculates and returns the Keccak256 hash of the input data.
+func Keccak256(data ...[]byte) []byte {
+	return keccak256(data...)
+}
+
+// Keccak256Hash calculates and returns the Keccak256 hash of the input data,
+// converting it to an internal Hash data structure.
+func Keccak256Hash(data ...[]byte) (h common.Hash) {
+	return keccak256Hash(data...)
+}
+
+//
+// ----------------------- Digital Signature APIs ----------------------- //
+//
 
 // CrytoScheme is a enum for different crypto schemes
 type CrytoScheme byte
@@ -19,26 +35,28 @@ const (
 )
 
 //
-// PublicKey defines the interface of the public key
-//
-type PublicKey interface {
-	Address() common.Address
-	IsEmpty() bool
-	ToBytes() common.Bytes
-}
-
-//
 // PrivateKey defines the interface of the private key
 //
 type PrivateKey interface {
+	ToBytes() common.Bytes
 	PublicKey() PublicKey
 	SaveToFile(filepath string) error
+}
+
+//
+// PublicKey defines the interface of the public key
+//
+type PublicKey interface {
+	ToBytes() common.Bytes
+	Address() common.Address
+	IsEmpty() bool
 }
 
 //
 // Signature defines the interface of the digital signature
 //
 type Signature interface {
+	ToBytes() common.Bytes
 }
 
 // GenerateKeyPair generates a random private/public key pair
@@ -51,12 +69,41 @@ func GenerateKeyPair(scheme CrytoScheme) (PrivateKey, PublicKey, error) {
 	return nil, nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
 
-// LoadPrivateKeyFromFile loads the private key from the given file
-func LoadPrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error) {
+// PrivateKeyFromFile loads the private key from the given file
+func PrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error) {
 	if scheme == CrytoSchemeECDSA {
-		privKey, err := loadECDSA(filepath)
-		ske := &PrivateKeyECDSA{privKey: privKey}
+		key, err := loadECDSA(filepath)
+		ske := &PrivateKeyECDSA{privKey: key}
 		return ske, err
+	}
+	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
+}
+
+// PrivateKeyFromBytes converts the given bytes to a private key
+func PrivateKeyFromBytes(skBytes common.Bytes, scheme CrytoScheme) (PrivateKey, error) {
+	if scheme == CrytoSchemeECDSA {
+		key, err := toECDSA(skBytes)
+		ske := &PrivateKeyECDSA{privKey: key}
+		return ske, err
+	}
+	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
+}
+
+// PublicKeyFromBytes converts the given bytes to a public key
+func PublicKeyFromBytes(pkBytes common.Bytes, scheme CrytoScheme) (PublicKey, error) {
+	if scheme == CrytoSchemeECDSA {
+		key, err := unmarshalPubkey(pkBytes)
+		pke := &PublicKeyECDSA{pubKey: key}
+		return pke, err
+	}
+	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
+}
+
+// SignatureFromBytes converts the given bytes to a signature
+func SignatureFromBytes(sigBytes common.Bytes, scheme CrytoScheme) (Signature, error) {
+	if scheme == CrytoSchemeECDSA {
+		sige := &SignatureECDSA{data: sigBytes}
+		return sige, nil
 	}
 	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
@@ -64,36 +111,16 @@ func LoadPrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, er
 // ----------------------- ECDSA Implementation ----------------------- //
 
 //
-// PublicKeyECDSA implements the PublicKey interface
-//
-type PublicKeyECDSA struct {
-	pubKey *ecdsa.PublicKey
-}
-
-// Address returns the address corresponding to the public key
-func (pke *PublicKeyECDSA) Address() common.Address {
-	pubBytes := fromECDSAPub(pke.pubKey)
-	address := common.BytesToAddress(keccak256(pubBytes[1:])[12:])
-	return address
-}
-
-// IsEmpty indicates whether the public key is empty
-func (pke *PublicKeyECDSA) IsEmpty() bool {
-	isEmpty := (pke.pubKey == nil || pke.pubKey.X == nil || pke.pubKey.Y == nil)
-	return isEmpty
-}
-
-// ToBytes returns the bytes representation of the public key
-func (pke *PublicKeyECDSA) ToBytes() common.Bytes {
-	pkbytes := fromECDSAPub(pke.pubKey)
-	return pkbytes
-}
-
-//
 // PrivateKeyECDSA implements the PrivateKey interface
 //
 type PrivateKeyECDSA struct {
 	privKey *ecdsa.PrivateKey
+}
+
+// ToBytes returns the bytes representation of the private key
+func (ske *PrivateKeyECDSA) ToBytes() common.Bytes {
+	skbytes := fromECDSA(ske.privKey)
+	return skbytes
 }
 
 // PublicKey returns the public key corresponding to the private key
@@ -111,31 +138,39 @@ func (ske *PrivateKeyECDSA) SaveToFile(filepath string) error {
 }
 
 //
+// PublicKeyECDSA implements the PublicKey interface
+//
+type PublicKeyECDSA struct {
+	pubKey *ecdsa.PublicKey
+}
+
+// ToBytes returns the bytes representation of the public key
+func (pke *PublicKeyECDSA) ToBytes() common.Bytes {
+	pkbytes := fromECDSAPub(pke.pubKey)
+	return pkbytes
+}
+
+// Address returns the address corresponding to the public key
+func (pke *PublicKeyECDSA) Address() common.Address {
+	pubBytes := fromECDSAPub(pke.pubKey)
+	address := common.BytesToAddress(keccak256(pubBytes[1:])[12:])
+	return address
+}
+
+// IsEmpty indicates whether the public key is empty
+func (pke *PublicKeyECDSA) IsEmpty() bool {
+	isEmpty := (pke.pubKey == nil || pke.pubKey.X == nil || pke.pubKey.Y == nil)
+	return isEmpty
+}
+
+//
 // SignatureECDSA implements the Signature interface
 //
 type SignatureECDSA struct {
 	data []byte
 }
 
-// ----------------------- Crypto Utils for Other Modules ----------------------- //
-
-// Keccak256 calculates and returns the Keccak256 hash of the input data.
-func Keccak256(data ...[]byte) []byte {
-	return keccak256(data...)
-}
-
-// Keccak256Hash calculates and returns the Keccak256 hash of the input data,
-// converting it to an internal Hash data structure.
-func Keccak256Hash(data ...[]byte) (h common.Hash) {
-	return keccak256Hash(data...)
-}
-
-// S256 returns an instance of the secp256k1 curve.
-func S256() elliptic.Curve {
-	return s256()
-}
-
-// HexToECDSA parses a secp256k1 private key.
-func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
-	return hexToECDSA(hexkey)
+// ToBytes returns the bytes representation of the signature
+func (sige *SignatureECDSA) ToBytes() common.Bytes {
+	return sige.data
 }
