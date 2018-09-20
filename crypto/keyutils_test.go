@@ -1,3 +1,4 @@
+// Adapted for Theta
 // Copyright 2014 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -39,14 +40,14 @@ var testPrivHex = "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232
 func TestKeccak256Hash(t *testing.T) {
 	msg := []byte("abc")
 	exp, _ := hex.DecodeString("4e03657aea45a94fc7d47ba826c8d667c0d1e6e33a64a036ec44f58fa12d6c45")
-	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := Keccak256Hash(in); return h[:] }, msg, exp)
+	checkhash(t, "Sha3-256-array", func(in []byte) []byte { h := keccak256Hash(in); return h[:] }, msg, exp)
 }
 
 func TestToECDSAErrors(t *testing.T) {
-	if _, err := HexToECDSA("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
+	if _, err := hexToECDSA("0000000000000000000000000000000000000000000000000000000000000000"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
 	}
-	if _, err := HexToECDSA("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); err == nil {
+	if _, err := hexToECDSA("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"); err == nil {
 		t.Fatal("HexToECDSA should've returned error")
 	}
 }
@@ -54,16 +55,16 @@ func TestToECDSAErrors(t *testing.T) {
 func BenchmarkSha3(b *testing.B) {
 	a := []byte("hello world")
 	for i := 0; i < b.N; i++ {
-		Keccak256(a)
+		keccak256(a)
 	}
 }
 
 func TestUnmarshalPubkey(t *testing.T) {
-	key, err := UnmarshalPubkey(nil)
+	key, err := unmarshalPubkey(nil)
 	if err != errInvalidPubkey || key != nil {
 		t.Fatalf("expected error, got %v, %v", err, key)
 	}
-	key, err = UnmarshalPubkey([]byte{1, 2, 3})
+	key, err = unmarshalPubkey([]byte{1, 2, 3})
 	if err != errInvalidPubkey || key != nil {
 		t.Fatalf("expected error, got %v, %v", err, key)
 	}
@@ -71,12 +72,12 @@ func TestUnmarshalPubkey(t *testing.T) {
 	var (
 		enc, _ = hex.DecodeString("04760c4460e5336ac9bbd87952a3c7ec4363fc0a97bd31c86430806e287b437fd1b01abc6e1db640cf3106b520344af1d58b00b57823db3e1407cbc433e1b6d04d")
 		dec    = &ecdsa.PublicKey{
-			Curve: S256(),
+			Curve: s256(),
 			X:     hexutil.MustDecodeBig("0x760c4460e5336ac9bbd87952a3c7ec4363fc0a97bd31c86430806e287b437fd1"),
 			Y:     hexutil.MustDecodeBig("0xb01abc6e1db640cf3106b520344af1d58b00b57823db3e1407cbc433e1b6d04d"),
 		}
 	)
-	key, err = UnmarshalPubkey(enc)
+	key, err = unmarshalPubkey(enc)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -86,54 +87,54 @@ func TestUnmarshalPubkey(t *testing.T) {
 }
 
 func TestSign(t *testing.T) {
-	key, _ := HexToECDSA(testPrivHex)
+	key, _ := hexToECDSA(testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
 
-	msg := Keccak256([]byte("foo"))
-	sig, err := Sign(msg, key)
+	msg := keccak256([]byte("foo"))
+	sig, err := sign(msg, key)
 	if err != nil {
 		t.Errorf("Sign error: %s", err)
 	}
-	recoveredPub, err := Ecrecover(msg, sig)
+	recoveredPub, err := ecrecover(msg, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	pubKey, _ := UnmarshalPubkey(recoveredPub)
-	recoveredAddr := PubkeyToAddress(*pubKey)
+	pubKey, _ := unmarshalPubkey(recoveredPub)
+	recoveredAddr := pubkeyToAddress(*pubKey)
 	if addr != recoveredAddr {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr)
 	}
 
-	// should be equal to SigToPub
-	recoveredPub2, err := SigToPub(msg, sig)
+	// should be equal to sigToPub
+	recoveredPub2, err := sigToPub(msg, sig)
 	if err != nil {
 		t.Errorf("ECRecover error: %s", err)
 	}
-	recoveredAddr2 := PubkeyToAddress(*recoveredPub2)
+	recoveredAddr2 := pubkeyToAddress(*recoveredPub2)
 	if addr != recoveredAddr2 {
 		t.Errorf("Address mismatch: want: %x have: %x", addr, recoveredAddr2)
 	}
 }
 
 func TestInvalidSign(t *testing.T) {
-	if _, err := Sign(make([]byte, 1), nil); err == nil {
+	if _, err := sign(make([]byte, 1), nil); err == nil {
 		t.Errorf("expected sign with hash 1 byte to error")
 	}
-	if _, err := Sign(make([]byte, 33), nil); err == nil {
+	if _, err := sign(make([]byte, 33), nil); err == nil {
 		t.Errorf("expected sign with hash 33 byte to error")
 	}
 }
 
 func TestNewContractAddress(t *testing.T) {
-	key, _ := HexToECDSA(testPrivHex)
+	key, _ := hexToECDSA(testPrivHex)
 	addr := common.HexToAddress(testAddrHex)
-	genAddr := PubkeyToAddress(key.PublicKey)
+	genAddr := pubkeyToAddress(key.PublicKey)
 	// sanity check before using addr to create contract address
 	checkAddr(t, genAddr, addr)
 
-	caddr0 := CreateAddress(addr, 0)
-	caddr1 := CreateAddress(addr, 1)
-	caddr2 := CreateAddress(addr, 2)
+	caddr0 := createAddress(addr, 0)
+	caddr1 := createAddress(addr, 1)
+	caddr2 := createAddress(addr, 2)
 	checkAddr(t, common.HexToAddress("333c3310824b7c685133f2bedb2ca4b8b4df633d"), caddr0)
 	checkAddr(t, common.HexToAddress("8bda78331c916a08481428e4b07c96d3e916d165"), caddr1)
 	checkAddr(t, common.HexToAddress("c9ddedf451bc62ce88bf9292afb13df35b670699"), caddr2)
@@ -144,8 +145,8 @@ func TestLoadECDSAFile(t *testing.T) {
 	fileName0 := "test_key0"
 	fileName1 := "test_key1"
 	checkKey := func(k *ecdsa.PrivateKey) {
-		checkAddr(t, PubkeyToAddress(k.PublicKey), common.HexToAddress(testAddrHex))
-		loadedKeyBytes := FromECDSA(k)
+		checkAddr(t, pubkeyToAddress(k.PublicKey), common.HexToAddress(testAddrHex))
+		loadedKeyBytes := fromECDSA(k)
 		if !bytes.Equal(loadedKeyBytes, keyBytes) {
 			t.Fatalf("private key mismatch: want: %x have: %x", keyBytes, loadedKeyBytes)
 		}
@@ -154,20 +155,20 @@ func TestLoadECDSAFile(t *testing.T) {
 	ioutil.WriteFile(fileName0, []byte(testPrivHex), 0600)
 	defer os.Remove(fileName0)
 
-	key0, err := LoadECDSA(fileName0)
+	key0, err := loadECDSA(fileName0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	checkKey(key0)
 
 	// again, this time with SaveECDSA instead of manual save:
-	err = SaveECDSA(fileName1, key0)
+	err = saveECDSA(fileName1, key0)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.Remove(fileName1)
 
-	key1, err := LoadECDSA(fileName1)
+	key1, err := loadECDSA(fileName1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +177,7 @@ func TestLoadECDSAFile(t *testing.T) {
 
 func TestValidateSignatureValues(t *testing.T) {
 	check := func(expected bool, v byte, r, s *big.Int) {
-		if ValidateSignatureValues(v, r, s, false) != expected {
+		if validateSignatureValues(v, r, s, false) != expected {
 			t.Errorf("mismatch for v: %d r: %d s: %d want: %v", v, r, s, expected)
 		}
 	}
@@ -237,13 +238,13 @@ func checkAddr(t *testing.T, addr0, addr1 common.Address) {
 // skip but keep it after they are done
 func TestPythonIntegration(t *testing.T) {
 	kh := "289c2857d4598e37fb9647507e47a309d6133539bf21a8b9cb6df88fd5232032"
-	k0, _ := HexToECDSA(kh)
+	k0, _ := hexToECDSA(kh)
 
-	msg0 := Keccak256([]byte("foo"))
-	sig0, _ := Sign(msg0, k0)
+	msg0 := keccak256([]byte("foo"))
+	sig0, _ := sign(msg0, k0)
 
 	msg1 := common.FromHex("00000000000000000000000000000000")
-	sig1, _ := Sign(msg0, k0)
+	sig1, _ := sign(msg0, k0)
 
 	t.Logf("msg: %x, privkey: %s sig: %x\n", msg0, kh, sig0)
 	t.Logf("msg: %x, privkey: %s sig: %x\n", msg1, kh, sig1)

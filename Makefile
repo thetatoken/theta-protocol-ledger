@@ -1,7 +1,8 @@
 GOTOOLS =	github.com/mitchellh/gox \
 			github.com/Masterminds/glide \
 			github.com/rigelrozanski/shelldown/cmd/shelldown
-			
+INCLUDE = -I=. -I=${GOPATH}/src -I=${GOPATH}/src/github.com/gogo/protobuf/protobuf
+
 all: get_vendor_deps install test
 
 build:
@@ -9,6 +10,15 @@ build:
 
 install:
 	go install ./cmd/...
+
+protoc:
+	#go get github.com/gogo/protobuf
+	#go get github.com/gogo/protobuf/proto
+	#go get github.com/gogo/protobuf/gogoproto
+	#go get github.com/gogo/protobuf/protoc-gen-gogo
+	#npm install -g protobufjs
+	protoc $(INCLUDE) --gogo_out=plugins=:. ledger/serialization/*.proto
+	pbjs -t static-module ledger/serialization/types.proto -o ledger/serialization/types.pb.js
 
 test: test_unit test_integration
 

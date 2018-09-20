@@ -1,3 +1,4 @@
+// Adapted for Theta
 // Copyright 2017 The go-ethereum Authors
 // This file is part of the go-ethereum library.
 //
@@ -27,23 +28,23 @@ import (
 	"github.com/thetatoken/ukulele/crypto/secp256k1"
 )
 
-// Ecrecover returns the uncompressed public key that created the given signature.
-func Ecrecover(hash, sig []byte) ([]byte, error) {
+// ecrecover returns the uncompressed public key that created the given signature.
+func ecrecover(hash, sig []byte) ([]byte, error) {
 	return secp256k1.RecoverPubkey(hash, sig)
 }
 
-// SigToPub returns the public key that created the given signature.
-func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
-	s, err := Ecrecover(hash, sig)
+// sigToPub returns the public key that created the given signature.
+func sigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
+	s, err := ecrecover(hash, sig)
 	if err != nil {
 		return nil, err
 	}
 
-	x, y := elliptic.Unmarshal(S256(), s)
-	return &ecdsa.PublicKey{Curve: S256(), X: x, Y: y}, nil
+	x, y := elliptic.Unmarshal(s256(), s)
+	return &ecdsa.PublicKey{Curve: s256(), X: x, Y: y}, nil
 }
 
-// Sign calculates an ECDSA signature.
+// sign calculates an ECDSA signature.
 //
 // This function is susceptible to chosen plaintext attacks that can leak
 // information about the private key that is used for signing. Callers must
@@ -51,7 +52,7 @@ func SigToPub(hash, sig []byte) (*ecdsa.PublicKey, error) {
 // solution is to hash any input before calculating the signature.
 //
 // The produced signature is in the [R || S || V] format where V is 0 or 1.
-func Sign(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
+func sign(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 	if len(hash) != 32 {
 		return nil, fmt.Errorf("hash is required to be exactly 32 bytes (%d)", len(hash))
 	}
@@ -60,28 +61,28 @@ func Sign(hash []byte, prv *ecdsa.PrivateKey) (sig []byte, err error) {
 	return secp256k1.Sign(hash, seckey)
 }
 
-// VerifySignature checks that the given public key created signature over hash.
+// verifySignature checks that the given public key created signature over hash.
 // The public key should be in compressed (33 bytes) or uncompressed (65 bytes) format.
 // The signature should have the 64 byte [R || S] format.
-func VerifySignature(pubkey, hash, signature []byte) bool {
+func verifySignature(pubkey, hash, signature []byte) bool {
 	return secp256k1.VerifySignature(pubkey, hash, signature)
 }
 
-// DecompressPubkey parses a public key in the 33-byte compressed format.
-func DecompressPubkey(pubkey []byte) (*ecdsa.PublicKey, error) {
+// decompressPubkey parses a public key in the 33-byte compressed format.
+func decompressPubkey(pubkey []byte) (*ecdsa.PublicKey, error) {
 	x, y := secp256k1.DecompressPubkey(pubkey)
 	if x == nil {
 		return nil, fmt.Errorf("invalid public key")
 	}
-	return &ecdsa.PublicKey{X: x, Y: y, Curve: S256()}, nil
+	return &ecdsa.PublicKey{X: x, Y: y, Curve: s256()}, nil
 }
 
-// CompressPubkey encodes a public key to the 33-byte compressed format.
-func CompressPubkey(pubkey *ecdsa.PublicKey) []byte {
+// compressPubkey encodes a public key to the 33-byte compressed format.
+func compressPubkey(pubkey *ecdsa.PublicKey) []byte {
 	return secp256k1.CompressPubkey(pubkey.X, pubkey.Y)
 }
 
-// S256 returns an instance of the secp256k1 curve.
-func S256() elliptic.Curve {
+// s256 returns an instance of the secp256k1 curve.
+func s256() elliptic.Curve {
 	return secp256k1.S256()
 }

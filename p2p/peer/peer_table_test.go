@@ -1,12 +1,12 @@
 package peer
 
 import (
-	"crypto/ecdsa"
 	"fmt"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
@@ -140,7 +140,7 @@ func newTestEmptyPeerTable() PeerTable {
 	return pt
 }
 
-func newSimulatedInboundPeer(netconn net.Conn, pubKey ecdsa.PublicKey) *Peer {
+func newSimulatedInboundPeer(netconn net.Conn, pubKey crypto.PublicKey) *Peer {
 	peerConfig := GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	inboundPeer, err := CreateInboundPeer(netconn, peerConfig, connConfig)

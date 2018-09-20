@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"path"
@@ -76,18 +75,18 @@ func runStart(cmd *cobra.Command, args []string) {
 	n.Wait()
 }
 
-func loadOrCreateKey() *ecdsa.PrivateKey {
+func loadOrCreateKey(scheme crypto.CrytoScheme) crypto.PrivateKey {
 	filepath := path.Join(cfgPath, "key")
-	privKey, err := crypto.LoadECDSA(filepath)
+	privKey, err := crypto.LoadPrivateKeyFromFile(filepath, scheme)
 	if err == nil {
 		return privKey
 	}
 	log.WithFields(log.Fields{"err": err}).Warning("Failed to load private key. Generating new key")
-	privKey, err = crypto.GenerateKey()
+	privKey, _, err = crypto.GenerateKeyPair(scheme)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to generate private key")
 	}
-	err = crypto.SaveECDSA(filepath, privKey)
+	err = privKey.SaveToFile(filepath)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to save private key")
 	}
@@ -95,14 +94,14 @@ func loadOrCreateKey() *ecdsa.PrivateKey {
 }
 
 func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
-	privKey := loadOrCreateKey()
+	privKey := loadOrCreateKey(crypto.CrytoSchemeECDSA)
 	log.WithFields(log.Fields{
-		"pubKey":  fmt.Sprintf("%X", crypto.FromECDSAPub(&privKey.PublicKey)),
-		"address": fmt.Sprintf("%X", crypto.PubkeyToAddress(privKey.PublicKey)),
+		"pubKey":  fmt.Sprintf("%X", privKey.PublicKey().ToBytes()),
+		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey.PublicKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := messenger.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}

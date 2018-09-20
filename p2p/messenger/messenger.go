@@ -1,12 +1,12 @@
 package messenger
 
 import (
-	"crypto/ecdsa"
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/p2p"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -38,7 +38,7 @@ type MessengerConfig struct {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(pubKey ecdsa.PublicKey, seedPeerNetAddresses []string,
+func CreateMessenger(pubKey crypto.PublicKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
