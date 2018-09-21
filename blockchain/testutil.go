@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/store/blockstore"
 	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 // ParseHex parse hex string into bytes.
@@ -32,7 +32,7 @@ func CreateTestBlock(hash string, parent string) *core.Block {
 
 // CreateTestChain creates a chain for testing.
 func CreateTestChain() *Chain {
-	store := blockstore.NewBlockStore(backend.NewMemDatabase())
+	store := kvstore.NewKVStore(backend.NewMemDatabase())
 	root := &core.Block{}
 	root.ChainID = "testchain"
 	root.Epoch = 0

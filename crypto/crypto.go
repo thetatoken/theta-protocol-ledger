@@ -72,6 +72,7 @@ func GenerateKeyPair(scheme CrytoScheme) (PrivateKey, PublicKey, error) {
 	return nil, nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
 
+// TODO: parse the CryptoScheme from the file instead of passing in as a parameter
 // PrivateKeyFromFile loads the private key from the given file
 func PrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error) {
 	if scheme == CrytoSchemeECDSA {
@@ -82,6 +83,7 @@ func PrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error)
 	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
 
+// TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // PrivateKeyFromBytes converts the given bytes to a private key
 func PrivateKeyFromBytes(skBytes common.Bytes, scheme CrytoScheme) (PrivateKey, error) {
 	if scheme == CrytoSchemeECDSA {
@@ -92,6 +94,7 @@ func PrivateKeyFromBytes(skBytes common.Bytes, scheme CrytoScheme) (PrivateKey, 
 	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
 
+// TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // PublicKeyFromBytes converts the given bytes to a public key
 func PublicKeyFromBytes(pkBytes common.Bytes, scheme CrytoScheme) (PublicKey, error) {
 	if scheme == CrytoSchemeECDSA {
@@ -102,6 +105,7 @@ func PublicKeyFromBytes(pkBytes common.Bytes, scheme CrytoScheme) (PublicKey, er
 	return nil, fmt.Errorf("Invalid crypto scheme: %v", scheme)
 }
 
+// TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // SignatureFromBytes converts the given bytes to a signature
 func SignatureFromBytes(sigBytes common.Bytes, scheme CrytoScheme) (Signature, error) {
 	if scheme == CrytoSchemeECDSA {

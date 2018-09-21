@@ -16,8 +16,8 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
-	"github.com/thetatoken/ukulele/store/blockstore"
 	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 // startCmd represents the start command
@@ -56,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	db, err := backend.NewLDBDatabase(common.GetDefaultConfigPath(), 256, 0)
-	store := blockstore.NewBlockStore(db)
+	store := kvstore.NewKVStore(db)
 	root := &core.Block{}
 	root.ChainID = chainID
 	root.Epoch = rootEpoch

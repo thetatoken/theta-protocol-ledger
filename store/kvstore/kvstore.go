@@ -1,4 +1,4 @@
-package blockstore
+package kvstore
 
 import (
 	"github.com/thetatoken/ukulele/common"
@@ -7,18 +7,18 @@ import (
 	"github.com/thetatoken/ukulele/store/database"
 )
 
-// NewBlockStore create a new instance of BlockStore.
-func NewBlockStore(db database.Database) store.Store {
-	return &BlockStore{db}
+// NewKVStore create a new instance of KVStore.
+func NewKVStore(db database.Database) store.Store {
+	return &KVStore{db}
 }
 
-// BlockStore a Database wrapped object.
-type BlockStore struct {
+// KVStore a Database wrapped object.
+type KVStore struct {
 	db database.Database
 }
 
 // Put upserts key/value into DB
-func (store *BlockStore) Put(key common.Bytes, value interface{}) error {
+func (store *KVStore) Put(key common.Bytes, value interface{}) error {
 	encodedValue, err := rlp.EncodeToBytes(value)
 	if err != nil {
 		return err
@@ -27,12 +27,12 @@ func (store *BlockStore) Put(key common.Bytes, value interface{}) error {
 }
 
 // Delete deletes key entry from DB
-func (store *BlockStore) Delete(key common.Bytes) error {
+func (store *KVStore) Delete(key common.Bytes) error {
 	return store.db.Delete(key)
 }
 
 // Get looks up DB with key and returns result into value (passed by reference)
-func (store *BlockStore) Get(key common.Bytes, value interface{}) error {
+func (store *KVStore) Get(key common.Bytes, value interface{}) error {
 	encodedValue, err := store.db.Get(key)
 	if err != nil {
 		return err

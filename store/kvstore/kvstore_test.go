@@ -1,4 +1,4 @@
-package blockstore
+package kvstore
 
 import (
 	"testing"
@@ -45,27 +45,27 @@ type ExtendedNode struct {
 	Certificate *Certificate `rlp:"nil"`
 }
 
-func TestBlockStore(t *testing.T) {
+func TestKVStore(t *testing.T) {
 	assert := assert.New(t)
 
 	db, err := backend.NewMgoDatabase()
 	assert.Nil(err)
-	blockStore := NewBlockStore(db)
+	kvstore := NewKVStore(db)
 
 	key := []byte("abc123")
 
-	err = blockStore.Put(key, "hello!")
+	err = kvstore.Put(key, "hello!")
 	assert.Nil(err)
 
 	var str string
-	err = blockStore.Get(key, &str)
+	err = kvstore.Get(key, &str)
 	assert.Nil(err)
 	assert.Equal("hello!", str)
 
-	err = blockStore.Delete(key)
+	err = kvstore.Delete(key)
 	assert.Nil(err)
 
-	err = blockStore.Get(key, &str)
+	err = kvstore.Get(key, &str)
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)
 
@@ -100,20 +100,20 @@ func TestBlockStore(t *testing.T) {
 	cert := Certificate{NodeHash: nodeHash, Choices: &choices}
 	extendedNode := ExtendedNode{Node: node, Height: 7, Children: []common.Bytes{extendedChild1.Hash, extendedChild2.Hash}, Parent: extendedParent.Hash, Certificate: &cert}
 
-	err = blockStore.Put(extendedParent.Hash, extendedParent)
+	err = kvstore.Put(extendedParent.Hash, extendedParent)
 	assert.Nil(err)
 
-	err = blockStore.Put(extendedNode.Hash, extendedNode)
+	err = kvstore.Put(extendedNode.Hash, extendedNode)
 	assert.Nil(err)
 
-	err = blockStore.Put(extendedChild1.Hash, extendedChild1)
+	err = kvstore.Put(extendedChild1.Hash, extendedChild1)
 	assert.Nil(err)
 
-	err = blockStore.Put(extendedChild2.Hash, extendedChild2)
+	err = kvstore.Put(extendedChild2.Hash, extendedChild2)
 	assert.Nil(err)
 
 	var nodeVal ExtendedNode
-	err = blockStore.Get(extendedNode.Hash, &nodeVal)
+	err = kvstore.Get(extendedNode.Hash, &nodeVal)
 	assert.Nil(err)
 	assert.Equal(extendedNode.Height, nodeVal.Height)
 	assert.Equal(extendedNode.Node.Hash, nodeVal.Node.Hash)
@@ -129,7 +129,7 @@ func TestBlockStore(t *testing.T) {
 	assert.Equal(extendedNode.Children[1], nodeVal.Children[1])
 
 	var parentVal ExtendedNode
-	err = blockStore.Get(nodeVal.Parent, &parentVal)
+	err = kvstore.Get(nodeVal.Parent, &parentVal)
 	assert.Nil(err)
 	assert.Equal(extendedParent.Height, parentVal.Height)
 	assert.Equal(extendedParent.Node.Hash, parentVal.Node.Hash)
@@ -139,14 +139,14 @@ func TestBlockStore(t *testing.T) {
 	assert.Equal(1, len(parentVal.Children))
 	assert.Equal(parentVal.Children[0], nodeVal.Hash)
 
-	err = blockStore.Delete(nodeVal.Parent)
-	err = blockStore.Delete(nodeVal.Children[0])
-	err = blockStore.Delete(nodeVal.Children[1])
-	err = blockStore.Delete(nodeVal.Hash)
+	err = kvstore.Delete(nodeVal.Parent)
+	err = kvstore.Delete(nodeVal.Children[0])
+	err = kvstore.Delete(nodeVal.Children[1])
+	err = kvstore.Delete(nodeVal.Hash)
 	assert.Nil(err)
 
 	var res ExtendedNode
-	err = blockStore.Get(extendedNode.Hash, &res)
+	err = kvstore.Get(extendedNode.Hash, &res)
 	assert.NotNil(err)
 	assert.Equal(store.ErrKeyNotFound, err)
 }
