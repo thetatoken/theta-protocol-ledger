@@ -3,6 +3,7 @@ package core
 import (
 	"fmt"
 	"io"
+	"sort"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/rlp"
@@ -53,7 +54,7 @@ type Vote struct {
 }
 
 func (v Vote) String() string {
-	return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block, v.ID, v.Epoch)
+	return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash, v.ID, v.Epoch)
 }
 
 // VoteSet represents a set of votes on a proposal.
@@ -93,7 +94,12 @@ func (s *VoteSet) Votes() []Vote {
 	for _, v := range s.votes {
 		ret = append(ret, v)
 	}
+	sort.Sort(VoteByID(ret))
 	return ret
+}
+
+func (s *VoteSet) String() string {
+	return fmt.Sprintf("%v", s.Votes())
 }
 
 var _ rlp.Encoder = (*VoteSet)(nil)
@@ -121,3 +127,10 @@ func (s *VoteSet) DecodeRLP(stream *rlp.Stream) error {
 	}
 	return nil
 }
+
+// VoteByID implements sort.Interface for []Vote based on Voter's ID.
+type VoteByID []Vote
+
+func (a VoteByID) Len() int           { return len(a) }
+func (a VoteByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a VoteByID) Less(i, j int) bool { return a[i].ID < a[j].ID }
