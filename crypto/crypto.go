@@ -59,6 +59,7 @@ type PublicKey interface {
 //
 type Signature interface {
 	ToBytes() common.Bytes
+	IsEmpty() bool
 }
 
 // GenerateKeyPair generates a random private/public key pair
@@ -190,4 +191,9 @@ type SignatureECDSA struct {
 // ToBytes returns the bytes representation of the signature
 func (sige *SignatureECDSA) ToBytes() common.Bytes {
 	return sige.data
+}
+
+// IsEmpty indicates whether the signature is empty
+func (sige *SignatureECDSA) IsEmpty() bool {
+	return len(sige.data) == 0
 }
