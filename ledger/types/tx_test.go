@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thetatoken/ukulele/core"
 )
 
 var chainID string = "test_chain"
@@ -580,70 +581,70 @@ func TestSplitContractTxJSON(t *testing.T) {
 	assert.False(tx2.Initiator.Signature.IsEmpty())
 }
 
-// func TestUpdateValidatorsTxSignable(t *testing.T) {
-// 	updateValidatorsTx := &UpdateValidatorsTx{
-// 		Validators: []*abci.Validator{},
-// 		Proposer: TxInput{
-// 			Address:  []byte("validator1"),
-// 			Coins:    Coins{{"", 12345}},
-// 			Sequence: 67890,
-// 		},
-// 	}
+func TestUpdateValidatorsTxSignable(t *testing.T) {
+	updateValidatorsTx := &UpdateValidatorsTx{
+		Validators: []*core.Validator{},
+		Proposer: TxInput{
+			Address:  getTestAddress("validator1"),
+			Coins:    Coins{{"", 12345}},
+			Sequence: 67890,
+		},
+	}
 
-// 	signBytes := updateValidatorsTx.SignBytes(chainID)
-// 	signBytesHex := fmt.Sprintf("%X", signBytes)
-// 	expected := "010A746573745F636861696E"
+	signBytes := updateValidatorsTx.SignBytes(chainID)
+	signBytesHex := fmt.Sprintf("%X", signBytes)
+	expected := "010A746573745F636861696E"
 
-// 	assert.Equal(t, expected, signBytesHex,
-// 		"Got unexpected sign string for UpdateValidatorsTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
-// }
+	assert.Equal(t, expected, signBytesHex,
+		"Got unexpected sign string for UpdateValidatorsTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
+}
 
-// func TestUpdateValidatorsTxJSON(t *testing.T) {
-// 	assert, require := assert.New(t), require.New(t)
+func TestUpdateValidatorsTxJSON(t *testing.T) {
+	assert, require := assert.New(t), require.New(t)
 
-// 	chainID := "test_chain_id"
-// 	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
+	chainID := "test_chain_id"
+	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
 
-// 	// Construct a UpdateValidatorsTx signature
-// 	tx := &UpdateValidatorsTx{
-// 		Validators: []*abci.Validator{},
-// 		Proposer:   NewTxInput(test1PrivAcc.PubKey, Coins{{"", 10}}, 1),
-// 	}
+	// Construct a UpdateValidatorsTx signature
+	tx := &UpdateValidatorsTx{
+		Validators: []*core.Validator{},
+		Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+	}
 
-// 	// serialize this as json and back
-// 	js, err := json.Marshal(TxS{tx})
-// 	require.Nil(err)
-// 	// fmt.Println(string(js))
-// 	txs := TxS{}
-// 	err = json.Unmarshal(js, &txs)
-// 	require.Nil(err)
-// 	tx2, ok := txs.Tx.(*UpdateValidatorsTx)
-// 	require.True(ok)
+	// serialize this as json and back
+	js, err := json.Marshal(tx)
+	require.Nil(err)
+	// fmt.Println(string(js))
+	var txs Tx
+	err = json.Unmarshal(js, &txs)
+	require.Nil(err)
+	tx2, ok := txs.(*UpdateValidatorsTx)
+	require.True(ok)
 
-// 	// make sure they are the same!
-// 	signBytes := tx.SignBytes(chainID)
-// 	signBytes2 := tx2.SignBytes(chainID)
-// 	assert.Equal(signBytes, signBytes2)
-// 	assert.Equal(tx, tx2)
+	// make sure they are the same!
+	signBytes := tx.SignBytes(chainID)
+	signBytes2 := tx2.SignBytes(chainID)
+	assert.Equal(signBytes, signBytes2)
+	assert.Equal(tx, tx2)
 
-// 	// sign this thing
-// 	sig := test1PrivAcc.Sign(signBytes)
-// 	// we handle both raw sig and wrapped sig the same
-// 	tx.SetSignature(test1PrivAcc.PubKey.Address(), sig)
-// 	tx2.SetSignature(test1PrivAcc.PubKey.Address(), sig)
+	// sign this thing
+	sig := test1PrivAcc.Sign(signBytes)
+	// we handle both raw sig and wrapped sig the same
+	tx.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
+	tx2.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
 
-// 	assert.Equal(tx, tx2)
+	assert.Equal(tx, tx2)
 
-// 	// let's marshal / unmarshal this with signature
-// 	js, err = json.Marshal(TxS{tx})
-// 	require.Nil(err)
-// 	// fmt.Println(string(js))
-// 	err = json.Unmarshal(js, &txs)
-// 	require.Nil(err)
-// 	tx2, ok = txs.Tx.(*UpdateValidatorsTx)
-// 	require.True(ok)
+	// let's marshal / unmarshal this with signature
+	js, err = json.Marshal(tx)
+	require.Nil(err)
+	// fmt.Println(string(js))
+	err = json.Unmarshal(js, &txs)
+	require.Nil(err)
+	tx2, ok = txs.(*UpdateValidatorsTx)
+	require.True(ok)
 
-// 	// and make sure the sig is preserved
-// 	assert.Equal(tx, tx2)
-// 	assert.False(tx2.Proposer.Signature.Empty())
-// }
+	// and make sure the sig is preserved
+	assert.Equal(tx, tx2)
+	assert.False(tx2.Proposer.Signature.IsEmpty())
+}

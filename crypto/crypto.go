@@ -41,7 +41,7 @@ type PrivateKey interface {
 	ToBytes() common.Bytes
 	PublicKey() PublicKey
 	SaveToFile(filepath string) error
-	Sign(msg []byte) (Signature, error)
+	Sign(msg common.Bytes) (Signature, error)
 }
 
 //
@@ -51,7 +51,7 @@ type PublicKey interface {
 	ToBytes() common.Bytes
 	Address() common.Address
 	IsEmpty() bool
-	VerifySignature(msg []byte, sig Signature) bool
+	VerifySignature(msg common.Bytes, sig Signature) bool
 }
 
 //
@@ -141,7 +141,7 @@ func (ske *PrivateKeyECDSA) SaveToFile(filepath string) error {
 }
 
 // Sign signs the given message with the private key
-func (ske *PrivateKeyECDSA) Sign(msg []byte) (Signature, error) {
+func (ske *PrivateKeyECDSA) Sign(msg common.Bytes) (Signature, error) {
 	msgHash := keccak256Hash(msg)
 	sigBytes, err := sign(msgHash[:], ske.privKey)
 	sig := &SignatureECDSA{data: sigBytes}
@@ -175,7 +175,7 @@ func (pke *PublicKeyECDSA) IsEmpty() bool {
 }
 
 // VerifySignature verifies the signature with the public key
-func (pke *PublicKeyECDSA) VerifySignature(msg []byte, sig Signature) bool {
+func (pke *PublicKeyECDSA) VerifySignature(msg common.Bytes, sig Signature) bool {
 	msgHash := keccak256Hash(msg)
 	isValid := verifySignature(pke.ToBytes(), msgHash[:], sig.ToBytes())
 	return isValid

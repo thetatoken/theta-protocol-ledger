@@ -31,8 +31,8 @@ message Signature {
 }
 
 message Validator {
-    PublicKey pub_key = 1;
-    int64 power = 2;
+    bytes id = 1;
+    int64 stake = 2;
 }
 
 message OverspendingProof {

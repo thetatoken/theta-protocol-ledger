@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	res "github.com/thetatoken/ukulele/ledger/types/result"
 	"github.com/thetatoken/ukulele/rlp"
@@ -22,6 +23,7 @@ Transaction Types:
  - ReleaseFundTx        Release fund reserved for service payments
  - ServicePaymentTx     Payments for service
  - SplitContractTx      Payment split contract
+ - UpdateValidatorsTx   Update validator set
 */
 
 type Tx interface {
@@ -408,34 +410,34 @@ func (tx *SplitContractTx) String() string {
 
 //-----------------------------------------------------------------------------
 
-// type UpdateValidatorsTx struct {
-// 	Gas        int64             `json:"gas"`        // Gas
-// 	Fee        Coin              `json:"fee"`        // Fee
-// 	Validators []*abci.Validator `json:"validators"` // validators diff
-// 	Proposer   TxInput           `json:"source"`     // source account
-// }
+type UpdateValidatorsTx struct {
+	Gas        int64             `json:"gas"`        // Gas
+	Fee        Coin              `json:"fee"`        // Fee
+	Validators []*core.Validator `json:"validators"` // validators diff
+	Proposer   TxInput           `json:"source"`     // source account
+}
 
-// func (_ *UpdateValidatorsTx) AssertIsTx() {}
+func (_ *UpdateValidatorsTx) AssertIsTx() {}
 
-// func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
-// 	signBytes := rlp.EncodeToBytes(chainID)
-// 	for _, v := range tx.Validators {
-// 		bytes, err := proto.Marshal(v)
-// 		if err != nil {
-// 			signBytes = append(signBytes, bytes...)
-// 		}
-// 	}
-// 	return signBytes
-// }
+func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	for _, v := range tx.Validators {
+		bytes, err := rlp.EncodeToBytes(v)
+		if err != nil {
+			signBytes = append(signBytes, bytes...)
+		}
+	}
+	return signBytes
+}
 
-// func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
-// 	if tx.Proposer.Address == addr {
-// 		tx.Proposer.Signature = sig
-// 		return true
-// 	}
-// 	return false
-// }
+func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+	if tx.Proposer.Address == addr {
+		tx.Proposer.Signature = sig
+		return true
+	}
+	return false
+}
 
-// func (tx *UpdateValidatorsTx) String() string {
-// 	return Fmt("UpdateValidatorsTx{%v}", tx.Validators)
-// }
+func (tx *UpdateValidatorsTx) String() string {
+	return fmt.Sprintf("UpdateValidatorsTx{%v}", tx.Validators)
+}

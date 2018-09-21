@@ -730,8 +730,8 @@
              * Properties of a Validator.
              * @memberof serialization
              * @interface IValidator
-             * @property {serialization.IPublicKey|null} [pubKey] Validator pubKey
-             * @property {number|Long|null} [power] Validator power
+             * @property {Uint8Array|null} [id] Validator id
+             * @property {number|Long|null} [stake] Validator stake
              */
     
             /**
@@ -750,20 +750,20 @@
             }
     
             /**
-             * Validator pubKey.
-             * @member {serialization.IPublicKey|null|undefined} pubKey
+             * Validator id.
+             * @member {Uint8Array} id
              * @memberof serialization.Validator
              * @instance
              */
-            Validator.prototype.pubKey = null;
+            Validator.prototype.id = $util.newBuffer([]);
     
             /**
-             * Validator power.
-             * @member {number|Long} power
+             * Validator stake.
+             * @member {number|Long} stake
              * @memberof serialization.Validator
              * @instance
              */
-            Validator.prototype.power = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            Validator.prototype.stake = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
     
             /**
              * Creates a new Validator instance using the specified properties.
@@ -789,10 +789,10 @@
             Validator.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
-                    $root.serialization.PublicKey.encode(message.pubKey, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
-                if (message.power != null && message.hasOwnProperty("power"))
-                    writer.uint32(/* id 2, wireType 0 =*/16).int64(message.power);
+                if (message.id != null && message.hasOwnProperty("id"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+                if (message.stake != null && message.hasOwnProperty("stake"))
+                    writer.uint32(/* id 2, wireType 0 =*/16).int64(message.stake);
                 return writer;
             };
     
@@ -828,10 +828,10 @@
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
                     case 1:
-                        message.pubKey = $root.serialization.PublicKey.decode(reader, reader.uint32());
+                        message.id = reader.bytes();
                         break;
                     case 2:
-                        message.power = reader.int64();
+                        message.stake = reader.int64();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -868,14 +868,12 @@
             Validator.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.pubKey != null && message.hasOwnProperty("pubKey")) {
-                    var error = $root.serialization.PublicKey.verify(message.pubKey);
-                    if (error)
-                        return "pubKey." + error;
-                }
-                if (message.power != null && message.hasOwnProperty("power"))
-                    if (!$util.isInteger(message.power) && !(message.power && $util.isInteger(message.power.low) && $util.isInteger(message.power.high)))
-                        return "power: integer|Long expected";
+                if (message.id != null && message.hasOwnProperty("id"))
+                    if (!(message.id && typeof message.id.length === "number" || $util.isString(message.id)))
+                        return "id: buffer expected";
+                if (message.stake != null && message.hasOwnProperty("stake"))
+                    if (!$util.isInteger(message.stake) && !(message.stake && $util.isInteger(message.stake.low) && $util.isInteger(message.stake.high)))
+                        return "stake: integer|Long expected";
                 return null;
             };
     
@@ -891,20 +889,20 @@
                 if (object instanceof $root.serialization.Validator)
                     return object;
                 var message = new $root.serialization.Validator();
-                if (object.pubKey != null) {
-                    if (typeof object.pubKey !== "object")
-                        throw TypeError(".serialization.Validator.pubKey: object expected");
-                    message.pubKey = $root.serialization.PublicKey.fromObject(object.pubKey);
-                }
-                if (object.power != null)
+                if (object.id != null)
+                    if (typeof object.id === "string")
+                        $util.base64.decode(object.id, message.id = $util.newBuffer($util.base64.length(object.id)), 0);
+                    else if (object.id.length)
+                        message.id = object.id;
+                if (object.stake != null)
                     if ($util.Long)
-                        (message.power = $util.Long.fromValue(object.power)).unsigned = false;
-                    else if (typeof object.power === "string")
-                        message.power = parseInt(object.power, 10);
-                    else if (typeof object.power === "number")
-                        message.power = object.power;
-                    else if (typeof object.power === "object")
-                        message.power = new $util.LongBits(object.power.low >>> 0, object.power.high >>> 0).toNumber();
+                        (message.stake = $util.Long.fromValue(object.stake)).unsigned = false;
+                    else if (typeof object.stake === "string")
+                        message.stake = parseInt(object.stake, 10);
+                    else if (typeof object.stake === "number")
+                        message.stake = object.stake;
+                    else if (typeof object.stake === "object")
+                        message.stake = new $util.LongBits(object.stake.low >>> 0, object.stake.high >>> 0).toNumber();
                 return message;
             };
     
@@ -922,20 +920,20 @@
                     options = {};
                 var object = {};
                 if (options.defaults) {
-                    object.pubKey = null;
+                    object.id = options.bytes === String ? "" : [];
                     if ($util.Long) {
                         var long = new $util.Long(0, 0, false);
-                        object.power = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
+                        object.stake = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
-                        object.power = options.longs === String ? "0" : 0;
+                        object.stake = options.longs === String ? "0" : 0;
                 }
-                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
-                    object.pubKey = $root.serialization.PublicKey.toObject(message.pubKey, options);
-                if (message.power != null && message.hasOwnProperty("power"))
-                    if (typeof message.power === "number")
-                        object.power = options.longs === String ? String(message.power) : message.power;
+                if (message.id != null && message.hasOwnProperty("id"))
+                    object.id = options.bytes === String ? $util.base64.encode(message.id, 0, message.id.length) : options.bytes === Array ? Array.prototype.slice.call(message.id) : message.id;
+                if (message.stake != null && message.hasOwnProperty("stake"))
+                    if (typeof message.stake === "number")
+                        object.stake = options.longs === String ? String(message.stake) : message.stake;
                     else
-                        object.power = options.longs === String ? $util.Long.prototype.toString.call(message.power) : options.longs === Number ? new $util.LongBits(message.power.low >>> 0, message.power.high >>> 0).toNumber() : message.power;
+                        object.stake = options.longs === String ? $util.Long.prototype.toString.call(message.stake) : options.longs === Number ? new $util.LongBits(message.stake.low >>> 0, message.stake.high >>> 0).toNumber() : message.stake;
                 return object;
             };
     

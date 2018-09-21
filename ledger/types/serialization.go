@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	s "github.com/thetatoken/ukulele/ledger/serialization"
 
@@ -418,8 +419,8 @@ func TxFromProto(tx *s.Tx) Tx {
 		return ServicePaymentTxFromProto(tx.GetServicePayment())
 	case *s.Tx_SplitContract:
 		return SplitContractTxFromProto(tx.GetSplitContract())
-		// case *s.Tx_UpdateValidators:
-		// 	return UpdateValidatorsTxFromProto(tx.GetUpdateValidators())
+	case *s.Tx_UpdateValidators:
+		return UpdateValidatorsTxFromProto(tx.GetUpdateValidators())
 	}
 }
 
@@ -638,37 +639,31 @@ func SplitContractTxToProto(sc *SplitContractTx) *s.SplitContractTx {
 
 // ----------------- UpdateValidatorsTx -------------------
 
-// func UpdateValidatorsTxFromProto(tx *s.UpdateValidatorsTx) *UpdateValidatorsTx {
-// 	sp := &UpdateValidatorsTx{}
-// 	sp.Proposer = *InputFromProto(tx.Proposer)
-// 	for _, v := range tx.Validators {
-// 		va := &abci.Validator{}
-// 		if pubkey := PublicKeyFromProto(v.PubKey); pubkey != nil {
-// 			va.PubKey = pubkey.ToBytes()
-// 		}
-// 		va.Power = uint64(v.Power)
-// 		sp.Validators = append(sp.Validators, va)
-// 	}
+func UpdateValidatorsTxFromProto(tx *s.UpdateValidatorsTx) *UpdateValidatorsTx {
+	sp := &UpdateValidatorsTx{}
+	sp.Proposer = *InputFromProto(tx.Proposer)
+	for _, v := range tx.Validators {
+		vaID := string(v.GetId())
+		stake := uint64(v.GetStake())
+		va := core.NewValidator(vaID, stake)
+		sp.Validators = append(sp.Validators, &va)
+	}
 
-// 	return sp
-// }
+	return sp
+}
 
-// func UpdateValidatorsTxToProto(tx *UpdateValidatorsTx) *s.UpdateValidatorsTx {
-// 	msg := &s.UpdateValidatorsTx{}
-// 	msg.Proposer = InputToProto(&tx.Proposer)
-// 	for _, va := range tx.Validators {
-// 		v := &s.Validator{}
+func UpdateValidatorsTxToProto(tx *UpdateValidatorsTx) *s.UpdateValidatorsTx {
+	msg := &s.UpdateValidatorsTx{}
+	msg.Proposer = InputToProto(&tx.Proposer)
+	for _, va := range tx.Validators {
+		v := &s.Validator{}
 
-// 		if len(va.PubKey) > 0 {
-// 			pubkey, err := crypto.PublicKeyFromBytes(va.PubKey)
-// 			if err != nil {
-// 				return &s.UpdateValidatorsTx{}
-// 			}
-// 			v.PubKey = PubkeyToProto(&pubkey)
-// 		}
+		if len(va.ID()) > 0 {
+			v.Id = []byte(va.ID())
+		}
 
-// 		v.Power = int64(va.Power)
-// 		msg.Validators = append(msg.Validators, v)
-// 	}
-// 	return msg
-// }
+		v.Stake = int64(va.Stake())
+		msg.Validators = append(msg.Validators, v)
+	}
+	return msg
+}

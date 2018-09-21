@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 )
 
@@ -361,29 +362,32 @@ func TestTx(t *testing.T) {
 		assert.EqualValues(b, b2)
 	}
 
-	// // Special test case for UpdateValidatosTx
-	// privKey := crypto.GenPrivKeySecp256k1()
-	// pubkey1 := privKey.PubKey()
+	// Special test case for UpdateValidatosTx
+	_, pubkey1, err := crypto.GenerateKeyPair(crypto.CrytoSchemeECDSA)
+	if err != nil {
+		panic(err)
+	}
 
-	// tx := &UpdateValidatorsTx{
-	// 	Proposer: TxInput{Address: []byte("123")},
-	// 	Validators: []*abci.Validator{{
-	// 		PubKey: wire.BinaryBytes(pubkey1),
-	// 		Power:  1,
-	// 	}},
-	// }
-	// // Test conversion to/from bytes.
-	// b := TxToBytes(tx)
-	// tx2_, err := TxFromBytes(b)
-	// tx2 := tx2_.(*UpdateValidatorsTx)
-	// assert.Nil(err)
-	// assert.EqualValues(tx.Proposer, tx2.Proposer)
-	// assert.Equal(len(tx.Validators), len(tx2.Validators))
-	// assert.EqualValues(*tx.Validators[0], *tx2.Validators[0])
+	vaAddr := pubkey1.Address()
+	vaID := string(vaAddr[:])
+	vaStake := uint64(1)
+	va := core.NewValidator(vaID, vaStake)
+	tx := &UpdateValidatorsTx{
+		Proposer:   TxInput{Address: getTestAddress("123")},
+		Validators: []*core.Validator{&va},
+	}
+	// Test conversion to/from bytes.
+	b := TxToBytes(tx)
+	tx2_, err := TxFromBytes(b)
+	tx2 := tx2_.(*UpdateValidatorsTx)
+	assert.Nil(err)
+	assert.EqualValues(tx.Proposer, tx2.Proposer)
+	assert.Equal(len(tx.Validators), len(tx2.Validators))
+	assert.EqualValues(*tx.Validators[0], *tx2.Validators[0])
 
-	// // Verify bytes are deterministic.
-	// b2 := TxToBytes(tx)
-	// assert.EqualValues(b, b2)
+	// Verify bytes are deterministic.
+	b2 := TxToBytes(tx)
+	assert.EqualValues(b, b2)
 }
 
 func getTestAddress(addr string) common.Address {
