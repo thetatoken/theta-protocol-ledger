@@ -1,10 +1,12 @@
 package types
 
 import (
+	"encoding/hex"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/ukulele/core"
 )
 
@@ -36,7 +38,6 @@ func TestCoinbaseTxSignable(t *testing.T) {
 		"Got unexpected sign string for CoinbaseTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
 func TestCoinbaseTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
@@ -57,18 +58,68 @@ func TestCoinbaseTxProto(t *testing.T) {
 	}
 	tx.Proposer.Signature = va1PrivAcc.Sign(tx.SignBytes(chainID))
 
-	// // serialize this as json and back
-	// js, err := json.Marshal(tx)
-	// require.Nil(err)
-	// fmt.Printf(">>>>> tx js: %v\n", string(js))
-
-	// var tx2 CoinbaseTx
-	// err = json.Unmarshal(js, &tx2)
-	// require.Nil(err)
-
 	b := TxToBytes(tx)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
+	tx2 := txs.(*CoinbaseTx)
+
+	// make sure they are the same!
+	signBytes := tx.SignBytes(chainID)
+	signBytes2 := tx2.SignBytes(chainID)
+
+	fmt.Printf(">>>>> tx : %v\n", tx)
+	fmt.Printf(">>>>> tx2: %v\n", tx2)
+
+	fmt.Printf(">>>>> signBytes : %v\n", hex.EncodeToString(signBytes))
+	fmt.Printf(">>>>> signBytes2: %v\n", hex.EncodeToString(signBytes2))
+
+	assert.Equal(signBytes, signBytes2)
+	assert.Equal(tx, tx2)
+
+	// sign this thing
+	sig := va1PrivAcc.Sign(signBytes)
+	// we handle both raw sig and wrapped sig the same
+	tx.SetSignature(va1PrivAcc.PrivKey.PublicKey().Address(), sig)
+	tx2.SetSignature(va1PrivAcc.PrivKey.PublicKey().Address(), sig)
+	assert.Equal(tx, tx2)
+
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
+	require.Nil(err)
+	tx2 = txs.(*CoinbaseTx)
+
+	// and make sure the sig is preserved
+	assert.Equal(tx, tx2)
+	assert.False(tx2.Proposer.Signature.IsEmpty())
+}
+
+/*
+func TestCoinbaseTxRLP(t *testing.T) {
+	assert, require := assert.New(t), require.New(t)
+
+	chainID := "test_chain_id"
+	va1PrivAcc := PrivAccountFromSecret("validator1")
+	va2PrivAcc := PrivAccountFromSecret("validator2")
+
+	// Construct a CoinbaseTx signature
+	tx := &CoinbaseTx{
+		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{{"", 0}}, 1),
+		Outputs: []TxOutput{
+			TxOutput{
+				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
+				Coins:   Coins{{"foo", 8}},
+			},
+		},
+		BlockHeight: 10,
+	}
+	tx.Proposer.Signature = va1PrivAcc.Sign(tx.SignBytes(chainID))
+
+	b, err := rlp.EncodeToBytes(tx)
+	require.Nil(err)
+
+	var txs Tx
+	err = rlp.DecodeBytes(b, &txs)
+	require.Nil(err, &txs)
 	tx2 := txs.(*CoinbaseTx)
 
 	// make sure they are the same!
@@ -120,8 +171,7 @@ func TestSlashTxSignable(t *testing.T) {
 		"Got unexpected sign string for CoinbaseTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestSlashTxJSON(t *testing.T) {
+func TestSlashTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
@@ -135,15 +185,11 @@ func TestSlashTxJSON(t *testing.T) {
 		SlashProof:      []byte("2345ABC"),
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*SlashTx)
-	require.True(ok)
+	tx2 := txs.(*SlashTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -158,20 +204,15 @@ func TestSlashTxJSON(t *testing.T) {
 	tx2.SetSignature(va1PrivAcc.PrivKey.PublicKey().Address(), sig)
 	assert.Equal(tx, tx2)
 
-	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*SlashTx)
-	require.True(ok)
+	tx2 = txs.(*SlashTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Proposer.Signature.IsEmpty())
 }
-*/
 
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
@@ -208,8 +249,7 @@ func TestSendTxSignable(t *testing.T) {
 		"Got unexpected sign string for SendTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestSendTxJSON(t *testing.T) {
+func TestSendTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
@@ -231,15 +271,11 @@ func TestSendTxJSON(t *testing.T) {
 		},
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*SendTx)
-	require.True(ok)
+	tx2 := txs.(*SendTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -254,20 +290,15 @@ func TestSendTxJSON(t *testing.T) {
 	tx2.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
 	assert.Equal(tx, tx2)
 
-	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*SendTx)
-	require.True(ok)
+	tx2 = txs.(*SendTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Inputs[0].Signature.IsEmpty())
 }
-*/
 
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
@@ -291,14 +322,13 @@ func TestReserveFundTxSignable(t *testing.T) {
 		"Got unexpected sign string for ReserveFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestReserveFundTxJSON(t *testing.T) {
+func TestReserveFundTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
 	test1PrivAcc := PrivAccountFromSecret("reservefundtx")
 
-	// Construct a ReserveFundTx signature
+	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
 		Gas:         222,
 		Fee:         Coin{"", 111},
@@ -308,15 +338,11 @@ func TestReserveFundTxJSON(t *testing.T) {
 		Duration:    uint64(999),
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*ReserveFundTx)
-	require.True(ok)
+	tx2 := txs.(*ReserveFundTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -332,20 +358,15 @@ func TestReserveFundTxJSON(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*ReserveFundTx)
-	require.True(ok)
+	tx2 = txs.(*ReserveFundTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Source.Signature.IsEmpty())
 }
-*/
 
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
@@ -367,32 +388,25 @@ func TestReleaseFundTxSignable(t *testing.T) {
 		"Got unexpected sign string for ReleaseFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestReleaseFundTxJSON(t *testing.T) {
+func TestReleaseFundTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
 	test1PrivAcc := PrivAccountFromSecret("releasefundtx")
 
-	// Construct a ReserveFundTx signature
-	tx := &ReserveFundTx{
-		Gas:         222,
-		Fee:         Coin{"", 111},
-		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
-		Collateral:  Coins{{"", 22897}},
-		ResourceIds: [][]byte{[]byte("rid00123")},
-		Duration:    uint64(999),
+	// Construct a ReserveFundTx transaction
+	tx := &ReleaseFundTx{
+		Gas:             222,
+		Fee:             Coin{"", 111},
+		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+		ReserveSequence: 1,
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*ReserveFundTx)
-	require.True(ok)
+	tx2 := txs.(*ReleaseFundTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -408,20 +422,15 @@ func TestReleaseFundTxJSON(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*ReserveFundTx)
-	require.True(ok)
+	tx2 = txs.(*ReleaseFundTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Source.Signature.IsEmpty())
 }
-*/
 
 func TestServicePaymentTxSourceSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
@@ -477,8 +486,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 		"Got unexpected sign string for ServicePaymentTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestServicePaymentTxJSON(t *testing.T) {
+func TestServicePaymentTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
@@ -496,15 +504,11 @@ func TestServicePaymentTxJSON(t *testing.T) {
 		ResourceId:      []byte("rid00123"),
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*ServicePaymentTx)
-	require.True(ok)
+	tx2 := txs.(*ServicePaymentTx)
 
 	// make sure they are the same!
 	sourceSignBytes := tx.SourceSignBytes(chainID)
@@ -515,7 +519,6 @@ func TestServicePaymentTxJSON(t *testing.T) {
 	targetSignBytes2 := tx2.TargetSignBytes(chainID)
 	assert.Equal(targetSignBytes, targetSignBytes2)
 }
-*/
 
 func TestSplitContractTxSignable(t *testing.T) {
 	split := Split{
@@ -543,8 +546,7 @@ func TestSplitContractTxSignable(t *testing.T) {
 		"Got unexpected sign string for SplitContractTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestSplitContractTxJSON(t *testing.T) {
+func TestSplitContractTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
@@ -564,15 +566,11 @@ func TestSplitContractTxJSON(t *testing.T) {
 		Duration:   99,
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*SplitContractTx)
-	require.True(ok)
+	tx2 := txs.(*SplitContractTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -588,20 +586,15 @@ func TestSplitContractTxJSON(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*SplitContractTx)
-	require.True(ok)
+	tx2 = txs.(*SplitContractTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Initiator.Signature.IsEmpty())
 }
-*/
 
 func TestUpdateValidatorsTxSignable(t *testing.T) {
 	updateValidatorsTx := &UpdateValidatorsTx{
@@ -621,28 +614,31 @@ func TestUpdateValidatorsTxSignable(t *testing.T) {
 		"Got unexpected sign string for UpdateValidatorsTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-/*
-func TestUpdateValidatorsTxJSON(t *testing.T) {
+func TestUpdateValidatorsTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
 	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
 
 	// Construct a UpdateValidatorsTx signature
+	// va := core.NewValidator("id123", uint64(100))
+	// tx := &UpdateValidatorsTx{
+	// 	Validators: []*core.Validator{&va},
+	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+	// }
+
 	tx := &UpdateValidatorsTx{
-		Validators: []*core.Validator{},
-		Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 	}
 
-	// serialize this as json and back
-	js, err := json.Marshal(tx)
+	// serialize this and back
+	b := TxToBytes(tx)
+	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	var txs Tx
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok := txs.(*UpdateValidatorsTx)
-	require.True(ok)
+	tx2 := txs.(*UpdateValidatorsTx)
+
+	fmt.Printf(">>> tx.Validators:  %v\n", tx.Validators)
+	fmt.Printf(">>> tx2.Validators: %v\n", tx2.Validators)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -659,16 +655,12 @@ func TestUpdateValidatorsTxJSON(t *testing.T) {
 	assert.Equal(tx, tx2)
 
 	// let's marshal / unmarshal this with signature
-	js, err = json.Marshal(tx)
+	b = TxToBytes(tx)
+	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	// fmt.Println(string(js))
-	err = json.Unmarshal(js, &txs)
-	require.Nil(err)
-	tx2, ok = txs.(*UpdateValidatorsTx)
-	require.True(ok)
+	tx2 = txs.(*UpdateValidatorsTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx, tx2)
 	assert.False(tx2.Proposer.Signature.IsEmpty())
 }
-*/
