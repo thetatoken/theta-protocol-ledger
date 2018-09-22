@@ -25,7 +25,7 @@ func (pa *PrivAccount) Sign(msg []byte) *crypto.Signature {
 // Creates a PrivAccount from secret.
 // The amount is not set.
 func PrivAccountFromSecret(secret string) PrivAccount {
-	privKey, _, err := crypto.GenerateKeyPair()
+	privKey, _, err := crypto.TEST_GenerateKeyPairWithSeed(secret)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate private key: %v", err))
 	}
