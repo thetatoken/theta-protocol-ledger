@@ -45,7 +45,7 @@ func getValidatorAddresses(node *nd.Node) []common.Address {
 	return validatorAddresses
 }
 
-func isAValidator(pubKey crypto.PublicKey, validatorAddresses []common.Address) result.Result {
+func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address) result.Result {
 	if pubKey.IsEmpty() {
 		return result.ErrInternalError.PrependLog("Null proposer pubKey detected in coinbaseTx sanity check")
 	}

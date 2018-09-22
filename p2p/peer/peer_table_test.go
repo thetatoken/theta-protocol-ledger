@@ -140,7 +140,7 @@ func newTestEmptyPeerTable() PeerTable {
 	return pt
 }
 
-func newSimulatedInboundPeer(netconn net.Conn, pubKey crypto.PublicKey) *Peer {
+func newSimulatedInboundPeer(netconn net.Conn, pubKey *crypto.PublicKey) *Peer {
 	peerConfig := GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	inboundPeer, err := CreateInboundPeer(netconn, peerConfig, connConfig)

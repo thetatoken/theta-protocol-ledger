@@ -9,11 +9,11 @@ import (
 )
 
 type Account struct {
-	PubKey                 crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
-	Sequence               int              `json:"sequence"`
-	Balance                Coins            `json:"coins"`
-	ReservedFunds          []ReservedFund   `json:"reserved_funds"` // TODO: replace the slice with map
-	LastUpdatedBlockHeight uint64           `json:"last_updated_block_height"`
+	PubKey                 *crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
+	Sequence               int               `json:"sequence"`
+	Balance                Coins             `json:"coins"`
+	ReservedFunds          []ReservedFund    `json:"reserved_funds"` // TODO: replace the slice with map
+	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
 }
 
 func (acc *Account) Copy() *Account {

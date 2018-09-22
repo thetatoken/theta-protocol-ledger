@@ -101,7 +101,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 	assert := assert.New(t)
 	port := 43254
 
-	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, randPubKey, err := crypto.GenerateKeyPair()
 	origNodeInfo := p2ptypes.CreateNodeInfo(randPubKey)
 	assert.Nil(err)
 
@@ -203,7 +203,7 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 	assert := assert.New(t)
 	port := 43255
 
-	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, randPubKey, err := crypto.GenerateKeyPair()
 	origNodeInfo := p2ptypes.CreateNodeInfo(randPubKey)
 	assert.Nil(err)
 

@@ -12,7 +12,7 @@ import (
 func TestNodeInfoRLPEncoding1(t *testing.T) {
 	assert := assert.New(t)
 
-	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, randPubKey, err := crypto.GenerateKeyPair()
 	nodeInfo := CreateNodeInfo(randPubKey)
 
 	// ------ EncodeToBytes/DecodeBytes ------
@@ -32,7 +32,7 @@ func TestNodeInfoRLPEncoding1(t *testing.T) {
 func TestNodeInfoRLPEncoding2(t *testing.T) {
 	assert := assert.New(t)
 
-	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, randPubKey, err := crypto.GenerateKeyPair()
 	nodeInfo := CreateNodeInfo(randPubKey)
 
 	// ------ Encode/Decode ------

@@ -75,14 +75,14 @@ func runStart(cmd *cobra.Command, args []string) {
 	n.Wait()
 }
 
-func loadOrCreateKey(scheme crypto.CryptoScheme) crypto.PrivateKey {
+func loadOrCreateKey() *crypto.PrivateKey {
 	filepath := path.Join(cfgPath, "key")
-	privKey, err := crypto.PrivateKeyFromFile(filepath, scheme)
+	privKey, err := crypto.PrivateKeyFromFile(filepath)
 	if err == nil {
 		return privKey
 	}
 	log.WithFields(log.Fields{"err": err}).Warning("Failed to load private key. Generating new key")
-	privKey, _, err = crypto.GenerateKeyPair(scheme)
+	privKey, _, err = crypto.GenerateKeyPair()
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to generate private key")
 	}
@@ -94,7 +94,7 @@ func loadOrCreateKey(scheme crypto.CryptoScheme) crypto.PrivateKey {
 }
 
 func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
-	privKey := loadOrCreateKey(crypto.CryptoSchemeECDSA)
+	privKey := loadOrCreateKey()
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%X", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),

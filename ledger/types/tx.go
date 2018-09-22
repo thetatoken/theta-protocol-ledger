@@ -60,11 +60,11 @@ func encodeToBytes(str string) []byte {
 //-----------------------------------------------------------------------------
 
 type TxInput struct {
-	Address   common.Address   `json:"address"`   // Hash of the PubKey
-	Coins     Coins            `json:"coins"`     //
-	Sequence  int              `json:"sequence"`  // Must be 1 greater than the last committed TxInput
-	Signature crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
-	PubKey    crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
+	Address   common.Address    `json:"address"`   // Hash of the PubKey
+	Coins     Coins             `json:"coins"`     //
+	Sequence  int               `json:"sequence"`  // Must be 1 greater than the last committed TxInput
+	Signature *crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
+	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
 }
 
 func (txIn TxInput) ValidateBasic() res.Result {
@@ -98,7 +98,7 @@ func (txIn TxInput) String() string {
 	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", hex.EncodeToString(txIn.Address[:]), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
 }
 
-func NewTxInput(pubKey crypto.PublicKey, coins Coins, sequence int) TxInput {
+func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
 	input := TxInput{
 		Address:  pubKey.Address(),
 		Coins:    coins,
@@ -154,7 +154,7 @@ func (tx *CoinbaseTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *CoinbaseTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *CoinbaseTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Proposer.Address == addr {
 		tx.Proposer.Signature = sig
 		return true
@@ -186,7 +186,7 @@ func (tx *SlashTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *SlashTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *SlashTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Proposer.Address == addr {
 		tx.Proposer.Signature = sig
 		return true
@@ -213,7 +213,7 @@ func (_ *SendTx) AssertIsTx() {}
 
 func (tx *SendTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
-	sigz := make([]crypto.Signature, len(tx.Inputs))
+	sigz := make([]*crypto.Signature, len(tx.Inputs))
 	for i := range tx.Inputs {
 		sigz[i] = tx.Inputs[i].Signature
 		tx.Inputs[i].Signature = nil
@@ -225,7 +225,7 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *SendTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *SendTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	for i, input := range tx.Inputs {
 		if input.Address == addr {
 			tx.Inputs[i].Signature = sig
@@ -261,7 +261,7 @@ func (tx *ReserveFundTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *ReserveFundTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *ReserveFundTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Source.Address == addr {
 		tx.Source.Signature = sig
 		return true
@@ -293,7 +293,7 @@ func (tx *ReleaseFundTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *ReleaseFundTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *ReleaseFundTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Source.Address == addr {
 		tx.Source.Signature = sig
 		return true
@@ -396,7 +396,7 @@ func (tx *SplitContractTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *SplitContractTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Initiator.Address == addr {
 		tx.Initiator.Signature = sig
 		return true
@@ -430,7 +430,7 @@ func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig crypto.Signature) bool {
+func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Proposer.Address == addr {
 		tx.Proposer.Signature = sig
 		return true

@@ -21,12 +21,12 @@ type Message struct {
 // NodeInfo provides the information of the corresponding blockchain node of the peer
 //
 type NodeInfo struct {
-	PubKey  crypto.PublicKey `rlp:"-"`
+	PubKey  *crypto.PublicKey `rlp:"-"`
 	Address string
 }
 
 // CreateNodeInfo creates an instance of NodeInfo
-func CreateNodeInfo(pubKey crypto.PublicKey) NodeInfo {
+func CreateNodeInfo(pubKey *crypto.PublicKey) NodeInfo {
 	nodeInfo := NodeInfo{
 		PubKey:  pubKey,
 		Address: calculateAddress(pubKey),
@@ -34,7 +34,7 @@ func CreateNodeInfo(pubKey crypto.PublicKey) NodeInfo {
 	return nodeInfo
 }
 
-func calculateAddress(pubKey crypto.PublicKey) string {
+func calculateAddress(pubKey *crypto.PublicKey) string {
 	addrBytes := pubKey.Address()
 	address := strings.ToUpper(hex.EncodeToString(addrBytes[:]))
 	return address

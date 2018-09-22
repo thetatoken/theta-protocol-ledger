@@ -20,13 +20,13 @@ func ToBytes(a interface{}) ([]byte, error) {
 	default:
 		return nil, errors.New(fmt.Sprintf("ToBytes: Unsupported type: %v", reflect.TypeOf(a)))
 	case *crypto.PublicKey:
-		pk := PublicKeyToProto(a.(crypto.PublicKey))
+		pk := PublicKeyToProto(a.(*crypto.PublicKey))
 		return proto.Marshal(pk)
 	case *crypto.PrivateKey:
-		sk := PrivateKeyToProto(a.(crypto.PrivateKey))
+		sk := PrivateKeyToProto(a.(*crypto.PrivateKey))
 		return proto.Marshal(sk)
 	case *crypto.Signature:
-		sig := SignatureToProto(a.(crypto.Signature))
+		sig := SignatureToProto(a.(*crypto.Signature))
 		return proto.Marshal(sig)
 	case *Account:
 		acc := AccountToProto(a.(*Account))
@@ -51,7 +51,7 @@ func FromBytes(in []byte, a interface{}) error {
 		}
 		ap := a.(*crypto.PublicKey)
 		p := PublicKeyFromProto(pk)
-		*ap = p
+		*ap = *p
 	case *crypto.PrivateKey:
 		sk := &s.PrivateKey{}
 		if err := proto.Unmarshal(in, sk); err != nil {
@@ -59,7 +59,7 @@ func FromBytes(in []byte, a interface{}) error {
 		}
 		as := a.(*crypto.PrivateKey)
 		s := PrivateKeyFromProto(sk)
-		*as = s
+		*as = *s
 	case *crypto.Signature:
 		sig := &s.Signature{}
 		if err := proto.Unmarshal(in, sig); err != nil {
@@ -67,7 +67,7 @@ func FromBytes(in []byte, a interface{}) error {
 		}
 		ap := a.(*crypto.Signature)
 		p := SignatureFromProto(sig)
-		*ap = p
+		*ap = *p
 	case *Account:
 		acc := &s.Account{}
 		if err := proto.Unmarshal(in, acc); err != nil {
@@ -95,93 +95,66 @@ func FromBytes(in []byte, a interface{}) error {
 
 // ----------------- PublicKey -------------------
 
-func PublicKeyToProto(pk crypto.PublicKey) *s.PublicKey {
+func PublicKeyToProto(pk *crypto.PublicKey) *s.PublicKey {
 	pubKey := &s.PublicKey{}
-	switch pk.(type) {
-	case (*crypto.PublicKeyECDSA):
-		pubKey.Type = s.PublicKey_ECDSA
+	if pk != nil {
 		pubKey.Data = pk.ToBytes()[:]
-	case nil: // NOOP
-	default:
-		panic("Invalid Pubkey type passed in")
 	}
 	return pubKey
 }
 
-func PublicKeyFromProto(pubKey *s.PublicKey) crypto.PublicKey {
-	pk, err := crypto.PublicKey(nil), error(nil)
+func PublicKeyFromProto(pubKey *s.PublicKey) *crypto.PublicKey {
+	var pk *crypto.PublicKey
+	var err error
 	if pubKey != nil && len(pubKey.Data) > 0 {
-		switch pubKey.Type {
-		case s.PublicKey_ECDSA:
-			pk, err = crypto.PublicKeyFromBytes(pubKey.Data, crypto.CryptoSchemeECDSA)
-		default:
-			panic("Invalid Pubkey type passed in")
+		pk, err = crypto.PublicKeyFromBytes(pubKey.Data)
+		if err != nil {
+			log.Errorf("Error parsing pubKey from proto: %v", err)
 		}
-	}
-	if err != nil {
-		log.Errorf("Error parsing pubKey from proto: %v", err)
 	}
 	return pk
 }
 
 // ----------------- PrivateKey -------------------
 
-func PrivateKeyToProto(sk crypto.PrivateKey) *s.PrivateKey {
+func PrivateKeyToProto(sk *crypto.PrivateKey) *s.PrivateKey {
 	privKey := &s.PrivateKey{}
-	switch sk.(type) {
-	case (*crypto.PrivateKeyECDSA):
-		privKey.Type = s.PrivateKey_ECDSA
+	if sk != nil {
 		privKey.Data = sk.ToBytes()[:]
-	case nil: // NOOP
-	default:
-		panic("Invalid PrivKey type passed in")
 	}
 	return privKey
 }
 
-func PrivateKeyFromProto(privKey *s.PrivateKey) crypto.PrivateKey {
-	sk, err := crypto.PrivateKey(nil), error(nil)
+func PrivateKeyFromProto(privKey *s.PrivateKey) *crypto.PrivateKey {
+	var sk *crypto.PrivateKey
+	var err error
 	if len(privKey.Data) > 0 {
-		switch privKey.Type {
-		case s.PrivateKey_ECDSA:
-			sk, err = crypto.PrivateKeyFromBytes(privKey.Data, crypto.CryptoSchemeECDSA)
-		default:
-			panic("Invalid PrivKey type passed in")
+		sk, err = crypto.PrivateKeyFromBytes(privKey.Data)
+		if err != nil {
+			log.Errorf("Error parsing privKey from proto: %v", err)
 		}
-	}
-	if err != nil {
-		log.Errorf("Error parsing privKey from proto: %v", err)
 	}
 	return sk
 }
 
 // ----------------- Signature -------------------
 
-func SignatureToProto(sig crypto.Signature) *s.Signature {
+func SignatureToProto(sig *crypto.Signature) *s.Signature {
 	signature := &s.Signature{}
-	switch sig.(type) {
-	case (*crypto.SignatureECDSA):
-		signature.Type = s.Signature_ECDSA
+	if sig != nil {
 		signature.Data = sig.ToBytes()[:]
-	case nil: // NOOP
-	default:
-		panic("Invalid Signature type passed in")
 	}
 	return signature
 }
 
-func SignatureFromProto(signature *s.Signature) crypto.Signature {
-	sig, err := crypto.Signature(nil), error(nil)
+func SignatureFromProto(signature *s.Signature) *crypto.Signature {
+	var sig *crypto.Signature
+	var err error
 	if len(signature.Data) > 0 {
-		switch signature.Type {
-		case s.Signature_ECDSA:
-			sig, err = crypto.SignatureFromBytes(signature.Data, crypto.CryptoSchemeECDSA)
-		default:
-			panic("Invalid Signature type passed in")
+		sig, err = crypto.SignatureFromBytes(signature.Data)
+		if err != nil {
+			log.Errorf("Error parsing signature from proto: %v", err)
 		}
-	}
-	if err != nil {
-		log.Errorf("Error parsing signature from proto: %v", err)
 	}
 	return sig
 }

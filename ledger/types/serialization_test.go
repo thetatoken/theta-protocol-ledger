@@ -14,7 +14,7 @@ import (
 func TestPubkey(t *testing.T) {
 	assert := assert.New(t)
 
-	_, pubkey1, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, pubkey1, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}
@@ -41,7 +41,7 @@ func TestPubkey(t *testing.T) {
 func TestPrivkey(t *testing.T) {
 	assert := assert.New(t)
 
-	privKey, _, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	privKey, _, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}
@@ -73,7 +73,7 @@ func TestSignature(t *testing.T) {
 		b[i] = byte(i)
 	}
 
-	privKey, _, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	privKey, _, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +152,7 @@ func TestCoinsSerialization(t *testing.T) {
 func TestAccount(t *testing.T) {
 	assert := assert.New(t)
 
-	_, pubkey1, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, pubkey1, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}
@@ -198,7 +198,7 @@ func TestAccount(t *testing.T) {
 func TestInput(t *testing.T) {
 	assert := assert.New(t)
 
-	sk, pk, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	sk, pk, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}
@@ -364,7 +364,7 @@ func TestTx(t *testing.T) {
 	}
 
 	// Special test case for UpdateValidatosTx
-	_, pubkey1, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
+	_, pubkey1, err := crypto.GenerateKeyPair()
 	if err != nil {
 		panic(err)
 	}

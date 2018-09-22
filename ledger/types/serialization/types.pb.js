@@ -31,7 +31,6 @@
              * Properties of a PublicKey.
              * @memberof serialization
              * @interface IPublicKey
-             * @property {serialization.PublicKey.Type|null} [type] PublicKey type
              * @property {Uint8Array|null} [data] PublicKey data
              */
     
@@ -49,14 +48,6 @@
                         if (properties[keys[i]] != null)
                             this[keys[i]] = properties[keys[i]];
             }
-    
-            /**
-             * PublicKey type.
-             * @member {serialization.PublicKey.Type} type
-             * @memberof serialization.PublicKey
-             * @instance
-             */
-            PublicKey.prototype.type = 0;
     
             /**
              * PublicKey data.
@@ -90,8 +81,6 @@
             PublicKey.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.type != null && message.hasOwnProperty("type"))
-                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.type);
                 if (message.data != null && message.hasOwnProperty("data"))
                     writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.data);
                 return writer;
@@ -128,9 +117,6 @@
                 while (reader.pos < end) {
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
-                    case 1:
-                        message.type = reader.int32();
-                        break;
                     case 2:
                         message.data = reader.bytes();
                         break;
@@ -169,13 +155,6 @@
             PublicKey.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.type != null && message.hasOwnProperty("type"))
-                    switch (message.type) {
-                    default:
-                        return "type: enum value expected";
-                    case 0:
-                        break;
-                    }
                 if (message.data != null && message.hasOwnProperty("data"))
                     if (!(message.data && typeof message.data.length === "number" || $util.isString(message.data)))
                         return "data: buffer expected";
@@ -194,12 +173,6 @@
                 if (object instanceof $root.serialization.PublicKey)
                     return object;
                 var message = new $root.serialization.PublicKey();
-                switch (object.type) {
-                case "ECDSA":
-                case 0:
-                    message.type = 0;
-                    break;
-                }
                 if (object.data != null)
                     if (typeof object.data === "string")
                         $util.base64.decode(object.data, message.data = $util.newBuffer($util.base64.length(object.data)), 0);
@@ -221,12 +194,8 @@
                 if (!options)
                     options = {};
                 var object = {};
-                if (options.defaults) {
-                    object.type = options.enums === String ? "ECDSA" : 0;
+                if (options.defaults)
                     object.data = options.bytes === String ? "" : [];
-                }
-                if (message.type != null && message.hasOwnProperty("type"))
-                    object.type = options.enums === String ? $root.serialization.PublicKey.Type[message.type] : message.type;
                 if (message.data != null && message.hasOwnProperty("data"))
                     object.data = options.bytes === String ? $util.base64.encode(message.data, 0, message.data.length) : options.bytes === Array ? Array.prototype.slice.call(message.data) : message.data;
                 return object;
@@ -243,18 +212,6 @@
                 return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
             };
     
-            /**
-             * Type enum.
-             * @name serialization.PublicKey.Type
-             * @enum {string}
-             * @property {number} ECDSA=0 ECDSA value
-             */
-            PublicKey.Type = (function() {
-                var valuesById = {}, values = Object.create(valuesById);
-                values[valuesById[0] = "ECDSA"] = 0;
-                return values;
-            })();
-    
             return PublicKey;
         })();
     
@@ -264,7 +221,6 @@
              * Properties of a PrivateKey.
              * @memberof serialization
              * @interface IPrivateKey
-             * @property {serialization.PrivateKey.Type|null} [type] PrivateKey type
              * @property {Uint8Array|null} [data] PrivateKey data
              */
     
@@ -282,14 +238,6 @@
                         if (properties[keys[i]] != null)
                             this[keys[i]] = properties[keys[i]];
             }
-    
-            /**
-             * PrivateKey type.
-             * @member {serialization.PrivateKey.Type} type
-             * @memberof serialization.PrivateKey
-             * @instance
-             */
-            PrivateKey.prototype.type = 0;
     
             /**
              * PrivateKey data.
@@ -323,8 +271,6 @@
             PrivateKey.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.type != null && message.hasOwnProperty("type"))
-                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.type);
                 if (message.data != null && message.hasOwnProperty("data"))
                     writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.data);
                 return writer;
@@ -361,9 +307,6 @@
                 while (reader.pos < end) {
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
-                    case 1:
-                        message.type = reader.int32();
-                        break;
                     case 2:
                         message.data = reader.bytes();
                         break;
@@ -402,13 +345,6 @@
             PrivateKey.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.type != null && message.hasOwnProperty("type"))
-                    switch (message.type) {
-                    default:
-                        return "type: enum value expected";
-                    case 0:
-                        break;
-                    }
                 if (message.data != null && message.hasOwnProperty("data"))
                     if (!(message.data && typeof message.data.length === "number" || $util.isString(message.data)))
                         return "data: buffer expected";
@@ -427,12 +363,6 @@
                 if (object instanceof $root.serialization.PrivateKey)
                     return object;
                 var message = new $root.serialization.PrivateKey();
-                switch (object.type) {
-                case "ECDSA":
-                case 0:
-                    message.type = 0;
-                    break;
-                }
                 if (object.data != null)
                     if (typeof object.data === "string")
                         $util.base64.decode(object.data, message.data = $util.newBuffer($util.base64.length(object.data)), 0);
@@ -454,12 +384,8 @@
                 if (!options)
                     options = {};
                 var object = {};
-                if (options.defaults) {
-                    object.type = options.enums === String ? "ECDSA" : 0;
+                if (options.defaults)
                     object.data = options.bytes === String ? "" : [];
-                }
-                if (message.type != null && message.hasOwnProperty("type"))
-                    object.type = options.enums === String ? $root.serialization.PrivateKey.Type[message.type] : message.type;
                 if (message.data != null && message.hasOwnProperty("data"))
                     object.data = options.bytes === String ? $util.base64.encode(message.data, 0, message.data.length) : options.bytes === Array ? Array.prototype.slice.call(message.data) : message.data;
                 return object;
@@ -476,18 +402,6 @@
                 return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
             };
     
-            /**
-             * Type enum.
-             * @name serialization.PrivateKey.Type
-             * @enum {string}
-             * @property {number} ECDSA=0 ECDSA value
-             */
-            PrivateKey.Type = (function() {
-                var valuesById = {}, values = Object.create(valuesById);
-                values[valuesById[0] = "ECDSA"] = 0;
-                return values;
-            })();
-    
             return PrivateKey;
         })();
     
@@ -497,7 +411,6 @@
              * Properties of a Signature.
              * @memberof serialization
              * @interface ISignature
-             * @property {serialization.Signature.Type|null} [type] Signature type
              * @property {Uint8Array|null} [data] Signature data
              */
     
@@ -515,14 +428,6 @@
                         if (properties[keys[i]] != null)
                             this[keys[i]] = properties[keys[i]];
             }
-    
-            /**
-             * Signature type.
-             * @member {serialization.Signature.Type} type
-             * @memberof serialization.Signature
-             * @instance
-             */
-            Signature.prototype.type = 0;
     
             /**
              * Signature data.
@@ -556,8 +461,6 @@
             Signature.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.type != null && message.hasOwnProperty("type"))
-                    writer.uint32(/* id 1, wireType 0 =*/8).int32(message.type);
                 if (message.data != null && message.hasOwnProperty("data"))
                     writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.data);
                 return writer;
@@ -594,9 +497,6 @@
                 while (reader.pos < end) {
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
-                    case 1:
-                        message.type = reader.int32();
-                        break;
                     case 2:
                         message.data = reader.bytes();
                         break;
@@ -635,13 +535,6 @@
             Signature.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.type != null && message.hasOwnProperty("type"))
-                    switch (message.type) {
-                    default:
-                        return "type: enum value expected";
-                    case 0:
-                        break;
-                    }
                 if (message.data != null && message.hasOwnProperty("data"))
                     if (!(message.data && typeof message.data.length === "number" || $util.isString(message.data)))
                         return "data: buffer expected";
@@ -660,12 +553,6 @@
                 if (object instanceof $root.serialization.Signature)
                     return object;
                 var message = new $root.serialization.Signature();
-                switch (object.type) {
-                case "ECDSA":
-                case 0:
-                    message.type = 0;
-                    break;
-                }
                 if (object.data != null)
                     if (typeof object.data === "string")
                         $util.base64.decode(object.data, message.data = $util.newBuffer($util.base64.length(object.data)), 0);
@@ -687,12 +574,8 @@
                 if (!options)
                     options = {};
                 var object = {};
-                if (options.defaults) {
-                    object.type = options.enums === String ? "ECDSA" : 0;
+                if (options.defaults)
                     object.data = options.bytes === String ? "" : [];
-                }
-                if (message.type != null && message.hasOwnProperty("type"))
-                    object.type = options.enums === String ? $root.serialization.Signature.Type[message.type] : message.type;
                 if (message.data != null && message.hasOwnProperty("data"))
                     object.data = options.bytes === String ? $util.base64.encode(message.data, 0, message.data.length) : options.bytes === Array ? Array.prototype.slice.call(message.data) : message.data;
                 return object;
@@ -708,18 +591,6 @@
             Signature.prototype.toJSON = function toJSON() {
                 return this.constructor.toObject(this, $protobuf.util.toJSONOptions);
             };
-    
-            /**
-             * Type enum.
-             * @name serialization.Signature.Type
-             * @enum {string}
-             * @property {number} ECDSA=0 ECDSA value
-             */
-            Signature.Type = (function() {
-                var valuesById = {}, values = Object.create(valuesById);
-                values[valuesById[0] = "ECDSA"] = 0;
-                return values;
-            })();
     
             return Signature;
         })();

@@ -38,7 +38,7 @@ type MessengerConfig struct {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(pubKey crypto.PublicKey, seedPeerNetAddresses []string,
+func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
