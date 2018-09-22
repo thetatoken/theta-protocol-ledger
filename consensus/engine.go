@@ -99,6 +99,16 @@ func (e *DefaultEngine) Network() p2p.Network {
 	return e.network
 }
 
+// GetEpoch returns the current epoch
+func (e *DefaultEngine) GetEpoch() uint32 {
+	return e.epoch
+}
+
+// GetValidatorManager returns a pointer to the valiator manager.
+func (e *DefaultEngine) GetValidatorManager() *ValidatorManager {
+	return &e.validatorManager
+}
+
 // Start starts sub components and kick off the main loop.
 func (e *DefaultEngine) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)

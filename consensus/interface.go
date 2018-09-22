@@ -14,6 +14,8 @@ type Engine interface {
 	Chain() *blockchain.Chain
 	GetTip() *core.ExtendedBlock
 	Network() p2p.Network
+	GetEpoch() uint32
+	GetValidatorManager() *ValidatorManager
 	AddMessage(msg interface{})
 	FinalizedBlocks() chan *core.Block
 

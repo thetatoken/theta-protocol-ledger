@@ -3,6 +3,8 @@ package core
 import (
 	"errors"
 	"sort"
+
+	"github.com/thetatoken/ukulele/common"
 )
 
 var (
@@ -12,18 +14,26 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	id    string
-	stake uint64
+	id      string
+	address common.Address
+	stake   uint64
 }
 
 // NewValidator creates a new validator instance.
 func NewValidator(id string, stake uint64) Validator {
-	return Validator{id, stake}
+	var address common.Address
+	copy(address[:], id) // FIXME: using the actual address
+	return Validator{id, address, stake}
 }
 
 // ID return the identifier of the validator.
 func (v Validator) ID() string {
 	return v.id
+}
+
+// Address returns the address of the validator.
+func (v Validator) Address() common.Address {
+	return v.address
 }
 
 // Stake returns the stake of the validator.

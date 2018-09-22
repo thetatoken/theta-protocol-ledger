@@ -16,30 +16,30 @@ func TestTreeStore(t *testing.T) {
 	assert.Nil(err)
 	treestore := NewTreeStore(common.Hash{}, db, false)
 
-	key1 := []byte("test/111")
-	value1 := []byte("aaa")
+	key1 := common.Bytes("test/111")
+	value1 := common.Bytes("aaa")
 
 	treestore.Set(key1, value1)
 	assert.Equal(value1, treestore.Get(key1))
 
-	key2 := []byte("test/123")
-	value2 := []byte("bbb")
+	key2 := common.Bytes("test/123")
+	value2 := common.Bytes("bbb")
 	treestore.Set(key2, value2)
 
-	key3 := []byte("test/222")
-	value3 := []byte("ccc")
+	key3 := common.Bytes("test/222")
+	value3 := common.Bytes("ccc")
 	treestore.Set(key3, value3)
 
-	key4 := []byte("test/333")
-	value4 := []byte("ddd")
+	key4 := common.Bytes("test/333")
+	value4 := common.Bytes("ddd")
 	treestore.Set(key4, value4)
 
-	key5 := []byte("test/3331")
-	value5 := []byte("eee")
+	key5 := common.Bytes("test/3331")
+	value5 := common.Bytes("eee")
 	treestore.Set(key5, value5)
 
-	key6 := []byte("test/334")
-	value6 := []byte("fff")
+	key6 := common.Bytes("test/334")
+	value6 := common.Bytes("fff")
 	treestore.Set(key6, value6)
 
 	root, _ := treestore.Commit(nil)
@@ -55,9 +55,9 @@ func TestTreeStore(t *testing.T) {
 
 	var cnt int
 
-	cb := func(prefix []byte) func(k, v []byte) bool {
+	cb := func(prefix common.Bytes) func(k, v common.Bytes) bool {
 		cnt = 0
-		return func(k, v []byte) bool {
+		return func(k, v common.Bytes) bool {
 			cnt++
 			success := bytes.HasPrefix(k, prefix)
 			success = success && (bytes.Compare(v, treestore.Get(k)) == 0)
@@ -65,23 +65,23 @@ func TestTreeStore(t *testing.T) {
 		}
 	}
 
-	prefix1 := []byte("test/1")
+	prefix1 := common.Bytes("test/1")
 	treestore.Traverse(prefix1, cb(prefix1))
 	assert.Equal(2, cnt)
 
-	prefix2 := []byte("test/2")
+	prefix2 := common.Bytes("test/2")
 	treestore.Traverse(prefix2, cb(prefix2))
 	assert.Equal(1, cnt)
 
-	prefix3 := []byte("test/333")
+	prefix3 := common.Bytes("test/333")
 	treestore.Traverse(prefix3, cb(prefix3))
 	assert.Equal(2, cnt)
 
-	prefix4 := []byte("test/33")
+	prefix4 := common.Bytes("test/33")
 	treestore.Traverse(prefix4, cb(prefix4))
 	assert.Equal(3, cnt)
 
-	prefix5 := []byte("test")
+	prefix5 := common.Bytes("test")
 	treestore.Traverse(prefix5, cb(prefix5))
 	assert.Equal(6, cnt)
 
@@ -107,8 +107,8 @@ func TestTreeStore(t *testing.T) {
 
 	nonpersistentstore := NewTreeStore(common.Hash{}, db, true)
 
-	key7 := []byte("test/000")
-	value7 := []byte("zzz")
+	key7 := common.Bytes("test/000")
+	value7 := common.Bytes("zzz")
 
 	nonpersistentstore.Set(key7, value7)
 	assert.Equal(value7, nonpersistentstore.Get(key7))

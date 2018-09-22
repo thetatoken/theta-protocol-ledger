@@ -8,7 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
-	s "github.com/thetatoken/ukulele/ledger/serialization"
+	s "github.com/thetatoken/ukulele/ledger/types/serialization"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -113,7 +113,7 @@ func PublicKeyFromProto(pubKey *s.PublicKey) crypto.PublicKey {
 	if pubKey != nil && len(pubKey.Data) > 0 {
 		switch pubKey.Type {
 		case s.PublicKey_ECDSA:
-			pk, err = crypto.PublicKeyFromBytes(pubKey.Data, crypto.CrytoSchemeECDSA)
+			pk, err = crypto.PublicKeyFromBytes(pubKey.Data, crypto.CryptoSchemeECDSA)
 		default:
 			panic("Invalid Pubkey type passed in")
 		}
@@ -144,7 +144,7 @@ func PrivateKeyFromProto(privKey *s.PrivateKey) crypto.PrivateKey {
 	if len(privKey.Data) > 0 {
 		switch privKey.Type {
 		case s.PrivateKey_ECDSA:
-			sk, err = crypto.PrivateKeyFromBytes(privKey.Data, crypto.CrytoSchemeECDSA)
+			sk, err = crypto.PrivateKeyFromBytes(privKey.Data, crypto.CryptoSchemeECDSA)
 		default:
 			panic("Invalid PrivKey type passed in")
 		}
@@ -175,7 +175,7 @@ func SignatureFromProto(signature *s.Signature) crypto.Signature {
 	if len(signature.Data) > 0 {
 		switch signature.Type {
 		case s.Signature_ECDSA:
-			sig, err = crypto.SignatureFromBytes(signature.Data, crypto.CrytoSchemeECDSA)
+			sig, err = crypto.SignatureFromBytes(signature.Data, crypto.CryptoSchemeECDSA)
 		default:
 			panic("Invalid Signature type passed in")
 		}
@@ -210,14 +210,14 @@ func OverspendingProofToProto(obj *OverspendingProof) *s.OverspendingProof {
 
 func SplitFromProto(split *s.Split) *Split {
 	sp := &Split{}
-	sp.Address = split.Address
+	copy(sp.Address[:], split.Address)
 	sp.Percentage = uint(split.Percentage)
 	return sp
 }
 
 func SplitToProto(sp *Split) *s.Split {
 	split := &s.Split{}
-	split.Address = sp.Address
+	split.Address = sp.Address[:]
 	split.Percentage = int64(sp.Percentage)
 	return split
 }
@@ -226,7 +226,7 @@ func SplitToProto(sp *Split) *s.Split {
 
 func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 	sc := &SplitContract{}
-	sc.InitiatorAddress = splitContract.InitiatorAddress
+	copy(sc.InitiatorAddress[:], splitContract.InitiatorAddress)
 	sc.ResourceId = splitContract.ResourceId
 	for _, split := range splitContract.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(split))
@@ -237,7 +237,7 @@ func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 
 func SplitContractToProto(sc *SplitContract) *s.SplitContract {
 	splitContract := &s.SplitContract{}
-	splitContract.InitiatorAddress = sc.InitiatorAddress
+	splitContract.InitiatorAddress = sc.InitiatorAddress[:]
 	splitContract.ResourceId = sc.ResourceId
 	for _, split := range sc.Splits {
 		splitContract.Splits = append(splitContract.Splits, SplitToProto(&split))

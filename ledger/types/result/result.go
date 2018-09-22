@@ -15,7 +15,7 @@ type Result struct {
 	Log  string       `json:"log"` // Can be non-deterministic
 }
 
-func NewResult(code CodeType, data []byte, log string) Result {
+func NewResult(code CodeType, data common.Bytes, log string) Result {
 	return Result{
 		Code: code,
 		Data: data,
@@ -67,7 +67,7 @@ func (res Result) SetLog(log string) Result {
 	}
 }
 
-func (res Result) SetData(data []byte) Result {
+func (res Result) SetData(data common.Bytes) Result {
 	return Result{
 		Code: res.Code,
 		Data: data,
@@ -78,7 +78,7 @@ func (res Result) SetData(data []byte) Result {
 //----------------------------------------
 
 // NOTE: if data == nil and log == "", same as zero Result.
-func NewResultOK(data []byte, log string) Result {
+func NewResultOK(data common.Bytes, log string) Result {
 	return Result{
 		Code: CodeType_OK,
 		Data: data,

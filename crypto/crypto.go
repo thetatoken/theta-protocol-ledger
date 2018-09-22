@@ -26,12 +26,12 @@ func Keccak256Hash(data ...[]byte) (h common.Hash) {
 // ----------------------- Digital Signature APIs ----------------------- //
 //
 
-// CrytoScheme is a enum for different crypto schemes
-type CrytoScheme byte
+// CryptoScheme is a enum for different crypto schemes
+type CryptoScheme byte
 
 const (
-	// CrytoSchemeECDSA indicates the ECDSA scheme
-	CrytoSchemeECDSA CrytoScheme = 1
+	// CryptoSchemeECDSA indicates the ECDSA scheme
+	CryptoSchemeECDSA CryptoScheme = 1
 )
 
 //
@@ -63,8 +63,8 @@ type Signature interface {
 }
 
 // GenerateKeyPair generates a random private/public key pair
-func GenerateKeyPair(scheme CrytoScheme) (PrivateKey, PublicKey, error) {
-	if scheme == CrytoSchemeECDSA {
+func GenerateKeyPair(scheme CryptoScheme) (PrivateKey, PublicKey, error) {
+	if scheme == CryptoSchemeECDSA {
 		ske, err := generateKey()
 		pke := &ske.PublicKey
 		return &PrivateKeyECDSA{privKey: ske}, &PublicKeyECDSA{pubKey: pke}, err
@@ -74,8 +74,8 @@ func GenerateKeyPair(scheme CrytoScheme) (PrivateKey, PublicKey, error) {
 
 // TODO: parse the CryptoScheme from the file instead of passing in as a parameter
 // PrivateKeyFromFile loads the private key from the given file
-func PrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error) {
-	if scheme == CrytoSchemeECDSA {
+func PrivateKeyFromFile(filepath string, scheme CryptoScheme) (PrivateKey, error) {
+	if scheme == CryptoSchemeECDSA {
 		key, err := loadECDSA(filepath)
 		ske := &PrivateKeyECDSA{privKey: key}
 		return ske, err
@@ -85,8 +85,8 @@ func PrivateKeyFromFile(filepath string, scheme CrytoScheme) (PrivateKey, error)
 
 // TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // PrivateKeyFromBytes converts the given bytes to a private key
-func PrivateKeyFromBytes(skBytes common.Bytes, scheme CrytoScheme) (PrivateKey, error) {
-	if scheme == CrytoSchemeECDSA {
+func PrivateKeyFromBytes(skBytes common.Bytes, scheme CryptoScheme) (PrivateKey, error) {
+	if scheme == CryptoSchemeECDSA {
 		key, err := toECDSA(skBytes)
 		ske := &PrivateKeyECDSA{privKey: key}
 		return ske, err
@@ -96,8 +96,8 @@ func PrivateKeyFromBytes(skBytes common.Bytes, scheme CrytoScheme) (PrivateKey, 
 
 // TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // PublicKeyFromBytes converts the given bytes to a public key
-func PublicKeyFromBytes(pkBytes common.Bytes, scheme CrytoScheme) (PublicKey, error) {
-	if scheme == CrytoSchemeECDSA {
+func PublicKeyFromBytes(pkBytes common.Bytes, scheme CryptoScheme) (PublicKey, error) {
+	if scheme == CryptoSchemeECDSA {
 		key, err := unmarshalPubkey(pkBytes)
 		pke := &PublicKeyECDSA{pubKey: key}
 		return pke, err
@@ -107,8 +107,8 @@ func PublicKeyFromBytes(pkBytes common.Bytes, scheme CrytoScheme) (PublicKey, er
 
 // TODO: parse the CryptoScheme from the bytes instead of passing in as a parameter
 // SignatureFromBytes converts the given bytes to a signature
-func SignatureFromBytes(sigBytes common.Bytes, scheme CrytoScheme) (Signature, error) {
-	if scheme == CrytoSchemeECDSA {
+func SignatureFromBytes(sigBytes common.Bytes, scheme CryptoScheme) (Signature, error) {
+	if scheme == CryptoSchemeECDSA {
 		sige := &SignatureECDSA{data: sigBytes}
 		return sige, nil
 	}

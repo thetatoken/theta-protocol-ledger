@@ -28,18 +28,18 @@ type TreeStore struct {
 }
 
 // Get retrieves value of given key.
-func (store *TreeStore) Get(key []byte) []byte {
+func (store *TreeStore) Get(key common.Bytes) common.Bytes {
 	return store.Trie.Get(key)
 }
 
 // Set sets value of given key.
-func (store *TreeStore) Set(key, value []byte) {
+func (store *TreeStore) Set(key, value common.Bytes) {
 	store.Trie.Update(key, value)
 }
 
 // Traverse traverses the trie and calls cb callback func on every key/value pair
 // with key having prefix
-func (store *TreeStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bool {
+func (store *TreeStore) Traverse(prefix common.Bytes, cb func(k, v common.Bytes) bool) bool {
 	// TODO: find alternative way without traversal
 	it := trie.NewIterator(store.Trie.NodeIterator(prefix))
 	for it.Next() {
@@ -50,4 +50,10 @@ func (store *TreeStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bo
 		}
 	}
 	return true
+}
+
+// Delete deletes the key/value pair.
+func (store *TreeStore) Delete(key common.Bytes) (deletedBytes common.Bytes, deleted bool) {
+	// TODO: needs proper implementation
+	return common.Bytes{}, false
 }

@@ -727,7 +727,7 @@ func (a *AddrBook) groupKey(na *nu.NetAddress) string {
 }
 
 func (a *AddrBook) generateAddrBookKey() string {
-	_, pk, err := crypto.GenerateKeyPair(crypto.CrytoSchemeECDSA)
+	_, pk, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
 	if err != nil {
 		panic(fmt.Sprintf("[p2p] Unable to generate key for the address book!"))
 	}

@@ -41,7 +41,7 @@ func GetTestListener(port int) net.Listener {
 
 // GetTestRandPubKey returns a randomly generated public key
 func GetTestRandPubKey() crypto.PublicKey {
-	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CrytoSchemeECDSA)
+	_, randPubKey, err := crypto.GenerateKeyPair(crypto.CryptoSchemeECDSA)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate a random private key: %v", err))
 	}

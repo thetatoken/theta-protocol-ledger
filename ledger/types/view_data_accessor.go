@@ -1,25 +1,27 @@
 package types
 
-type ViewDataAccessor interface {
-	GetAccount(addr []byte) *Account
-	SetAccount(addr []byte, acc *Account)
+import "github.com/thetatoken/ukulele/common"
 
-	GetSplitContract(resourceId []byte) *SplitContract
-	SetSplitContract(resourceId []byte, splitContract *SplitContract)
-	DeleteSplitContract(resourceId []byte) (SplitContractBytes []byte, deleted bool)
+type ViewDataAccessor interface {
+	GetAccount(addr common.Address) *Account
+	SetAccount(addr common.Address, acc *Account)
+
+	GetSplitContract(resourceId common.Bytes) *SplitContract
+	SetSplitContract(resourceId common.Bytes, splitContract *SplitContract)
+	DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool)
 	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }
 
 type ViewDataGetter interface {
-	GetAccount(addr []byte) *Account
+	GetAccount(addr common.Address) *Account
 
-	GetSplitContract(resourceId []byte) *SplitContract
+	GetSplitContract(resourceId common.Bytes) *SplitContract
 }
 
 type ViewDataSetter interface {
-	SetAccount(addr []byte, acc *Account)
+	SetAccount(addr common.Address, acc *Account)
 
-	SetSplitContract(resourceId []byte, splitContract *SplitContract)
-	DeleteSplitContract(resourceId []byte) (SplitContractBytes []byte, deleted bool)
+	SetSplitContract(resourceId common.Bytes, splitContract *SplitContract)
+	DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool)
 	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }
