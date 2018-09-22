@@ -44,7 +44,7 @@ func FromBytes(in []byte, a interface{}) error {
 	switch a.(type) {
 	default:
 		return errors.New(fmt.Sprintf("FromBytes: Unsupported type: %v", reflect.TypeOf(a)))
-	case crypto.PublicKey:
+	case *crypto.PublicKey:
 		pk := &s.PublicKey{}
 		if err := proto.Unmarshal(in, pk); err != nil {
 			return err
@@ -415,8 +415,8 @@ func TxToProto(t Tx) *s.Tx {
 		return &s.Tx{&s.Tx_ServicePayment{ServicePaymentTxToProto(t.(*ServicePaymentTx))}}
 	case *SplitContractTx:
 		return &s.Tx{&s.Tx_SplitContract{SplitContractTxToProto(t.(*SplitContractTx))}}
-		// case *UpdateValidatorsTx:
-		// 	return &s.Tx{&s.Tx_UpdateValidators{UpdateValidatorsTxToProto(t.(*UpdateValidatorsTx))}}
+	case *UpdateValidatorsTx:
+		return &s.Tx{&s.Tx_UpdateValidators{UpdateValidatorsTxToProto(t.(*UpdateValidatorsTx))}}
 	}
 }
 

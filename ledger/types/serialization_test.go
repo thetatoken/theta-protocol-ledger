@@ -1,6 +1,5 @@
 package types
 
-/*
 import (
 	"encoding/hex"
 	"testing"
@@ -28,9 +27,9 @@ func TestPubkey(t *testing.T) {
 	b, err := ToBytes(pubkey1)
 	assert.Nil(err)
 	var pubkey3 crypto.PublicKey
-	err = FromBytes(b, pubkey3)
+	err = FromBytes(b, &pubkey3)
 	assert.Nil(err)
-	assert.EqualValues(pubkey1, pubkey3)
+	assert.EqualValues(*pubkey1, pubkey3)
 
 	// Verify bytes are deterministic.
 	b2, err := ToBytes(pubkey1)
@@ -49,18 +48,18 @@ func TestPrivkey(t *testing.T) {
 	// Test conversion to/from proto message.
 	pk := PrivateKeyToProto(privKey)
 	privkey2 := PrivateKeyFromProto(pk)
-	assert.EqualValues(&privKey, privkey2)
+	assert.EqualValues(privKey, privkey2)
 
 	// Test conversion to/from bytes.
-	b, err := ToBytes(&privKey)
+	b, err := ToBytes(privKey)
 	assert.Nil(err)
 	var privkey3 crypto.PrivateKey
-	err = FromBytes(b, privkey3)
+	err = FromBytes(b, &privkey3)
 	assert.Nil(err)
-	assert.EqualValues(&privKey, privkey3)
+	assert.EqualValues(*privKey, privkey3)
 
 	// Verify bytes are deterministic.
-	b2, err := ToBytes(&privKey)
+	b2, err := ToBytes(privKey)
 	assert.Nil(err)
 	assert.EqualValues(b, b2)
 }
@@ -86,18 +85,18 @@ func TestSignature(t *testing.T) {
 	// Test conversion to/from proto message.
 	msg := SignatureToProto(sig1)
 	sig2 := SignatureFromProto(msg)
-	assert.EqualValues(&sig1, sig2)
+	assert.EqualValues(sig1, sig2)
 
 	// Test conversion to/from bytes.
-	bb, err := ToBytes(&sig1)
+	bb, err := ToBytes(sig1)
 	assert.Nil(err)
 	var sig3 crypto.Signature
-	err = FromBytes(bb, sig3)
+	err = FromBytes(bb, &sig3)
 	assert.Nil(err)
-	assert.EqualValues(&sig1, sig3)
+	assert.EqualValues(sig1, &sig3)
 
 	// Verify bytes are deterministic.
-	bb2, err := ToBytes(&sig1)
+	bb2, err := ToBytes(sig1)
 	assert.Nil(err)
 	assert.EqualValues(bb, bb2)
 }
@@ -248,8 +247,10 @@ func TestOutput(t *testing.T) {
 func TestSplit(t *testing.T) {
 	assert := assert.New(t)
 
-	address, err := hex.DecodeString("D7D25858609A250BCD698CBAA3DB6B285586657C")
+	addr, err := hex.DecodeString("D7D25858609A250BCD698CBAA3DB6B285586657C")
 	assert.Equal(err, nil)
+	var address common.Address
+	copy(address[:], addr)
 
 	split1 := Split{
 		Address:    address,
@@ -264,8 +265,10 @@ func TestSplit(t *testing.T) {
 func TestSplitContract(t *testing.T) {
 	assert := assert.New(t)
 
-	address, err := hex.DecodeString("D7D25858609A250BCD698CBAA3DB6B285586657C")
+	addr, err := hex.DecodeString("D7D25858609A250BCD698CBAA3DB6B285586657C")
 	assert.Equal(err, nil)
+	var address common.Address
+	copy(address[:], addr)
 
 	split := Split{
 		Address:    address,
@@ -344,7 +347,7 @@ func TestTx(t *testing.T) {
 			Gas:        123,
 			ResourceId: []byte("rid789"),
 			Initiator:  TxInput{Address: getTestAddress("123")},
-			Splits:     []Split{Split{Address: []byte("456"), Percentage: 40}},
+			Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}},
 			Duration:   1000,
 		},
 
@@ -396,4 +399,3 @@ func getTestAddress(addr string) common.Address {
 	copy(address[:], addr)
 	return address
 }
-*/
