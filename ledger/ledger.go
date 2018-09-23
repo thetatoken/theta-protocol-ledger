@@ -1,9 +1,11 @@
 package ledger
 
 import (
+	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	exec "github.com/thetatoken/ukulele/ledger/execution"
 	st "github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/ledger/types/result"
 	nd "github.com/thetatoken/ukulele/node"
 )
 
@@ -14,66 +16,37 @@ type Ledger struct {
 	executor *exec.Executor
 }
 
-// SetState sets the ledger state
-func (ledger *Ledger) SetState(state *st.LedgerState) {
-	ledger.state = state
-}
-
-// GetState returns the state of the ledger
-func (ledger *Ledger) GetState() *st.LedgerState {
-	return ledger.state
+// NewLedger creates an instance of Ledger
+func NewLedger(node *nd.Node) *Ledger {
+	return nil // TODO: proper implementation..
 }
 
 // SetNode sets the node instance
-func (ledger *Ledger) SetNode(n *nd.Node) {
-	ledger.node = n
+func (ledger *Ledger) SetNode(node *nd.Node) {
+	ledger.node = node
+	ledger.executor.SetNode(node)
 }
 
-// GetNode returns the node instance
-func (ledger *Ledger) GetNode() *nd.Node {
-	return ledger.node
+func (ledger *Ledger) BeginBlock(blockHash common.Bytes, header core.BlockHeader) result.Result {
+	return result.OK
 }
 
-// SplitContractExists checks if a split contract associated with the given resourceId already exists
-func (ledger *Ledger) SplitContractExists(resourceId []byte) bool {
-	exists := (ledger.state.GetSplitContract(resourceId) != nil)
-	return exists
+func (ledger *Ledger) CheckTx(txBytes common.Bytes) result.Result {
+	return result.OK
 }
 
-// GetSplitContract returns a split contract associated with the given resourceId if exists, and nil otherwise
-func (ledger *Ledger) GetSplitContract(resourceId []byte) *types.SplitContract {
-	splitContract := ledger.state.GetSplitContract(resourceId)
-	return splitContract
+func (ledger *Ledger) DeliverTx(txBytes common.Bytes) result.Result {
+	return result.OK
 }
 
-// AddSplitContract adds a split contract
-func (ledger *Ledger) AddSplitContract(splitContract *types.SplitContract) bool {
-	if ledger.SplitContractExists(splitContract.ResourceId) {
-		return false // Each resourceId can have at most one corresponding split contract
-	}
-
-	ledger.state.SetSplitContract(splitContract.ResourceId, splitContract)
-	return true
+func (ledger *Ledger) EndBlock(height uint64) result.Result {
+	return result.OK
 }
 
-// UpdateSplitContract updates a split contract
-func (ledger *Ledger) UpdateSplitContract(splitContract *types.SplitContract) bool {
-	if !ledger.SplitContractExists(splitContract.ResourceId) {
-		return false
-	}
-
-	ledger.state.SetSplitContract(splitContract.ResourceId, splitContract)
-	return true
+func (ledger *Ledger) Commit() result.Result {
+	return result.OK
 }
 
-// DeleteSplitContract deletes the split contract associated with the given resourceId
-func (ledger *Ledger) DeleteSplitContract(resourceId []byte) bool {
-	_, deleted := ledger.state.DeleteSplitContract(resourceId)
-	return deleted
-}
+func (ledger *Ledger) Query() {
 
-// DeleteExpiredSplitContracts deletes split contracts that already expired
-func (ledger *Ledger) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
-	deleted := ledger.state.DeleteExpiredSplitContracts(currentBlockHeight)
-	return deleted
 }
