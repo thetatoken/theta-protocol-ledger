@@ -29,11 +29,18 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 
 	_, exists := pt.peerMap[peer.ID()]
 	if exists {
-		return false
+		// Update existing entry with same ID.
+		for i, p := range pt.peers {
+			if p.ID() == peer.ID() {
+				pt.peers[i] = peer
+				break
+			}
+		}
+	} else {
+		pt.peers = append(pt.peers, peer)
 	}
 
 	pt.peerMap[peer.ID()] = peer
-	pt.peers = append(pt.peers, peer)
 
 	return true
 }

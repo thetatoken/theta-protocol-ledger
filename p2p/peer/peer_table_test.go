@@ -32,8 +32,10 @@ func TestDefaultPeerTableAddPeer(t *testing.T) {
 
 	peer1a := newSimulatedInboundPeer(netconn, randPubKey1)
 	success = pt.AddPeer(peer1a)
-	assert.False(success) // cannot add two peers with the same PeerID
+	assert.True(success) // should overwrite the entry with same peer ID
 	assert.Equal(uint(1), pt.GetTotalNumPeers())
+	assert.Equal(peer1a, pt.GetPeer(peer1.ID()))
+	assert.Equal(peer1a, pt.peers[0])
 
 	peer2 := newSimulatedInboundPeer(netconn, randPubKey2)
 	success = pt.AddPeer(peer2)
