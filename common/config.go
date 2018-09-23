@@ -31,8 +31,9 @@ const (
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
+
 	// CfgLogDebug sets the log level.
-	CfgLogDebug = "log.debug"
+	CfgLogLevels = "log.levels"
 )
 
 // InitialConfig is the default configuartion produced by init command.
@@ -55,7 +56,7 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 
-	viper.SetDefault(CfgLogDebug, false)
+	viper.SetDefault(CfgLogLevels, "*:error")
 
 	log.SetLevel(log.DebugLevel)
 }
