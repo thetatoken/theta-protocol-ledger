@@ -25,11 +25,7 @@ import (
 type MessageIDEnum uint8
 
 const (
-	MessageIDBlock MessageIDEnum = iota
-	MessageIDVote
-	MessageIDProposal
-	MessageIDCommitCertificate
-	MessageIDInvRequest
+	MessageIDInvRequest = iota
 	MessageIDInvResponse
 	MessageIDDataRequest
 	MessageIDDataResponse
@@ -120,6 +116,7 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDHeader,
 		common.ChannelIDBlock,
+		common.ChannelIDProposal,
 		common.ChannelIDCC,
 		common.ChannelIDVote,
 	}
@@ -144,7 +141,6 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if msgID == MessageIDInvRequest {
 		data := dispatcher.InventoryRequest{}
 		err = rlp.DecodeBytes(raw[1:], &data)
@@ -159,22 +155,6 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 		return data, err
 	} else if msgID == MessageIDDataResponse {
 		data := dispatcher.DataResponse{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDBlock {
-		data := core.Block{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDProposal {
-		data := core.Proposal{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDVote {
-		data := core.Vote{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDCommitCertificate {
-		data := core.CommitCertificate{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else {
@@ -199,14 +179,6 @@ func encodeMessage(message interface{}) (common.Bytes, error) {
 		msgID = MessageIDDataRequest
 	case dispatcher.DataResponse:
 		msgID = MessageIDDataResponse
-	case core.Proposal:
-		msgID = MessageIDProposal
-	case core.Block:
-		msgID = MessageIDBlock
-	case core.Vote:
-		msgID = MessageIDVote
-	case core.CommitCertificate:
-		msgID = MessageIDCommitCertificate
 	default:
 		return nil, errors.New("Unsupported message type")
 	}
@@ -233,7 +205,6 @@ func (sm *SyncManager) AddMessage(msg *p2ptypes.Message) {
 
 func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
 	switch content := message.Content.(type) {
-	// Messages needed for fast-sync.
 	case dispatcher.InventoryRequest:
 		sm.requestMgr.handleInvRequest(message.PeerID, &content)
 	case dispatcher.InventoryResponse:
@@ -243,27 +214,26 @@ func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
 	case dispatcher.DataResponse:
 		sm.requestMgr.handleDataResponse(message.PeerID, &content)
 	default:
-		sm.processData(message.Content)
+		sm.logger.WithFields(log.Fields{
+			"message": message,
+		}).Panic("Received unknown message")
 	}
 }
 
 func (sm *SyncManager) processData(data interface{}) {
 	switch d := data.(type) {
-	// Messages need to be preprocessed.
-	case core.Proposal:
-		sm.handleProposal(&d)
-	case core.Block:
-		sm.handleBlock(&d)
-	case core.CommitCertificate:
-		sm.handleCC(&d)
+	case *core.Proposal:
+		sm.handleProposal(d)
+	case *core.Block:
+		sm.handleBlock(d)
+	case *core.CommitCertificate:
+		sm.handleCC(d)
+	case *core.Vote:
+		sm.handleVote(d)
 	default:
-		// Other messages are passed through to consensus engine.
-		// TODO: remove default passing.
-		// sm.consensus.AddMessage(d)
 		sm.logger.WithFields(log.Fields{
-			"message": d,
-		}).Warn("Received unknown message")
-		panic("Received unknown message")
+			"data": d,
+		}).Panic("Cannot process unknown data type")
 	}
 }
 

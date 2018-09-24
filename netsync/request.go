@@ -9,7 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/ukulele/rlp"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -185,17 +185,21 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 				rm.logger.WithFields(log.Fields{"channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to find hash string locally")
 				return
 			}
-			blockBytes, err := encodeMessage(*(block.Block))
+
+			payload, err := rlp.EncodeToBytes(block.Block)
 			if err != nil {
-				rm.logger.WithFields(log.Fields{"channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to serialize block")
+				rm.logger.WithFields(log.Fields{"block": block}).Error("Failed to encode block")
 				return
 			}
-			dataResp := dispatcher.DataResponse{ChannelID: common.ChannelIDBlock, Payload: blockBytes}
+			data := dispatcher.DataResponse{
+				ChannelID: common.ChannelIDBlock,
+				Payload:   payload,
+			}
 			rm.logger.WithFields(log.Fields{
 				"channelID": data.ChannelID,
 				"hashStr":   hashStr,
 			}).Debug("Sending requested block")
-			rm.syncMgr.dispatcher.SendData([]string{peerID}, dataResp)
+			rm.syncMgr.dispatcher.SendData([]string{peerID}, data)
 		}
 	default:
 		rm.logger.WithFields(log.Fields{"channelID": data.ChannelID}).Error("Unsupported channelID in received DataRequest")
@@ -205,22 +209,41 @@ func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.Data
 func (rm *RequestManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
-		block, err := decodeMessage(data.Payload)
+		block := &core.Block{}
+		err := rlp.DecodeBytes(data.Payload, block)
 		if err != nil {
 			rm.logger.WithFields(log.Fields{
-				"error": err,
-			}).Error("Failed to decode block")
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+			}).Error("Failed to decode DataResponse payload")
 			return
 		}
-		msg := &p2ptypes.Message{
-			PeerID:  peerID,
-			Content: block,
+		rm.syncMgr.processData(block)
+	case common.ChannelIDVote:
+		vote := &core.Vote{}
+		err := rlp.DecodeBytes(data.Payload, vote)
+		if err != nil {
+			rm.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+			}).Error("Failed to decode DataResponse payload")
+			return
 		}
-		rm.logger.WithFields(log.Fields{
-			"channelID":  data.ChannelID,
-			"block.Hash": block.(core.Block).Hash,
-		}).Debug("Requested block received")
-		rm.syncMgr.AddMessage(msg)
+		rm.syncMgr.processData(vote)
+	case common.ChannelIDProposal:
+		proposal := &core.Proposal{}
+		err := rlp.DecodeBytes(data.Payload, proposal)
+		if err != nil {
+			rm.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+			}).Error("Failed to decode DataResponse payload")
+			return
+		}
+		rm.syncMgr.processData(proposal)
 	default:
 		rm.logger.WithFields(log.Fields{"channelID": data.ChannelID}).Error("Unsupported channelID in received DataResponse")
 	}

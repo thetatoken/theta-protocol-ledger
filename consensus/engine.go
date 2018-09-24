@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/ukulele/rlp"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
@@ -248,9 +251,18 @@ func (e *DefaultEngine) vote() {
 
 	e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Debug("Sending vote")
 
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDVote,
+		Payload:   payload,
+	}
 	voteMsg := p2ptypes.Message{
 		ChannelID: common.ChannelIDVote,
-		Content:   vote,
+		Content:   data,
 	}
 	e.AddMessage(vote)
 	e.network.Broadcast(voteMsg)
@@ -429,9 +441,18 @@ func (e *DefaultEngine) propose() {
 
 	e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 
+	payload, err := rlp.EncodeToBytes(proposal)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"proposal": proposal}).Error("Failed to encode proposal")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDProposal,
+		Payload:   payload,
+	}
 	proposalMsg := p2ptypes.Message{
-		ChannelID: common.ChannelIDBlock,
-		Content:   proposal,
+		ChannelID: common.ChannelIDProposal,
+		Content:   data,
 	}
 	e.AddMessage(proposal)
 	e.network.Broadcast(proposalMsg)
