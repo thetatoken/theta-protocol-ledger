@@ -90,6 +90,20 @@ func (db *MemDatabase) Delete(key []byte) error {
 	return nil
 }
 
+func (db *MemDatabase) Reference(key []byte) error {
+
+	return nil
+}
+
+func (db *MemDatabase) Dereference(key []byte) error {
+
+	return nil
+}
+
+func (db *MemDatabase) CountReference(key []byte) (int, error) {
+	return 0, nil
+}
+
 func (db *MemDatabase) Close() {}
 
 func (db *MemDatabase) NewBatch() database.Batch {

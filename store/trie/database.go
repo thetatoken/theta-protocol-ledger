@@ -305,6 +305,9 @@ func (db *Database) InsertBlob(hash common.Hash, blob []byte) {
 // well ex trie node insertions. The blob must always be specified to allow proper
 // size tracking.
 func (db *Database) insert(hash common.Hash, blob []byte, node node) {
+	log.Printf("1 ------- %v", hash)
+	log.Printf("2 ------- %v", blob)
+	log.Printf("3 ------- %v", node)
 	// If the node's already cached, skip
 	if _, ok := db.nodes[hash]; ok {
 		return
@@ -698,6 +701,7 @@ func (db *Database) commit(hash common.Hash, batch database.Batch) error {
 			return err
 		}
 	}
+	log.Printf("commit ------- %v", hash)
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}

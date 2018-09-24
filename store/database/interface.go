@@ -37,6 +37,9 @@ type Database interface {
 	Deleter
 	Get(key []byte) ([]byte, error)
 	Has(key []byte) (bool, error)
+	Reference(key []byte) error
+	Dereference(key []byte) error
+	CountReference(key []byte) (int, error)
 	Close()
 	NewBatch() Batch
 }

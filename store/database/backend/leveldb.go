@@ -116,6 +116,20 @@ func (db *LDBDatabase) Delete(key []byte) error {
 	return db.db.Delete(key, nil)
 }
 
+func (db *LDBDatabase) Reference(key []byte) error {
+
+	return nil
+}
+
+func (db *LDBDatabase) Dereference(key []byte) error {
+
+	return nil
+}
+
+func (db *LDBDatabase) CountReference(key []byte) (int, error) {
+	return 0, nil
+}
+
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
 	return db.db.NewIterator(nil, nil)
 }
@@ -409,6 +423,17 @@ func (dt *table) Get(key []byte) ([]byte, error) {
 
 func (dt *table) Delete(key []byte) error {
 	return dt.db.Delete(append([]byte(dt.prefix), key...))
+}
+
+func (dt *table) Reference(key []byte) error {
+	return dt.db.Reference(append([]byte(dt.prefix), key...))
+}
+func (dt *table) Dereference(key []byte) error {
+	return dt.db.Dereference(append([]byte(dt.prefix), key...))
+}
+
+func (db *table) CountReference(key []byte) (int, error) {
+	return 0, nil
 }
 
 func (dt *table) Close() {

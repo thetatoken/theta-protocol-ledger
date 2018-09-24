@@ -92,6 +92,20 @@ func (db *MongoDatabase) Delete(key []byte) error {
 	return err
 }
 
+func (db *MongoDatabase) Reference(key []byte) error {
+
+	return nil
+}
+
+func (db *MongoDatabase) Dereference(key []byte) error {
+
+	return nil
+}
+
+func (db *MongoDatabase) CountReference(key []byte) (int, error) {
+	return 0, nil
+}
+
 func (db *MongoDatabase) Close() {
 	err := db.client.Disconnect(context.Background())
 	if err == nil {

@@ -71,6 +71,20 @@ func (db *MgoDatabase) Delete(key []byte) error {
 	return err
 }
 
+func (db *MgoDatabase) Reference(key []byte) error {
+
+	return nil
+}
+
+func (db *MgoDatabase) Dereference(key []byte) error {
+
+	return nil
+}
+
+func (db *MgoDatabase) CountReference(key []byte) (int, error) {
+	return 0, nil
+}
+
 func (db *MgoDatabase) Close() {
 	db.session.Close()
 }
