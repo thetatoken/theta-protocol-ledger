@@ -51,7 +51,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 		generatedPeerAAddrChan <- generatedPeerAAddr
 		receivedPeerBAddrChan <- receivedPeerBAddr
 
-		outboundPeer.OnStart()
+		outboundPeer.Start()
 
 		for i := 0; i < numMsgs; i++ {
 			assert.True(outboundPeer.Send(common.ChannelIDTransaction, messagesAtoB[i]))
@@ -134,8 +134,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	inboundPeer.GetConnection().SetMessageParser(basicMessageParser)
 	inboundPeer.GetConnection().SetReceiveHandler(basicReceiveHandler)
 
-	inboundPeer.OnStart()
-	defer inboundPeer.OnStop()
+	inboundPeer.Start()
+	defer inboundPeer.Stop()
 
 	for i := 0; i < numMsgs; i++ {
 		matched := <-matchedChan

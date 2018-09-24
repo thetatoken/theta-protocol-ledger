@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 )
 
 func intToHash(i int) string {
@@ -62,8 +63,8 @@ func TestOrphanCCPool(t *testing.T) {
 	assert := assert.New(t)
 
 	cp := NewOrphanCCPool()
-	cc1 := &blockchain.CommitCertificate{BlockHash: common.Bytes("a0")}
-	cc2 := &blockchain.CommitCertificate{BlockHash: common.Bytes("a1")}
+	cc1 := &core.CommitCertificate{BlockHash: common.Bytes("a0")}
+	cc2 := &core.CommitCertificate{BlockHash: common.Bytes("a1")}
 
 	// Should not panic when operates on empty pool.
 	cp.RemoveOldest()
@@ -87,13 +88,13 @@ func TestOrphanCCPool(t *testing.T) {
 	// Verify that pool is capped.
 	cp = NewOrphanCCPool()
 	for i := 0; i < maxOrphanCCPoolSize; i++ {
-		cc := &blockchain.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", i))}
+		cc := &core.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", i))}
 		cp.Add(cc)
 	}
-	firstCC := &blockchain.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", 0))}
+	firstCC := &core.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", 0))}
 	assert.True(cp.Contains(firstCC))
 	assert.Equal(maxOrphanCCPoolSize, cp.ccs.Len())
-	cp.Add(&blockchain.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", maxOrphanCCPoolSize))})
+	cp.Add(&core.CommitCertificate{BlockHash: common.Bytes(fmt.Sprintf("%x", maxOrphanCCPoolSize))})
 	assert.False(cp.Contains(firstCC), "the oldest CC should have been evicted from pool")
 	assert.Equal(maxOrphanCCPoolSize, cp.ccs.Len())
 }

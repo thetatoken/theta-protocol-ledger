@@ -3,8 +3,8 @@ package netsync
 import (
 	"container/list"
 
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 )
 
 const (
@@ -26,12 +26,12 @@ func NewOrphanBlockPool() *OrphanBlockPool {
 	}
 }
 
-func (bp *OrphanBlockPool) Contains(block *blockchain.Block) bool {
+func (bp *OrphanBlockPool) Contains(block *core.Block) bool {
 	_, ok := bp.hashToBlock[block.Hash.String()]
 	return ok
 }
 
-func (bp *OrphanBlockPool) Add(block *blockchain.Block) {
+func (bp *OrphanBlockPool) Add(block *core.Block) {
 	if bp.blocks.Len() >= maxOrphanBlockPoolSize {
 		bp.RemoveOldest()
 	}
@@ -45,7 +45,7 @@ func (bp *OrphanBlockPool) Add(block *blockchain.Block) {
 	bp.prevHashToBlock[block.ParentHash.String()] = el
 }
 
-func (bp *OrphanBlockPool) Remove(block *blockchain.Block) {
+func (bp *OrphanBlockPool) Remove(block *core.Block) {
 	el, ok := bp.hashToBlock[block.Hash.String()]
 	if !ok {
 		// block is not in pool.
@@ -61,16 +61,16 @@ func (bp *OrphanBlockPool) RemoveOldest() {
 	if el == nil {
 		return
 	}
-	block := el.Value.(*blockchain.Block)
+	block := el.Value.(*core.Block)
 	bp.Remove(block)
 }
 
-func (bp *OrphanBlockPool) TryGetNextBlock(hash common.Bytes) *blockchain.Block {
+func (bp *OrphanBlockPool) TryGetNextBlock(hash common.Bytes) *core.Block {
 	el, ok := bp.prevHashToBlock[hash.String()]
 	if !ok {
 		return nil
 	}
-	block := el.Value.(*blockchain.Block)
+	block := el.Value.(*core.Block)
 	bp.Remove(block)
 	return block
 }
@@ -87,12 +87,12 @@ func NewOrphanCCPool() *OrphanCCPool {
 	}
 }
 
-func (cp *OrphanCCPool) Contains(cc *blockchain.CommitCertificate) bool {
+func (cp *OrphanCCPool) Contains(cc *core.CommitCertificate) bool {
 	_, ok := cp.hashToCC[cc.BlockHash.String()]
 	return ok
 }
 
-func (cp *OrphanCCPool) Add(cc *blockchain.CommitCertificate) {
+func (cp *OrphanCCPool) Add(cc *core.CommitCertificate) {
 	if cp.ccs.Len() >= maxOrphanCCPoolSize {
 		cp.RemoveOldest()
 	}
@@ -105,7 +105,7 @@ func (cp *OrphanCCPool) Add(cc *blockchain.CommitCertificate) {
 	cp.hashToCC[cc.BlockHash.String()] = el
 }
 
-func (cp *OrphanCCPool) Remove(cc *blockchain.CommitCertificate) {
+func (cp *OrphanCCPool) Remove(cc *core.CommitCertificate) {
 	el, ok := cp.hashToCC[cc.BlockHash.String()]
 	if !ok {
 		// block is not in pool.
@@ -120,16 +120,16 @@ func (cp *OrphanCCPool) RemoveOldest() {
 	if el == nil {
 		return
 	}
-	cc := el.Value.(*blockchain.CommitCertificate)
+	cc := el.Value.(*core.CommitCertificate)
 	cp.Remove(cc)
 }
 
-func (cp *OrphanCCPool) TryGetCCByBlockHash(hash common.Bytes) *blockchain.CommitCertificate {
+func (cp *OrphanCCPool) TryGetCCByBlockHash(hash common.Bytes) *core.CommitCertificate {
 	el, ok := cp.hashToCC[hash.String()]
 	if !ok {
 		return nil
 	}
-	cc := el.Value.(*blockchain.CommitCertificate)
+	cc := el.Value.(*core.CommitCertificate)
 	cp.Remove(cc)
 	return cc
 }

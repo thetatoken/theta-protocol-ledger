@@ -133,8 +133,8 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 		netconn := p2ptypes.GetTestNetconn(port)
 		cfg := GetDefaultConnectionConfig()
 		conn := CreateConnection(netconn, cfg)
-		conn.OnStart()
-		//defer conn.OnStop()
+		conn.Start()
+		//defer conn.Stop()
 		numMsgSent := 0
 		for {
 			if conn.CanEnqueueMessage(common.ChannelIDTransaction) {
@@ -259,8 +259,8 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 	conn := CreateConnection(netconn, cfg)
 	conn.SetMessageParser(basicMessageParser)
 	conn.SetReceiveHandler(basicReceiveHandler)
-	conn.OnStart()
-	defer conn.OnStop()
+	conn.Start()
+	defer conn.Stop()
 
 	for i := 0; i < numMessages; i++ {
 		resultMatched := <-matched

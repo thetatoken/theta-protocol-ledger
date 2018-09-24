@@ -48,14 +48,14 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDisco
 	return pmdh, nil
 }
 
-// OnStart is called when the message handler starts
-func (pdmh *PeerDiscoveryMessageHandler) OnStart() error {
+// Start is called when the message handler starts
+func (pdmh *PeerDiscoveryMessageHandler) Start() error {
 	go pdmh.maintainSufficientConnectivityRoutine()
 	return nil
 }
 
-// OnStop is called when the message handler stops
-func (pdmh *PeerDiscoveryMessageHandler) OnStop() {
+// Stop is called when the message handler stops
+func (pdmh *PeerDiscoveryMessageHandler) Stop() {
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface

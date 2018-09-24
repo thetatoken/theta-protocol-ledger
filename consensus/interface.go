@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/p2p"
 )
 
@@ -11,10 +12,10 @@ import (
 type Engine interface {
 	ID() string
 	Chain() *blockchain.Chain
-	GetTip() *blockchain.ExtendedBlock
+	GetTip() *core.ExtendedBlock
 	Network() p2p.Network
 	AddMessage(msg interface{})
-	FinalizedBlocks() chan *blockchain.Block
+	FinalizedBlocks() chan *core.Block
 
 	Start(context.Context)
 	Stop()

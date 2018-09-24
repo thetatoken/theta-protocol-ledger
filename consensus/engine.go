@@ -10,11 +10,13 @@ import (
 	"io"
 	"math/rand"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
@@ -27,7 +29,7 @@ type DefaultEngine struct {
 	network p2p.Network
 
 	incoming        chan interface{}
-	finalizedBlocks chan *blockchain.Block
+	finalizedBlocks chan *core.Block
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -39,26 +41,27 @@ type DefaultEngine struct {
 	// TODO: persist state
 	// Consensus state
 	mu                 *sync.Mutex
-	highestCCBlock     *blockchain.ExtendedBlock
-	lastFinalizedBlock *blockchain.ExtendedBlock
-	tip                *blockchain.ExtendedBlock
+	highestCCBlock     *core.ExtendedBlock
+	lastFinalizedBlock *core.ExtendedBlock
+	tip                *core.ExtendedBlock
 	lastVoteHeight     uint32
-	voteLog            map[uint32]blockchain.Vote     // level -> vote
-	collectedVotes     map[string]*blockchain.VoteSet // block hash -> votes
-	epochManager       *EpochManager
+	voteLog            map[uint32]core.Vote     // level -> vote
+	collectedVotes     map[string]*core.VoteSet // block hash -> votes
+	epochVotes         map[string]core.Vote     // Validator ID -> latest vote from this validator
+	epochTimer         *time.Timer
 	epoch              uint32
 	validatorManager   ValidatorManager
 	rand               *rand.Rand
 }
 
 // NewEngine creates a instance of DefaultEngine.
-func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *ValidatorSet) *DefaultEngine {
+func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *DefaultEngine {
 	e := &DefaultEngine{
 		chain:   chain,
 		network: network,
 
 		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
-		finalizedBlocks: make(chan *blockchain.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 
 		wg:   &sync.WaitGroup{},
 		quit: make(chan struct{}),
@@ -67,13 +70,12 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *Validat
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
-		voteLog:            make(map[uint32]blockchain.Vote),
-		collectedVotes:     make(map[string]*blockchain.VoteSet),
+		voteLog:            make(map[uint32]core.Vote),
+		collectedVotes:     make(map[string]*core.VoteSet),
+		epochVotes:         make(map[string]core.Vote),
 		validatorManager:   NewRotatingValidatorManager(validators),
-		epochManager:       NewEpochManager(),
 		epoch:              0,
 	}
-	e.epochManager.Init(e)
 
 	h := md5.New()
 	io.WriteString(h, network.ID())
@@ -103,8 +105,6 @@ func (e *DefaultEngine) Start(ctx context.Context) {
 	e.ctx = c
 	e.cancel = cancel
 
-	e.epochManager.Start(e.ctx)
-
 	go e.mainLoop()
 }
 
@@ -115,7 +115,6 @@ func (e *DefaultEngine) Stop() {
 
 // Wait blocks until all goroutines stop.
 func (e *DefaultEngine) Wait() {
-	e.epochManager.Wait()
 	e.wg.Wait()
 }
 
@@ -123,25 +122,36 @@ func (e *DefaultEngine) mainLoop() {
 	e.wg.Add(1)
 	defer e.wg.Done()
 
-	e.enterNewEpoch(e.epochManager.GetEpoch())
-
 	for {
-		select {
-		case <-e.ctx.Done():
-			e.stopped = true
-			return
-		case msg := <-e.incoming:
-			e.processMessage(msg)
-		case newEpoch := <-e.epochManager.C:
-			newEpoch = e.epochManager.GetEpoch()
-			e.enterNewEpoch(newEpoch)
+		e.enterEpoch()
+	Epoch:
+		for {
+			select {
+			case <-e.ctx.Done():
+				e.stopped = true
+				return
+			case msg := <-e.incoming:
+				endEpoch := e.processMessage(msg)
+				if endEpoch {
+					break Epoch
+				}
+			case <-e.epochTimer.C:
+				log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
+				e.vote()
+				break Epoch
+			}
 		}
 	}
 }
 
-func (e *DefaultEngine) enterNewEpoch(newEpoch uint32) {
-	e.epoch = newEpoch
-	if e.shouldPropose(newEpoch) {
+func (e *DefaultEngine) enterEpoch() {
+	// Reset timer.
+	if e.epochTimer != nil {
+		e.epochTimer.Stop()
+	}
+	e.epochTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
+
+	if e.shouldPropose(e.epoch) {
 		e.propose()
 	}
 }
@@ -159,35 +169,24 @@ func (e *DefaultEngine) AddMessage(msg interface{}) {
 	e.incoming <- msg
 }
 
-// ParseMessage implements p2p.MessageHandler interface.
-func (e *DefaultEngine) ParseMessage(peerID string, channelID common.ChannelIDEnum,
-	rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
-	// To be implemented..
-	message := p2ptypes.Message{
-		PeerID:    peerID,
-		ChannelID: channelID,
-	}
-	return message, nil
-}
-
-func (e *DefaultEngine) processMessage(msg interface{}) error {
+func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
-	case Proposal:
+	case core.Proposal:
 		e.handleProposal(m)
-	case blockchain.Vote:
-		e.handleVote(m)
-	case *blockchain.Block:
+	case core.Vote:
+		return e.handleVote(m)
+	case *core.Block:
 		e.handleBlock(m)
-	case *blockchain.CommitCertificate:
+	case *core.CommitCertificate:
 		e.handleCC(m)
 	default:
 		log.Errorf("Unknown message type: %v", m)
 	}
 
-	return nil
+	return false
 }
 
-func (e *DefaultEngine) handleProposal(p Proposal) {
+func (e *DefaultEngine) handleProposal(p core.Proposal) {
 	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
 
 	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.ProposerID != expectedProposer {
@@ -197,41 +196,43 @@ func (e *DefaultEngine) handleProposal(p Proposal) {
 
 	e.handleBlock(&p.Block)
 	e.handleCC(p.CommitCertificate)
-	e.tryVote()
+	e.vote()
 }
 
-func (e *DefaultEngine) handleBlock(block *blockchain.Block) {
+func (e *DefaultEngine) handleBlock(block *core.Block) {
 	var err error
 	if block.Epoch != e.epoch {
 		log.WithFields(log.Fields{"id": e.ID(),
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash,
 			"e.epoch":     e.epoch,
-		}).Debug("Ignoring block from another epoch")
-	} else {
-		_, err = e.chain.AddBlock(block)
-		if err != nil {
-			log.WithFields(log.Fields{"id": e.ID(), "block": block}).Error(err)
-			panic(err)
-		}
+		}).Debug("Received block from another epoch")
 	}
-
-	e.tryVote()
+	_, err = e.chain.AddBlock(block)
+	if err != nil {
+		log.WithFields(log.Fields{"id": e.ID(), "block": block}).Error(err)
+	}
 }
 
-func (e *DefaultEngine) tryVote() {
+func (e *DefaultEngine) vote() {
 	previousTip := e.GetTip()
 	tip := e.setTip()
 
+	var header *core.BlockHeader
 	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.lastVoteHeight >= tip.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "tip.Hash": tip.Hash}).Debug("Skip voting since has already voted at height")
-		return
+		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "tip.Hash": tip.Hash}).Debug("Voting nil since already voted at height")
+	} else {
+		header = &tip.BlockHeader
+		e.lastVoteHeight = tip.Height
 	}
 
-	vote := blockchain.Vote{Block: &tip.BlockHeader, ID: e.ID()}
-	e.lastVoteHeight = tip.Height
+	vote := core.Vote{
+		Block: header,
+		ID:    e.ID(),
+		Epoch: e.epoch,
+	}
 
-	log.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash, "id": e.ID()}).Debug("Sending vote")
+	log.WithFields(log.Fields{"vote.block": vote.Block, "id": e.ID()}).Debug("Sending vote")
 
 	voteMsg := p2ptypes.Message{
 		ChannelID: common.ChannelIDVote,
@@ -241,7 +242,7 @@ func (e *DefaultEngine) tryVote() {
 	e.network.Broadcast(voteMsg)
 }
 
-func (e *DefaultEngine) handleCC(cc *blockchain.CommitCertificate) {
+func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
 	if cc == nil {
 		return
 	}
@@ -258,9 +259,31 @@ func (e *DefaultEngine) handleCC(cc *blockchain.CommitCertificate) {
 	e.processCCBlock(ccBlock)
 }
 
-func (e *DefaultEngine) handleVote(vote blockchain.Vote) {
+func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	log.WithFields(log.Fields{"vote": vote, "id": e.ID()}).Debug("Received vote")
 
+	validators := e.validatorManager.GetValidatorSetForEpoch(0)
+	e.epochVotes[vote.ID] = vote
+
+	if vote.Epoch >= e.epoch {
+		epochVoteSet := core.NewVoteSet()
+		for _, v := range e.epochVotes {
+			if v.Epoch >= vote.Epoch {
+				epochVoteSet.AddVote(v)
+			}
+		}
+		if validators.HasMajority(epochVoteSet) {
+			nextEpoch := vote.Epoch + 1
+			endEpoch = true
+			log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch, "nextEpoch": nextEpoch}).Debug("Majority votes for current epoch. Moving to new epoch")
+			e.epoch = nextEpoch
+		}
+	}
+
+	if vote.Block == nil {
+		log.WithFields(log.Fields{"id": e.ID(), "vote": vote}).Debug("Empty vote received")
+		return
+	}
 	hs := hex.EncodeToString(vote.Block.Hash)
 	block, err := e.Chain().FindBlock(vote.Block.Hash)
 	if err != nil {
@@ -269,24 +292,23 @@ func (e *DefaultEngine) handleVote(vote blockchain.Vote) {
 	}
 	votes, ok := e.collectedVotes[hs]
 	if !ok {
-		votes = blockchain.NewVoteSet()
+		votes = core.NewVoteSet()
 		e.collectedVotes[hs] = votes
 	}
 	votes.AddVote(vote)
-
-	validators := e.validatorManager.GetValidatorSetForEpoch(e.epoch)
 	if validators.HasMajority(votes) {
-		cc := &blockchain.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
+		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
 		block.CommitCertificate = cc
 
 		e.chain.SaveBlock(block)
 		e.processCCBlock(block)
 	}
+	return
 }
 
 // setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
-func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
+func (e *DefaultEngine) setTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -296,7 +318,7 @@ func (e *DefaultEngine) setTip() *blockchain.ExtendedBlock {
 }
 
 // GetTip return the block to be extended from.
-func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
+func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -304,11 +326,11 @@ func (e *DefaultEngine) GetTip() *blockchain.ExtendedBlock {
 }
 
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
-func (e *DefaultEngine) FinalizedBlocks() chan *blockchain.Block {
+func (e *DefaultEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
 }
 
-func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
+func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
 	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
@@ -328,13 +350,12 @@ func (e *DefaultEngine) processCCBlock(ccBlock *blockchain.ExtendedBlock) {
 
 	if ccBlock.Epoch >= e.epoch {
 		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
-		newEpoch := ccBlock.Epoch + 1
-		e.enterNewEpoch(newEpoch)
-		e.epochManager.SetEpoch(newEpoch)
+		e.epoch = ccBlock.Epoch + 1
+		e.enterEpoch()
 	}
 }
 
-func (e *DefaultEngine) finalizeBlock(block *blockchain.ExtendedBlock) {
+func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 	if e.stopped {
 		return
 	}
@@ -369,14 +390,14 @@ func (e *DefaultEngine) shouldPropose(epoch uint32) bool {
 func (e *DefaultEngine) propose() {
 	tip := e.GetTip()
 
-	block := blockchain.Block{}
+	block := core.Block{}
 	block.ChainID = e.chain.ChainID
 	block.Hash = e.randHex()
 	block.Epoch = e.epoch
 	block.ParentHash = tip.Hash
 
 	lastCC := e.highestCCBlock
-	proposal := Proposal{Block: block, ProposerID: e.ID()}
+	proposal := core.Proposal{Block: block, ProposerID: e.ID()}
 	if lastCC.CommitCertificate != nil {
 		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
 	}

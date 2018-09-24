@@ -79,20 +79,20 @@ func (discMgr *PeerDiscoveryManager) SetMessenger(msgr *Messenger) {
 	discMgr.messenger = msgr
 }
 
-// OnStart is called when the PeerDiscoveryManager starts
-func (discMgr *PeerDiscoveryManager) OnStart() error {
+// Start is called when the PeerDiscoveryManager starts
+func (discMgr *PeerDiscoveryManager) Start() error {
 	var err error
-	err = discMgr.seedPeerConnector.OnStart()
+	err = discMgr.seedPeerConnector.Start()
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.inboundPeerListener.OnStart()
+	err = discMgr.inboundPeerListener.Start()
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.peerDiscMsgHandler.OnStart()
+	err = discMgr.peerDiscMsgHandler.Start()
 	if err != nil {
 		return err
 	}
@@ -100,11 +100,11 @@ func (discMgr *PeerDiscoveryManager) OnStart() error {
 	return nil
 }
 
-// OnStop is called when the PeerDiscoveryManager stops
-func (discMgr *PeerDiscoveryManager) OnStop() {
-	discMgr.seedPeerConnector.OnStop()
-	discMgr.inboundPeerListener.OnStop()
-	discMgr.peerDiscMsgHandler.OnStop()
+// Stop is called when the PeerDiscoveryManager stops
+func (discMgr *PeerDiscoveryManager) Stop() {
+	discMgr.seedPeerConnector.Stop()
+	discMgr.inboundPeerListener.Stop()
+	discMgr.peerDiscMsgHandler.Stop()
 }
 
 // HandlePeerWithErrors handles peers that are in the error state.
@@ -156,7 +156,7 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		log.Warnf("[p2p] discMgr.messenger not set, cannot attach message handlers")
 	}
 
-	if !peer.OnStart() {
+	if !peer.Start() {
 		errMsg := "[p2p] Failed to start peer"
 		log.Errorf(errMsg)
 		return errors.New(errMsg)

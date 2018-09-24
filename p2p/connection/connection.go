@@ -127,15 +127,15 @@ func GetDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
-// OnStart is called when the connection starts
-func (conn *Connection) OnStart() bool {
+// Start is called when the connection starts
+func (conn *Connection) Start() bool {
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
-// OnStop is called whten the connection stops
-func (conn *Connection) OnStop() {
+// Stop is called whten the connection stops
+func (conn *Connection) Stop() {
 	if conn.sendPulse != nil {
 		close(conn.sendPulse)
 	}
@@ -336,9 +336,22 @@ func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
 }
 
 func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
-	// TODO: handle packet whose IsEOF is 0x0 properly, should combine packets into a complete message
-	//       with RecvBuffer.receivePacket()
-	message, err := conn.onParse(packet.ChannelID, packet.Bytes)
+	channelID := packet.ChannelID
+	channel := conn.channelGroup.getChannel(channelID)
+	if channel == nil {
+		return false
+	}
+
+	aggregatedBytes, success := channel.receivePacket(packet)
+	if !success {
+		return false
+	}
+
+	if aggregatedBytes == nil {
+		return true
+	}
+
+	message, err := conn.onParse(packet.ChannelID, aggregatedBytes)
 	if err != nil {
 		log.Errorf("[p2p] Error parsing packet: %v, err: %v", packet, err)
 		return false
@@ -415,6 +428,8 @@ func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
 		if conn.onError != nil {
 			conn.onError(r)
+		} else {
+			log.Errorf("[p2p] Connection error: %v", r)
 		}
 	}
 }
@@ -422,10 +437,7 @@ func (conn *Connection) stopForError(r interface{}) {
 func (conn *Connection) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := struct {
-			Srr   interface{}
-			Stack []byte
-		}{
+		err := common.StackError{
 			r, stack,
 		}
 		conn.stopForError(err)

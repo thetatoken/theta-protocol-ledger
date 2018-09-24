@@ -159,10 +159,10 @@ func TestMempoolTransactionGossip(t *testing.T) {
 
 	// Add two peer nodes
 	peer1 := p2psimnet.AddEndpoint("peer1")
-	peer1.OnStart()
+	peer1.Start()
 
 	peer2 := p2psimnet.AddEndpoint("peer2")
-	peer2.OnStart()
+	peer2.Start()
 
 	p2psimnet.Start(context.Background())
 
@@ -197,7 +197,7 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
 	mempool := CreateMempool(dispatcher)
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
-	messenger.OnStart()
+	messenger.Start()
 	return mempool
 }
 

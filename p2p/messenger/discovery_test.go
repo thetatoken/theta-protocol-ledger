@@ -22,7 +22,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		seedPeerNetAddressStrs := []string{} // passively listen
 		localNetworkAddress := peerANetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.OnStart()
+		discMgr.Start()
 
 		peerID := discMgr.nodeInfo.Address
 		t.Logf("[Peer A] ID: %v", peerID)
@@ -36,7 +36,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		seedPeerNetAddressStrs := []string{} // passively listen
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.OnStart()
+		discMgr.Start()
 
 		peerID := discMgr.nodeInfo.Address
 		t.Logf("[Peer B] ID: %v", peerID)
@@ -48,7 +48,7 @@ func TestSeedPeerConnector(t *testing.T) {
 	seedPeerNetAddressStrs := []string{peerANetAddr, peerBNetAddr}
 	localNetworkAddress := peerCNetAddr
 	discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-	discMgr.OnStart()
+	discMgr.Start()
 
 	numPeers := len(seedPeerNetAddressStrs)
 	for i := 0; i < numPeers; i++ {
@@ -78,7 +78,7 @@ func TestInboundPeerListener(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // proactively connect to PeerC (i.e. us)
 		localNetworkAddress := peerANetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.OnStart()
+		discMgr.Start()
 
 		peerID := discMgr.nodeInfo.Address
 		t.Logf("[Peer A] ID: %v", peerID)
@@ -92,7 +92,7 @@ func TestInboundPeerListener(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // proactively connect to PeerC (i.e. us)
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.OnStart()
+		discMgr.Start()
 
 		peerID := discMgr.nodeInfo.Address
 		t.Logf("[Peer B] ID: %v", peerID)
@@ -114,7 +114,7 @@ func TestInboundPeerListener(t *testing.T) {
 			inboundDetectedChan <- false
 		}
 	})
-	discMgr.OnStart()
+	discMgr.Start()
 
 	numExpectedInboundPeers := 2
 	for i := 0; i < numExpectedInboundPeers; i++ {

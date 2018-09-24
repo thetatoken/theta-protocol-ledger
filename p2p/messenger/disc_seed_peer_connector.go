@@ -54,14 +54,14 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 	return spc, nil
 }
 
-// OnStart is called when the SeedPeerConnector starts
-func (spc *SeedPeerConnector) OnStart() error {
+// Start is called when the SeedPeerConnector starts
+func (spc *SeedPeerConnector) Start() error {
 	spc.connectToSeedPeers()
 	return nil
 }
 
-// OnStop is called when the SeedPeerConnector stops
-func (spc *SeedPeerConnector) OnStop() {
+// Stop is called when the SeedPeerConnector stops
+func (spc *SeedPeerConnector) Stop() {
 }
 
 func (spc *SeedPeerConnector) connectToSeedPeers() {

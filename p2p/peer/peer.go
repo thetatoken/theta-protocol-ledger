@@ -67,20 +67,20 @@ func GetDefaultPeerConfig() PeerConfig {
 	}
 }
 
-// OnStart is called when the peer starts
-// NOTE: need to call peer.Handshake() before peer.OnStart()
-func (peer *Peer) OnStart() bool {
-	success := peer.connection.OnStart()
+// Start is called when the peer starts
+// NOTE: need to call peer.Handshake() before peer.Start()
+func (peer *Peer) Start() bool {
+	success := peer.connection.Start()
 	return success
 }
 
-// OnStop is called when the peer stops
-func (peer *Peer) OnStop() {
-	peer.connection.OnStop()
+// Stop is called when the peer stops
+func (peer *Peer) Stop() {
+	peer.connection.Stop()
 }
 
 // Handshake handles the initial signaling between two peers
-// NOTE: need to call peer.Handshake() before peer.OnStart()
+// NOTE: need to call peer.Handshake() before peer.Start()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))

@@ -70,14 +70,14 @@ func GetDefaultInboundPeerListenerConfig() InboundPeerListenerConfig {
 	}
 }
 
-// OnStart is called when the InboundPeerListener instance starts
-func (ipl *InboundPeerListener) OnStart() error {
+// Start is called when the InboundPeerListener instance starts
+func (ipl *InboundPeerListener) Start() error {
 	go ipl.listenRoutine()
 	return nil
 }
 
-// OnStop is called when the InboundPeerListener instance stops
-func (ipl *InboundPeerListener) OnStop() {
+// Stop is called when the InboundPeerListener instance stops
+func (ipl *InboundPeerListener) Stop() {
 	ipl.netListener.Close()
 }
 

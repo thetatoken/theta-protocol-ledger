@@ -6,6 +6,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/netsync"
 	"github.com/thetatoken/ukulele/p2p"
@@ -30,8 +31,8 @@ type Node struct {
 
 type Params struct {
 	ChainID    string
-	Root       *blockchain.Block
-	Validators *consensus.ValidatorSet
+	Root       *core.Block
+	Validators *core.ValidatorSet
 	Network    p2p.Network
 	Store      store.Store
 }
@@ -60,7 +61,7 @@ func (n *Node) Start(ctx context.Context) {
 
 	n.Consensus.Start(n.ctx)
 	n.SyncManager.Start(n.ctx)
-	n.Network.OnStart()
+	n.Network.Start()
 }
 
 // Stop notifies all sub components to stop without blocking.

@@ -18,28 +18,28 @@ func NewDispatcher(p2pnet p2p.Network) *Dispatcher {
 	return &Dispatcher{p2pnet: p2pnet}
 }
 
-// OnStart is called when the dispatcher starts
-func (dp *Dispatcher) OnStart() error {
-	err := dp.p2pnet.OnStart()
+// Start is called when the dispatcher starts
+func (dp *Dispatcher) Start() error {
+	err := dp.p2pnet.Start()
 	return err
 }
 
-// OnStop is called when the dispatcher stops
-func (dp *Dispatcher) OnStop() {
-	dp.p2pnet.OnStop()
+// Stop is called when the dispatcher stops
+func (dp *Dispatcher) Stop() {
+	dp.p2pnet.Stop()
 }
 
-// GetInventory sents out the InventoryRequest
+// GetInventory sends out the InventoryRequest
 func (dp *Dispatcher) GetInventory(peerIDs []string, invreq InventoryRequest) {
 	dp.send(peerIDs, invreq.ChannelID, invreq)
 }
 
-// SendInventory sents out the InventoryResponse
+// SendInventory sends out the InventoryResponse
 func (dp *Dispatcher) SendInventory(peerIDs []string, invrsp InventoryResponse) {
 	dp.send(peerIDs, invrsp.ChannelID, invrsp)
 }
 
-// GetData sents out the DataRequest
+// GetData sends out the DataRequest
 func (dp *Dispatcher) GetData(peerIDs []string, datareq DataRequest) {
 	dp.send(peerIDs, datareq.ChannelID, datareq)
 }

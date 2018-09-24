@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +13,7 @@ func TestDefaultRecvBuffer(t *testing.T) {
 	drb := newTestDefaultRecvBuffer()
 
 	msgBytes := []byte("hello world")
-	packet := Packet{
+	packet := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes,
 		IsEOF:     byte(0x01),
@@ -28,35 +29,35 @@ func TestRecvMultipleMessages(t *testing.T) {
 	drb := newTestDefaultRecvBuffer()
 
 	msgBytes1 := []byte("hello ")
-	packet1 := Packet{
+	packet1 := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes1,
 		IsEOF:     byte(0x00),
 	}
 
 	msgBytes2 := []byte("world")
-	packet2 := Packet{
+	packet2 := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes2,
 		IsEOF:     byte(0x01),
 	}
 
 	msgBytes3 := []byte("You've got ")
-	packet3 := Packet{
+	packet3 := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes3,
 		IsEOF:     byte(0x00),
 	}
 
 	msgBytes4 := []byte("an ")
-	packet4 := Packet{
+	packet4 := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes4,
 		IsEOF:     byte(0x00),
 	}
 
 	msgBytes5 := []byte("email")
-	packet5 := Packet{
+	packet5 := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes5,
 		IsEOF:     byte(0x01),
@@ -99,8 +100,9 @@ func TestRecvExtraLongMessage(t *testing.T) {
 	assert := assert.New(t)
 	drb := newTestDefaultRecvBuffer()
 
-	msgBytes := []byte("0123456789")
-	packet := Packet{
+	expectedMsgBytes := []byte{}
+	msgBytes := []byte("01234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345") // 128 Bytes
+	packet := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes,
 		IsEOF:     byte(0x00),
@@ -108,16 +110,31 @@ func TestRecvExtraLongMessage(t *testing.T) {
 
 	var success bool
 	var recvBytes []byte
-	for i := 0; i < 409; i++ {
+	for i := 0; i < 32767; i++ {
 		recvBytes, success = drb.receivePacket(packet)
 		assert.True(success)
 		assert.Nil(recvBytes)
+
+		expectedMsgBytes = append(expectedMsgBytes, packet.Bytes...)
 	}
 
-	// The following receivePacket exceeds the workspaceCapacity, should fail
-	recvBytes, success = drb.receivePacket(packet)
-	assert.False(success)
-	assert.Nil(recvBytes)
+	endPacket := &Packet{
+		ChannelID: common.ChannelIDTransaction,
+		Bytes:     msgBytes,
+		IsEOF:     byte(0x01),
+	}
+	aggregatedBytes, success := drb.receivePacket(endPacket)
+	assert.True(success)
+	assert.NotNil(aggregatedBytes)
+	expectedMsgBytes = append(expectedMsgBytes, endPacket.Bytes...)
+
+	t.Logf("Length of the expectedMsgBytes: %v", len(expectedMsgBytes))
+	t.Logf("Length of the aggregatedBytes:  %v", len(aggregatedBytes))
+
+	assert.Equal(4194304, len(expectedMsgBytes)) // should be 4 MB
+	assert.Equal(4194304, len(aggregatedBytes))  // should be 4 MB
+	sameBytes := (bytes.Compare(expectedMsgBytes, aggregatedBytes) == 0)
+	assert.True(sameBytes)
 }
 
 // --------------- Test Utilities --------------- //
