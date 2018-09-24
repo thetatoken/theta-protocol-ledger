@@ -9,6 +9,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
@@ -54,6 +55,8 @@ type SyncManager struct {
 	mu       *sync.Mutex
 	incoming chan *p2ptypes.Message
 	epoch    uint32
+
+	logger *log.Entry
 }
 
 func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
@@ -71,6 +74,13 @@ func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
+
+	logger := util.GetLoggerForModule("sync")
+	if viper.GetBool(common.CfgLogPrintSelfID) {
+		logger = logger.WithFields(log.Fields{"id": sm.consensus.ID()})
+	}
+	sm.logger = logger
+
 	return sm
 }
 
@@ -248,7 +258,12 @@ func (sm *SyncManager) processData(data interface{}) {
 		sm.handleCC(&d)
 	default:
 		// Other messages are passed through to consensus engine.
-		sm.consensus.AddMessage(d)
+		// TODO: remove default passing.
+		// sm.consensus.AddMessage(d)
+		sm.logger.WithFields(log.Fields{
+			"message": d,
+		}).Warn("Received unknown message")
+		panic("Received unknown message")
 	}
 }
 
@@ -261,8 +276,7 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if sm.chain.IsOrphan(block) {
-		log.WithFields(log.Fields{
-			"id":               sm.consensus.ID(),
+		sm.logger.WithFields(log.Fields{
 			"block.Hash":       block.Hash,
 			"block.ParentHash": block.ParentHash,
 		}).Debug("Received orphaned block")
@@ -270,6 +284,11 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		sm.requestMgr.enqueueBlocks(block.Hash)
 		return
 	}
+
+	sm.logger.WithFields(log.Fields{
+		"block.Hash":       block.Hash,
+		"block.ParentHash": block.ParentHash,
+	}).Debug("Received block")
 
 	sm.consensus.AddMessage(block)
 
@@ -286,8 +305,7 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
-		log.WithFields(log.Fields{
-			"id":           sm.consensus.ID(),
+		sm.logger.WithFields(log.Fields{
 			"cc.BlockHash": cc.BlockHash,
 		}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
@@ -296,4 +314,18 @@ func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 	}
 
 	sm.consensus.AddMessage(cc)
+}
+
+func (sm *SyncManager) handleVote(vote *core.Vote) {
+	if vote.Block != nil {
+		if block, _ := sm.chain.FindBlock(vote.Block.Hash); block == nil {
+			sm.logger.WithFields(log.Fields{
+				"vote.Hash": vote.Block.Hash,
+			}).Debug("Received orphaned vote")
+			sm.requestMgr.enqueueBlocks(vote.Block.Hash)
+			return
+		}
+	}
+
+	sm.consensus.AddMessage(vote)
 }

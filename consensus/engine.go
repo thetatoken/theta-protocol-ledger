@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -25,6 +26,8 @@ var _ Engine = (*DefaultEngine)(nil)
 
 // DefaultEngine is the default implementation of the Engine interface.
 type DefaultEngine struct {
+	logger *log.Entry
+
 	chain   *blockchain.Chain
 	network p2p.Network
 
@@ -76,6 +79,12 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.Va
 		validatorManager:   NewRotatingValidatorManager(validators),
 		epoch:              0,
 	}
+
+	logger := util.GetLoggerForModule("consensus")
+	if viper.GetBool(common.CfgLogPrintSelfID) {
+		logger = logger.WithFields(log.Fields{"id": network.ID()})
+	}
+	e.logger = logger
 
 	h := md5.New()
 	io.WriteString(h, network.ID())
@@ -136,7 +145,7 @@ func (e *DefaultEngine) mainLoop() {
 					break Epoch
 				}
 			case <-e.epochTimer.C:
-				log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
+				e.logger.WithFields(log.Fields{"e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
 			}
@@ -187,10 +196,10 @@ func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *DefaultEngine) handleProposal(p core.Proposal) {
-	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
+	e.logger.WithFields(log.Fields{"proposal": p}).Debug("Received proposal")
 
 	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.ProposerID != expectedProposer {
-		log.WithFields(log.Fields{"proposal": p, "id": e.ID(), "p.proposerID": p.ProposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
+		e.logger.WithFields(log.Fields{"proposal": p, "p.proposerID": p.ProposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
 		return
 	}
 
@@ -200,9 +209,11 @@ func (e *DefaultEngine) handleProposal(p core.Proposal) {
 }
 
 func (e *DefaultEngine) handleBlock(block *core.Block) {
+	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
+
 	var err error
 	if block.Epoch != e.epoch {
-		log.WithFields(log.Fields{"id": e.ID(),
+		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash,
 			"e.epoch":     e.epoch,
@@ -210,7 +221,7 @@ func (e *DefaultEngine) handleBlock(block *core.Block) {
 	}
 	_, err = e.chain.AddBlock(block)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "block": block}).Error(err)
+		e.logger.WithFields(log.Fields{"block": block}).Error(err)
 	}
 }
 
@@ -220,7 +231,10 @@ func (e *DefaultEngine) vote() {
 
 	var header *core.BlockHeader
 	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.lastVoteHeight >= tip.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "tip.Hash": tip.Hash}).Debug("Voting nil since already voted at height")
+		e.logger.WithFields(log.Fields{
+			"lastVoteHeight": e.lastVoteHeight,
+			"tip.Hash":       tip.Hash,
+		}).Debug("Voting nil since already voted at height")
 	} else {
 		header = &tip.BlockHeader
 		e.lastVoteHeight = tip.Height
@@ -232,7 +246,7 @@ func (e *DefaultEngine) vote() {
 		Epoch: e.epoch,
 	}
 
-	log.WithFields(log.Fields{"vote.block": vote.Block, "id": e.ID()}).Debug("Sending vote")
+	e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Debug("Sending vote")
 
 	voteMsg := p2ptypes.Message{
 		ChannelID: common.ChannelIDVote,
@@ -243,24 +257,30 @@ func (e *DefaultEngine) vote() {
 }
 
 func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
+	e.logger.WithFields(log.Fields{"cc": cc}).Debug("Received CC")
+
 	if cc == nil {
 		return
 	}
 	ccBlock, err := e.chain.FindBlock(cc.BlockHash)
 	if err != nil {
-		log.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", cc.BlockHash)}).Error("Blockhash in commit certificate is not found")
+		e.logger.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", cc.BlockHash)}).Error("Blockhash in commit certificate is not found")
 		return
 	}
 	ccBlock.CommitCertificate = cc
 
 	e.chain.SaveBlock(ccBlock)
-	log.WithFields(log.Fields{"id": e.ID(), "error": err, "block": ccBlock, "commitCertificate": cc}).Debug("Update block with commit certificate")
+	e.logger.WithFields(log.Fields{
+		"error":             err,
+		"block":             ccBlock,
+		"commitCertificate": cc,
+	}).Debug("Update block with commit certificate")
 
 	e.processCCBlock(ccBlock)
 }
 
 func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
-	log.WithFields(log.Fields{"vote": vote, "id": e.ID()}).Debug("Received vote")
+	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(0)
 	e.epochVotes[vote.ID] = vote
@@ -275,19 +295,24 @@ func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		if validators.HasMajority(epochVoteSet) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
-			log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch, "nextEpoch": nextEpoch}).Debug("Majority votes for current epoch. Moving to new epoch")
+
+			e.logger.WithFields(log.Fields{
+				"e.epoch":      e.epoch,
+				"nextEpoch":    nextEpoch,
+				"epochVoteSet": epochVoteSet,
+			}).Debug("Majority votes for current epoch. Moving to new epoch")
 			e.epoch = nextEpoch
 		}
 	}
 
 	if vote.Block == nil {
-		log.WithFields(log.Fields{"id": e.ID(), "vote": vote}).Debug("Empty vote received")
+		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Empty vote received")
 		return
 	}
 	hs := hex.EncodeToString(vote.Block.Hash)
 	block, err := e.Chain().FindBlock(vote.Block.Hash)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
 		return
 	}
 	votes, ok := e.collectedVotes[hs]
@@ -331,17 +356,17 @@ func (e *DefaultEngine) FinalizedBlocks() chan *core.Block {
 }
 
 func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
-	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
-	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
+	e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
+	defer e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
 	if ccBlock.Height > e.highestCCBlock.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
+		e.logger.WithFields(log.Fields{"ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
 		e.highestCCBlock = ccBlock
 	}
 
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
+		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
 	if parent.CommitCertificate != nil {
@@ -349,7 +374,7 @@ func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	}
 
 	if ccBlock.Epoch >= e.epoch {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
+		e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
 		e.epoch = ccBlock.Epoch + 1
 		e.enterEpoch()
 	}
@@ -365,8 +390,8 @@ func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 		return
 	}
 
-	log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Finalizing block")
-	defer log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Done Finalized block")
+	e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Finalizing block")
+	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Done Finalized block")
 
 	e.lastFinalizedBlock = block
 
@@ -402,7 +427,7 @@ func (e *DefaultEngine) propose() {
 		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
 	}
 
-	log.WithFields(log.Fields{"proposal": proposal, "id": e.ID()}).Info("Making proposal")
+	e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 
 	proposalMsg := p2ptypes.Message{
 		ChannelID: common.ChannelIDBlock,

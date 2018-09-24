@@ -45,10 +45,11 @@ func parseLogLevelConfig(config string) map[string]string {
 
 // GetLoggerForModule returns the logger for given module.
 func GetLoggerForModule(module string) *log.Entry {
-	customFormatter := new(log.TextFormatter)
+	customFormatter := new(TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
 	log.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
+	customFormatter.ForceFormatting = true
 
 	logger := log.New()
 	logger.Formatter = customFormatter
@@ -72,5 +73,5 @@ func GetLoggerForModule(module string) *log.Entry {
 		logger.SetLevel(log.DebugLevel)
 	}
 
-	return logger.WithFields(log.Fields{"module": module})
+	return logger.WithFields(log.Fields{"prefix": module})
 }
