@@ -21,10 +21,10 @@ import (
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
-var _ Engine = (*DefaultEngine)(nil)
+var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
-// DefaultEngine is the default implementation of the Engine interface.
-type DefaultEngine struct {
+// ConsensusEngine is the default implementation of the ConsensusEngine interface.
+type ConsensusEngine struct {
 	chain   *blockchain.Chain
 	network p2p.Network
 
@@ -50,13 +50,13 @@ type DefaultEngine struct {
 	epochVotes         map[string]core.Vote     // Validator ID -> latest vote from this validator
 	epochTimer         *time.Timer
 	epoch              uint32
-	validatorManager   ValidatorManager
+	validatorManager   core.ValidatorManager
 	rand               *rand.Rand
 }
 
-// NewEngine creates a instance of DefaultEngine.
-func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *DefaultEngine {
-	e := &DefaultEngine{
+// NewConsensusEngine creates a instance of ConsensusEngine.
+func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *ConsensusEngine {
+	e := &ConsensusEngine{
 		chain:   chain,
 		network: network,
 
@@ -85,32 +85,32 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.Va
 }
 
 // ID returns the identifier of current node.
-func (e *DefaultEngine) ID() string {
+func (e *ConsensusEngine) ID() string {
 	return e.network.ID()
 }
 
 // Chain return a pointer to the underlying chain store.
-func (e *DefaultEngine) Chain() *blockchain.Chain {
+func (e *ConsensusEngine) Chain() *blockchain.Chain {
 	return e.chain
 }
 
 // Network returns a pointer to the underlying network.
-func (e *DefaultEngine) Network() p2p.Network {
+func (e *ConsensusEngine) Network() p2p.Network {
 	return e.network
 }
 
 // GetEpoch returns the current epoch
-func (e *DefaultEngine) GetEpoch() uint32 {
+func (e *ConsensusEngine) GetEpoch() uint32 {
 	return e.epoch
 }
 
 // GetValidatorManager returns a pointer to the valiator manager.
-func (e *DefaultEngine) GetValidatorManager() *ValidatorManager {
-	return &e.validatorManager
+func (e *ConsensusEngine) GetValidatorManager() core.ValidatorManager {
+	return e.validatorManager
 }
 
 // Start starts sub components and kick off the main loop.
-func (e *DefaultEngine) Start(ctx context.Context) {
+func (e *ConsensusEngine) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)
 	e.ctx = c
 	e.cancel = cancel
@@ -119,16 +119,16 @@ func (e *DefaultEngine) Start(ctx context.Context) {
 }
 
 // Stop notifies all goroutines to stop without blocking.
-func (e *DefaultEngine) Stop() {
+func (e *ConsensusEngine) Stop() {
 	e.cancel()
 }
 
 // Wait blocks until all goroutines stop.
-func (e *DefaultEngine) Wait() {
+func (e *ConsensusEngine) Wait() {
 	e.wg.Wait()
 }
 
-func (e *DefaultEngine) mainLoop() {
+func (e *ConsensusEngine) mainLoop() {
 	e.wg.Add(1)
 	defer e.wg.Done()
 
@@ -154,7 +154,7 @@ func (e *DefaultEngine) mainLoop() {
 	}
 }
 
-func (e *DefaultEngine) enterEpoch() {
+func (e *ConsensusEngine) enterEpoch() {
 	// Reset timer.
 	if e.epochTimer != nil {
 		e.epochTimer.Stop()
@@ -167,7 +167,7 @@ func (e *DefaultEngine) enterEpoch() {
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface.
-func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
+func (e *ConsensusEngine) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDHeader,
 		common.ChannelIDBlock,
@@ -175,11 +175,11 @@ func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
-func (e *DefaultEngine) AddMessage(msg interface{}) {
+func (e *ConsensusEngine) AddMessage(msg interface{}) {
 	e.incoming <- msg
 }
 
-func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
+func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Proposal:
 		e.handleProposal(m)
@@ -196,7 +196,7 @@ func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *DefaultEngine) handleProposal(p core.Proposal) {
+func (e *ConsensusEngine) handleProposal(p core.Proposal) {
 	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
 
 	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.ProposerID != expectedProposer {
@@ -209,7 +209,7 @@ func (e *DefaultEngine) handleProposal(p core.Proposal) {
 	e.vote()
 }
 
-func (e *DefaultEngine) handleBlock(block *core.Block) {
+func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	var err error
 	if block.Epoch != e.epoch {
 		log.WithFields(log.Fields{"id": e.ID(),
@@ -224,7 +224,7 @@ func (e *DefaultEngine) handleBlock(block *core.Block) {
 	}
 }
 
-func (e *DefaultEngine) vote() {
+func (e *ConsensusEngine) vote() {
 	previousTip := e.GetTip()
 	tip := e.setTip()
 
@@ -252,7 +252,7 @@ func (e *DefaultEngine) vote() {
 	e.network.Broadcast(voteMsg)
 }
 
-func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
+func (e *ConsensusEngine) handleCC(cc *core.CommitCertificate) {
 	if cc == nil {
 		return
 	}
@@ -269,7 +269,7 @@ func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
 	e.processCCBlock(ccBlock)
 }
 
-func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
+func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	log.WithFields(log.Fields{"vote": vote, "id": e.ID()}).Debug("Received vote")
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(0)
@@ -318,7 +318,7 @@ func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 
 // setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
-func (e *DefaultEngine) setTip() *core.ExtendedBlock {
+func (e *ConsensusEngine) setTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -328,7 +328,7 @@ func (e *DefaultEngine) setTip() *core.ExtendedBlock {
 }
 
 // GetTip return the block to be extended from.
-func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
+func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -336,11 +336,11 @@ func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
 }
 
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
-func (e *DefaultEngine) FinalizedBlocks() chan *core.Block {
+func (e *ConsensusEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
 }
 
-func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
+func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
 	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
@@ -365,7 +365,7 @@ func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	}
 }
 
-func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
+func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	if e.stopped {
 		return
 	}
@@ -386,18 +386,18 @@ func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 	}
 }
 
-func (e *DefaultEngine) randHex() []byte {
+func (e *ConsensusEngine) randHex() []byte {
 	bytes := make([]byte, 10)
 	e.rand.Read(bytes)
 	return bytes
 }
 
-func (e *DefaultEngine) shouldPropose(epoch uint32) bool {
+func (e *ConsensusEngine) shouldPropose(epoch uint32) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
 	return proposer.ID() == e.ID()
 }
 
-func (e *DefaultEngine) propose() {
+func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
 
 	block := core.Block{}

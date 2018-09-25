@@ -9,7 +9,6 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
@@ -40,7 +39,7 @@ var _ p2p.MessageHandler = (*SyncManager)(nil)
 // fast blocks sync among peers and buffer orphaned block/CC. Otherwise messages are passed through to consensus engine.
 type SyncManager struct {
 	chain           *blockchain.Chain
-	consensus       consensus.Engine
+	consensus       core.ConsensusEngine
 	dispatcher      *dispatcher.Dispatcher
 	requestMgr      *RequestManager
 	orphanBlockPool *OrphanBlockPool
@@ -56,7 +55,7 @@ type SyncManager struct {
 	epoch    uint32
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
 	sm := &SyncManager{
 		chain:           chain,
 		consensus:       cons,

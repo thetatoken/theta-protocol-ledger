@@ -36,7 +36,7 @@ import (
 // getValidatorAddresses returns validators' addresses
 func getValidatorAddresses(node *nd.Node) []common.Address {
 	epoch := node.Consensus.GetEpoch()
-	vaMgr := *(node.Consensus.GetValidatorManager())
+	vaMgr := node.Consensus.GetValidatorManager()
 	validators := vaMgr.GetValidatorSetForEpoch(epoch).Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {

@@ -8,7 +8,7 @@ type ViewDataAccessor interface {
 
 	GetSplitContract(resourceId common.Bytes) *SplitContract
 	SetSplitContract(resourceId common.Bytes, splitContract *SplitContract)
-	DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool)
+	DeleteSplitContract(resourceId common.Bytes) bool
 	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }
 
@@ -22,6 +22,6 @@ type ViewDataSetter interface {
 	SetAccount(addr common.Address, acc *Account)
 
 	SetSplitContract(resourceId common.Bytes, splitContract *SplitContract)
-	DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool)
+	DeleteSplitContract(resourceId common.Bytes) bool
 	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }

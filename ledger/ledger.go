@@ -9,6 +9,11 @@ import (
 	nd "github.com/thetatoken/ukulele/node"
 )
 
+var _ core.Ledger = (*Ledger)(nil)
+
+//
+// Ledger implements the core.Ledger interface
+//
 type Ledger struct {
 	state *st.LedgerState
 	node  *nd.Node

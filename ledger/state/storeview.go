@@ -3,6 +3,8 @@ package state
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/store/treestore"
@@ -90,10 +92,10 @@ func (sv *StoreView) SetSplitContract(resourceId common.Bytes, splitContract *ty
 }
 
 // DeleteSplitContract implements the ViewDataAccessor DeleteSplitContract() method
-func (sv *StoreView) DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool) {
+func (sv *StoreView) DeleteSplitContract(resourceId common.Bytes) bool {
 	key := SplitContractKey(resourceId)
-	splitContractBytes, deleted := sv.store.Delete(key)
-	return splitContractBytes, deleted
+	deleted := sv.store.Delete(key)
+	return deleted
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor DeleteExpiredSplitContracts() method
@@ -115,6 +117,13 @@ func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 	for _, key := range expiredKeys {
 		sv.store.Delete(key)
 	}
+	root, err := sv.store.Commit(nil)
 
+	if err != nil {
+		log.Errorf("Failed to delete expired split contracts")
+		return false
+	}
+
+	sv.store.GetDB().Commit(root, false)
 	return true
 }

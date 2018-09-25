@@ -53,7 +53,7 @@ func (store *TreeStore) Traverse(prefix common.Bytes, cb func(k, v common.Bytes)
 }
 
 // Delete deletes the key/value pair.
-func (store *TreeStore) Delete(key common.Bytes) (deletedBytes common.Bytes, deleted bool) {
-	// TODO: needs proper implementation
-	return common.Bytes{}, false
+func (store *TreeStore) Delete(key common.Bytes) (deleted bool) {
+	store.Trie.Delete(key)
+	return true
 }

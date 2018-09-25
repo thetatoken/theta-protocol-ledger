@@ -6,13 +6,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	abci "github.com/thetatoken/theta/abci/types"
-	crypto "github.com/thetatoken/theta/go-crypto"
-	"github.com/thetatoken/theta/tendermint/node"
-	"github.com/thetatoken/theta/tmlibs/log"
-
-	ctx "github.com/thetatoken/theta/context"
-	"github.com/thetatoken/theta/types"
+	st "github.com/thetatoken/ukulele/ledger/state"
+	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/ledger/types/result"
 )
 
 //--------------------------------------------------------
@@ -20,10 +16,11 @@ import (
 
 type execTest struct {
 	chainID string
-	store   ctx.TreeKVStore
-	state   *ctx.State
-	accIn   types.PrivAccount
-	accOut  types.PrivAccount
+
+	executor *Executor
+
+	accIn  types.PrivAccount
+	accOut types.PrivAccount
 }
 
 func newExecTest() *execTest {
@@ -38,24 +35,28 @@ func (et *execTest) signTx(tx *types.SendTx, accsIn ...types.PrivAccount) {
 	types.SignTx(et.chainID, tx, accsIn...)
 }
 
+func (et *execTest) state() *st.LedgerState {
+	return et.executor.state
+}
+
 // returns the final balance and expected balance for input and output accounts
-func (et *execTest) exec(tx *types.SendTx, checkTx bool) (res abci.Result, inGot, inExp, outGot, outExp types.Coins) {
-	initBalIn := et.state.GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	initBalOut := et.state.GetAccount(et.accOut.Account.PubKey.Address()).Balance
+func (et *execTest) exec(tx *types.SendTx, checkTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
+	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 
-	res = ExecTx(et.state, tx, checkTx, nil)
+	res = et.executor.ExecuteTx(tx, checkTx)
 
-	endBalIn := et.state.GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	endBalOut := et.state.GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 	decrBalInExp := tx.Outputs[0].Coins.Plus(types.Coins{tx.Fee}) //expected decrease in balance In
 	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
 }
 
 func (et *execTest) acc2State(accs ...types.PrivAccount) {
 	for _, acc := range accs {
-		et.state.SetAccount(acc.Account.PubKey.Address(), &acc.Account)
+		et.executor.state.SetAccount(acc.Account.PubKey.Address(), &acc.Account)
 	}
-	et.state.Commit()
+	et.executor.state.Commit()
 }
 
 //reset everything. state is empty
@@ -65,7 +66,6 @@ func (et *execTest) reset() {
 
 	et.store = ctx.NewMemTreeKVStore()
 	et.state = ctx.NewState(et.store)
-	et.state.SetLogger(log.TestingLogger())
 	et.state.SetChainID(et.chainID)
 
 	ctx.AppContext.SetCheckpoint(&ctx.Checkpoint{Height: 1})
@@ -89,18 +89,18 @@ func TestGetInputs(t *testing.T) {
 	//test getInputs for registered, non-registered account
 	et.reset()
 	inputs := types.Accs2TxInputs(1, et.accIn)
-	acc, res = getInputs(et.state, inputs)
+	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsErr(), "getInputs: expected error when using getInput with non-registered Input")
 
 	et.acc2State(et.accIn)
-	acc, res = getInputs(et.state, inputs)
+	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to getInput from registered Input")
 
 	//test sending duplicate accounts
 	et.reset()
 	et.acc2State(et.accIn, et.accIn, et.accIn)
 	inputs = types.Accs2TxInputs(1, et.accIn, et.accIn, et.accIn)
-	acc, res = getInputs(et.state, inputs)
+	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsErr(), "getInputs: expected error when sending duplicate accounts")
 
 	//test calculating reward
@@ -237,14 +237,14 @@ func TestValidateInputAdvanced(t *testing.T) {
 	et.accIn.Sequence = 1
 	et.signTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
-	assert.Equal(abci.CodeType_BaseInvalidSequence, res.Code, "validateInputAdvanced: expected error on tx input with bad sequence")
+	assert.Equal(result.CodeType_BaseInvalidSequence, res.Code, "validateInputAdvanced: expected error on tx input with bad sequence")
 	et.accIn.Sequence = 0 //restore sequence
 
 	//bad balance case
 	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}
 	et.signTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
-	assert.Equal(abci.CodeType_BaseInsufficientFunds, res.Code,
+	assert.Equal(result.CodeType_BaseInsufficientFunds, res.Code,
 		"validateInputAdvanced: expected error on tx input with insufficient funds %v", et.accIn.Sequence)
 }
 
@@ -379,7 +379,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 	} // Empty PubKey
 
 	acc, res := getInput(et.state, txInput1)
-	assert.Equal(abci.ErrInternalError.AppendLog("TxInput PubKey cannot be empty when Sequence == 1"), res)
+	assert.Equal(result.ErrInternalError.AppendLog("TxInput PubKey cannot be empty when Sequence == 1"), res)
 	assert.True(acc == nil)
 
 	// ----------- Test 2: acc.PubKey is empty, and txInput.PubKey is not empty -----------
@@ -462,7 +462,7 @@ func TestCoinbaseTx(t *testing.T) {
 
 	var validators [][]byte
 	var tx *types.CoinbaseTx
-	var res abci.Result
+	var res result.Result
 
 	//Regular check
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}

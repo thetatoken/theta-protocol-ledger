@@ -150,7 +150,7 @@ func (s *LedgerState) UpdateSplitContract(splitContract *types.SplitContract) bo
 }
 
 // DeleteSplitContract implements the ViewDataAccessor interface
-func (s *LedgerState) DeleteSplitContract(resourceId common.Bytes) (SplitContractBytes common.Bytes, deleted bool) {
+func (s *LedgerState) DeleteSplitContract(resourceId common.Bytes) bool {
 	return s.Delivered().DeleteSplitContract(resourceId)
 }
 

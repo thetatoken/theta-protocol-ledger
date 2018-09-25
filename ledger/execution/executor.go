@@ -58,13 +58,13 @@ func (exec *Executor) SetNode(node *nd.Node) {
 }
 
 // ExecuteTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
-func (exec *Executor) ExecuteTx(state *st.LedgerState, tx types.Tx, isCheckTx bool) result.Result {
-	chainID := state.GetChainID()
+func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) result.Result {
+	chainID := exec.state.GetChainID()
 	var view *st.StoreView
 	if isCheckTx {
-		view = state.Checked()
+		view = exec.state.Checked()
 	} else {
-		view = state.Delivered()
+		view = exec.state.Delivered()
 	}
 
 	sanityCheckResult := exec.sanityCheck(chainID, view, tx)

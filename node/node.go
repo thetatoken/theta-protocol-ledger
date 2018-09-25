@@ -16,7 +16,7 @@ import (
 type Node struct {
 	Store       store.Store
 	Chain       *blockchain.Chain
-	Consensus   consensus.Engine
+	Consensus   *consensus.ConsensusEngine
 	SyncManager *netsync.SyncManager
 	Dispatcher  *dispatcher.Dispatcher
 	Network     p2p.Network
@@ -39,7 +39,7 @@ type Params struct {
 
 func NewNode(params *Params) *Node {
 	chain := blockchain.NewChain(params.ChainID, params.Store, params.Root)
-	consensus := consensus.NewEngine(chain, params.Network, params.Validators)
+	consensus := consensus.NewConsensusEngine(chain, params.Network, params.Validators)
 	dispatcher := dispatcher.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher)
 
