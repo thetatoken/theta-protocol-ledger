@@ -20,7 +20,7 @@ protoc:
 	protoc $(INCLUDE) --gogo_out=plugins=:. ledger/types/serialization/*.proto
 	pbjs -t static-module ledger/types/serialization/types.proto -o ledger/types/serialization/types.pb.js
 
-test: test_unit test_integration
+test: test_unit test_integration test_cluster_deployment
 
 test_unit:
 	go test `glide novendor` -tags=unit
@@ -30,6 +30,9 @@ test_integration:
 
 test_experimental:
 	go test -race `glide novendor` -tags=experimental
+
+test_cluster_deployment:
+	go test -race `glide novendor` -tags=cluster_deployment
 
 get_vendor_deps: tools
 	glide install
