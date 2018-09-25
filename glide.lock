@@ -1,8 +1,8 @@
-hash: db089f751cdf9f653cfce75c8b0549ceca0b356de1c570eab176ff6726666f33
-updated: 2018-09-04T13:26:20.350733-07:00
+hash: a152d772428b1d48d8990e1989f7d51bffef758e933b852d311b48a440ed3c52
+updated: 2018-09-25T15:42:25.739874646-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
-  version: 8fc2a8c6a5dd5be93117c4bf1ba921e78a8dfab0
+  version: 7cb6228c3de365117a866ddd51ed124ce7405c2c
   subpackages:
   - internal/lua
   - internal/lua/resources
@@ -14,10 +14,6 @@ imports:
   - types/particle_type
   - types/rand
   - utils/buffer
-- name: github.com/btcsuite/btcd
-  version: cff30e1d23fc9e800b2b5b4b41ef1817dda07e9f
-  subpackages:
-  - btcec
 - name: github.com/buger/jsonparser
   version: f4dd9f5a6b441265aefc1d44872a6f8c10f42b37
 - name: github.com/davecgh/go-spew
@@ -28,6 +24,12 @@ imports:
   version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
+- name: github.com/gogo/protobuf
+  version: 1adfc126b41513cc696b209667c8656ea7aac67c
+  subpackages:
+  - gogoproto
+  - proto
+  - protoc-gen-gogo/descriptor
 - name: github.com/golang/snappy
   version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
 - name: github.com/hashicorp/hcl
@@ -45,24 +47,33 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/influxdata/influxdb
-  version: 7adf7f9d14ef38517d4bb19301b7f8d9a26d19dd
+  version: 389de31c961831de0a9f4172173337d4a6193909
   subpackages:
   - client
   - models
   - pkg/escape
+- name: github.com/konsorten/go-windows-terminal-sequences
+  version: b729f2633dfe35f4d1d8a32385f6685610ce1cb5
 - name: github.com/magiconair/properties
   version: c2353362d570a7bfa228149c62842019201cfb71
+- name: github.com/mattn/go-colorable
+  version: efa589957cd060542a26d2dd7832fd6a6c6c3ade
+- name: github.com/mattn/go-isatty
+  version: 6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c
+- name: github.com/mgutz/ansi
+  version: 9520e82c474b0a04dd04f8a40959027271bab992
 - name: github.com/mitchellh/go-homedir
   version: ae18d6b8b3205b561c79e8e5f69bff09736185f4
 - name: github.com/mitchellh/mapstructure
   version: fa473d140ef3c6adf42d6b391fe76707f1f243c8
 - name: github.com/mongodb/mongo-go-driver
-  version: e3f321c2848b138976cf8c6143aab9702e2b2fc6
+  version: e9228a40a480a5403b7256fb755ab000ff754c35
   subpackages:
   - bson
   - bson/builder
   - bson/decimal
   - bson/elements
+  - bson/internal/llbson
   - bson/objectid
   - bson/parser
   - bson/parser/ast
@@ -118,7 +129,7 @@ imports:
   subpackages:
   - difflib
 - name: github.com/sirupsen/logrus
-  version: 3e01752db0189b9157070a0e1668a620f9a85da2
+  version: a67f783a3814b8729bd2dac5780b5f78f8dbd64d
 - name: github.com/spf13/afero
   version: 787d034dfe70e44075ccc060d346146ef53270ad
   subpackages:
@@ -134,7 +145,7 @@ imports:
 - name: github.com/spf13/pflag
   version: 9a97c102cda95a86cec2345a6f09f55a939babf5
 - name: github.com/spf13/viper
-  version: 907c19d40d9a6c9bb55f040ff4ae45271a4754b9
+  version: 8fb642006536c8d3760c99d4fa2389f5e2205631
 - name: github.com/stretchr/testify
   version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:

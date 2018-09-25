@@ -7,8 +7,6 @@ import (
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
-
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -31,8 +29,12 @@ const (
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
+
 	// CfgLogDebug sets the log level.
-	CfgLogDebug = "log.debug"
+	CfgLogLevels = "log.levels"
+	// CfgLogPrintSelfID determines whether to print node's ID in log (Useful in simulation when
+	// there are more than one node running).
+	CfgLogPrintSelfID = "log.printSelfID"
 )
 
 // InitialConfig is the default configuartion produced by init command.
@@ -55,9 +57,8 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 
-	viper.SetDefault(CfgLogDebug, false)
-
-	log.SetLevel(log.DebugLevel)
+	viper.SetDefault(CfgLogLevels, "*:debug")
+	viper.SetDefault(CfgLogPrintSelfID, false)
 }
 
 // GetDefaultConfigPath returns the default config path.

@@ -79,6 +79,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
 	channelHeader := createDefaultChannel(common.ChannelIDHeader)
 	channelBlock := createDefaultChannel(common.ChannelIDBlock)
+	channelProposal := createDefaultChannel(common.ChannelIDProposal)
 	channelVote := createDefaultChannel(common.ChannelIDVote)
 	channelTransaction := createDefaultChannel(common.ChannelIDTransaction)
 	channelPeerDiscover := createDefaultChannel(common.ChannelIDPeerDiscovery)
@@ -87,6 +88,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		&channelCheckpoint,
 		&channelHeader,
 		&channelBlock,
+		&channelProposal,
 		&channelVote,
 		&channelTransaction,
 		&channelPeerDiscover,
