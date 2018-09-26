@@ -382,6 +382,16 @@ func (b *ldbBatch) Delete(key []byte) error {
 	return nil
 }
 
+func (b *ldbBatch) Reference(key []byte) error {
+	// TODO
+	return nil
+}
+
+func (b *ldbBatch) Dereference(key []byte) error {
+	// TODO
+	return nil
+}
+
 func (b *ldbBatch) Write() error {
 	return b.db.Write(b.b, nil)
 }
@@ -460,6 +470,14 @@ func (tb *tableBatch) Put(key, value []byte) error {
 
 func (tb *tableBatch) Delete(key []byte) error {
 	return tb.batch.Delete(append([]byte(tb.prefix), key...))
+}
+
+func (tb *tableBatch) Reference(key []byte) error {
+	return tb.batch.Reference(append([]byte(tb.prefix), key...))
+}
+
+func (tb *tableBatch) Dereference(key []byte) error {
+	return tb.batch.Dereference(append([]byte(tb.prefix), key...))
 }
 
 func (tb *tableBatch) Write() error {

@@ -31,14 +31,24 @@ type Deleter interface {
 	Delete(key []byte) error
 }
 
+// Referencer wraps the database reference operation supported by both batches and regular databases.
+type Referencer interface {
+	Reference(key []byte) error
+}
+
+// Dereferencer wraps the database dereference operation supported by both batches and regular databases.
+type Dereferencer interface {
+	Dereference(key []byte) error
+}
+
 // Database wraps all database operations. All methods are safe for concurrent use.
 type Database interface {
 	Putter
 	Deleter
+	Referencer
+	Dereferencer
 	Get(key []byte) ([]byte, error)
 	Has(key []byte) (bool, error)
-	Reference(key []byte) error
-	Dereference(key []byte) error
 	CountReference(key []byte) (int, error)
 	Close()
 	NewBatch() Batch
@@ -49,6 +59,8 @@ type Database interface {
 type Batch interface {
 	Putter
 	Deleter
+	Referencer
+	Dereferencer
 	ValueSize() int // amount of data in the batch
 	Write() error
 	// Reset resets the batch for reuse

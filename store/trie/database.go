@@ -694,17 +694,23 @@ func (db *Database) commit(hash common.Hash, batch database.Batch) error {
 	// If the node does not exist, it's a previously committed node
 	node, ok := db.nodes[hash]
 	if !ok {
+		batch.Reference(hash[:])
 		return nil
 	}
+
+	log.Printf("commit ------- %v", hash)
+
 	for _, child := range node.childs() {
 		if err := db.commit(child, batch); err != nil {
 			return err
 		}
 	}
-	log.Printf("commit ------- %v", hash)
+
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}
+	batch.Reference(hash[:])
+
 	// If we've reached an optimal batch size, commit and start over
 	if batch.ValueSize() >= database.IdealBatchSize {
 		if err := batch.Write(); err != nil {

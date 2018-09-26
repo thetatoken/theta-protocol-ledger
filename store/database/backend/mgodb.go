@@ -72,12 +72,12 @@ func (db *MgoDatabase) Delete(key []byte) error {
 }
 
 func (db *MgoDatabase) Reference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
 func (db *MgoDatabase) Dereference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
@@ -113,6 +113,16 @@ func (b *mgodbBatch) Delete(key []byte) error {
 	selector := bson.M{Id: key}
 	b.b.Remove(selector)
 	b.size++
+	return nil
+}
+
+func (b *mgodbBatch) Reference(key []byte) error {
+	// TODO
+	return nil
+}
+
+func (b *mgodbBatch) Dereference(key []byte) error {
+	// TODO
 	return nil
 }
 

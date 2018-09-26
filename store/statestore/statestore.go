@@ -51,3 +51,7 @@ func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) b
 	}
 	return true
 }
+
+func (store *StateStore) Prune() error {
+	return store.Trie.Prune()
+}

@@ -91,12 +91,12 @@ func (db *MemDatabase) Delete(key []byte) error {
 }
 
 func (db *MemDatabase) Reference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
 func (db *MemDatabase) Dereference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
@@ -132,6 +132,16 @@ func (b *memBatch) Put(key, value []byte) error {
 func (b *memBatch) Delete(key []byte) error {
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
 	b.size += 1
+	return nil
+}
+
+func (b *memBatch) Reference(key []byte) error {
+	// TODO
+	return nil
+}
+
+func (b *memBatch) Dereference(key []byte) error {
+	// TODO
 	return nil
 }
 

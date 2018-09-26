@@ -93,12 +93,12 @@ func (db *MongoDatabase) Delete(key []byte) error {
 }
 
 func (db *MongoDatabase) Reference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
 func (db *MongoDatabase) Dereference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
@@ -136,6 +136,16 @@ func (b *mdbBatch) Put(key, value []byte) error {
 func (b *mdbBatch) Delete(key []byte) error {
 	b.deletes = append(b.deletes, bson.VC.Binary(key))
 	b.size++
+	return nil
+}
+
+func (b *mdbBatch) Reference(key []byte) error {
+	// TODO
+	return nil
+}
+
+func (b *mdbBatch) Dereference(key []byte) error {
+	// TODO
 	return nil
 }
 
