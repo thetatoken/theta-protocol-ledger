@@ -5,31 +5,31 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 // ------------------------------- Coinbase Transaction -----------------------------------
 
 // CoinbaseTxExecutor implements the TxExecutor interface
 type CoinbaseTxExecutor struct {
-	state *st.LedgerState
-	node  *nd.Node
+	state     *st.LedgerState
+	consensus core.ConsensusEngine
 }
 
 // NewCoinbaseTxExecutor creates a new instance of CoinbaseTxExecutor
-func NewCoinbaseTxExecutor(state *st.LedgerState, node *nd.Node) *CoinbaseTxExecutor {
+func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine) *CoinbaseTxExecutor {
 	return &CoinbaseTxExecutor{
-		state: state,
-		node:  node,
+		state:     state,
+		consensus: consensus,
 	}
 }
 
 func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
 	tx := transaction.(*types.CoinbaseTx)
-	validatorAddresses := getValidatorAddresses(exec.node)
+	validatorAddresses := getValidatorAddresses(exec.consensus)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()

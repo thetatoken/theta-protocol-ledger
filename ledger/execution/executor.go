@@ -1,10 +1,10 @@
 package execution
 
 import (
+	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 //
@@ -19,8 +19,8 @@ type TxExecutor interface {
 // Executor executes the transactions
 //
 type Executor struct {
-	state *st.LedgerState
-	node  *nd.Node
+	state     *st.LedgerState
+	consensus core.ConsensusEngine
 
 	coinbaseTxExec        *CoinbaseTxExecutor
 	slashTxExec           *SlashTxExecutor
@@ -30,31 +30,33 @@ type Executor struct {
 	releaseFundTxExec     *ReleaseFundTxExecutor
 	servicePaymentTxExec  *ServicePaymentTxExecutor
 	splitContractTxExec   *SplitContractTxExecutor
+
+	skipSanityCheck bool
 }
 
 // NewExecutor creates a new instance of Executor
-func NewExecutor(state *st.LedgerState, node *nd.Node) *Executor {
+func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine) *Executor {
 	executor := &Executor{
 		state:                 state,
-		node:                  node,
-		coinbaseTxExec:        NewCoinbaseTxExecutor(state, node),
-		slashTxExec:           NewSlashTxExecutor(node),
+		consensus:             consensus,
+		coinbaseTxExec:        NewCoinbaseTxExecutor(state, consensus),
+		slashTxExec:           NewSlashTxExecutor(consensus),
 		updateValidatorTxExec: NewUpdateValidatorsTxExecutor(state),
 		sendTxExec:            NewSendTxExecutor(),
 		reserveFundTxExec:     NewReserveFundTxExecutor(),
 		releaseFundTxExec:     NewReleaseFundTxExecutor(),
 		servicePaymentTxExec:  NewServicePaymentTxExecutor(state),
 		splitContractTxExec:   NewSplitContractTxExecutor(state),
+		skipSanityCheck:       false,
 	}
 
 	return executor
 }
 
-// SetNode sets the node pointer of the executors
-func (exec *Executor) SetNode(node *nd.Node) {
-	exec.node = node
-	exec.coinbaseTxExec.node = node
-	exec.slashTxExec.node = node
+// SetSkipSanityCheck sets the flag for sanity check.
+// Skip checks while replaying commmitted blocks.
+func (exec *Executor) SetSkipSanityCheck(skip bool) {
+	exec.skipSanityCheck = skip
 }
 
 // ExecuteTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
@@ -77,8 +79,7 @@ func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) result.Result {
 }
 
 func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx types.Tx) result.Result {
-	// Skip checks while replaying commmitted blocks.
-	if exec.node == nil {
+	if exec.skipSanityCheck {
 		return result.OK
 	}
 

@@ -3,28 +3,28 @@ package execution
 import (
 	"fmt"
 
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 // ------------------------------- Slash Transaction -----------------------------------
 
 type SlashTxExecutor struct {
-	node *nd.Node
+	consensus core.ConsensusEngine
 }
 
 // NewSlashTxExecutor creates a new instance of SlashTxExecutor
-func NewSlashTxExecutor(node *nd.Node) *SlashTxExecutor {
+func NewSlashTxExecutor(consensus core.ConsensusEngine) *SlashTxExecutor {
 	return &SlashTxExecutor{
-		node: node,
+		consensus: consensus,
 	}
 }
 
 func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
-	validatorAddresses := getValidatorAddresses(exec.node)
+	validatorAddresses := getValidatorAddresses(exec.consensus)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()

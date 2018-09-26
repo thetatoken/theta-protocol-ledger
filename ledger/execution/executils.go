@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 // --------------------------------- Execution Utilities -------------------------------------
@@ -34,9 +34,9 @@ import (
 // }
 
 // getValidatorAddresses returns validators' addresses
-func getValidatorAddresses(node *nd.Node) []common.Address {
-	epoch := node.Consensus.GetEpoch()
-	vaMgr := node.Consensus.GetValidatorManager()
+func getValidatorAddresses(consensus core.ConsensusEngine) []common.Address {
+	epoch := consensus.GetEpoch()
+	vaMgr := consensus.GetValidatorManager()
 	validators := vaMgr.GetValidatorSetForEpoch(epoch).Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
