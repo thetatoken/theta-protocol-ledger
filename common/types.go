@@ -354,29 +354,32 @@ type ChannelIDEnum byte
 const (
 
 	// ChannelIDInvalid indicates an invalid channel
-	ChannelIDInvalid ChannelIDEnum = 0
+	ChannelIDInvalid ChannelIDEnum = iota
 
 	// ChannelIDCheckpoint indicates the channel for Checkpoint
-	ChannelIDCheckpoint ChannelIDEnum = 1
+	ChannelIDCheckpoint
 
 	// ChannelIDHeader indicates the channel for Header
-	ChannelIDHeader ChannelIDEnum = 2
+	ChannelIDHeader
 
 	// ChannelIDBlock indicates the channel for Block
-	ChannelIDBlock ChannelIDEnum = 3
+	ChannelIDBlock
+
+	// ChannelIDProposal indicates the channel for Proposal
+	ChannelIDProposal
 
 	// ChannelIDCC indicates the channel for Commit Certificate
-	ChannelIDCC ChannelIDEnum = 4
+	ChannelIDCC
 
 	// ChannelIDVote indicates the channel for Vote
-	ChannelIDVote ChannelIDEnum = 5
+	ChannelIDVote
 
 	// ChannelIDTransaction indicates the channel for Transaction
-	ChannelIDTransaction ChannelIDEnum = 6
+	ChannelIDTransaction
 
 	// ChannelIDPeerDiscovery indicates the channel for Peer Discovery information exchange
-	ChannelIDPeerDiscovery ChannelIDEnum = 7
+	ChannelIDPeerDiscovery
 
 	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
-	ChannelIDPing ChannelIDEnum = 8
+	ChannelIDPing
 )

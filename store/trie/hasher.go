@@ -21,7 +21,6 @@ import (
 	"hash"
 	"sync"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto/sha3"
 	"github.com/thetatoken/ukulele/rlp"
@@ -166,7 +165,6 @@ func (h *hasher) hashChildren(original node, db *Database) (node, node, error) {
 // the key/value pair to it and tracks any node->child references as well as any
 // node->external trie references.
 func (h *hasher) store(n node, db *Database, force bool) (node, error) {
-	log.Printf("............ %v", n)
 	// Don't store hashes or empty nodes.
 	if _, isHash := n.(hashNode); n == nil || isHash {
 		return n, nil

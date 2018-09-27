@@ -237,10 +237,6 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 		// If the whole key matches, keep this short node as is
 		// and only update the value.
 		if matchlen == len(n.Key) {
-			log.Printf("01 === %v", prefix)
-			log.Printf("02 === %v", key[:matchlen])
-			log.Printf("03 === %v", key[matchlen:])
-			log.Printf("04 === %v", value)
 			dirty, nn, err := t.insert(n.Val, append(prefix, key[:matchlen]...), key[matchlen:], value)
 			if !dirty || err != nil {
 				return false, n, err
@@ -250,16 +246,10 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 		// Otherwise branch out at the index where they differ.
 		branch := &fullNode{flags: t.newFlag()}
 		var err error
-		log.Printf("1 === %v", n.Key[matchlen])
-		log.Printf("2 === %v", n.Key[:matchlen+1])
-		log.Printf("3 === %v", n.Key[matchlen+1:])
 		_, branch.Children[n.Key[matchlen]], err = t.insert(nil, append(prefix, n.Key[:matchlen+1]...), n.Key[matchlen+1:], n.Val)
 		if err != nil {
 			return false, nil, err
 		}
-		log.Printf("4 === %v", key[matchlen])
-		log.Printf("5 === %v", key[:matchlen+1])
-		log.Printf("6 === %v", key[matchlen+1:])
 		_, branch.Children[key[matchlen]], err = t.insert(nil, append(prefix, key[:matchlen+1]...), key[matchlen+1:], value)
 		if err != nil {
 			return false, nil, err
@@ -272,11 +262,6 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 		return true, &shortNode{key[:matchlen], branch, t.newFlag()}, nil
 
 	case *fullNode:
-		log.Printf("f1 === %v", prefix)
-		log.Printf("f2 === %v", key[0])
-		log.Printf("f3 === %v", key[1:])
-		log.Printf("f4 === %v", value)
-		log.Printf("f5 === %v", n.Children[key[0]])
 		dirty, nn, err := t.insert(n.Children[key[0]], append(prefix, key[0]), key[1:], value)
 		if !dirty || err != nil {
 			return false, n, err
@@ -496,18 +481,7 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	}
 	h := newHasher(t.cachegen, t.cachelimit, onleaf)
 	defer returnHasherToPool(h)
-	log.Printf("=-=-=-=== %v", t.root)
 	return h.hash(t.root, db, true)
-}
-
-func (t *Trie) ReferenceRoot() error {
-	for it := t.NodeIterator(nil); it.Next(true); {
-		if it.Hash() != (common.Hash{}) {
-			hash := it.Hash()
-			t.db.diskdb.Reference(hash[:])
-		}
-	}
-	return nil
 }
 
 // Prune deletes all non-referenced nodes of the Trie from DB

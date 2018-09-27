@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/ecdsa"
 	"encoding/hex"
 	"fmt"
 	"path"
@@ -17,8 +16,8 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
-	"github.com/thetatoken/ukulele/store/blockstore"
 	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 // startCmd represents the start command
@@ -57,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	db, err := backend.NewLDBDatabase(common.GetDefaultConfigPath(), 256, 0)
-	store := blockstore.NewBlockStore(db)
+	store := kvstore.NewKVStore(db)
 	root := &core.Block{}
 	root.ChainID = chainID
 	root.Epoch = rootEpoch
@@ -76,18 +75,18 @@ func runStart(cmd *cobra.Command, args []string) {
 	n.Wait()
 }
 
-func loadOrCreateKey() *ecdsa.PrivateKey {
+func loadOrCreateKey() *crypto.PrivateKey {
 	filepath := path.Join(cfgPath, "key")
-	privKey, err := crypto.LoadECDSA(filepath)
+	privKey, err := crypto.PrivateKeyFromFile(filepath)
 	if err == nil {
 		return privKey
 	}
 	log.WithFields(log.Fields{"err": err}).Warning("Failed to load private key. Generating new key")
-	privKey, err = crypto.GenerateKey()
+	privKey, _, err = crypto.GenerateKeyPair()
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to generate private key")
 	}
-	err = crypto.SaveECDSA(filepath, privKey)
+	err = privKey.SaveToFile(filepath)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to save private key")
 	}
@@ -97,12 +96,12 @@ func loadOrCreateKey() *ecdsa.PrivateKey {
 func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	privKey := loadOrCreateKey()
 	log.WithFields(log.Fields{
-		"pubKey":  fmt.Sprintf("%X", crypto.FromECDSAPub(&privKey.PublicKey)),
-		"address": fmt.Sprintf("%X", crypto.PubkeyToAddress(privKey.PublicKey)),
+		"pubKey":  fmt.Sprintf("%X", privKey.PublicKey().ToBytes()),
+		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey.PublicKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := messenger.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}

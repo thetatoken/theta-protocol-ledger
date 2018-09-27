@@ -12,8 +12,8 @@ import (
 func TestNodeInfoRLPEncoding1(t *testing.T) {
 	assert := assert.New(t)
 
-	randPrivKey, err := crypto.GenerateKey()
-	nodeInfo := CreateNodeInfo(randPrivKey.PublicKey)
+	_, randPubKey, err := crypto.GenerateKeyPair()
+	nodeInfo := CreateNodeInfo(randPubKey)
 
 	// ------ EncodeToBytes/DecodeBytes ------
 
@@ -32,8 +32,8 @@ func TestNodeInfoRLPEncoding1(t *testing.T) {
 func TestNodeInfoRLPEncoding2(t *testing.T) {
 	assert := assert.New(t)
 
-	randPrivKey, err := crypto.GenerateKey()
-	nodeInfo := CreateNodeInfo(randPrivKey.PublicKey)
+	_, randPubKey, err := crypto.GenerateKeyPair()
+	nodeInfo := CreateNodeInfo(randPubKey)
 
 	// ------ Encode/Decode ------
 

@@ -12,19 +12,25 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/ukulele/rlp"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
-var _ Engine = (*DefaultEngine)(nil)
+var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
-// DefaultEngine is the default implementation of the Engine interface.
-type DefaultEngine struct {
+// ConsensusEngine is the default implementation of the Engine interface.
+type ConsensusEngine struct {
+	logger *log.Entry
+
 	chain   *blockchain.Chain
 	network p2p.Network
 
@@ -50,13 +56,13 @@ type DefaultEngine struct {
 	epochVotes         map[string]core.Vote     // Validator ID -> latest vote from this validator
 	epochTimer         *time.Timer
 	epoch              uint32
-	validatorManager   ValidatorManager
+	validatorManager   core.ValidatorManager
 	rand               *rand.Rand
 }
 
-// NewEngine creates a instance of DefaultEngine.
-func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *DefaultEngine {
-	e := &DefaultEngine{
+// NewConsensusEngine creates a instance of ConsensusEngine.
+func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *ConsensusEngine {
+	e := &ConsensusEngine{
 		chain:   chain,
 		network: network,
 
@@ -77,6 +83,12 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.Va
 		epoch:              0,
 	}
 
+	logger := util.GetLoggerForModule("consensus")
+	if viper.GetBool(common.CfgLogPrintSelfID) {
+		logger = logger.WithFields(log.Fields{"id": network.ID()})
+	}
+	e.logger = logger
+
 	h := md5.New()
 	io.WriteString(h, network.ID())
 	seed := binary.BigEndian.Uint64(h.Sum(nil))
@@ -85,22 +97,32 @@ func NewEngine(chain *blockchain.Chain, network p2p.Network, validators *core.Va
 }
 
 // ID returns the identifier of current node.
-func (e *DefaultEngine) ID() string {
+func (e *ConsensusEngine) ID() string {
 	return e.network.ID()
 }
 
 // Chain return a pointer to the underlying chain store.
-func (e *DefaultEngine) Chain() *blockchain.Chain {
+func (e *ConsensusEngine) Chain() *blockchain.Chain {
 	return e.chain
 }
 
 // Network returns a pointer to the underlying network.
-func (e *DefaultEngine) Network() p2p.Network {
+func (e *ConsensusEngine) Network() p2p.Network {
 	return e.network
 }
 
+// GetEpoch returns the current epoch
+func (e *ConsensusEngine) GetEpoch() uint32 {
+	return e.epoch
+}
+
+// GetValidatorManager returns a pointer to the valiator manager.
+func (e *ConsensusEngine) GetValidatorManager() core.ValidatorManager {
+	return e.validatorManager
+}
+
 // Start starts sub components and kick off the main loop.
-func (e *DefaultEngine) Start(ctx context.Context) {
+func (e *ConsensusEngine) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)
 	e.ctx = c
 	e.cancel = cancel
@@ -109,16 +131,16 @@ func (e *DefaultEngine) Start(ctx context.Context) {
 }
 
 // Stop notifies all goroutines to stop without blocking.
-func (e *DefaultEngine) Stop() {
+func (e *ConsensusEngine) Stop() {
 	e.cancel()
 }
 
 // Wait blocks until all goroutines stop.
-func (e *DefaultEngine) Wait() {
+func (e *ConsensusEngine) Wait() {
 	e.wg.Wait()
 }
 
-func (e *DefaultEngine) mainLoop() {
+func (e *ConsensusEngine) mainLoop() {
 	e.wg.Add(1)
 	defer e.wg.Done()
 
@@ -136,7 +158,7 @@ func (e *DefaultEngine) mainLoop() {
 					break Epoch
 				}
 			case <-e.epochTimer.C:
-				log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
+				e.logger.WithFields(log.Fields{"e.epoch": e.epoch}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
 			}
@@ -144,7 +166,7 @@ func (e *DefaultEngine) mainLoop() {
 	}
 }
 
-func (e *DefaultEngine) enterEpoch() {
+func (e *ConsensusEngine) enterEpoch() {
 	// Reset timer.
 	if e.epochTimer != nil {
 		e.epochTimer.Stop()
@@ -157,7 +179,7 @@ func (e *DefaultEngine) enterEpoch() {
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface.
-func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
+func (e *ConsensusEngine) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDHeader,
 		common.ChannelIDBlock,
@@ -165,11 +187,11 @@ func (e *DefaultEngine) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
-func (e *DefaultEngine) AddMessage(msg interface{}) {
+func (e *ConsensusEngine) AddMessage(msg interface{}) {
 	e.incoming <- msg
 }
 
-func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
+func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Proposal:
 		e.handleProposal(m)
@@ -186,11 +208,11 @@ func (e *DefaultEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *DefaultEngine) handleProposal(p core.Proposal) {
-	log.WithFields(log.Fields{"proposal": p, "id": e.ID()}).Debug("Received proposal")
+func (e *ConsensusEngine) handleProposal(p core.Proposal) {
+	e.logger.WithFields(log.Fields{"proposal": p}).Debug("Received proposal")
 
 	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.epoch).ID(); p.ProposerID != expectedProposer {
-		log.WithFields(log.Fields{"proposal": p, "id": e.ID(), "p.proposerID": p.ProposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
+		e.logger.WithFields(log.Fields{"proposal": p, "p.proposerID": p.ProposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
 		return
 	}
 
@@ -199,10 +221,12 @@ func (e *DefaultEngine) handleProposal(p core.Proposal) {
 	e.vote()
 }
 
-func (e *DefaultEngine) handleBlock(block *core.Block) {
+func (e *ConsensusEngine) handleBlock(block *core.Block) {
+	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
+
 	var err error
 	if block.Epoch != e.epoch {
-		log.WithFields(log.Fields{"id": e.ID(),
+		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash,
 			"e.epoch":     e.epoch,
@@ -210,17 +234,20 @@ func (e *DefaultEngine) handleBlock(block *core.Block) {
 	}
 	_, err = e.chain.AddBlock(block)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "block": block}).Error(err)
+		e.logger.WithFields(log.Fields{"block": block}).Error(err)
 	}
 }
 
-func (e *DefaultEngine) vote() {
+func (e *ConsensusEngine) vote() {
 	previousTip := e.GetTip()
 	tip := e.setTip()
 
 	var header *core.BlockHeader
 	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.lastVoteHeight >= tip.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "lastVoteHeight": e.lastVoteHeight, "tip.Hash": tip.Hash}).Debug("Voting nil since already voted at height")
+		e.logger.WithFields(log.Fields{
+			"lastVoteHeight": e.lastVoteHeight,
+			"tip.Hash":       tip.Hash,
+		}).Debug("Voting nil since already voted at height")
 	} else {
 		header = &tip.BlockHeader
 		e.lastVoteHeight = tip.Height
@@ -232,35 +259,50 @@ func (e *DefaultEngine) vote() {
 		Epoch: e.epoch,
 	}
 
-	log.WithFields(log.Fields{"vote.block": vote.Block, "id": e.ID()}).Debug("Sending vote")
+	e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Debug("Sending vote")
 
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDVote,
+		Payload:   payload,
+	}
 	voteMsg := p2ptypes.Message{
 		ChannelID: common.ChannelIDVote,
-		Content:   vote,
+		Content:   data,
 	}
 	e.AddMessage(vote)
 	e.network.Broadcast(voteMsg)
 }
 
-func (e *DefaultEngine) handleCC(cc *core.CommitCertificate) {
+func (e *ConsensusEngine) handleCC(cc *core.CommitCertificate) {
+	e.logger.WithFields(log.Fields{"cc": cc}).Debug("Received CC")
+
 	if cc == nil {
 		return
 	}
 	ccBlock, err := e.chain.FindBlock(cc.BlockHash)
 	if err != nil {
-		log.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", cc.BlockHash)}).Error("Blockhash in commit certificate is not found")
+		e.logger.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", cc.BlockHash)}).Error("Blockhash in commit certificate is not found")
 		return
 	}
 	ccBlock.CommitCertificate = cc
 
 	e.chain.SaveBlock(ccBlock)
-	log.WithFields(log.Fields{"id": e.ID(), "error": err, "block": ccBlock, "commitCertificate": cc}).Debug("Update block with commit certificate")
+	e.logger.WithFields(log.Fields{
+		"error":             err,
+		"block":             ccBlock,
+		"commitCertificate": cc,
+	}).Debug("Update block with commit certificate")
 
 	e.processCCBlock(ccBlock)
 }
 
-func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
-	log.WithFields(log.Fields{"vote": vote, "id": e.ID()}).Debug("Received vote")
+func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
+	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(0)
 	e.epochVotes[vote.ID] = vote
@@ -275,19 +317,24 @@ func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		if validators.HasMajority(epochVoteSet) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
-			log.WithFields(log.Fields{"id": e.ID(), "e.epoch": e.epoch, "nextEpoch": nextEpoch}).Debug("Majority votes for current epoch. Moving to new epoch")
+
+			e.logger.WithFields(log.Fields{
+				"e.epoch":      e.epoch,
+				"nextEpoch":    nextEpoch,
+				"epochVoteSet": epochVoteSet,
+			}).Debug("Majority votes for current epoch. Moving to new epoch")
 			e.epoch = nextEpoch
 		}
 	}
 
 	if vote.Block == nil {
-		log.WithFields(log.Fields{"id": e.ID(), "vote": vote}).Debug("Empty vote received")
+		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Empty vote received")
 		return
 	}
 	hs := hex.EncodeToString(vote.Block.Hash)
 	block, err := e.Chain().FindBlock(vote.Block.Hash)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
 		return
 	}
 	votes, ok := e.collectedVotes[hs]
@@ -308,7 +355,7 @@ func (e *DefaultEngine) handleVote(vote core.Vote) (endEpoch bool) {
 
 // setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
-func (e *DefaultEngine) setTip() *core.ExtendedBlock {
+func (e *ConsensusEngine) setTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -318,7 +365,7 @@ func (e *DefaultEngine) setTip() *core.ExtendedBlock {
 }
 
 // GetTip return the block to be extended from.
-func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
+func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
@@ -326,22 +373,22 @@ func (e *DefaultEngine) GetTip() *core.ExtendedBlock {
 }
 
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
-func (e *DefaultEngine) FinalizedBlocks() chan *core.Block {
+func (e *ConsensusEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
 }
 
-func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
-	log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
-	defer log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
+func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
+	e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Start processing ccBlock")
+	defer e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.epoch}).Debug("Done processing ccBlock")
 
 	if ccBlock.Height > e.highestCCBlock.Height {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
+		e.logger.WithFields(log.Fields{"ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
 		e.highestCCBlock = ccBlock
 	}
 
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
-		log.WithFields(log.Fields{"id": e.ID(), "err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
+		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
 	if parent.CommitCertificate != nil {
@@ -349,13 +396,13 @@ func (e *DefaultEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	}
 
 	if ccBlock.Epoch >= e.epoch {
-		log.WithFields(log.Fields{"id": e.ID(), "ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
+		e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "e.epoch": e.epoch}).Debug("Advancing epoch")
 		e.epoch = ccBlock.Epoch + 1
 		e.enterEpoch()
 	}
 }
 
-func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
+func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	if e.stopped {
 		return
 	}
@@ -365,8 +412,8 @@ func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 		return
 	}
 
-	log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Finalizing block")
-	defer log.WithFields(log.Fields{"id": e.ID(), "block.Hash": block.Hash}).Info("Done Finalized block")
+	e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Finalizing block")
+	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Done Finalized block")
 
 	e.lastFinalizedBlock = block
 
@@ -376,18 +423,18 @@ func (e *DefaultEngine) finalizeBlock(block *core.ExtendedBlock) {
 	}
 }
 
-func (e *DefaultEngine) randHex() []byte {
+func (e *ConsensusEngine) randHex() []byte {
 	bytes := make([]byte, 10)
 	e.rand.Read(bytes)
 	return bytes
 }
 
-func (e *DefaultEngine) shouldPropose(epoch uint32) bool {
+func (e *ConsensusEngine) shouldPropose(epoch uint32) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
 	return proposer.ID() == e.ID()
 }
 
-func (e *DefaultEngine) propose() {
+func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
 
 	block := core.Block{}
@@ -402,11 +449,20 @@ func (e *DefaultEngine) propose() {
 		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
 	}
 
-	log.WithFields(log.Fields{"proposal": proposal, "id": e.ID()}).Info("Making proposal")
+	e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 
+	payload, err := rlp.EncodeToBytes(proposal)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"proposal": proposal}).Error("Failed to encode proposal")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDProposal,
+		Payload:   payload,
+	}
 	proposalMsg := p2ptypes.Message{
-		ChannelID: common.ChannelIDBlock,
-		Content:   proposal,
+		ChannelID: common.ChannelIDProposal,
+		Content:   data,
 	}
 	e.AddMessage(proposal)
 	e.network.Broadcast(proposalMsg)

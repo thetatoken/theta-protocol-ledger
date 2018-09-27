@@ -9,7 +9,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
@@ -24,11 +24,7 @@ import (
 type MessageIDEnum uint8
 
 const (
-	MessageIDBlock MessageIDEnum = iota
-	MessageIDVote
-	MessageIDProposal
-	MessageIDCommitCertificate
-	MessageIDInvRequest
+	MessageIDInvRequest = iota
 	MessageIDInvResponse
 	MessageIDDataRequest
 	MessageIDDataResponse
@@ -40,7 +36,7 @@ var _ p2p.MessageHandler = (*SyncManager)(nil)
 // fast blocks sync among peers and buffer orphaned block/CC. Otherwise messages are passed through to consensus engine.
 type SyncManager struct {
 	chain           *blockchain.Chain
-	consensus       consensus.Engine
+	consensus       core.ConsensusEngine
 	dispatcher      *dispatcher.Dispatcher
 	requestMgr      *RequestManager
 	orphanBlockPool *OrphanBlockPool
@@ -54,9 +50,11 @@ type SyncManager struct {
 	mu       *sync.Mutex
 	incoming chan *p2ptypes.Message
 	epoch    uint32
+
+	logger *log.Entry
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2p.Network, disp *dispatcher.Dispatcher) *SyncManager {
 	sm := &SyncManager{
 		chain:           chain,
 		consensus:       cons,
@@ -71,6 +69,13 @@ func NewSyncManager(chain *blockchain.Chain, cons consensus.Engine, network p2p.
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
+
+	logger := util.GetLoggerForModule("sync")
+	if viper.GetBool(common.CfgLogPrintSelfID) {
+		logger = logger.WithFields(log.Fields{"id": sm.consensus.ID()})
+	}
+	sm.logger = logger
+
 	return sm
 }
 
@@ -110,6 +115,7 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 	return []common.ChannelIDEnum{
 		common.ChannelIDHeader,
 		common.ChannelIDBlock,
+		common.ChannelIDProposal,
 		common.ChannelIDCC,
 		common.ChannelIDVote,
 	}
@@ -134,7 +140,6 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	if msgID == MessageIDInvRequest {
 		data := dispatcher.InventoryRequest{}
 		err = rlp.DecodeBytes(raw[1:], &data)
@@ -149,22 +154,6 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 		return data, err
 	} else if msgID == MessageIDDataResponse {
 		data := dispatcher.DataResponse{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDBlock {
-		data := core.Block{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDProposal {
-		data := core.Proposal{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDVote {
-		data := core.Vote{}
-		err = rlp.DecodeBytes(raw[1:], &data)
-		return data, err
-	} else if msgID == MessageIDCommitCertificate {
-		data := core.CommitCertificate{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
 	} else {
@@ -189,14 +178,6 @@ func encodeMessage(message interface{}) (common.Bytes, error) {
 		msgID = MessageIDDataRequest
 	case dispatcher.DataResponse:
 		msgID = MessageIDDataResponse
-	case core.Proposal:
-		msgID = MessageIDProposal
-	case core.Block:
-		msgID = MessageIDBlock
-	case core.Vote:
-		msgID = MessageIDVote
-	case core.CommitCertificate:
-		msgID = MessageIDCommitCertificate
 	default:
 		return nil, errors.New("Unsupported message type")
 	}
@@ -223,7 +204,6 @@ func (sm *SyncManager) AddMessage(msg *p2ptypes.Message) {
 
 func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
 	switch content := message.Content.(type) {
-	// Messages needed for fast-sync.
 	case dispatcher.InventoryRequest:
 		sm.requestMgr.handleInvRequest(message.PeerID, &content)
 	case dispatcher.InventoryResponse:
@@ -233,22 +213,26 @@ func (sm *SyncManager) processMessage(message *p2ptypes.Message) {
 	case dispatcher.DataResponse:
 		sm.requestMgr.handleDataResponse(message.PeerID, &content)
 	default:
-		sm.processData(message.Content)
+		sm.logger.WithFields(log.Fields{
+			"message": message,
+		}).Panic("Received unknown message")
 	}
 }
 
 func (sm *SyncManager) processData(data interface{}) {
 	switch d := data.(type) {
-	// Messages need to be preprocessed.
-	case core.Proposal:
-		sm.handleProposal(&d)
-	case core.Block:
-		sm.handleBlock(&d)
-	case core.CommitCertificate:
-		sm.handleCC(&d)
+	case *core.Proposal:
+		sm.handleProposal(d)
+	case *core.Block:
+		sm.handleBlock(d)
+	case *core.CommitCertificate:
+		sm.handleCC(d)
+	case *core.Vote:
+		sm.handleVote(d)
 	default:
-		// Other messages are passed through to consensus engine.
-		sm.consensus.AddMessage(d)
+		sm.logger.WithFields(log.Fields{
+			"data": d,
+		}).Panic("Cannot process unknown data type")
 	}
 }
 
@@ -261,8 +245,7 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if sm.chain.IsOrphan(block) {
-		log.WithFields(log.Fields{
-			"id":               sm.consensus.ID(),
+		sm.logger.WithFields(log.Fields{
 			"block.Hash":       block.Hash,
 			"block.ParentHash": block.ParentHash,
 		}).Debug("Received orphaned block")
@@ -270,6 +253,11 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		sm.requestMgr.enqueueBlocks(block.Hash)
 		return
 	}
+
+	sm.logger.WithFields(log.Fields{
+		"block.Hash":       block.Hash,
+		"block.ParentHash": block.ParentHash,
+	}).Debug("Received block")
 
 	sm.consensus.AddMessage(block)
 
@@ -286,8 +274,7 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 	if block, _ := sm.chain.FindBlock(cc.BlockHash); block == nil {
-		log.WithFields(log.Fields{
-			"id":           sm.consensus.ID(),
+		sm.logger.WithFields(log.Fields{
 			"cc.BlockHash": cc.BlockHash,
 		}).Debug("Received orphaned CC")
 		sm.orphanCCPool.Add(cc)
@@ -296,4 +283,18 @@ func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 	}
 
 	sm.consensus.AddMessage(cc)
+}
+
+func (sm *SyncManager) handleVote(vote *core.Vote) {
+	if vote.Block != nil {
+		if block, _ := sm.chain.FindBlock(vote.Block.Hash); block == nil {
+			sm.logger.WithFields(log.Fields{
+				"vote.Hash": vote.Block.Hash,
+			}).Debug("Received orphaned vote")
+			sm.requestMgr.enqueueBlocks(vote.Block.Hash)
+			return
+		}
+	}
+
+	sm.consensus.AddMessage(vote)
 }

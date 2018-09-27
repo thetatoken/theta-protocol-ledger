@@ -101,8 +101,8 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 	assert := assert.New(t)
 	port := 43254
 
-	randPrivKey, err := crypto.GenerateKey()
-	origNodeInfo := p2ptypes.CreateNodeInfo(randPrivKey.PublicKey)
+	_, randPubKey, err := crypto.GenerateKeyPair()
+	origNodeInfo := p2ptypes.CreateNodeInfo(randPubKey)
 	assert.Nil(err)
 
 	basicMessageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
@@ -203,8 +203,8 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 	assert := assert.New(t)
 	port := 43255
 
-	randPrivKey, err := crypto.GenerateKey()
-	origNodeInfo := p2ptypes.CreateNodeInfo(randPrivKey.PublicKey)
+	_, randPubKey, err := crypto.GenerateKeyPair()
+	origNodeInfo := p2ptypes.CreateNodeInfo(randPubKey)
 	assert.Nil(err)
 
 	basicMessageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {

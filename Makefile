@@ -1,7 +1,8 @@
 GOTOOLS =	github.com/mitchellh/gox \
 			github.com/Masterminds/glide \
 			github.com/rigelrozanski/shelldown/cmd/shelldown
-			
+INCLUDE = -I=. -I=${GOPATH}/src -I=${GOPATH}/src/github.com/gogo/protobuf/protobuf
+
 all: get_vendor_deps install test
 
 build:
@@ -10,7 +11,16 @@ build:
 install:
 	go install ./cmd/...
 
-test: test_unit test_integration
+protoc:
+	#go get github.com/gogo/protobuf
+	#go get github.com/gogo/protobuf/proto
+	#go get github.com/gogo/protobuf/gogoproto
+	#go get github.com/gogo/protobuf/protoc-gen-gogo
+	#npm install -g protobufjs
+	protoc $(INCLUDE) --gogo_out=plugins=:. ledger/types/serialization/*.proto
+	pbjs -t static-module ledger/types/serialization/types.proto -o ledger/types/serialization/types.pb.js
+
+test: test_unit test_integration test_cluster_deployment
 
 test_unit:
 	go test `glide novendor` -tags=unit
@@ -20,6 +30,9 @@ test_integration:
 
 test_experimental:
 	go test -race `glide novendor` -tags=experimental
+
+test_cluster_deployment:
+	go test -race `glide novendor` -tags=cluster_deployment
 
 get_vendor_deps: tools
 	glide install

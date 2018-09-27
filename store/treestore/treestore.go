@@ -1,4 +1,4 @@
-package statestore
+package treestore
 
 import (
 	"bytes"
@@ -8,8 +8,8 @@ import (
 	"github.com/thetatoken/ukulele/store/trie"
 )
 
-// NewStateStore create a new instance of StateStore.
-func NewStateStore(root common.Hash, db database.Database, nonpersistent bool) *StateStore {
+// NewTreeStore create a new instance of TreeStore.
+func NewTreeStore(root common.Hash, db database.Database, nonpersistent bool) *TreeStore {
 	var tr *trie.Trie
 	var err error
 	if nonpersistent {
@@ -20,26 +20,26 @@ func NewStateStore(root common.Hash, db database.Database, nonpersistent bool) *
 	if err != nil {
 		return nil
 	}
-	return &StateStore{tr}
+	return &TreeStore{tr}
 }
 
-type StateStore struct {
+type TreeStore struct {
 	*trie.Trie
 }
 
 // Get retrieves value of given key.
-func (store *StateStore) Get(key []byte) []byte {
+func (store *TreeStore) Get(key common.Bytes) common.Bytes {
 	return store.Trie.Get(key)
 }
 
 // Set sets value of given key.
-func (store *StateStore) Set(key, value []byte) {
+func (store *TreeStore) Set(key, value common.Bytes) {
 	store.Trie.Update(key, value)
 }
 
 // Traverse traverses the trie and calls cb callback func on every key/value pair
 // with key having prefix
-func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) bool {
+func (store *TreeStore) Traverse(prefix common.Bytes, cb func(k, v common.Bytes) bool) bool {
 	// TODO: find alternative way without traversal
 	it := trie.NewIterator(store.Trie.NodeIterator(prefix))
 	for it.Next() {
@@ -49,6 +49,12 @@ func (store *StateStore) Traverse(prefix []byte, cb func([]byte, []byte) bool) b
 			break
 		}
 	}
+	return true
+}
+
+// Delete deletes the key/value pair.
+func (store *TreeStore) Delete(key common.Bytes) (deleted bool) {
+	store.Trie.Delete(key)
 	return true
 }
 

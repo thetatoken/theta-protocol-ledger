@@ -6,16 +6,10 @@ import (
 	"github.com/thetatoken/ukulele/core"
 )
 
-// ValidatorManager is the component for managing validator related logic for consensus engine.
-type ValidatorManager interface {
-	GetProposerForEpoch(epoch uint32) core.Validator
-	GetValidatorSetForEpoch(epoch uint32) *core.ValidatorSet
-}
-
 //
 // -------------------------------- FixedValidatorManager ----------------------------------
 //
-var _ ValidatorManager = &FixedValidatorManager{}
+var _ core.ValidatorManager = &FixedValidatorManager{}
 
 // FixedValidatorManager is an implementation of ValidatorManager interface that selects a fixed validator as the proposer.
 type FixedValidatorManager struct {
@@ -45,7 +39,7 @@ func (m *FixedValidatorManager) GetValidatorSetForEpoch(_ uint32) *core.Validato
 //
 // -------------------------------- RotatingValidatorManager ----------------------------------
 //
-var _ ValidatorManager = &RotatingValidatorManager{}
+var _ core.ValidatorManager = &RotatingValidatorManager{}
 
 // RotatingValidatorManager is an implementation of ValidatorManager interface that selects a random validator as
 // the proposer using validator's stake as weight.
