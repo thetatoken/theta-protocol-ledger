@@ -20,26 +20,6 @@ import (
 	"github.com/thetatoken/ukulele/p2p/types"
 )
 
-// type MockConsensusEngine struct {
-
-// }
-
-//	ID() string
-// GetTip() *ExtendedBlock
-// GetEpoch() uint32
-// AddMessage(msg interface{})
-// FinalizedBlocks() chan *Block
-
-// func (m *MockConsensusEngine) ID() string {
-// 	return "test_engine"
-// }
-
-// func (m *MockConsensusEngine) GetEpoch() uint32 {
-// 	return 1
-// }
-
-// func (m *MockConensusEngine) AddMessage(msg )
-
 type MockMessageConsumer struct {
 	Received []interface{}
 }

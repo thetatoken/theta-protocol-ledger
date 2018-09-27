@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
 	"sync"
 
 	"github.com/thetatoken/ukulele/blockchain"
@@ -122,7 +121,6 @@ func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnu
 		PeerID:    peerID,
 		ChannelID: channelID,
 	}
-	fmt.Printf("<<<<<<@@@@<<<<<<< sync: parseMessage: peerID: %v\n", peerID)
 	data, err := decodeMessage(rawMessageBytes)
 	message.Content = data
 	return message, err
