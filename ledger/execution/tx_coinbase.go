@@ -1,15 +1,16 @@
 package execution
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
 )
+
+var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
 // ------------------------------- Coinbase Transaction -----------------------------------
 
@@ -33,69 +34,68 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataG
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()
-	if res.IsErr() {
+	if res.IsError() {
 		return res
 	}
 
 	// verify that at most one coinbase transaction is processed for each block
 	if exec.state.CoinbaseTransactinProcessed() {
-		return result.ErrInternalError.PrependLog("Another coinbase transaction has been processed for the current block")
+		return result.Error("Another coinbase transaction has been processed for the current block")
 	}
 
 	// verify the proposer is one of the validators
 	res = isAValidator(tx.Proposer.PubKey, validatorAddresses)
-	if res.IsErr() {
+	if res.IsError() {
 		return res
 	}
 
 	proposerAccount, res := getInput(view, tx.Proposer)
-	if res.IsErr() {
-		return res.PrependLog(fmt.Sprintf("Failed to get the proposer account in coinbaseTx sanity check: %v", tx.Proposer))
+	if res.IsError() {
+		return res
 	}
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
 	if !proposerAccount.PubKey.VerifySignature(signBytes, tx.Proposer.Signature) {
-		return result.ErrBaseInvalidSignature.AppendLog(fmt.Sprintf("SignBytes: %X", signBytes))
+		return result.Error("SignBytes: %X", signBytes)
 	}
 
 	outputAccounts := map[string]*types.Account{}
 	outputAccounts, res = getOrMakeOutputs(view, outputAccounts, tx.Outputs)
-	if res.IsErr() {
-		return res.PrependLog("in getOrMakeOutputs()")
+	if res.IsError() {
+		return res
 	}
 
 	if tx.BlockHeight != getCurrentBlockHeight() {
-		return result.ErrInternalError.AppendLog("invalid block height for the coinbase transaction")
+		return result.Error("invalid block height for the coinbase transaction")
 	}
 
 	// check the reward amount
 	expectedRewards := CalculateReward(view, validatorAddresses)
 	if len(expectedRewards) != len(tx.Outputs) {
-		return result.ErrBaseInvalidOutput.AppendLog("Number of rewarded account is incorrect")
+		return result.Error("Number of rewarded account is incorrect")
 	}
 	for _, output := range tx.Outputs {
 		exp, ok := expectedRewards[string(output.Address[:])]
 		if !ok || !exp.IsEqual(output.Coins) {
-			return result.ErrBaseInvalidOutput.AppendLog(
-				fmt.Sprintf("Invalid rewards, address %v expecting %v, but is %v",
-					output.Address, exp, output.Coins))
+			return result.Error("Invalid rewards, address %v expecting %v, but is %v",
+				output.Address, exp, output.Coins)
 		}
 	}
 	return result.OK
 }
 
-func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) result.Result {
+func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.CoinbaseTx)
 
 	if exec.state.CoinbaseTransactinProcessed() {
-		return result.ErrInternalError.PrependLog("Another coinbase transaction has been processed for the current block")
+		return invalidHash, result.Error("Another coinbase transaction has been processed for the current block")
 	}
 
 	accounts := map[string]*types.Account{}
 	accounts, res := getOrMakeOutputs(view, accounts, tx.Outputs)
-	if res.IsErr() {
-		return res
+	if res.IsError() {
+		return invalidHash, res
 	}
 
 	for _, output := range tx.Outputs {
@@ -109,7 +109,7 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAcces
 	exec.state.SetCoinbaseTransactionProcessed(true)
 
 	txHash := types.TxID(chainID, tx)
-	return result.NewResultOK(txHash[:], "")
+	return txHash, result.OK
 }
 
 // CalculateReward calculates the block reward for each account

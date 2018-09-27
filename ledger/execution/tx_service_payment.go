@@ -6,10 +6,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
 )
+
+var _ TxExecutor = (*ServicePaymentTxExecutor)(nil)
 
 // ------------------------------- ServicePayment Transaction -----------------------------------
 
@@ -29,32 +31,32 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	tx := transaction.(*types.ServicePaymentTx)
 
 	res := tx.Source.ValidateBasic()
-	if res.IsErr() {
+	if res.IsError() {
 		return res
 	}
 
 	res = tx.Target.ValidateBasic()
-	if res.IsErr() {
+	if res.IsError() {
 		return res
 	}
 
 	sourceAddress := tx.Source.Address
 	targetAddress := tx.Target.Address
 
-	sourceAccount, success := getInput(view, tx.Source)
-	if success.IsErr() {
-		return success.PrependLog(fmt.Sprintf("In sanityCheckForServicePaymentTx, source address: %v", tx.Source.Address))
+	sourceAccount, res := getInput(view, tx.Source)
+	if res.IsError() {
+		return res
 	}
 
 	// Get the target account (that signed and broadcasted this transaction)
-	targetAccount, success := getOrMakeInput(view, tx.Target)
-	if success.IsErr() {
-		return success.PrependLog(fmt.Sprintf("In sanityCheckForServicePaymentTx, target address: %v", tx.Target.Address))
+	targetAccount, res := getOrMakeInput(view, tx.Target)
+	if res.IsError() {
+		return res
 	}
 
 	for _, transferAmount := range tx.Source.Coins {
 		if strings.Compare(transferAmount.Denom, types.DenomGammaWei) != 0 {
-			return result.ErrBaseInvalidInput.AppendLog(fmt.Sprintf("Cannot send %s as service payment!", transferAmount.Denom))
+			return result.Error("Cannot send %s as service payment!", transferAmount.Denom)
 		}
 	}
 
@@ -63,24 +65,24 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	if !sourceAccount.PubKey.VerifySignature(sourceSignBytes, tx.Source.Signature) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature %X", sourceAddress)
 		log.Infof(errMsg)
-		return result.ErrBaseInvalidSignature.PrependLog(errMsg)
+		return result.Error(errMsg)
 	}
 
 	// Verify target
 	if targetAccount.Sequence+1 != tx.Target.Sequence {
-		return result.ErrBaseInvalidSequence.AppendLog(fmt.Sprintf("Got %v, expected %v. (acc.seq=%v)",
-			tx.Target.Sequence, targetAccount.Sequence+1, targetAccount.Sequence))
+		return result.Error("Got %v, expected %v. (acc.seq=%v)",
+			tx.Target.Sequence, targetAccount.Sequence+1, targetAccount.Sequence)
 	}
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
 	if !targetAccount.PubKey.VerifySignature(targetSignBytes, tx.Target.Signature) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature %X", targetAddress)
 		log.Infof(errMsg)
-		return result.ErrBaseInvalidSignature.PrependLog(errMsg)
+		return result.Error(errMsg)
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.ErrInternalError.PrependLog("invalid fee")
+		return result.Error("invalid fee")
 	}
 
 	transferAmount := tx.Source.Coins
@@ -93,26 +95,26 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	//       the source account will be slashed by the processServicePaymentTx() function
 	err := sourceAccount.CheckTransferReservedFund(targetAccount, transferAmount, paymentSequence, currentBlockHeight, reserveSequence)
 	if err != nil {
-		return result.ErrInternalError.AppendLog(err.Error())
+		return result.Error(err.Error())
 	}
 
 	return result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) result.Result {
+func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	sourceAddress := tx.Source.Address
 	targetAddress := tx.Target.Address
 
-	sourceAccount, success := getInput(view, tx.Source)
-	if success.IsErr() {
-		return success.PrependLog(fmt.Sprintf("In processServicePaymentTx, source address: %v", tx.Source.Address))
+	sourceAccount, res := getInput(view, tx.Source)
+	if res.IsError() {
+		return invalidHash, res
 	}
 
-	targetAccount, success := getOrMakeInput(view, tx.Target)
-	if success.IsErr() {
-		return success.PrependLog(fmt.Sprintf("In processServicePaymentTx, target address: %v", tx.Target.Address))
+	targetAccount, res := getOrMakeInput(view, tx.Target)
+	if res.IsError() {
+		return invalidHash, res
 	}
 
 	resourceId := tx.ResourceId
@@ -121,7 +123,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	fullTransferAmount := tx.Source.Coins
 	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceId, targetAddress, targetAccount, fullTransferAmount)
 	if !splitSuccess {
-		return result.ErrInternalError.AppendLog("Failed to split payment")
+		return invalidHash, result.Error("Failed to split payment")
 	}
 
 	currentBlockHeight := getCurrentBlockHeight()
@@ -131,7 +133,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		exec.state.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
-		return result.ErrInternalError.AppendLog("failed to charge transaction fee")
+		return invalidHash, result.Error("failed to charge transaction fee")
 	}
 	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 
@@ -144,7 +146,8 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		view.SetAccount(address, account)
 	}
 
-	return result.OK
+	txHash := types.TxID(chainID, tx)
+	return txHash, result.OK
 }
 
 func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, splitContract *types.SplitContract, resourceId common.Bytes,

@@ -2,16 +2,14 @@ package core
 
 import (
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 )
 
 //
 // Ledger defines the interface of the ledger
 //
 type Ledger interface {
-	BeginBlock(blockHash common.Bytes, header BlockHeader) bool
-	CheckTx(txBytes common.Bytes) bool
-	DeliverTx(txBytes common.Bytes) bool
-	EndBlock(height uint64) bool
-	Commit() bool
+	CheckTx(rawTx common.Bytes) result.Result
+	DeliverTxs(rawTxs *[]common.Bytes) result.Result
 	Query()
 }

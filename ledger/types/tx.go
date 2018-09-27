@@ -6,9 +6,9 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
-	res "github.com/thetatoken/ukulele/ledger/types/result"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
@@ -67,15 +67,15 @@ type TxInput struct {
 	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
 }
 
-func (txIn TxInput) ValidateBasic() res.Result {
+func (txIn TxInput) ValidateBasic() result.Result {
 	if len(txIn.Address) != 20 {
-		return res.ErrBaseInvalidInput.AppendLog("Invalid address length")
+		return result.Error("Invalid address length")
 	}
 	if !txIn.Coins.IsValid() {
-		return res.ErrBaseInvalidInput.AppendLog(fmt.Sprintf("Invalid coins %v", txIn.Coins))
+		return result.Error("Invalid coins: %v", txIn.Coins)
 	}
 	// if txIn.Coins.IsZero() {
-	// 	return res.ErrBaseInvalidInput.AppendLog("Coins cannot be zero")
+	// 	return result.Error("Coins cannot be zero")
 	// }
 
 	// *************
@@ -83,15 +83,15 @@ func (txIn TxInput) ValidateBasic() res.Result {
 	// Besides the sequence number can be blank for half signed tx.
 	// *************
 	// if txIn.Sequence <= 0 {
-	// 	return res.ErrBaseInvalidInput.AppendLog("Sequence must be greater than 0")
+	// 	return result.Error("Sequence must be greater than 0")
 	// }
 	if txIn.Sequence == 1 && txIn.PubKey.IsEmpty() {
-		return res.ErrBaseInvalidInput.AppendLog("PubKey must be present when Sequence == 1")
+		return result.Error("PubKey must be present when Sequence == 1")
 	}
 	if txIn.Sequence > 1 && !txIn.PubKey.IsEmpty() {
-		return res.ErrBaseInvalidInput.AppendLog("PubKey must be nil when Sequence > 1")
+		return result.Error("PubKey must be nil when Sequence > 1")
 	}
-	return res.OK
+	return result.OK
 }
 
 func (txIn TxInput) String() string {
@@ -117,18 +117,18 @@ type TxOutput struct {
 	Coins   Coins          `json:"coins"`   // Amount of coins
 }
 
-func (txOut TxOutput) ValidateBasic() res.Result {
+func (txOut TxOutput) ValidateBasic() result.Result {
 	if len(txOut.Address) != 20 {
-		return res.ErrBaseInvalidOutput.AppendLog("Invalid address length")
+		return result.Error("Invalid address length")
 	}
 
 	if !txOut.Coins.IsValid() {
-		return res.ErrBaseInvalidOutput.AppendLog(fmt.Sprintf("Invalid coins %v", txOut.Coins))
+		return result.Error("Invalid coins: %v", txOut.Coins)
 	}
 	// if txOut.Coins.IsZero() {
-	// 	return res.ErrBaseInvalidOutput.AppendLog("Coins cannot be zero")
+	// 	return result.Error("Coins cannot be zero")
 	// }
-	return res.OK
+	return result.OK
 }
 
 func (txOut TxOutput) String() string {

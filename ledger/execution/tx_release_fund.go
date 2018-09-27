@@ -5,9 +5,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
 )
+
+var _ TxExecutor = (*ReleaseFundTxExecutor)(nil)
 
 // ------------------------------- ReleaseFundTx Transaction -----------------------------------
 
@@ -25,52 +28,52 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 
 	// Validate source, basic
 	res := tx.Source.ValidateBasic()
-	if res.IsErr() {
+	if res.IsError() {
 		return res
 	}
 
 	// Get input account
 	sourceAccount, success := getInput(view, tx.Source)
-	if success.IsErr() {
-		return result.ErrBaseUnknownAddress
+	if success.IsError() {
+		return result.Error("Unknown address: %v", tx.Source.Address)
 	}
 
 	// Validate input, advanced
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
-	if res.IsErr() {
+	if res.IsError() {
 		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %X: %v", tx.Source.Address, res))
-		return res.PrependLog("in validateSourceAdvanced()")
+		return res
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.ErrInternalError.PrependLog("invalid fee")
+		return result.Error("invalid fee")
 	}
 
 	minimalBalance := types.Coins{tx.Fee}
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
-		return result.ErrBaseInsufficientFunds.AppendLog(fmt.Sprintf("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance))
+		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
 	}
 
 	currentBlockHeight := getCurrentBlockHeight()
 	reserveSequence := tx.ReserveSequence
 	err := sourceAccount.CheckReleaseFund(currentBlockHeight, reserveSequence)
 	if err != nil {
-		return result.ErrInternalError.AppendLog(err.Error())
+		return result.Error(err.Error())
 	}
 
 	return result.OK
 }
 
-func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) result.Result {
+func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReleaseFundTx)
 
 	sourceInputs := []types.TxInput{tx.Source}
 	accounts, success := getInputs(view, sourceInputs)
-	if success.IsErr() {
+	if success.IsError() {
 		// TODO: revisit whether we should panic or just log the error.
-		return result.ErrBaseUnknownAddress.AppendLog("Failed to get the source account")
+		return invalidHash, result.Error("Failed to get the source account")
 	}
 	sourceAddress := tx.Source.Address
 	sourceAccount := accounts[string(sourceAddress[:])]
@@ -80,12 +83,12 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAc
 	currentBlockHeight := getCurrentBlockHeight()
 	sourceAccount.ReleaseFund(currentBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
-		return result.ErrInternalError.AppendLog("failed to charge transaction fee")
+		return invalidHash, result.Error("failed to charge transaction fee")
 	}
 
 	sourceAccount.Sequence++
 	view.SetAccount(sourceAddress, sourceAccount)
 
 	txHash := types.TxID(chainID, tx)
-	return result.NewResultOK(txHash[:], "")
+	return txHash, result.OK
 }
