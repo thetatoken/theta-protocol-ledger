@@ -694,16 +694,15 @@ func (db *Database) commit(hash common.Hash, batch database.Batch) error {
 		batch.Reference(hash[:])
 		return nil
 	}
-
 	for _, child := range node.childs() {
 		if err := db.commit(child, batch); err != nil {
 			return err
 		}
 	}
-
 	if err := batch.Put(hash[:], node.rlp()); err != nil {
 		return err
 	}
+
 	batch.Reference(hash[:])
 
 	// If we've reached an optimal batch size, commit and start over
