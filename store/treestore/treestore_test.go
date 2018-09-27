@@ -37,35 +37,30 @@ func TestTreeStore(t *testing.T) {
 	value5 := common.Bytes("eee")
 	treestore.Set(key5, value5)
 
-	// key6 := common.Bytes("test/334")
-	// value6 := common.Bytes("fff")
-	// treestore.Set(key6, value6)
+	key6 := common.Bytes("test/334")
+	value6 := common.Bytes("fff")
+	treestore.Set(key6, value6)
 
-	// key7 := common.Bytes("test/3332")
-	// value7 := common.Bytes("ggg")
-	// treestore.Set(key7, value7)
+	key7 := common.Bytes("test/3332")
+	value7 := common.Bytes("ggg")
+	treestore.Set(key7, value7)
 
-	// key8 := common.Bytes("test/33321")
-	// value8 := common.Bytes("hhh")
-	// treestore.Set(key8, value8)
+	key8 := common.Bytes("test/33321")
+	value8 := common.Bytes("hhh")
+	treestore.Set(key8, value8)
 
-	// key9 := common.Bytes("test/33322")
-	// value9 := common.Bytes("iii")
-	// treestore.Set(key9, value9)
+	key9 := common.Bytes("test/33322")
+	value9 := common.Bytes("iii")
+	treestore.Set(key9, value9)
 
-	// root, _ := treestore.Commit(nil)
-	// treestore.GetDB().Commit(root, true)
-
-	// assert.True(db.Has(root[:]))
-
-	// assert.Equal(value2, treestore.Get(key2))
-	// assert.Equal(value3, treestore.Get(key3))
-	// assert.Equal(value4, treestore.Get(key4))
-	// assert.Equal(value5, treestore.Get(key5))
-	// assert.Equal(value6, treestore.Get(key6))
-	// assert.Equal(value7, treestore.Get(key7))
-	// assert.Equal(value8, treestore.Get(key8))
-	// assert.Equal(value9, treestore.Get(key9))
+	assert.Equal(value2, treestore.Get(key2))
+	assert.Equal(value3, treestore.Get(key3))
+	assert.Equal(value4, treestore.Get(key4))
+	assert.Equal(value5, treestore.Get(key5))
+	assert.Equal(value6, treestore.Get(key6))
+	assert.Equal(value7, treestore.Get(key7))
+	assert.Equal(value8, treestore.Get(key8))
+	assert.Equal(value9, treestore.Get(key9))
 
 	// var cnt int
 
@@ -106,6 +101,8 @@ func TestTreeStore(t *testing.T) {
 
 	root, _ := treestore.Commit(nil)
 	treestore.Trie.GetDB().Commit(root, true)
+
+	assert.True(db.Has(root[:]))
 
 	//////////////////////////////
 

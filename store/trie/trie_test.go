@@ -49,7 +49,11 @@ func newEmpty() *Trie {
 	if err != nil {
 		panic("failed to create test file: " + err.Error())
 	}
-	db, _ := dbbackend.NewLDBDatabase(dirname, 0, 0)
+	refname, err := ioutil.TempDir(os.TempDir(), "trie_ref_test_")
+	if err != nil {
+		panic("failed to create test reference file: " + err.Error())
+	}
+	db, _ := dbbackend.NewLDBDatabase(dirname, refname, 0, 0)
 	trie, _ := New(common.Hash{}, NewDatabase(db))
 	return trie
 }
@@ -602,7 +606,11 @@ func tempDB() (string, *Database) {
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary directory: %v", err))
 	}
-	diskdb, err := dbbackend.NewLDBDatabase(dir, 256, 0)
+	refdir, err := ioutil.TempDir("", "trie-ref-bench")
+	if err != nil {
+		panic(fmt.Sprintf("can't create temporary ref directory: %v", err))
+	}
+	diskdb, err := dbbackend.NewLDBDatabase(dir, refdir, 256, 0)
 	if err != nil {
 		panic(fmt.Sprintf("can't create temporary database: %v", err))
 	}

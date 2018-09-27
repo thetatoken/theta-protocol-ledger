@@ -109,13 +109,15 @@ func (db *AerospikeDatabase) Dereference(key []byte) error {
 		return store.ErrKeyNotFound
 	}
 
-	ref := rec.Bins[RefBin].(int)
-	if ref > 0 {
-		bin := aerospike.NewBin(RefBin, ref-1)
-		writePolicy := aerospike.NewWritePolicy(0, 0)
-		writePolicy.Timeout = 300 * time.Millisecond
-		err = db.client.PutBins(writePolicy, getDBKey(key), bin)
-		return err
+	if rec.Bins[RefBin] != nil {
+		ref := rec.Bins[RefBin].(int)
+		if ref > 0 {
+			bin := aerospike.NewBin(RefBin, ref-1)
+			writePolicy := aerospike.NewWritePolicy(0, 0)
+			writePolicy.Timeout = 300 * time.Millisecond
+			err = db.client.PutBins(writePolicy, getDBKey(key), bin)
+			return err
+		}
 	}
 	return nil
 }
@@ -129,7 +131,12 @@ func (db *AerospikeDatabase) CountReference(key []byte) (int, error) {
 		return 0, store.ErrKeyNotFound
 	}
 
-	ref := rec.Bins[RefBin].(int)
+	var ref int
+	if rec.Bins[RefBin] == nil {
+		ref = 0
+	} else {
+		ref = rec.Bins[RefBin].(int)
+	}
 	return ref, nil
 }
 
