@@ -230,10 +230,7 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 	}
 	switch n := n.(type) {
 	case *shortNode:
-		log.Println(key)
-		log.Println(n.Key)
 		matchlen := prefixLen(key, n.Key)
-		log.Println(matchlen)
 		// If the whole key matches, keep this short node as is
 		// and only update the value.
 		if matchlen == len(n.Key) {
