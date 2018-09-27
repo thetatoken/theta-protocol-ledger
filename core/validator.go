@@ -5,6 +5,7 @@ import (
 	"sort"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 )
 
 var (
@@ -14,16 +15,15 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	id      string
-	address common.Address
-	stake   uint64
+	id     string
+	pubKey crypto.PublicKey
+	stake  uint64
 }
 
 // NewValidator creates a new validator instance.
 func NewValidator(id string, stake uint64) Validator {
-	var address common.Address
-	copy(address[:], id) // FIXME: using the actual address
-	return Validator{id, address, stake}
+	pubKey, _ := crypto.PublicKeyFromBytes(common.Bytes(id)) // FIXME: pass in the actual public key
+	return Validator{id, *pubKey, stake}
 }
 
 // ID return the identifier of the validator.
@@ -31,9 +31,14 @@ func (v Validator) ID() string {
 	return v.id
 }
 
+// PublicKey returns the public key of the validator.
+func (v Validator) PublicKey() crypto.PublicKey {
+	return v.pubKey
+}
+
 // Address returns the address of the validator.
 func (v Validator) Address() common.Address {
-	return v.address
+	return v.pubKey.Address()
 }
 
 // Stake returns the stake of the validator.

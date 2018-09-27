@@ -90,7 +90,7 @@ func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAc
 	resourceIds := tx.ResourceIds
 	duration := tx.Duration
 	reserveSequence := tx.Source.Sequence
-	endBlockHeight := getCurrentBlockHeight() + duration
+	endBlockHeight := GetCurrentBlockHeight() + duration
 
 	sourceAccount.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {

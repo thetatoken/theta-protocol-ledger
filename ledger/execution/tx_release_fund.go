@@ -56,7 +56,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
 	}
 
-	currentBlockHeight := getCurrentBlockHeight()
+	currentBlockHeight := GetCurrentBlockHeight()
 	reserveSequence := tx.ReserveSequence
 	err := sourceAccount.CheckReleaseFund(currentBlockHeight, reserveSequence)
 	if err != nil {
@@ -80,7 +80,7 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAc
 
 	reserveSequence := tx.ReserveSequence
 
-	currentBlockHeight := getCurrentBlockHeight()
+	currentBlockHeight := GetCurrentBlockHeight()
 	sourceAccount.ReleaseFund(currentBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
 		return invalidHash, result.Error("failed to charge transaction fee")

@@ -64,7 +64,7 @@ func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address)
 	return result.OK
 }
 
-func getCurrentBlockHeight() uint64 {
+func GetCurrentBlockHeight() uint64 {
 	return 0 // TODO: need proper implementation
 	//return ctx.AppContext.GetCheckpoint().Height
 }
@@ -140,10 +140,10 @@ func getOrMakeAccountImpl(view types.ViewDataGetter, address common.Address, mak
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
 		acc = &types.Account{
-			LastUpdatedBlockHeight: getCurrentBlockHeight(),
+			LastUpdatedBlockHeight: GetCurrentBlockHeight(),
 		}
 	}
-	acc.UpdateToHeight(getCurrentBlockHeight())
+	acc.UpdateToHeight(GetCurrentBlockHeight())
 
 	return acc, result.OK
 }
