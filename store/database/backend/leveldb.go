@@ -117,16 +117,17 @@ func (db *LDBDatabase) Delete(key []byte) error {
 }
 
 func (db *LDBDatabase) Reference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
 func (db *LDBDatabase) Dereference(key []byte) error {
-
+	// TODO
 	return nil
 }
 
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
+	// TODO
 	return 0, nil
 }
 
@@ -438,6 +439,7 @@ func (dt *table) Delete(key []byte) error {
 func (dt *table) Reference(key []byte) error {
 	return dt.db.Reference(append([]byte(dt.prefix), key...))
 }
+
 func (dt *table) Dereference(key []byte) error {
 	return dt.db.Dereference(append([]byte(dt.prefix), key...))
 }
