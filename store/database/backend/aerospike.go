@@ -14,6 +14,7 @@ const (
 	Namespace string = "test"
 	Set       string = "store"
 	ValueBin  string = "value"
+	RefBin    string = "ref"
 )
 
 // AerospikeDatabase a MongoDB wrapped object.
@@ -76,6 +77,62 @@ func (db *AerospikeDatabase) Delete(key []byte) error {
 	return err
 }
 
+func (db *AerospikeDatabase) Reference(key []byte) error {
+	rec, err := db.client.Get(nil, getDBKey(key), RefBin)
+	if err != nil {
+		return err
+	}
+	if rec == nil {
+		return store.ErrKeyNotFound
+	}
+
+	var ref int
+	if rec.Bins[RefBin] == nil {
+		ref = 1
+	} else {
+		ref = rec.Bins[RefBin].(int) + 1
+	}
+
+	bin := aerospike.NewBin(RefBin, ref)
+	writePolicy := aerospike.NewWritePolicy(0, 0)
+	writePolicy.Timeout = 300 * time.Millisecond
+	err = db.client.PutBins(writePolicy, getDBKey(key), bin)
+	return err
+}
+
+func (db *AerospikeDatabase) Dereference(key []byte) error {
+	rec, err := db.client.Get(nil, getDBKey(key), RefBin)
+	if err != nil {
+		return err
+	}
+	if rec == nil {
+		return store.ErrKeyNotFound
+	}
+
+	ref := rec.Bins[RefBin].(int)
+	if ref > 0 {
+		bin := aerospike.NewBin(RefBin, ref-1)
+		writePolicy := aerospike.NewWritePolicy(0, 0)
+		writePolicy.Timeout = 300 * time.Millisecond
+		err = db.client.PutBins(writePolicy, getDBKey(key), bin)
+		return err
+	}
+	return nil
+}
+
+func (db *AerospikeDatabase) CountReference(key []byte) (int, error) {
+	rec, err := db.client.Get(nil, getDBKey(key), RefBin)
+	if err != nil {
+		return 0, err
+	}
+	if rec == nil {
+		return 0, store.ErrKeyNotFound
+	}
+
+	ref := rec.Bins[RefBin].(int)
+	return ref, nil
+}
+
 func (db *AerospikeDatabase) Close() {
 	db.client.Close()
 }
@@ -85,10 +142,12 @@ func (db *AerospikeDatabase) NewBatch() database.Batch {
 }
 
 type adbBatch struct {
-	db      *AerospikeDatabase
-	puts    []Document
-	deletes []Document
-	size    int
+	db           *AerospikeDatabase
+	puts         []Document
+	deletes      []Document
+	references   []Document
+	dereferences []Document
+	size         int
 }
 
 func (b *adbBatch) Put(key, value []byte) error {
@@ -99,6 +158,18 @@ func (b *adbBatch) Put(key, value []byte) error {
 
 func (b *adbBatch) Delete(key []byte) error {
 	b.deletes = append(b.deletes, Document{Key: key})
+	b.size++
+	return nil
+}
+
+func (b *adbBatch) Reference(key []byte) error {
+	b.references = append(b.references, Document{Key: key})
+	b.size++
+	return nil
+}
+
+func (b *adbBatch) Dereference(key []byte) error {
+	b.dereferences = append(b.dereferences, Document{Key: key})
 	b.size++
 	return nil
 }
@@ -127,6 +198,30 @@ func (b *adbBatch) Write() error {
 	}
 	for j := 0; j < numDels; j++ {
 		<-semDels
+	}
+
+	numRefs := len(b.references)
+	semRefs := make(chan bool, numRefs)
+	for i := range b.references {
+		go func(i int) {
+			b.db.Reference(b.references[i].Key)
+			semRefs <- true
+		}(i)
+	}
+	for j := 0; j < numRefs; j++ {
+		<-semRefs
+	}
+
+	numDerefs := len(b.dereferences)
+	semDerefs := make(chan bool, numDerefs)
+	for i := range b.dereferences {
+		go func(i int) {
+			b.db.Dereference(b.dereferences[i].Key)
+			semDerefs <- true
+		}(i)
+	}
+	for j := 0; j < numDerefs; j++ {
+		<-semDerefs
 	}
 
 	b.Reset()

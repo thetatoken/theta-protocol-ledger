@@ -480,3 +480,72 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 	defer returnHasherToPool(h)
 	return h.hash(t.root, db, true)
 }
+
+// Prune deletes all non-referenced nodes of the Trie from DB
+func (t *Trie) Prune() error {
+	return t.pruneNode(t.root)
+}
+
+func (t *Trie) pruneNode(n node) error {
+	hash, _ := n.cache()
+	ref, err := t.db.diskdb.CountReference(hash[:])
+	if err != nil {
+		return err
+	}
+	if ref > 1 {
+		t.db.diskdb.Dereference(hash[:])
+		return nil
+	}
+
+	err = t.pruneChildren(n)
+	if err != nil {
+		return err
+	}
+	err = t.db.diskdb.Delete(hash[:])
+	return err
+}
+
+func (t *Trie) pruneChildren(nd node) error {
+	var err error
+
+	switch n := nd.(type) {
+	case *shortNode:
+		if _, ok := n.Val.(valueNode); !ok {
+			hashNode := n.Val.(hashNode)
+			childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
+			err = t.pruneNode(childNode)
+			if err != nil {
+				return err
+			}
+		}
+	case *fullNode:
+		for i := 0; i < 16; i++ {
+			if n.Children[i] != nil {
+				switch m := n.Children[i].(type) {
+				case hashNode:
+					hashNode := n.Children[i].(hashNode)
+					childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
+					err = t.pruneNode(childNode)
+					if err != nil {
+						return err
+					}
+				case *shortNode:
+					if _, ok := m.Val.(valueNode); !ok {
+						hashNode := m.Val.(hashNode)
+						childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
+						err = t.pruneNode(childNode)
+						if err != nil {
+							return err
+						}
+					}
+				case *fullNode:
+					return t.pruneNode(m)
+				default:
+				}
+			}
+		}
+	default:
+	}
+
+	return nil
+}

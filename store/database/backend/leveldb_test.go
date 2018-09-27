@@ -69,6 +69,66 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 	}
 
+	for i, k := range testValues {
+		for j := 0; j <= i; j++ {
+			err := db.Reference([]byte(k))
+			if err != nil {
+				t.Fatalf("reference failed: %v", err)
+			}
+		}
+	}
+
+	for i, k := range testValues {
+		ref, err := db.CountReference([]byte(k))
+		if err != nil {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != i+1 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, i+1)
+		}
+	}
+
+	for i, k := range testValues {
+		for j := 0; j <= i; j++ {
+			err := db.Dereference([]byte(k))
+			if err != nil {
+				t.Fatalf("dereference failed: %v", err)
+			}
+		}
+
+		ref, err := db.CountReference([]byte(k))
+		if err != nil {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected 0", ref)
+		}
+	}
+
+	for _, k := range testValues {
+		err := db.Dereference([]byte(k))
+		if err != nil {
+			t.Fatalf("dereference failed: %v", err)
+		}
+	}
+
+	for _, k := range testValues {
+		ref, err := db.CountReference([]byte(k))
+		if err != nil {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 0)
+		}
+	}
+
+	for _, k := range testValues {
+		err := db.Reference([]byte(k))
+		if err != nil {
+			t.Fatalf("reference failed: %v", err)
+		}
+	}
+
 	for _, k := range testValues {
 		data, err := db.Get([]byte(k))
 		if err != nil {
