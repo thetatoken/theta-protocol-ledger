@@ -445,16 +445,15 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 }
 
 func (db *LDBDatabase) NewBatch() database.Batch {
-	return &ldbBatch{db: db.db, refdb: db.refdb, b: new(leveldb.Batch)}
+	return &ldbBatch{db: db.db, refdb: db.refdb, b: new(leveldb.Batch), references: make(map[string]int)}
 }
 
 type ldbBatch struct {
-	db           *leveldb.DB
-	refdb        *leveldb.DB
-	b            *leveldb.Batch
-	references   [][]byte
-	dereferences [][]byte
-	size         int
+	db         *leveldb.DB
+	refdb      *leveldb.DB
+	b          *leveldb.Batch
+	references map[string]int
+	size       int
 }
 
 func (b *ldbBatch) Put(key, value []byte) error {
@@ -470,13 +469,13 @@ func (b *ldbBatch) Delete(key []byte) error {
 }
 
 func (b *ldbBatch) Reference(key []byte) error {
-	b.references = append(b.references, key)
+	b.references[string(key)]++
 	b.size++
 	return nil
 }
 
 func (b *ldbBatch) Dereference(key []byte) error {
-	b.dereferences = append(b.dereferences, key)
+	b.references[string(key)]--
 	b.size++
 	return nil
 }
@@ -484,74 +483,48 @@ func (b *ldbBatch) Dereference(key []byte) error {
 func (b *ldbBatch) Write() error {
 	err := b.db.Write(b.b, nil)
 
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
 	numRefs := len(b.references)
 	if numRefs > 0 {
 		semRefs := make(chan bool, numRefs)
-		for i := range b.references {
-			go func(i int) {
+		for k, v := range b.references {
+			go func() {
 				// check if k/v exists
-				value, err := b.db.Get(b.references[i], nil)
+				value, err := b.db.Get([]byte(k), nil)
 				if err != nil || value == nil {
 					return
 				}
 
 				var ref int
-				dat, err := b.refdb.Get(b.references[i], nil)
+				dat, err := b.refdb.Get([]byte(k), nil)
 				if err != nil {
 					return
 				}
 				if dat == nil {
-					ref = 1
+					ref = v
 				} else {
 					ref, err = strconv.Atoi(string(dat))
 					if err != nil {
 						return
 					}
-					ref++
+					ref = ref + v
 				}
-				b.refdb.Put(b.references[i], []byte(strconv.Itoa(ref)), nil)
+				if ref < 0 {
+					ref = 0
+				}
+				b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
 
 				semRefs <- true
-			}(i)
-
+			}()
 		}
 		for j := 0; j < numRefs; j++ {
 			<-semRefs
-		}
-	}
-
-	numDerefs := len(b.dereferences)
-	if numDerefs > 0 {
-		semDerefs := make(chan bool, numDerefs)
-		for i := range b.dereferences {
-			go func(i int) {
-				// check if k/v exists
-				value, err := b.db.Get(b.dereferences[i], nil)
-				if err != nil || value == nil {
-					return
-				}
-
-				var ref int
-				dat, err := b.refdb.Get(b.dereferences[i], nil)
-				if err != nil {
-					return
-				}
-				if dat != nil {
-					ref, err = strconv.Atoi(string(dat))
-					if err != nil {
-						return
-					}
-					if ref > 0 {
-						b.refdb.Put(b.dereferences[i], []byte(strconv.Itoa(ref-1)), nil)
-					}
-				}
-
-				semDerefs <- true
-			}(i)
-
-		}
-		for j := 0; j < numDerefs; j++ {
-			<-semDerefs
 		}
 	}
 
