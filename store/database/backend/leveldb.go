@@ -190,15 +190,6 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 }
 
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
-	// check if k/v exists
-	value, err := db.Get(key)
-	if err != nil {
-		return 0, err
-	}
-	if value == nil {
-		return 0, store.ErrKeyNotFound
-	}
-
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
 		return 0, err
