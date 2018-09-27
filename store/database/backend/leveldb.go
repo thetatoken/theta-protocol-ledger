@@ -445,13 +445,16 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 }
 
 func (db *LDBDatabase) NewBatch() database.Batch {
-	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
+	return &ldbBatch{db: db.db, refdb: db.refdb, b: new(leveldb.Batch)}
 }
 
 type ldbBatch struct {
-	db   *leveldb.DB
-	b    *leveldb.Batch
-	size int
+	db           *leveldb.DB
+	refdb        *leveldb.DB
+	b            *leveldb.Batch
+	references   [][]byte
+	dereferences [][]byte
+	size         int
 }
 
 func (b *ldbBatch) Put(key, value []byte) error {
@@ -467,17 +470,92 @@ func (b *ldbBatch) Delete(key []byte) error {
 }
 
 func (b *ldbBatch) Reference(key []byte) error {
-	// TODO
+	b.references = append(b.references, key)
+	b.size++
 	return nil
 }
 
 func (b *ldbBatch) Dereference(key []byte) error {
-	// TODO
+	b.dereferences = append(b.dereferences, key)
+	b.size++
 	return nil
 }
 
 func (b *ldbBatch) Write() error {
-	return b.db.Write(b.b, nil)
+	err := b.db.Write(b.b, nil)
+
+	numRefs := len(b.references)
+	if numRefs > 0 {
+		semRefs := make(chan bool, numRefs)
+		for i := range b.references {
+			go func(i int) {
+				// check if k/v exists
+				value, err := b.db.Get(b.references[i], nil)
+				if err != nil || value == nil {
+					return
+				}
+
+				var ref int
+				dat, err := b.refdb.Get(b.references[i], nil)
+				if err != nil {
+					return
+				}
+				if dat == nil {
+					ref = 1
+				} else {
+					ref, err = strconv.Atoi(string(dat))
+					if err != nil {
+						return
+					}
+					ref++
+				}
+				b.refdb.Put(b.references[i], []byte(strconv.Itoa(ref)), nil)
+
+				semRefs <- true
+			}(i)
+
+		}
+		for j := 0; j < numRefs; j++ {
+			<-semRefs
+		}
+	}
+
+	numDerefs := len(b.dereferences)
+	if numDerefs > 0 {
+		semDerefs := make(chan bool, numDerefs)
+		for i := range b.dereferences {
+			go func(i int) {
+				// check if k/v exists
+				value, err := b.db.Get(b.dereferences[i], nil)
+				if err != nil || value == nil {
+					return
+				}
+
+				var ref int
+				dat, err := b.refdb.Get(b.dereferences[i], nil)
+				if err != nil {
+					return
+				}
+				if dat != nil {
+					ref, err = strconv.Atoi(string(dat))
+					if err != nil {
+						return
+					}
+					if ref > 0 {
+						b.refdb.Put(b.dereferences[i], []byte(strconv.Itoa(ref-1)), nil)
+					}
+				}
+
+				semDerefs <- true
+			}(i)
+
+		}
+		for j := 0; j < numDerefs; j++ {
+			<-semDerefs
+		}
+	}
+
+	return err
 }
 
 func (b *ldbBatch) ValueSize() int {
@@ -527,8 +605,8 @@ func (dt *table) Dereference(key []byte) error {
 	return dt.db.Dereference(append([]byte(dt.prefix), key...))
 }
 
-func (db *table) CountReference(key []byte) (int, error) {
-	return 0, nil
+func (dt *table) CountReference(key []byte) (int, error) {
+	return dt.db.CountReference(key)
 }
 
 func (dt *table) Close() {
