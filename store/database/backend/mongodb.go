@@ -103,7 +103,6 @@ func (db *MongoDatabase) Dereference(key []byte) error {
 }
 
 func (db *MongoDatabase) CountReference(key []byte) (int, error) {
-	// TODO
 	return 0, nil
 }
 
