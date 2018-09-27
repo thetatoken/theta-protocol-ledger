@@ -10,6 +10,7 @@ import (
 const (
 	maxOrphanBlockPoolSize = 64
 	maxOrphanCCPoolSize    = 64
+	maxOrphanVotePoolSize  = 64
 )
 
 type OrphanBlockPool struct {
@@ -26,8 +27,8 @@ func NewOrphanBlockPool() *OrphanBlockPool {
 	}
 }
 
-func (bp *OrphanBlockPool) Contains(block *core.Block) bool {
-	_, ok := bp.hashToBlock[block.Hash.String()]
+func (bp *OrphanBlockPool) Contains(hash common.Bytes) bool {
+	_, ok := bp.hashToBlock[hash.String()]
 	return ok
 }
 
@@ -36,7 +37,7 @@ func (bp *OrphanBlockPool) Add(block *core.Block) {
 		bp.RemoveOldest()
 	}
 
-	if bp.Contains(block) {
+	if bp.Contains(block.Hash) {
 		return
 	}
 
@@ -75,6 +76,7 @@ func (bp *OrphanBlockPool) TryGetNextBlock(hash common.Bytes) *core.Block {
 	return block
 }
 
+// ---------------------------------------------------------
 type OrphanCCPool struct {
 	ccs      *list.List
 	hashToCC map[string]*list.Element
@@ -133,3 +135,63 @@ func (cp *OrphanCCPool) TryGetCCByBlockHash(hash common.Bytes) *core.CommitCerti
 	cp.Remove(cc)
 	return cc
 }
+
+// ---------------------------------------------------------
+// type OrphanVotePool struct {
+// 	data       *list.List
+// 	hashToVote map[string]*list.Element
+// }
+
+// func NewOrphanVotePool() *OrphanVotePool {
+// 	return &OrphanVotePool{
+// 		data:       list.New(),
+// 		hashToVote: make(map[string]*list.Element),
+// 	}
+// }
+
+// func (p *OrphanVotePool) Contains(vote *core.Vote) bool {
+// 	_, ok := p.hashToVote[vote.Block.Hash.String()]
+// 	return ok
+// }
+
+// func (p *OrphanVotePool) Add(vote *core.Vote) {
+// 	if p.data.Len() >= maxOrphanVotePoolSize {
+// 		p.RemoveOldest()
+// 	}
+
+// 	if p.Contains(vote) {
+// 		return
+// 	}
+
+// 	el := p.data.PushBack(vote)
+// 	p.hashToCC[vote.BlockHash.String()] = el
+// }
+
+// func (p *OrphanVotePool) Remove(vote *core.Vote) {
+// 	el, ok := cp.hashToCC[cc.BlockHash.String()]
+// 	if !ok {
+// 		// block is not in pool.
+// 		return
+// 	}
+// 	cp.ccs.Remove(el)
+// 	delete(cp.hashToCC, cc.BlockHash.String())
+// }
+
+// func (cp *OrphanCCPool) RemoveOldest() {
+// 	el := cp.ccs.Front()
+// 	if el == nil {
+// 		return
+// 	}
+// 	cc := el.Value.(*core.CommitCertificate)
+// 	cp.Remove(cc)
+// }
+
+// func (cp *OrphanCCPool) TryGetCCByBlockHash(hash common.Bytes) *core.CommitCertificate {
+// 	el, ok := cp.hashToCC[hash.String()]
+// 	if !ok {
+// 		return nil
+// 	}
+// 	cc := el.Value.(*core.CommitCertificate)
+// 	cp.Remove(cc)
+// 	return cc
+// }

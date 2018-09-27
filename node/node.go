@@ -41,7 +41,7 @@ func NewNode(params *Params) *Node {
 	chain := blockchain.NewChain(params.ChainID, params.Store, params.Root)
 	consensus := consensus.NewConsensusEngine(chain, params.Network, params.Validators)
 	dispatcher := dispatcher.NewDispatcher(params.Network)
-	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher)
+	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 
 	return &Node{
 		Store:       params.Store,

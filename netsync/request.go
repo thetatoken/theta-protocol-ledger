@@ -2,31 +2,156 @@ package netsync
 
 import (
 	"bytes"
-	"encoding/hex"
+	"container/list"
+	"context"
+	"fmt"
+	"math/rand"
+	"sync"
+	"time"
 
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/rlp"
 
 	log "github.com/sirupsen/logrus"
 )
 
+const RequestOutputChannelSize = 128
+const WorkerPoolSize = 4
+const RequestTimeout = 10 * time.Second
+const RequestQuotaPerSecond = 100
+
+type RequestState uint8
+
+const (
+	RequestCreated = iota
+	RequestToSendInvReq
+	RequestWaitingInvResp
+	RequestToSendDataReq
+	RequestWaitingDataResp
+	RequestWaitingParent
+)
+
+type PendingBlock struct {
+	hash       common.Bytes
+	block      *core.Block
+	peers      []string
+	lastUpdate time.Time
+	status     RequestState
+}
+
+func NewPendingBlock(x common.Bytes, peerIds []string) *PendingBlock {
+	return &PendingBlock{
+		hash:       x,
+		lastUpdate: time.Now(),
+		peers:      peerIds,
+		status:     RequestCreated,
+	}
+}
+
+func (pb *PendingBlock) HasTimedOut() bool {
+	return time.Since(pb.lastUpdate) > RequestTimeout
+}
+
+func (pb *PendingBlock) UpdateTimestamp() {
+	pb.lastUpdate = time.Now()
+}
+
+// type RequestWorker struct {
+// 	work chan *PendingBlock
+
+// 	wg      *sync.WaitGroup
+// 	ctx     context.Context
+// 	cancel  context.CancelFunc
+// 	stopped bool
+// }
+
+// func NewRequestWorker(work chan *PendingBlock) *RequestWorker {
+// 	return &RequestWorker{
+// 		work: work,
+// 		wg:   &sync.WaitGroup{},
+// 	}
+// }
+
+// func (w *RequestWorker) mainLoop() {
+// 	defer w.wg.Done()
+
+// 	for {
+// 		select {
+// 		case <-w.ctx.Done():
+// 			w.stopped = true
+// 			return
+// 		case pb := <-w.work:
+// 			w.consensus.AddMessage(block)
+// 		}
+// 	}
+// }
+
+// func (w *RequestWorker) Start(ctx context.Context) {
+// 	c, cancel := context.WithCancel(ctx)
+// 	w.ctx = c
+// 	w.cancel = cancel
+
+// 	w.wg.Add(1)
+// 	go w.mainLoop()
+// }
+
+// func (w *RequestWorker) Stop() {
+// 	w.cancel()
+// }
+
+// func (w *RequestWorker) Wait() {
+// 	w.wg.Wait()
+// }
+
 type RequestManager struct {
 	logger *log.Entry
 
-	syncMgr           *SyncManager
+	C chan *core.Block
+
+	ticker   *time.Ticker
+	quota    int
+	workBell chan struct{}
+	work     chan *PendingBlock
+
+	wg      *sync.WaitGroup
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
+
+	syncMgr    *SyncManager
+	chain      *blockchain.Chain
+	dispatcher *dispatcher.Dispatcher
+
+	pendingBlocks         *list.List
+	pendingBlocksByHash   map[string]*list.Element
+	pendingBlocksByParent map[string][]*list.Element
+
 	endHashCache      []common.Bytes
 	blockRequestCache []common.Bytes
 }
 
 func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 	rm := &RequestManager{
-		syncMgr:           syncMgr,
-		endHashCache:      []common.Bytes{},
-		blockRequestCache: []common.Bytes{},
+		C: make(chan *core.Block, RequestOutputChannelSize),
+
+		ticker: time.NewTicker(1 * time.Second),
+		quota:  RequestQuotaPerSecond,
+		// workBell: make(chan struct{}),
+		work: make(chan *PendingBlock, WorkerPoolSize),
+
+		wg: &sync.WaitGroup{},
+
+		syncMgr:    syncMgr,
+		chain:      syncMgr.chain,
+		dispatcher: syncMgr.dispatcher,
+
+		pendingBlocks:         list.New(),
+		pendingBlocksByHash:   make(map[string]*list.Element),
+		pendingBlocksByParent: make(map[string][]*list.Element),
 	}
 
 	logger := util.GetLoggerForModule("request")
@@ -38,213 +163,212 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 	return rm
 }
 
-func (rm *RequestManager) enqueueBlocks(endHash common.Bytes) {
-	for _, b := range rm.endHashCache {
-		if bytes.Compare(b, endHash) == 0 {
-			rm.logger.WithFields(log.Fields{
-				"endHash": endHash,
-			}).Debug("Skipping already seen endHash")
+func (rm *RequestManager) mainLoop() {
+	defer rm.wg.Done()
+
+	for {
+		select {
+		case <-rm.ctx.Done():
+			rm.stopped = true
 			return
+		case <-rm.ticker.C:
+			rm.quota = RequestQuotaPerSecond
+			rm.tryToDownload()
 		}
 	}
-	rm.endHashCache = append(rm.endHashCache, endHash)
-
-	tip := rm.syncMgr.consensus.GetTip()
-	req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
-	// Fixme: since we are broadcasting GetInventory, we might be downloading blocks from multple peers later. Need to fix this.
-	rm.logger.WithFields(log.Fields{
-		"channelID": req.ChannelID,
-		"startHash": req.Start,
-		"endHash":   req.End,
-	}).Debug("Sending inventory request")
-	rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 }
 
-func (rm *RequestManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
-	rm.logger.WithFields(log.Fields{
-		"channelID": req.ChannelID,
-		"startHash": req.Start,
-		"endHash":   req.End,
-	}).Debug("Received inventory request")
-	switch req.ChannelID {
-	case common.ChannelIDBlock:
-		blocks := []string{}
-		if req.Start == "" {
-			rm.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-			}).Error("No start hash is specified in InvRequest")
-			return
-		}
-		curr, err := hex.DecodeString(req.Start)
-		if err != nil {
-			rm.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-				"start":     req.Start,
-			}).Error("Failed to decode start in InvRequest")
-			return
-		}
-		end, err := hex.DecodeString(req.End)
-		if err != nil {
-			rm.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-				"end":       req.End,
-			}).Error("Failed to decode end in InvRequest")
-			return
-		}
-		for i := 0; i < dispatcher.MaxInventorySize; i++ {
-			blocks = append(blocks, hex.EncodeToString(curr))
-			block, err := rm.syncMgr.chain.FindBlock(curr)
-			if err != nil {
-				rm.logger.WithFields(log.Fields{
-					"channelID": req.ChannelID,
-					"hash":      curr,
-				}).Error("Failed to find block with given hash")
-				return
-			}
-			if len(block.Children) == 0 {
-				break
-			}
+func (rm *RequestManager) Start(ctx context.Context) {
+	c, cancel := context.WithCancel(ctx)
+	rm.ctx = c
+	rm.cancel = cancel
 
-			// Fixme: should we only send blocks on the finalized branch?
-			curr = block.Children[0]
-			if err != nil {
-				rm.logger.WithFields(log.Fields{
-					"err":  err,
-					"hash": curr,
-				}).Error("Failed to load block")
-				return
-			}
-			if bytes.Compare(curr, end) == 0 {
-				blocks = append(blocks, hex.EncodeToString(end))
-				break
-			}
-		}
-		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
-		rm.logger.WithFields(log.Fields{
-			"channelID":         resp.ChannelID,
-			"len(resp.Entries)": len(resp.Entries),
-		}).Debug("Sending inventory response")
-		rm.syncMgr.dispatcher.SendInventory([]string{peerID}, resp)
-	default:
-		rm.logger.WithFields(log.Fields{"channelID": req.ChannelID}).Error("Unsupported channelID in received InvRequest")
-	}
-
+	rm.wg.Add(1)
+	go rm.mainLoop()
 }
 
-func (rm *RequestManager) handleInvResponse(peerID string, resp *dispatcher.InventoryResponse) {
-	switch resp.ChannelID {
-	case common.ChannelIDBlock:
-	OUTER:
-		for _, hashStr := range resp.Entries {
-			hash, err := hex.DecodeString(hashStr)
-			if err != nil {
-				rm.logger.WithFields(log.Fields{"channelID": resp.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to parse hash string in InvResponse")
-				return
-			}
-			if _, err := rm.syncMgr.chain.FindBlock(hash); err == nil {
-				rm.logger.WithFields(log.Fields{"channelID": resp.ChannelID, "hashStr": hashStr, "err": err}).Warn("Skipping already downloaded hash in InvResponse")
-				continue
-			}
+func (rm *RequestManager) Stop() {
+	rm.ticker.Stop()
+	rm.cancel()
+}
 
-			for _, b := range rm.blockRequestCache {
-				if bytes.Compare(b, hash) == 0 {
-					rm.logger.WithFields(log.Fields{
-						"endHash": hash,
-					}).Debug("Skipping already seen block hash")
-					continue OUTER
-				}
-			}
-			rm.endHashCache = append(rm.endHashCache, hash)
+func (rm *RequestManager) Wait() {
+	rm.wg.Wait()
+}
 
+func (rm *RequestManager) tryToDownload() {
+	fmt.Printf("<<<<<< tryToDownload(): pendingBlocks: %v\n", rm.pendingBlocks)
+	for curr := rm.pendingBlocks.Front(); rm.quota != 0 && curr != nil; curr = curr.Next() {
+		_curr := curr.Value.(*PendingBlock)
+		fmt.Printf("<<<<< curr: %v, %v, %v\n", _curr.hash, _curr.peers, _curr.status)
+		pendingBlock := curr.Value.(*PendingBlock)
+		if pendingBlock.status == RequestToSendInvReq ||
+			(pendingBlock.status == RequestWaitingInvResp && pendingBlock.HasTimedOut()) {
+			tip := rm.syncMgr.consensus.GetTip()
+			req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
+			rm.logger.WithFields(log.Fields{
+				"channelID": req.ChannelID,
+				"startHash": req.Start,
+				"endHash":   req.End,
+			}).Debug("Sending inventory request")
+			rm.syncMgr.dispatcher.GetInventory([]string{}, req)
+			pendingBlock.status = RequestWaitingInvResp
+			rm.quota--
+			continue
+		}
+		if pendingBlock.status == RequestToSendDataReq ||
+			(pendingBlock.status == RequestWaitingDataResp && pendingBlock.HasTimedOut()) {
+			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
+			fmt.Printf("<<<<< peers: %v randomPeerID: %v\n", pendingBlock.peers, randomPeerID)
 			request := dispatcher.DataRequest{
 				ChannelID: common.ChannelIDBlock,
-				Entries:   []string{hashStr},
+				Entries:   []string{pendingBlock.hash.String()},
 			}
 			rm.logger.WithFields(log.Fields{
 				"channelID":       request.ChannelID,
 				"request.Entries": request.Entries,
+				"peer":            randomPeerID,
 			}).Debug("Sending data request")
-			rm.syncMgr.dispatcher.GetData([]string{peerID}, request)
+			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
+			pendingBlock.status = RequestWaitingDataResp
+			rm.quota--
+			continue
 		}
-	default:
-		rm.logger.WithFields(log.Fields{"channelID": resp.ChannelID}).Error("Unsupported channelID in received InvRequest")
 	}
 }
 
-func (rm *RequestManager) handleDataRequest(peerID string, data *dispatcher.DataRequest) {
-	switch data.ChannelID {
-	case common.ChannelIDBlock:
-		for _, hashStr := range data.Entries {
-			hash, err := hex.DecodeString(hashStr)
-			if err != nil {
-				rm.logger.WithFields(log.Fields{"channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to parse hash string in DataRequest")
-				return
+func (rm *RequestManager) AddHash(x common.Bytes, peerIDs []string) {
+	rm.processHash(x, nil, peerIDs)
+}
+
+func (rm *RequestManager) AddBlock(b *core.Block) {
+	rm.processHash(b.Hash, b, []string{})
+}
+
+func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs []string) (isAdded bool) {
+	// defer func() {
+	// 	// Notify
+	// 	if !isAdded {
+	// 		select {
+	// 		case rm.workBell <- struct{}{}:
+	// 		default:
+	// 		}
+	// 	}
+	// }()
+
+	if _, err := rm.chain.FindBlock(x); err == nil {
+		return true
+	}
+
+	var pendingBlockEl *list.Element
+	var pendingBlock *PendingBlock
+	pendingBlockEl, ok := rm.pendingBlocksByHash[x.String()]
+	if !ok {
+		pendingBlock = NewPendingBlock(x, peerIDs)
+		fmt.Printf("<<<<<< AddHash: %v\n", pendingBlock.hash)
+		pendingBlockEl = rm.pendingBlocks.PushBack(pendingBlock)
+		rm.pendingBlocksByHash[x.String()] = pendingBlockEl
+	} else {
+		// Add peerIDs to pendingBlock.peers
+		pendingBlock = pendingBlockEl.Value.(*PendingBlock)
+		if len(peerIDs) > 0 && pendingBlock.status == RequestWaitingInvResp {
+			pendingBlock.status = RequestToSendDataReq
+		}
+		for _, xid := range peerIDs {
+			found := false
+			for _, id := range pendingBlock.peers {
+				if id == xid {
+					found = true
+					break
+				}
 			}
-			block, err := rm.syncMgr.chain.FindBlock(hash)
-			if err != nil {
-				rm.logger.WithFields(log.Fields{"channelID": data.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to find hash string locally")
-				return
+			if !found {
+				pendingBlock.peers = append(pendingBlock.peers, xid)
+			}
+		}
+	}
+
+	if pendingBlock.block == nil {
+		if block == nil {
+			if len(pendingBlock.peers) == 0 {
+				if pendingBlock.status != RequestWaitingInvResp {
+					pendingBlock.status = RequestToSendInvReq
+				}
+				return false
 			}
 
-			payload, err := rlp.EncodeToBytes(block.Block)
-			if err != nil {
-				rm.logger.WithFields(log.Fields{"block": block}).Error("Failed to encode block")
-				return
+			if pendingBlock.status != RequestWaitingDataResp {
+				pendingBlock.status = RequestToSendDataReq
 			}
-			data := dispatcher.DataResponse{
-				ChannelID: common.ChannelIDBlock,
-				Payload:   payload,
-			}
-			rm.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"hashStr":   hashStr,
-			}).Debug("Sending requested block")
-			rm.syncMgr.dispatcher.SendData([]string{peerID}, data)
+			return false
+		} else {
+			pendingBlock.block = block
 		}
-	default:
-		rm.logger.WithFields(log.Fields{"channelID": data.ChannelID}).Error("Unsupported channelID in received DataRequest")
+	}
+	block = pendingBlock.block
+	parent := block.ParentHash
+	if !rm.processHash(parent, nil, []string{}) {
+		pendingBlock.status = RequestWaitingParent
+		byParents, ok := rm.pendingBlocksByParent[parent.String()]
+		if !ok {
+			byParents = []*list.Element{}
+		}
+		found := false
+		for _, child := range byParents {
+			if 0 == bytes.Compare(child.Value.(*PendingBlock).hash, pendingBlock.hash) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			byParents = append(byParents, pendingBlockEl)
+		}
+		rm.pendingBlocksByParent[parent.String()] = byParents
+		return false
+	}
+
+	rm.dumpReadyBlocks(pendingBlockEl)
+	return true
+}
+
+func (rm *RequestManager) dumpReadyBlocks(x *list.Element) {
+	queue := []*list.Element{x}
+	for len(queue) > 0 {
+		pendingBlockEl := queue[0]
+		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+		hash := pendingBlock.hash
+		queue = queue[1:]
+		if pendingBlock.block != nil {
+			if children, ok := rm.pendingBlocksByParent[hash.String()]; ok {
+				queue = append(queue, children...)
+			}
+		}
+
+		rm.chain.AddBlock(pendingBlock.block)
+		delete(rm.pendingBlocksByHash, hash.String())
+		rm.pendingBlocks.Remove(pendingBlockEl)
+		rm.C <- pendingBlock.block
 	}
 }
 
-func (rm *RequestManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
-	switch data.ChannelID {
-	case common.ChannelIDBlock:
-		block := &core.Block{}
-		err := rlp.DecodeBytes(data.Payload, block)
-		if err != nil {
-			rm.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"payload":   data.Payload,
-				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
-			return
-		}
-		rm.syncMgr.processData(block)
-	case common.ChannelIDVote:
-		vote := &core.Vote{}
-		err := rlp.DecodeBytes(data.Payload, vote)
-		if err != nil {
-			rm.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"payload":   data.Payload,
-				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
-			return
-		}
-		rm.syncMgr.processData(vote)
-	case common.ChannelIDProposal:
-		proposal := &core.Proposal{}
-		err := rlp.DecodeBytes(data.Payload, proposal)
-		if err != nil {
-			rm.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"payload":   data.Payload,
-				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
-			return
-		}
-		rm.syncMgr.processData(proposal)
-	default:
-		rm.logger.WithFields(log.Fields{"channelID": data.ChannelID}).Error("Unsupported channelID in received DataResponse")
-	}
-}
+// func (rm *RequestManager) enqueueBlocks(endHash common.Bytes) {
+// 	for _, b := range rm.endHashCache {
+// 		if bytes.Compare(b, endHash) == 0 {
+// 			rm.logger.WithFields(log.Fields{
+// 				"endHash": endHash,
+// 			}).Debug("EndHash already enqueued. Skipping")
+// 			return
+// 		}
+// 	}
+// 	rm.endHashCache = append(rm.endHashCache, endHash)
+
+// 	tip := rm.syncMgr.consensus.GetTip()
+// 	req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
+// 	// Fixme: since we are broadcasting GetInventory, we might be downloading blocks from multple peers later. Need to fix this.
+// 	rm.logger.WithFields(log.Fields{
+// 		"channelID": req.ChannelID,
+// 		"startHash": req.Start,
+// 		"endHash":   req.End,
+// 	}).Debug("Sending inventory request")
+// 	rm.syncMgr.dispatcher.GetInventory([]string{}, req)
+// }
