@@ -57,3 +57,8 @@ func (store *TreeStore) Delete(key common.Bytes) (deleted bool) {
 	store.Trie.Delete(key)
 	return true
 }
+
+// Prune deletes all non-referenced nodes.
+func (store *TreeStore) Prune() error {
+	return store.Trie.Prune()
+}
