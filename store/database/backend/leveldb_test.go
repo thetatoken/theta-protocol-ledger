@@ -34,14 +34,21 @@ func newTestLDB() (*LDBDatabase, func()) {
 	if err != nil {
 		panic("failed to create test file: " + err.Error())
 	}
-	db, err := NewLDBDatabase(dirname, 0, 0)
+
+	refname, err := ioutil.TempDir(os.TempDir(), "ethdb_ref_test_")
 	if err != nil {
-		panic("failed to create test database: " + err.Error())
+		panic("failed to create test file: " + err.Error())
+	}
+
+	db, err := NewLDBDatabase(dirname, refname, 0, 0)
+	if err != nil {
+		panic("failed to create test reference database: " + err.Error())
 	}
 
 	return db, func() {
 		db.Close()
 		os.RemoveAll(dirname)
+		os.RemoveAll(refname)
 	}
 }
 

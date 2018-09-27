@@ -82,7 +82,6 @@ func (db *MgoDatabase) Dereference(key []byte) error {
 }
 
 func (db *MgoDatabase) CountReference(key []byte) (int, error) {
-	// TODO
 	return 0, nil
 }
 

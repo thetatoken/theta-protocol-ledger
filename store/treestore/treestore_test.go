@@ -104,8 +104,68 @@ func TestTreeStore(t *testing.T) {
 	// // treestore.Traverse(prefix5, cb(prefix5))
 	// // assert.Equal(6, cnt)
 
+	key7 := common.Bytes("test/3332")
+	value7 := common.Bytes("ggg")
+	treestore.Set(key7, value7)
+
+	key8 := common.Bytes("test/33321")
+	value8 := common.Bytes("hhh")
+	treestore.Set(key8, value8)
+
+	key9 := common.Bytes("test/33322")
+	value9 := common.Bytes("iii")
+	treestore.Set(key9, value9)
+
+	assert.Equal(value2, treestore.Get(key2))
+	assert.Equal(value3, treestore.Get(key3))
+	assert.Equal(value4, treestore.Get(key4))
+	assert.Equal(value5, treestore.Get(key5))
+	assert.Equal(value6, treestore.Get(key6))
+	assert.Equal(value7, treestore.Get(key7))
+	assert.Equal(value8, treestore.Get(key8))
+	assert.Equal(value9, treestore.Get(key9))
+
+	// var cnt int
+
+	// cb := func(prefix common.Bytes) func(k, v common.Bytes) bool {
+	// 	cnt = 0
+	// 	return func(k, v common.Bytes) bool {
+	// 		cnt++
+	// 		success := bytes.HasPrefix(k, prefix)
+	// 		success = success && (bytes.Compare(v, treestore.Get(k)) == 0)
+	// 		return success
+	// 	}
+	// }
+
+	// // prefix1 := common.Bytes("test/1")
+	// // treestore.Traverse(prefix1, cb(prefix1))
+	// // assert.Equal(2, cnt)
+
+	// // prefix2 := common.Bytes("test/2")
+	// // treestore.Traverse(prefix2, cb(prefix2))
+	// // assert.Equal(1, cnt)
+
+	// prefix3 := common.Bytes("test/333")
+	// treestore.Traverse(prefix3, cb(prefix3))
+	// assert.Equal(5, cnt)
+
+	// prefix4 := common.Bytes("test/33")
+	// treestore.Traverse(prefix4, cb(prefix4))
+	// assert.Equal(6, cnt)
+
+	// prefix5 := common.Bytes("test")
+	// treestore.Traverse(prefix5, cb(prefix5))
+	// assert.Equal(6, cnt)
+
+	// // treestore.Set(key1, nil)
+	// // assert.Nil(treestore.Get(key1)) // TODO: delete some 333 node
+	// // treestore.Traverse(prefix5, cb(prefix5))
+	// // assert.Equal(6, cnt)
+
 	root, _ := treestore.Commit(nil)
 	treestore.Trie.GetDB().Commit(root, true)
+
+	assert.True(db.Has(root[:]))
 
 	//////////////////////////////
 

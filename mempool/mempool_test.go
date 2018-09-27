@@ -8,6 +8,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/core"
 	dp "github.com/thetatoken/ukulele/dispatcher"
 	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -192,11 +194,29 @@ func TestMempoolTransactionGossip(t *testing.T) {
 func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
 	messenger := simnet.AddEndpoint(peerID)
 	dispatcher := dp.NewDispatcher(messenger)
-	mempool := CreateMempool(dispatcher)
+	mempool := CreateMempool(newTestLedger(), dispatcher)
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
 	messenger.Start()
 	return mempool
+}
+
+type TestLedger struct {
+}
+
+func newTestLedger() core.Ledger {
+	return &TestLedger{}
+}
+
+func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
+	return result.OK
+}
+
+func (tl *TestLedger) DeliverTxs() (blockRawTxs []common.Bytes, res result.Result) {
+	return []common.Bytes{}, result.OK
+}
+
+func (tl *TestLedger) Query() {
 }
 
 type TestNetworkMessageInterceptor struct {

@@ -29,19 +29,22 @@ import (
  * This is a test memory database. Do not use for any production it does not get persisted
  */
 type MemDatabase struct {
-	db   map[string][]byte
-	lock sync.RWMutex
+	db    map[string][]byte
+	refdb map[string]int
+	lock  sync.RWMutex
 }
 
 func NewMemDatabase() *MemDatabase {
 	return &MemDatabase{
-		db: make(map[string][]byte),
+		db:    make(map[string][]byte),
+		refdb: make(map[string]int),
 	}
 }
 
 func NewMemDatabaseWithCap(size int) *MemDatabase {
 	return &MemDatabase{
-		db: make(map[string][]byte, size),
+		db:    make(map[string][]byte, size),
+		refdb: make(map[string]int, size),
 	}
 }
 
@@ -91,18 +94,48 @@ func (db *MemDatabase) Delete(key []byte) error {
 }
 
 func (db *MemDatabase) Reference(key []byte) error {
-	// TODO
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		return err
+	}
+	if value == nil {
+		return store.ErrKeyNotFound
+	}
+
+	db.refdb[string(key)] = db.refdb[string(key)] + 1
+
 	return nil
 }
 
 func (db *MemDatabase) Dereference(key []byte) error {
-	// TODO
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		return err
+	}
+	if value == nil {
+		return store.ErrKeyNotFound
+	}
+
+	if db.refdb[string(key)] > 0 {
+		db.refdb[string(key)] = db.refdb[string(key)] - 1
+	}
+
 	return nil
 }
 
 func (db *MemDatabase) CountReference(key []byte) (int, error) {
-	// TODO
-	return 0, nil
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
+	return db.refdb[string(key)], nil
 }
 
 func (db *MemDatabase) Close() {}
@@ -119,9 +152,10 @@ type kv struct {
 }
 
 type memBatch struct {
-	db     *MemDatabase
-	writes []kv
-	size   int
+	db         *MemDatabase
+	writes     []kv
+	references map[string]int
+	size       int
 }
 
 func (b *memBatch) Put(key, value []byte) error {
@@ -137,12 +171,14 @@ func (b *memBatch) Delete(key []byte) error {
 }
 
 func (b *memBatch) Reference(key []byte) error {
-	// TODO
+	b.references[string(key)]++
+	b.size++
 	return nil
 }
 
 func (b *memBatch) Dereference(key []byte) error {
-	// TODO
+	b.references[string(key)]--
+	b.size++
 	return nil
 }
 
@@ -157,6 +193,27 @@ func (b *memBatch) Write() error {
 		}
 		b.db.db[string(kv.k)] = kv.v
 	}
+
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
+	for k, v := range b.references {
+		// check if k/v exists
+		value, err := b.db.Get([]byte(k))
+		if err != nil || value == nil {
+			continue
+		}
+
+		b.db.refdb[string(k)] = b.db.refdb[string(k)] + v
+		if b.db.refdb[string(k)] < 0 {
+			b.db.refdb[string(k)] = 0
+		}
+	}
+
 	return nil
 }
 

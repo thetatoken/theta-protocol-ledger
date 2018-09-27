@@ -32,6 +32,7 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 	"github.com/thetatoken/ukulele/common/metrics"
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -42,8 +43,9 @@ const (
 var OpenFileLimit = 64
 
 type LDBDatabase struct {
-	fn string      // filename for reporting
-	db *leveldb.DB // LevelDB instance
+	fn    string      // filename for reporting
+	db    *leveldb.DB // LevelDB instance
+	refdb *leveldb.DB // LevelDB instance for references
 
 	compTimeMeter    metrics.Meter // Meter for measuring the total time spent in database compaction
 	compReadMeter    metrics.Meter // Meter for measuring the data read during compaction
@@ -58,7 +60,7 @@ type LDBDatabase struct {
 }
 
 // NewLDBDatabase returns a LevelDB wrapped object.
-func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
+func NewLDBDatabase(file string, reffile string, cache int, handles int) (*LDBDatabase, error) {
 	// Ensure we have some minimal caching and file guarantees
 	if cache < 16 {
 		cache = 16
@@ -82,9 +84,26 @@ func NewLDBDatabase(file string, cache int, handles int) (*LDBDatabase, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Open the reference db and recover any potential corruptions
+	refdb, err := leveldb.OpenFile(reffile, &opt.Options{
+		OpenFilesCacheCapacity: handles,
+		BlockCacheCapacity:     cache / 2 * opt.MiB,
+		WriteBuffer:            cache / 4 * opt.MiB, // Two of these are used internally
+		Filter:                 filter.NewBloomFilter(10),
+	})
+	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
+		refdb, err = leveldb.RecoverFile(reffile, nil)
+	}
+	// (Re)check for errors and abort if opening of the db failed
+	if err != nil {
+		return nil, err
+	}
+
 	return &LDBDatabase{
-		fn: file,
-		db: db,
+		fn:    file,
+		db:    db,
+		refdb: refdb,
 	}, nil
 }
 
@@ -117,18 +136,73 @@ func (db *LDBDatabase) Delete(key []byte) error {
 }
 
 func (db *LDBDatabase) Reference(key []byte) error {
-	// TODO
-	return nil
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		return err
+	}
+	if value == nil {
+		return store.ErrKeyNotFound
+	}
+
+	var ref int
+	dat, err := db.refdb.Get(key, nil)
+	if err != nil {
+		return err
+	}
+	if dat == nil {
+		ref = 1
+	} else {
+		ref, err = strconv.Atoi(string(dat))
+		if err != nil {
+			return err
+		}
+		ref++
+	}
+	return db.refdb.Put(key, []byte(strconv.Itoa(ref)), nil)
 }
 
 func (db *LDBDatabase) Dereference(key []byte) error {
-	// TODO
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		return err
+	}
+	if value == nil {
+		return store.ErrKeyNotFound
+	}
+
+	var ref int
+	dat, err := db.refdb.Get(key, nil)
+	if err != nil {
+		return err
+	}
+	if dat != nil {
+		ref, err = strconv.Atoi(string(dat))
+		if err != nil {
+			return err
+		}
+		if ref > 0 {
+			return db.refdb.Put(key, []byte(strconv.Itoa(ref-1)), nil)
+		}
+	}
 	return nil
 }
 
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
-	// TODO
-	return 0, nil
+	dat, err := db.refdb.Get(key, nil)
+	if err != nil {
+		return 0, err
+	}
+	if dat == nil {
+		return 0, nil
+	} else {
+		ref, err := strconv.Atoi(string(dat))
+		if err != nil {
+			return 0, err
+		}
+		return ref, nil
+	}
 }
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
@@ -362,13 +436,15 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 }
 
 func (db *LDBDatabase) NewBatch() database.Batch {
-	return &ldbBatch{db: db.db, b: new(leveldb.Batch)}
+	return &ldbBatch{db: db.db, refdb: db.refdb, b: new(leveldb.Batch), references: make(map[string]int)}
 }
 
 type ldbBatch struct {
-	db   *leveldb.DB
-	b    *leveldb.Batch
-	size int
+	db         *leveldb.DB
+	refdb      *leveldb.DB
+	b          *leveldb.Batch
+	references map[string]int
+	size       int
 }
 
 func (b *ldbBatch) Put(key, value []byte) error {
@@ -384,17 +460,66 @@ func (b *ldbBatch) Delete(key []byte) error {
 }
 
 func (b *ldbBatch) Reference(key []byte) error {
-	// TODO
+	b.references[string(key)]++
+	b.size++
 	return nil
 }
 
 func (b *ldbBatch) Dereference(key []byte) error {
-	// TODO
+	b.references[string(key)]--
+	b.size++
 	return nil
 }
 
 func (b *ldbBatch) Write() error {
-	return b.db.Write(b.b, nil)
+	err := b.db.Write(b.b, nil)
+
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
+	numRefs := len(b.references)
+	if numRefs > 0 {
+		semRefs := make(chan bool, numRefs)
+		for k, v := range b.references {
+			go func() {
+				// check if k/v exists
+				value, err := b.db.Get([]byte(k), nil)
+				if err != nil || value == nil {
+					return
+				}
+
+				var ref int
+				dat, err := b.refdb.Get([]byte(k), nil)
+				if err != nil {
+					return
+				}
+				if dat == nil {
+					ref = v
+				} else {
+					ref, err = strconv.Atoi(string(dat))
+					if err != nil {
+						return
+					}
+					ref = ref + v
+				}
+				if ref < 0 {
+					ref = 0
+				}
+				b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
+
+				semRefs <- true
+			}()
+		}
+		for j := 0; j < numRefs; j++ {
+			<-semRefs
+		}
+	}
+
+	return err
 }
 
 func (b *ldbBatch) ValueSize() int {
@@ -444,8 +569,8 @@ func (dt *table) Dereference(key []byte) error {
 	return dt.db.Dereference(append([]byte(dt.prefix), key...))
 }
 
-func (db *table) CountReference(key []byte) (int, error) {
-	return 0, nil
+func (dt *table) CountReference(key []byte) (int, error) {
+	return dt.db.CountReference(key)
 }
 
 func (dt *table) Close() {

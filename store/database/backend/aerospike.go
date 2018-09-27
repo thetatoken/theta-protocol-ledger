@@ -109,13 +109,15 @@ func (db *AerospikeDatabase) Dereference(key []byte) error {
 		return store.ErrKeyNotFound
 	}
 
-	ref := rec.Bins[RefBin].(int)
-	if ref > 0 {
-		bin := aerospike.NewBin(RefBin, ref-1)
-		writePolicy := aerospike.NewWritePolicy(0, 0)
-		writePolicy.Timeout = 300 * time.Millisecond
-		err = db.client.PutBins(writePolicy, getDBKey(key), bin)
-		return err
+	if rec.Bins[RefBin] != nil {
+		ref := rec.Bins[RefBin].(int)
+		if ref > 0 {
+			bin := aerospike.NewBin(RefBin, ref-1)
+			writePolicy := aerospike.NewWritePolicy(0, 0)
+			writePolicy.Timeout = 300 * time.Millisecond
+			err = db.client.PutBins(writePolicy, getDBKey(key), bin)
+			return err
+		}
 	}
 	return nil
 }
@@ -129,7 +131,12 @@ func (db *AerospikeDatabase) CountReference(key []byte) (int, error) {
 		return 0, store.ErrKeyNotFound
 	}
 
-	ref := rec.Bins[RefBin].(int)
+	var ref int
+	if rec.Bins[RefBin] == nil {
+		ref = 0
+	} else {
+		ref = rec.Bins[RefBin].(int)
+	}
 	return ref, nil
 }
 
@@ -138,7 +145,7 @@ func (db *AerospikeDatabase) Close() {
 }
 
 func (db *AerospikeDatabase) NewBatch() database.Batch {
-	return &adbBatch{db: db, puts: []Document{}, deletes: []Document{}}
+	return &adbBatch{db: db}
 }
 
 type adbBatch struct {
@@ -176,52 +183,60 @@ func (b *adbBatch) Dereference(key []byte) error {
 
 func (b *adbBatch) Write() error {
 	numPuts := len(b.puts)
-	semPuts := make(chan bool, numPuts)
-	for i := range b.puts {
-		go func(i int) {
-			doc := b.puts[i]
-			b.db.Put(doc.Key, doc.Value)
-			semPuts <- true
-		}(i)
-	}
-	for j := 0; j < numPuts; j++ {
-		<-semPuts
+	if numPuts > 0 {
+		semPuts := make(chan bool, numPuts)
+		for i := range b.puts {
+			go func(i int) {
+				doc := b.puts[i]
+				b.db.Put(doc.Key, doc.Value)
+				semPuts <- true
+			}(i)
+		}
+		for j := 0; j < numPuts; j++ {
+			<-semPuts
+		}
 	}
 
 	numDels := len(b.deletes)
-	semDels := make(chan bool, numDels)
-	for i := range b.deletes {
-		go func(i int) {
-			b.db.Delete(b.deletes[i].Key)
-			semDels <- true
-		}(i)
-	}
-	for j := 0; j < numDels; j++ {
-		<-semDels
+	if numDels > 0 {
+		semDels := make(chan bool, numDels)
+		for i := range b.deletes {
+			go func(i int) {
+				b.db.Delete(b.deletes[i].Key)
+				semDels <- true
+			}(i)
+		}
+		for j := 0; j < numDels; j++ {
+			<-semDels
+		}
 	}
 
 	numRefs := len(b.references)
-	semRefs := make(chan bool, numRefs)
-	for i := range b.references {
-		go func(i int) {
-			b.db.Reference(b.references[i].Key)
-			semRefs <- true
-		}(i)
-	}
-	for j := 0; j < numRefs; j++ {
-		<-semRefs
+	if numRefs > 0 {
+		semRefs := make(chan bool, numRefs)
+		for i := range b.references {
+			go func(i int) {
+				b.db.Reference(b.references[i].Key)
+				semRefs <- true
+			}(i)
+		}
+		for j := 0; j < numRefs; j++ {
+			<-semRefs
+		}
 	}
 
 	numDerefs := len(b.dereferences)
-	semDerefs := make(chan bool, numDerefs)
-	for i := range b.dereferences {
-		go func(i int) {
-			b.db.Dereference(b.dereferences[i].Key)
-			semDerefs <- true
-		}(i)
-	}
-	for j := 0; j < numDerefs; j++ {
-		<-semDerefs
+	if numDerefs > 0 {
+		semDerefs := make(chan bool, numDerefs)
+		for i := range b.dereferences {
+			go func(i int) {
+				b.db.Dereference(b.dereferences[i].Key)
+				semDerefs <- true
+			}(i)
+		}
+		for j := 0; j < numDerefs; j++ {
+			<-semDerefs
+		}
 	}
 
 	b.Reset()
