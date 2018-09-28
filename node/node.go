@@ -14,12 +14,13 @@ import (
 )
 
 type Node struct {
-	Store       store.Store
-	Chain       *blockchain.Chain
-	Consensus   *consensus.ConsensusEngine
-	SyncManager *netsync.SyncManager
-	Dispatcher  *dispatcher.Dispatcher
-	Network     p2p.Network
+	Store            store.Store
+	Chain            *blockchain.Chain
+	Consensus        *consensus.ConsensusEngine
+	ValidatorManager core.ValidatorManager
+	SyncManager      *netsync.SyncManager
+	Dispatcher       *dispatcher.Dispatcher
+	Network          p2p.Network
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -39,17 +40,19 @@ type Params struct {
 
 func NewNode(params *Params) *Node {
 	chain := blockchain.NewChain(params.ChainID, params.Store, params.Root)
-	consensus := consensus.NewConsensusEngine(chain, params.Network, params.Validators)
+	validatorManager := consensus.NewFixedValidatorManager(params.Validators)
+	consensus := consensus.NewConsensusEngine(chain, params.Network, validatorManager)
 	dispatcher := dispatcher.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 
 	return &Node{
-		Store:       params.Store,
-		Chain:       chain,
-		Consensus:   consensus,
-		SyncManager: syncMgr,
-		Dispatcher:  dispatcher,
-		Network:     params.Network,
+		Store:            params.Store,
+		Chain:            chain,
+		Consensus:        consensus,
+		ValidatorManager: validatorManager,
+		SyncManager:      syncMgr,
+		Dispatcher:       dispatcher,
+		Network:          params.Network,
 	}
 }
 

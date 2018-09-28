@@ -358,12 +358,14 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 }
 
 func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
-	sm.consensus.AddMessage(cc)
+	for _, vote := range cc.Votes.Votes() {
+		sm.consumer.AddMessage(&vote)
+	}
 }
 
 func (sm *SyncManager) handleVote(vote *core.Vote) {
 	if vote.Block != nil {
 		sm.requestMgr.AddHash(vote.Block.Hash, []string{})
 	}
-	sm.consensus.AddMessage(vote)
+	sm.consumer.AddMessage(vote)
 }
