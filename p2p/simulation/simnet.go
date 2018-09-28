@@ -23,6 +23,7 @@ type Simnet struct {
 	Endpoints  []*SimnetEndpoint
 	msgHandler p2p.MessageHandler
 	messages   chan Envelope
+	MsgLogs    []Envelope
 
 	// Life cycle.
 	wg      *sync.WaitGroup
@@ -36,6 +37,7 @@ type Simnet struct {
 func NewSimnet() *Simnet {
 	return &Simnet{
 		messages: make(chan Envelope, viper.GetInt(common.CfgP2PMessageQueueSize)),
+		MsgLogs:  []Envelope{},
 		wg:       &sync.WaitGroup{},
 		mu:       &sync.Mutex{},
 	}
@@ -124,6 +126,7 @@ func (sn *Simnet) AddMessage(msg Envelope) {
 		return
 	}
 
+	sn.MsgLogs = append(sn.MsgLogs, msg)
 	sn.messages <- msg
 }
 
@@ -144,9 +147,8 @@ func (se *SimnetEndpoint) Start() error {
 		for {
 			select {
 			case envelope := <-se.incoming:
-				peerID := se.ID()
 				message := p2ptypes.Message{
-					PeerID:  peerID,
+					PeerID:  envelope.From,
 					Content: envelope.Content,
 				}
 				se.HandleMessage(message)
@@ -174,7 +176,7 @@ func (se *SimnetEndpoint) Stop() {
 func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	successes = make(chan bool, 10)
 	go func() {
-		se.network.messages <- Envelope{From: se.ID(), Content: message.Content}
+		se.network.AddMessage(Envelope{From: se.ID(), Content: message.Content})
 		successes <- true
 	}()
 	return successes
@@ -183,7 +185,7 @@ func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) (successes chan bo
 // Send implements the Network interface.
 func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	go func() {
-		se.network.messages <- Envelope{From: se.ID(), To: id, Content: message.Content}
+		se.network.AddMessage(Envelope{From: se.ID(), To: id, Content: message.Content})
 	}()
 	return true
 }

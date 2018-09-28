@@ -179,12 +179,10 @@ func TestMempoolTransactionGossip(t *testing.T) {
 	numGossippedTxs := 2 * 3 // 2 peers, each should receive 3 transactions
 	for i := 0; i < numGossippedTxs; i++ {
 		receivedMsg := <-netMsgIntercepter.ReceivedMessages
-		receiverPeerID := receivedMsg.PeerID
+		senderID := receivedMsg.PeerID
 		dataResponse := receivedMsg.Content.(dp.DataResponse)
 		rawTx := string(dataResponse.Payload[:])
-		log.Infof("received transaction, receiver: %v, rawTx: %v", receiverPeerID, rawTx)
-
-		assert.True(receiverPeerID == "peer1" || receiverPeerID == "peer2")
+		log.Infof("received transaction, sender: %v, rawTx: %v", senderID, rawTx)
 		assert.True(rawTx == "tx1" || rawTx == "tx2" || rawTx == "tx3")
 	}
 }
