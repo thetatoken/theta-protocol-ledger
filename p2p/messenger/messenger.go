@@ -132,7 +132,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 
 // ID returns the ID of the current node
 func (msgr *Messenger) ID() string {
-	return msgr.nodeInfo.Address
+	return msgr.nodeInfo.PubKey.Address().Hex()
 }
 
 // AttachMessageHandlersToPeer attaches the registerred message handlers to the given peer

@@ -601,7 +601,7 @@
              * Properties of a Validator.
              * @memberof serialization
              * @interface IValidator
-             * @property {Uint8Array|null} [id] Validator id
+             * @property {Uint8Array|null} [pubKey] Validator pubKey
              * @property {number|Long|null} [stake] Validator stake
              */
     
@@ -621,12 +621,12 @@
             }
     
             /**
-             * Validator id.
-             * @member {Uint8Array} id
+             * Validator pubKey.
+             * @member {Uint8Array} pubKey
              * @memberof serialization.Validator
              * @instance
              */
-            Validator.prototype.id = $util.newBuffer([]);
+            Validator.prototype.pubKey = $util.newBuffer([]);
     
             /**
              * Validator stake.
@@ -660,8 +660,8 @@
             Validator.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.id != null && message.hasOwnProperty("id"))
-                    writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.pubKey);
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     writer.uint32(/* id 2, wireType 0 =*/16).int64(message.stake);
                 return writer;
@@ -699,7 +699,7 @@
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
                     case 1:
-                        message.id = reader.bytes();
+                        message.pubKey = reader.bytes();
                         break;
                     case 2:
                         message.stake = reader.int64();
@@ -739,9 +739,9 @@
             Validator.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.id != null && message.hasOwnProperty("id"))
-                    if (!(message.id && typeof message.id.length === "number" || $util.isString(message.id)))
-                        return "id: buffer expected";
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    if (!(message.pubKey && typeof message.pubKey.length === "number" || $util.isString(message.pubKey)))
+                        return "pubKey: buffer expected";
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     if (!$util.isInteger(message.stake) && !(message.stake && $util.isInteger(message.stake.low) && $util.isInteger(message.stake.high)))
                         return "stake: integer|Long expected";
@@ -760,11 +760,11 @@
                 if (object instanceof $root.serialization.Validator)
                     return object;
                 var message = new $root.serialization.Validator();
-                if (object.id != null)
-                    if (typeof object.id === "string")
-                        $util.base64.decode(object.id, message.id = $util.newBuffer($util.base64.length(object.id)), 0);
-                    else if (object.id.length)
-                        message.id = object.id;
+                if (object.pubKey != null)
+                    if (typeof object.pubKey === "string")
+                        $util.base64.decode(object.pubKey, message.pubKey = $util.newBuffer($util.base64.length(object.pubKey)), 0);
+                    else if (object.pubKey.length)
+                        message.pubKey = object.pubKey;
                 if (object.stake != null)
                     if ($util.Long)
                         (message.stake = $util.Long.fromValue(object.stake)).unsigned = false;
@@ -791,15 +791,15 @@
                     options = {};
                 var object = {};
                 if (options.defaults) {
-                    object.id = options.bytes === String ? "" : [];
+                    object.pubKey = options.bytes === String ? "" : [];
                     if ($util.Long) {
                         var long = new $util.Long(0, 0, false);
                         object.stake = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.stake = options.longs === String ? "0" : 0;
                 }
-                if (message.id != null && message.hasOwnProperty("id"))
-                    object.id = options.bytes === String ? $util.base64.encode(message.id, 0, message.id.length) : options.bytes === Array ? Array.prototype.slice.call(message.id) : message.id;
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    object.pubKey = options.bytes === String ? $util.base64.encode(message.pubKey, 0, message.pubKey.length) : options.bytes === Array ? Array.prototype.slice.call(message.pubKey) : message.pubKey;
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     if (typeof message.stake === "number")
                         object.stake = options.longs === String ? String(message.stake) : message.stake;

@@ -19,7 +19,7 @@ message Signature {
 }
 
 message Validator {
-    bytes id = 1;
+    bytes pub_key = 1;
     int64 stake = 2;
 }
 

@@ -15,20 +15,14 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	id     string
 	pubKey crypto.PublicKey
 	stake  uint64
 }
 
 // NewValidator creates a new validator instance.
-func NewValidator(id string, stake uint64) Validator {
-	pubKey, _ := crypto.PublicKeyFromBytes(common.Bytes(id)) // FIXME: pass in the actual public key
-	return Validator{id, *pubKey, stake}
-}
-
-// ID return the identifier of the validator.
-func (v Validator) ID() string {
-	return v.id
+func NewValidator(pubKeyBytes common.Bytes, stake uint64) Validator {
+	pubKey, _ := crypto.PublicKeyFromBytes(pubKeyBytes)
+	return Validator{*pubKey, stake}
 }
 
 // PublicKey returns the public key of the validator.
@@ -39,6 +33,11 @@ func (v Validator) PublicKey() crypto.PublicKey {
 // Address returns the address of the validator.
 func (v Validator) Address() common.Address {
 	return v.pubKey.Address()
+}
+
+// ID returns the ID of the validator, which is the string representation of its address.
+func (v Validator) ID() string {
+	return v.pubKey.Address().Hex()
 }
 
 // Stake returns the stake of the validator.

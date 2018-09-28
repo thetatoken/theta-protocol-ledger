@@ -372,10 +372,8 @@ func TestTx(t *testing.T) {
 		panic(err)
 	}
 
-	vaAddr := pubkey1.Address()
-	vaID := string(vaAddr[:])
 	vaStake := uint64(1)
-	va := core.NewValidator(vaID, vaStake)
+	va := core.NewValidator(pubkey1.ToBytes(), vaStake)
 	tx := &UpdateValidatorsTx{
 		Proposer:   TxInput{Address: getTestAddress("123")},
 		Validators: []*core.Validator{&va},

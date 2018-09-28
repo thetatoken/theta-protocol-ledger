@@ -95,7 +95,7 @@ func (txIn TxInput) ValidateBasic() result.Result {
 }
 
 func (txIn TxInput) String() string {
-	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", hex.EncodeToString(txIn.Address[:]), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
+	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", txIn.Address.Hex(), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
 }
 
 func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
@@ -132,7 +132,7 @@ func (txOut TxOutput) ValidateBasic() result.Result {
 }
 
 func (txOut TxOutput) String() string {
-	return fmt.Sprintf("TxOutput{%v,%v}", hex.EncodeToString(txOut.Address[:]), txOut.Coins)
+	return fmt.Sprintf("TxOutput{%v,%v}", txOut.Address.Hex(), txOut.Coins)
 }
 
 //-----------------------------------------------------------------------------
@@ -196,7 +196,7 @@ func (tx *SlashTx) SetSignature(addr common.Address, sig *crypto.Signature) bool
 
 func (tx *SlashTx) String() string {
 	return fmt.Sprintf("SlashTx{%v->%v, reserve_sequence: %v, slash_proof: %v}",
-		hex.EncodeToString(tx.SlashedAddress[:]), tx.Proposer.Address[:],
+		tx.SlashedAddress.Hex(), tx.Proposer.Address[:],
 		tx.ReserveSequence, hex.EncodeToString(tx.SlashProof))
 }
 

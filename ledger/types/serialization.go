@@ -616,9 +616,9 @@ func UpdateValidatorsTxFromProto(tx *s.UpdateValidatorsTx) *UpdateValidatorsTx {
 	sp := &UpdateValidatorsTx{}
 	sp.Proposer = *InputFromProto(tx.Proposer)
 	for _, v := range tx.Validators {
-		vaID := string(v.GetId())
+		vaPubKey := v.PubKey
 		stake := uint64(v.GetStake())
-		va := core.NewValidator(vaID, stake)
+		va := core.NewValidator(vaPubKey, stake)
 		sp.Validators = append(sp.Validators, &va)
 	}
 
@@ -630,11 +630,8 @@ func UpdateValidatorsTxToProto(tx *UpdateValidatorsTx) *s.UpdateValidatorsTx {
 	msg.Proposer = InputToProto(&tx.Proposer)
 	for _, va := range tx.Validators {
 		v := &s.Validator{}
-
-		if len(va.ID()) > 0 {
-			v.Id = []byte(va.ID())
-		}
-
+		pubKey := va.PublicKey()
+		v.PubKey = (&pubKey).ToBytes()
 		v.Stake = int64(va.Stake())
 		msg.Validators = append(msg.Validators, v)
 	}

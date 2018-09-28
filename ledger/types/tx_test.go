@@ -621,7 +621,11 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
 
 	// Construct a UpdateValidatorsTx signature
-	// va := core.NewValidator("id123", uint64(100))
+	// idBytes, err := hex.DecodeString("id123")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("Unable to decode public key: %v", id))
+	// }
+	// va := core.NewValidator(idBytes, uint64(100))
 	// tx := &UpdateValidatorsTx{
 	// 	Validators: []*core.Validator{&va},
 	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),

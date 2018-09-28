@@ -7,6 +7,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -100,6 +101,12 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		return recvError
 	}
 	peer.connection.GetNetconn().SetDeadline(time.Time{})
+	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
+	if err != nil {
+		log.Errorf("[p2p] error during handshake/recv: %v", err)
+		return err
+	}
+	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
 	return nil
@@ -155,8 +162,9 @@ func (peer *Peer) NetAddress() *nu.NetAddress {
 
 // ID returns the unique idenitifier of the peer in the P2P network
 func (peer *Peer) ID() string {
-	peerID := peer.nodeInfo.Address // use the blockchain address as the peer ID
-	return peerID
+	peerID := peer.nodeInfo.PubKey.Address() // use the blockchain address as the peer ID
+	id := peerID.Hex()
+	return id
 }
 
 func dial(addr *nu.NetAddress, config PeerConfig) (net.Conn, error) {
