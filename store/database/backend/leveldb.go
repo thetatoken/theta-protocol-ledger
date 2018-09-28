@@ -479,6 +479,9 @@ func (b *ldbBatch) Dereference(key []byte) error {
 
 func (b *ldbBatch) Write() error {
 	err := b.db.Write(b.b, nil)
+	if err != nil {
+		return err
+	}
 
 	for k, v := range b.references {
 		if v == 0 {
@@ -517,7 +520,7 @@ func (b *ldbBatch) Write() error {
 		}
 	}
 
-	return err
+	return nil
 }
 
 func (b *ldbBatch) ValueSize() int {
