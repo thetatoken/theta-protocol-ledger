@@ -15,6 +15,7 @@ import (
 
 type LedgerState struct {
 	chainID string
+	db      database.Database
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
@@ -25,16 +26,39 @@ type LedgerState struct {
 }
 
 // NewLedgerState creates a new Leger State with givn store.
-func NewLedgerState(root common.Hash, db database.Database) *LedgerState {
-	storeView := NewStoreView(root, db)
+func NewLedgerState(chainID string, stateRootHash common.Hash, db database.Database) *LedgerState {
+	storeView := NewStoreView(stateRootHash, db)
+	if storeView == nil {
+		panic(fmt.Sprintf("Failed to create ledger state with state root hash: %v", stateRootHash))
+	}
 	copiedStoreView, err := storeView.Copy()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create ledger state: %v", err))
 	}
 	return &LedgerState{
+		chainID:   chainID,
+		db:        db,
 		checked:   copiedStoreView,
 		delivered: storeView,
 	}
+}
+
+// SetStateRoot resets the state root of its storeviews, and clear the in-memory states
+func (s *LedgerState) SetStateRoot(stateRootHash common.Hash) bool {
+	storeview := NewStoreView(stateRootHash, s.db)
+	if storeview == nil {
+		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
+	}
+	s.delivered = storeview
+	copiedStoreView, err := s.delivered.Copy()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set ledger state: %v", err))
+	}
+	s.checked = copiedStoreView
+	s.coinbaseTransactinProcessed = false
+	s.slashIntents = []types.SlashIntent{}
+	s.validatorsDiff = []*core.Validator{}
+	return true
 }
 
 // SetChainID sets chain ID.

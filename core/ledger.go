@@ -10,6 +10,8 @@ import (
 //
 type Ledger interface {
 	CheckTx(rawTx common.Bytes) result.Result
-	DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result)
+	ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
+	ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result
+	SetRootHash(rootHash common.Hash) result.Result
 	Query()
 }

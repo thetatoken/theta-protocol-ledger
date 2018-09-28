@@ -22,6 +22,9 @@ type StoreView struct {
 // NewStoreView creates an instance of the StoreView
 func NewStoreView(root common.Hash, db database.Database) *StoreView {
 	store := treestore.NewTreeStore(root, db, false)
+	if store == nil {
+		return nil
+	}
 	sv := &StoreView{store}
 	return sv
 }
@@ -34,6 +37,11 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 	}
 	copiedStoreView := &StoreView{copiedStore}
 	return copiedStoreView, nil
+}
+
+// Hash returns the root hash of the tree store
+func (sv *StoreView) Hash() common.Hash {
+	return sv.store.Hash()
 }
 
 // Save saves the StoreView to the persistent storage, and return the root hash

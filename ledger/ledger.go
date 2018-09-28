@@ -46,13 +46,13 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 		return result.Error("Unauthorized transaction, should skip")
 	}
 
-	_, res := ledger.executor.ExecuteTx(tx, true) // Sanity check only
+	_, res := ledger.executor.CheckTx(tx)
 	return res
 }
 
-// DeliverBlockTxs executes and returns a list of transactions,
-// which will be used to assemble the next block
-func (ledger *Ledger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
+// ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
+// It also clears these transactions from the mempool.
+func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	blockRawTxs = []common.Bytes{}
 
 	// Add special transactions
@@ -65,11 +65,58 @@ func (ledger *Ledger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.
 		if err != nil {
 			continue
 		}
-		ledger.executor.ExecuteTx(tx, false)
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsOK() {
+			blockRawTxs = append(blockRawTxs, regularRawTx)
+		}
 	}
+	stateRootHash = ledger.state.Commit()
+
 	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
-	return blockRawTxs, result.OK
+	return stateRootHash, blockRawTxs, result.OK
+}
+
+// ApplyBlockTxs applies the given block transactions. If any of the transactions failed, it returns
+// an error immediately. If all the transactions execute successfully, it then validates the state
+// root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
+func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	currStateRoot := ledger.state.Delivered().Hash()
+	for _, rawTx := range blockRawTxs {
+		tx, err := types.TxFromBytes(rawTx)
+		if err != nil {
+			ledger.SetRootHash(currStateRoot)
+			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsError() {
+			ledger.SetRootHash(currStateRoot)
+			return res
+		}
+	}
+
+	newStateRoot := ledger.state.Delivered().Hash()
+	if newStateRoot != expectedStateRoot {
+		ledger.SetRootHash(currStateRoot)
+		return result.Error("State root mismatch! root: %v, exptected: %v",
+			hex.EncodeToString(newStateRoot[:]),
+			hex.EncodeToString(expectedStateRoot[:]))
+	}
+
+	ledger.state.Commit() // commit to persistent storage
+
+	ledger.mempool.Update(blockRawTxs) // clear txs from the mempool
+
+	return result.OK
+}
+
+// SetRootHash sets the ledger state with the designated root
+func (ledger *Ledger) SetRootHash(rootHash common.Hash) result.Result {
+	success := ledger.state.SetStateRoot(rootHash)
+	if !success {
+		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
+	}
+	return result.OK
 }
 
 // Query returns the account query results

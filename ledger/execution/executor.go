@@ -62,8 +62,18 @@ func (exec *Executor) SetSkipSanityCheck(skip bool) {
 	exec.skipSanityCheck = skip
 }
 
-// ExecuteTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
-func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) (common.Hash, result.Result) {
+// CheckTx checks the validity of the given transaction
+func (exec *Executor) CheckTx(tx types.Tx) (common.Hash, result.Result) {
+	return exec.processTx(tx, true)
+}
+
+// ExecuteTx executes the given transaction
+func (exec *Executor) ExecuteTx(tx types.Tx) (common.Hash, result.Result) {
+	return exec.processTx(tx, false)
+}
+
+// processTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
+func (exec *Executor) processTx(tx types.Tx, isCheckTx bool) (common.Hash, result.Result) {
 	chainID := exec.state.GetChainID()
 	var view *st.StoreView
 	if isCheckTx {

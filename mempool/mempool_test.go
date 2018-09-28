@@ -212,8 +212,16 @@ func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
 	return result.OK
 }
 
-func (tl *TestLedger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
-	return []common.Bytes{}, result.OK
+func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	return common.Hash{}, []common.Bytes{}, result.OK
+}
+
+func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	return result.OK
+}
+
+func (tl *TestLedger) SetRootHash(rootHash common.Hash) result.Result {
+	return result.OK
 }
 
 func (tl *TestLedger) Query() {
