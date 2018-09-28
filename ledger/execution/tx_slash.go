@@ -108,13 +108,13 @@ func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor
 	}
 
 	if !reservedFundFound {
-		return invalidHash, result.Error("Reserved fund not found for %v", tx.ReserveSequence)
+		return common.Hash{}, result.Error("Reserved fund not found for %v", tx.ReserveSequence)
 	}
 
 	proposerAddress := tx.Proposer.PubKey.Address()
 	proposerAccount := view.GetAccount(proposerAddress)
 	if proposerAccount == nil {
-		return invalidHash, result.Error("Proposer %v does not exist!", proposerAddress)
+		return common.Hash{}, result.Error("Proposer %v does not exist!", proposerAddress)
 	}
 
 	// TODO: We should transfer the collateral to a special address, e.g. 0x0 instead of

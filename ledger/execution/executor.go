@@ -72,7 +72,7 @@ func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) (common.Hash, resul
 
 	sanityCheckResult := exec.sanityCheck(chainID, view, tx)
 	if sanityCheckResult.IsError() || isCheckTx {
-		return invalidHash, sanityCheckResult
+		return common.Hash{}, sanityCheckResult
 	}
 
 	txHash, processResult := exec.process(chainID, view, tx)

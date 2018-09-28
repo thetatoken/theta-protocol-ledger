@@ -90,7 +90,7 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 
 	initiatorAccount, res := getInput(view, tx.Initiator)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	currentBlockHeight := GetCurrentBlockHeight()
@@ -101,7 +101,7 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 	if exec.state.SplitContractExists(resourceId) {
 		splitContract := exec.state.GetSplitContract(resourceId)
 		if splitContract.InitiatorAddress == tx.Initiator.Address {
-			return invalidHash, result.Error("split contract from a different initiator existed")
+			return common.Hash{}, result.Error("split contract from a different initiator existed")
 		}
 		endBlockHeight := currentBlockHeight + tx.Duration
 		splitContract.EndBlockHeight = endBlockHeight
@@ -119,11 +119,11 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 	}
 
 	if !success {
-		return invalidHash, result.Error("failed to add or update split contract")
+		return common.Hash{}, result.Error("failed to add or update split contract")
 	}
 
 	if !chargeFee(initiatorAccount, tx.Fee) {
-		return invalidHash, result.Error("failed to charge transaction fee")
+		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 
 	initiatorAccount.Sequence++

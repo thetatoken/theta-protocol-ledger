@@ -27,6 +27,17 @@ type TreeStore struct {
 	*trie.Trie
 }
 
+// Copy returns a copy of the TreeStore
+func (store *TreeStore) Copy() (*TreeStore, error) {
+	copiedTrie, err := store.Trie.Copy()
+	if err != nil {
+		return nil, err
+	}
+
+	copiedStore := &TreeStore{copiedTrie}
+	return copiedStore, nil
+}
+
 // Get retrieves value of given key.
 func (store *TreeStore) Get(key common.Bytes) common.Bytes {
 	return store.Trie.Get(key)

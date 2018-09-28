@@ -73,7 +73,7 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAc
 	accounts, success := getInputs(view, sourceInputs)
 	if success.IsError() {
 		// TODO: revisit whether we should panic or just log the error.
-		return invalidHash, result.Error("Failed to get the source account")
+		return common.Hash{}, result.Error("Failed to get the source account")
 	}
 	sourceAddress := tx.Source.Address
 	sourceAccount := accounts[string(sourceAddress[:])]
@@ -83,7 +83,7 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAc
 	currentBlockHeight := GetCurrentBlockHeight()
 	sourceAccount.ReleaseFund(currentBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
-		return invalidHash, result.Error("failed to charge transaction fee")
+		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 
 	sourceAccount.Sequence++

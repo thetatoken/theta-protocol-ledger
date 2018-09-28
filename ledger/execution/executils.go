@@ -31,8 +31,6 @@ import (
 // 	return
 // }
 
-var invalidHash = common.Hash{}
-
 // getValidatorAddresses returns validators' addresses
 func getValidatorAddresses(consensus core.ConsensusEngine) []common.Address {
 	epoch := consensus.GetEpoch()

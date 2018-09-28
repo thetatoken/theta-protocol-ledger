@@ -109,12 +109,12 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 
 	sourceAccount, res := getInput(view, tx.Source)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	targetAccount, res := getOrMakeInput(view, tx.Target)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	resourceId := tx.ResourceId
@@ -123,7 +123,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	fullTransferAmount := tx.Source.Coins
 	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceId, targetAddress, targetAccount, fullTransferAmount)
 	if !splitSuccess {
-		return invalidHash, result.Error("Failed to split payment")
+		return common.Hash{}, result.Error("Failed to split payment")
 	}
 
 	currentBlockHeight := GetCurrentBlockHeight()
@@ -133,7 +133,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		exec.state.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
-		return invalidHash, result.Error("failed to charge transaction fee")
+		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 

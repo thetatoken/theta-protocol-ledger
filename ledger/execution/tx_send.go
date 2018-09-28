@@ -71,12 +71,12 @@ func (exec *SendTxExecutor) process(chainID string, view types.ViewDataAccessor,
 
 	accounts, res := getInputs(view, tx.Inputs)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	accounts, res = getOrMakeOutputs(view, accounts, tx.Outputs)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	adjustByInputs(view, accounts, tx.Inputs)

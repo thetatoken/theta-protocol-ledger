@@ -1,6 +1,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
@@ -23,9 +25,12 @@ type LedgerState struct {
 
 // NewLedgerState creates a new Leger State with givn store.
 func NewLedgerState(sv *StoreView) *LedgerState {
-	copiedView := sv.Copy()
+	copiedView, err := sv.Copy()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ledger state: %v", err))
+	}
 	return &LedgerState{
-		checked:   &copiedView,
+		checked:   copiedView,
 		delivered: sv,
 	}
 }
@@ -97,8 +102,11 @@ func (s *LedgerState) Checked() *StoreView {
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
-	copiedView := s.delivered.Copy()
-	s.checked = &copiedView
+	copiedView, err := s.delivered.Copy()
+	if err != nil {
+		panic(fmt.Errorf("Failed to copy the delivered store view: %v", err))
+	}
+	s.checked = copiedView
 	return hash
 }
 

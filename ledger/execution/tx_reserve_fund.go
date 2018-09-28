@@ -82,7 +82,7 @@ func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAc
 	sourceAddress := tx.Source.Address
 	sourceAccount, success := getInput(view, tx.Source)
 	if success.IsError() {
-		return invalidHash, result.Error("Failed to get the source account")
+		return common.Hash{}, result.Error("Failed to get the source account")
 	}
 
 	collateral := tx.Collateral
@@ -94,7 +94,7 @@ func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAc
 
 	sourceAccount.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
-		return invalidHash, result.Error("failed to charge transaction fee")
+		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 
 	sourceAccount.Sequence++

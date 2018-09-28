@@ -117,6 +117,13 @@ func New(root common.Hash, db *Database) (*Trie, error) {
 	return trie, nil
 }
 
+// Copy creates a copy of the trie
+func (t *Trie) Copy() (*Trie, error) {
+	rootHash := t.Hash()
+	copiedTrie, err := New(rootHash, t.db)
+	return copiedTrie, err
+}
+
 // NodeIterator returns an iterator that returns nodes of the trie. Iteration starts at
 // the key after the given start key.
 func (t *Trie) NodeIterator(start []byte) NodeIterator {

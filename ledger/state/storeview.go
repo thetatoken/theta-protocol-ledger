@@ -7,6 +7,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/treestore"
 )
 
@@ -18,16 +19,31 @@ type StoreView struct {
 	store *treestore.TreeStore
 }
 
+// NewStoreView creates an instance of the StoreView
+func NewStoreView(root common.Hash, db database.Database) *StoreView {
+	store := treestore.NewTreeStore(root, db, false)
+	sv := &StoreView{store}
+	return sv
+}
+
 // Copy returns a copy of the StoreView
-func (sv *StoreView) Copy() StoreView {
-	// TODO: need proper implementation
-	return StoreView{}
+func (sv *StoreView) Copy() (*StoreView, error) {
+	copiedStore, err := sv.store.Copy()
+	if err != nil {
+		return nil, err
+	}
+	copiedStoreView := &StoreView{copiedStore}
+	return copiedStoreView, nil
 }
 
 // Save saves the StoreView to the persistent storage, and return the root hash
 func (sv *StoreView) Save() common.Hash {
-	// TODO: need proper implementation
-	return common.Hash{}
+	rootHash, err := sv.store.Commit(nil)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to save the StoreView: %v", err))
+	}
+	sv.store.Trie.GetDB().Commit(rootHash, true)
+	return rootHash
 }
 
 // Get returns the value corresponding the key

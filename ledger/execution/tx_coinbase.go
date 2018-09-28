@@ -89,13 +89,13 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAcces
 	tx := transaction.(*types.CoinbaseTx)
 
 	if exec.state.CoinbaseTransactinProcessed() {
-		return invalidHash, result.Error("Another coinbase transaction has been processed for the current block")
+		return common.Hash{}, result.Error("Another coinbase transaction has been processed for the current block")
 	}
 
 	accounts := map[string]*types.Account{}
 	accounts, res := getOrMakeOutputs(view, accounts, tx.Outputs)
 	if res.IsError() {
-		return invalidHash, res
+		return common.Hash{}, res
 	}
 
 	for _, output := range tx.Outputs {
