@@ -1,9 +1,12 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/store/database"
 )
 
 //
@@ -22,11 +25,15 @@ type LedgerState struct {
 }
 
 // NewLedgerState creates a new Leger State with givn store.
-func NewLedgerState(sv *StoreView) *LedgerState {
-	copiedView := sv.Copy()
+func NewLedgerState(root common.Hash, db database.Database) *LedgerState {
+	storeView := NewStoreView(root, db)
+	copiedStoreView, err := storeView.Copy()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ledger state: %v", err))
+	}
 	return &LedgerState{
-		checked:   &copiedView,
-		delivered: sv,
+		checked:   copiedStoreView,
+		delivered: storeView,
 	}
 }
 
@@ -70,7 +77,7 @@ func (s *LedgerState) SetCoinbaseTransactionProcessed(processed bool) {
 	s.coinbaseTransactinProcessed = processed
 }
 
-// GetValidatorDiff retrives validator diff
+// GetAndClearValidatorDiff retrives and clear validator diff
 func (s *LedgerState) GetAndClearValidatorDiff() []*core.Validator {
 	res := s.validatorsDiff
 	s.validatorsDiff = nil
@@ -97,8 +104,11 @@ func (s *LedgerState) Checked() *StoreView {
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
-	copiedView := s.delivered.Copy()
-	s.checked = &copiedView
+	copiedView, err := s.delivered.Copy()
+	if err != nil {
+		panic(fmt.Errorf("Failed to copy the delivered store view: %v", err))
+	}
+	s.checked = copiedView
 	return hash
 }
 

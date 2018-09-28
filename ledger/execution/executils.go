@@ -1,13 +1,11 @@
 package execution
 
 import (
-	"fmt"
-
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 // --------------------------------- Execution Utilities -------------------------------------
@@ -34,10 +32,9 @@ import (
 // }
 
 // getValidatorAddresses returns validators' addresses
-func getValidatorAddresses(node *nd.Node) []common.Address {
-	epoch := node.Consensus.GetEpoch()
-	vaMgr := node.Consensus.GetValidatorManager()
-	validators := vaMgr.GetValidatorSetForEpoch(epoch).Validators()
+func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.ValidatorManager) []common.Address {
+	epoch := consensus.GetEpoch()
+	validators := valMgr.GetValidatorSetForEpoch(epoch).Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
 		validatorAddresses[i] = v.Address()
@@ -47,7 +44,7 @@ func getValidatorAddresses(node *nd.Node) []common.Address {
 
 func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address) result.Result {
 	if pubKey.IsEmpty() {
-		return result.ErrInternalError.PrependLog("Null proposer pubKey detected in coinbaseTx sanity check")
+		return result.Error("Null proposer pubKey detected in coinbaseTx sanity check")
 	}
 	addr := pubKey.Address()
 	proposerIsAValidator := false
@@ -58,13 +55,13 @@ func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address)
 		}
 	}
 	if !proposerIsAValidator {
-		return result.ErrInternalError.PrependLog("The coinbaseTx proposer is not a validator")
+		return result.Error("The coinbaseTx proposer is not a validator")
 	}
 
 	return result.OK
 }
 
-func getCurrentBlockHeight() uint64 {
+func GetCurrentBlockHeight() uint64 {
 	return 0 // TODO: need proper implementation
 	//return ctx.AppContext.GetCheckpoint().Height
 }
@@ -77,12 +74,12 @@ func getInputs(view types.ViewDataGetter, ins []types.TxInput) (map[string]*type
 	for _, in := range ins {
 		// Account shouldn't be duplicated
 		if _, ok := accounts[string(in.Address[:])]; ok {
-			return nil, result.ErrBaseDuplicateAddress
+			return nil, result.Error("getInputs - Duplicated address: %v", in.Address)
 		}
 
 		acc, success := getAccount(view, in.Address)
-		if success.IsErr() {
-			return nil, result.ErrBaseUnknownAddress
+		if success.IsError() {
+			return nil, result.Error("getInputs - Unknown address: %v", in.Address)
 		}
 
 		if !in.PubKey.IsEmpty() {
@@ -104,12 +101,12 @@ func getOrMakeInput(view types.ViewDataGetter, in types.TxInput) (*types.Account
 // This function guarantees the public key of the retrieved account is not empty
 func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAccount bool) (*types.Account, result.Result) {
 	acc, success := getOrMakeAccountImpl(view, in.Address, makeNewAccount)
-	if success.IsErr() {
-		return nil, result.ErrBaseUnknownAddress
+	if success.IsError() {
+		return nil, result.Error("getOrMakeInputImpl - Unknown address: %v", in.Address)
 	}
 
 	// if in.Sequence == 1 && in.PubKey.Empty() {
-	// 	return nil, result.ErrBaseInvalidInput.AppendLog("TxInput PubKey cannot be empty when Sequence == 1")
+	// 	return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
 	// }
 
 	if acc.PubKey.IsEmpty() {
@@ -117,7 +114,7 @@ func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAcco
 	}
 
 	if acc.PubKey.IsEmpty() {
-		return nil, result.ErrInternalError.AppendLog("TxInput PubKey cannot be empty when Sequence == 1")
+		return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
 	}
 
 	return acc, result.OK
@@ -137,13 +134,13 @@ func getOrMakeAccountImpl(view types.ViewDataGetter, address common.Address, mak
 	acc := view.GetAccount(address)
 	if acc == nil {
 		if !makeNewAccount {
-			return nil, result.ErrBaseUnknownAddress
+			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
 		acc = &types.Account{
-			LastUpdatedBlockHeight: getCurrentBlockHeight(),
+			LastUpdatedBlockHeight: GetCurrentBlockHeight(),
 		}
 	}
-	acc.UpdateToHeight(getCurrentBlockHeight())
+	acc.UpdateToHeight(GetCurrentBlockHeight())
 
 	return acc, result.OK
 }
@@ -156,7 +153,7 @@ func getOrMakeOutputs(view types.ViewDataGetter, accounts map[string]*types.Acco
 	for _, out := range outs {
 		// Account shouldn't be duplicated
 		if _, ok := accounts[string(out.Address[:])]; ok {
-			return nil, result.ErrBaseDuplicateAddress
+			return nil, result.Error("getOrMakeOutputs - Duplicated address: %v", out.Address)
 		}
 
 		acc := getOrMakeAccount(view, out.Address)
@@ -169,7 +166,7 @@ func getOrMakeOutputs(view types.ViewDataGetter, accounts map[string]*types.Acco
 func validateInputsBasic(ins []types.TxInput) result.Result {
 	for _, in := range ins {
 		// Check TxInput basic
-		if res := in.ValidateBasic(); res.IsErr() {
+		if res := in.ValidateBasic(); res.IsError() {
 			return res
 		}
 	}
@@ -184,7 +181,7 @@ func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte
 			panic("validateInputsAdvanced() expects account in accounts")
 		}
 		res = validateInputAdvanced(acc, signBytes, in)
-		if res.IsErr() {
+		if res.IsError() {
 			return
 		}
 		// Good. Add amount to total
@@ -197,22 +194,22 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	// Check sequence/coins
 	seq, balance := acc.Sequence, acc.Balance
 	if seq+1 != in.Sequence {
-		return result.ErrBaseInvalidSequence.AppendLog(fmt.Sprintf("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence))
+		return result.Error("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence)
 	}
 
 	// Check amount
 	if !balance.IsGTE(in.Coins) {
-		return result.ErrBaseInsufficientFunds.AppendLog(fmt.Sprintf("balance is %v, tried to send %v", balance, in.Coins))
+		return result.Error("balance is %v, tried to send %v", balance, in.Coins)
 	}
 
 	// Check pubkey
 	if acc.PubKey.IsEmpty() {
-		return result.ErrInternalError.AppendLog(fmt.Sprintf("Account pubkey is nil!"))
+		return result.Error("Account pubkey is nil!")
 	}
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.ErrBaseInvalidSignature.AppendLog(fmt.Sprintf("SignBytes: %X", signBytes))
+		return result.Error("SignBytes: %X", signBytes)
 	}
 
 	return result.OK
@@ -221,7 +218,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 func validateOutputsBasic(outs []types.TxOutput) result.Result {
 	for _, out := range outs {
 		// Check TxOutput basic
-		if res := out.ValidateBasic(); res.IsErr() {
+		if res := out.ValidateBasic(); res.IsError() {
 			return res
 		}
 	}

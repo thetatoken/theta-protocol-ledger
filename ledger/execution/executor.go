@@ -1,10 +1,11 @@
 package execution
 
 import (
+	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
-	nd "github.com/thetatoken/ukulele/node"
 )
 
 //
@@ -12,15 +13,16 @@ import (
 //
 type TxExecutor interface {
 	sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result
-	process(chainID string, view types.ViewDataAccessor, transaction types.Tx) result.Result
+	process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result)
 }
 
 //
 // Executor executes the transactions
 //
 type Executor struct {
-	state *st.LedgerState
-	node  *nd.Node
+	state     *st.LedgerState
+	consensus core.ConsensusEngine
+	valMgr    core.ValidatorManager
 
 	coinbaseTxExec        *CoinbaseTxExecutor
 	slashTxExec           *SlashTxExecutor
@@ -30,35 +32,38 @@ type Executor struct {
 	releaseFundTxExec     *ReleaseFundTxExecutor
 	servicePaymentTxExec  *ServicePaymentTxExecutor
 	splitContractTxExec   *SplitContractTxExecutor
+
+	skipSanityCheck bool
 }
 
 // NewExecutor creates a new instance of Executor
-func NewExecutor(state *st.LedgerState, node *nd.Node) *Executor {
+func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
 	executor := &Executor{
 		state:                 state,
-		node:                  node,
-		coinbaseTxExec:        NewCoinbaseTxExecutor(state, node),
-		slashTxExec:           NewSlashTxExecutor(node),
+		consensus:             consensus,
+		valMgr:                valMgr,
+		coinbaseTxExec:        NewCoinbaseTxExecutor(state, consensus, valMgr),
+		slashTxExec:           NewSlashTxExecutor(consensus, valMgr),
 		updateValidatorTxExec: NewUpdateValidatorsTxExecutor(state),
 		sendTxExec:            NewSendTxExecutor(),
 		reserveFundTxExec:     NewReserveFundTxExecutor(),
 		releaseFundTxExec:     NewReleaseFundTxExecutor(),
 		servicePaymentTxExec:  NewServicePaymentTxExecutor(state),
 		splitContractTxExec:   NewSplitContractTxExecutor(state),
+		skipSanityCheck:       false,
 	}
 
 	return executor
 }
 
-// SetNode sets the node pointer of the executors
-func (exec *Executor) SetNode(node *nd.Node) {
-	exec.node = node
-	exec.coinbaseTxExec.node = node
-	exec.slashTxExec.node = node
+// SetSkipSanityCheck sets the flag for sanity check.
+// Skip checks while replaying commmitted blocks.
+func (exec *Executor) SetSkipSanityCheck(skip bool) {
+	exec.skipSanityCheck = skip
 }
 
 // ExecuteTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
-func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) result.Result {
+func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) (common.Hash, result.Result) {
 	chainID := exec.state.GetChainID()
 	var view *st.StoreView
 	if isCheckTx {
@@ -68,17 +73,16 @@ func (exec *Executor) ExecuteTx(tx types.Tx, isCheckTx bool) result.Result {
 	}
 
 	sanityCheckResult := exec.sanityCheck(chainID, view, tx)
-	if sanityCheckResult.IsErr() || isCheckTx {
-		return sanityCheckResult
+	if sanityCheckResult.IsError() || isCheckTx {
+		return common.Hash{}, sanityCheckResult
 	}
 
-	processResult := exec.process(chainID, view, tx)
-	return processResult
+	txHash, processResult := exec.process(chainID, view, tx)
+	return txHash, processResult
 }
 
 func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx types.Tx) result.Result {
-	// Skip checks while replaying commmitted blocks.
-	if exec.node == nil {
+	if exec.skipSanityCheck {
 		return result.OK
 	}
 
@@ -87,22 +91,23 @@ func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx 
 	if txExecutor != nil {
 		sanityCheckResult = txExecutor.sanityCheck(chainID, view, tx)
 	} else {
-		sanityCheckResult = result.ErrBaseEncodingError.SetLog("Unknown tx type")
+		sanityCheckResult = result.Error("Unknown tx type")
 	}
 
 	return sanityCheckResult
 }
 
-func (exec *Executor) process(chainID string, view types.ViewDataAccessor, tx types.Tx) result.Result {
+func (exec *Executor) process(chainID string, view types.ViewDataAccessor, tx types.Tx) (common.Hash, result.Result) {
 	var processResult result.Result
+	var txHash common.Hash
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
-		processResult = txExecutor.process(chainID, view, tx)
+		txHash, processResult = txExecutor.process(chainID, view, tx)
 	} else {
-		processResult = result.ErrBaseEncodingError.SetLog("Unknown tx type")
+		processResult = result.Error("Unknown tx type")
 	}
 
-	return processResult
+	return txHash, processResult
 }
 
 func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {

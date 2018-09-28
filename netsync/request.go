@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"container/list"
 	"context"
-	"fmt"
 	"math/rand"
 	"sync"
 	"time"
@@ -197,10 +196,7 @@ func (rm *RequestManager) Wait() {
 }
 
 func (rm *RequestManager) tryToDownload() {
-	fmt.Printf("<<<<<< tryToDownload(): pendingBlocks: %v\n", rm.pendingBlocks)
 	for curr := rm.pendingBlocks.Front(); rm.quota != 0 && curr != nil; curr = curr.Next() {
-		_curr := curr.Value.(*PendingBlock)
-		fmt.Printf("<<<<< curr: %v, %v, %v\n", _curr.hash, _curr.peers, _curr.status)
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.status == RequestToSendInvReq ||
 			(pendingBlock.status == RequestWaitingInvResp && pendingBlock.HasTimedOut()) {
@@ -219,7 +215,6 @@ func (rm *RequestManager) tryToDownload() {
 		if pendingBlock.status == RequestToSendDataReq ||
 			(pendingBlock.status == RequestWaitingDataResp && pendingBlock.HasTimedOut()) {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
-			fmt.Printf("<<<<< peers: %v randomPeerID: %v\n", pendingBlock.peers, randomPeerID)
 			request := dispatcher.DataRequest{
 				ChannelID: common.ChannelIDBlock,
 				Entries:   []string{pendingBlock.hash.String()},
@@ -246,16 +241,6 @@ func (rm *RequestManager) AddBlock(b *core.Block) {
 }
 
 func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs []string) (isAdded bool) {
-	// defer func() {
-	// 	// Notify
-	// 	if !isAdded {
-	// 		select {
-	// 		case rm.workBell <- struct{}{}:
-	// 		default:
-	// 		}
-	// 	}
-	// }()
-
 	if _, err := rm.chain.FindBlock(x); err == nil {
 		return true
 	}
@@ -265,7 +250,6 @@ func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs
 	pendingBlockEl, ok := rm.pendingBlocksByHash[x.String()]
 	if !ok {
 		pendingBlock = NewPendingBlock(x, peerIDs)
-		fmt.Printf("<<<<<< AddHash: %v\n", pendingBlock.hash)
 		pendingBlockEl = rm.pendingBlocks.PushBack(pendingBlock)
 		rm.pendingBlocksByHash[x.String()] = pendingBlockEl
 	} else {
@@ -350,25 +334,3 @@ func (rm *RequestManager) dumpReadyBlocks(x *list.Element) {
 		rm.C <- pendingBlock.block
 	}
 }
-
-// func (rm *RequestManager) enqueueBlocks(endHash common.Bytes) {
-// 	for _, b := range rm.endHashCache {
-// 		if bytes.Compare(b, endHash) == 0 {
-// 			rm.logger.WithFields(log.Fields{
-// 				"endHash": endHash,
-// 			}).Debug("EndHash already enqueued. Skipping")
-// 			return
-// 		}
-// 	}
-// 	rm.endHashCache = append(rm.endHashCache, endHash)
-
-// 	tip := rm.syncMgr.consensus.GetTip()
-// 	req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
-// 	// Fixme: since we are broadcasting GetInventory, we might be downloading blocks from multple peers later. Need to fix this.
-// 	rm.logger.WithFields(log.Fields{
-// 		"channelID": req.ChannelID,
-// 		"startHash": req.Start,
-// 		"endHash":   req.End,
-// 	}).Debug("Sending inventory request")
-// 	rm.syncMgr.dispatcher.GetInventory([]string{}, req)
-// }

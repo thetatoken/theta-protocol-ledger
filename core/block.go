@@ -7,6 +7,11 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
+const (
+	// MaxNumRegularTxsPerBlock represents the max number of regular transaction can be inclulded in one block
+	MaxNumRegularTxsPerBlock int = 100
+)
+
 // Block represents a block in chain.
 type Block struct {
 	BlockHeader

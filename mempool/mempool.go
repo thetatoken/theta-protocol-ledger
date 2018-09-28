@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"errors"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -8,6 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/clist"
 	"github.com/thetatoken/ukulele/common/math"
+	"github.com/thetatoken/ukulele/core"
 	dp "github.com/thetatoken/ukulele/dispatcher"
 )
 
@@ -22,6 +24,7 @@ type mempoolTransaction struct {
 type Mempool struct {
 	mutex *sync.Mutex
 
+	ledger     core.Ledger
 	dispatcher *dp.Dispatcher
 
 	txCandidates *clist.CList
@@ -29,9 +32,10 @@ type Mempool struct {
 }
 
 // CreateMempool creates an instance of Mempool
-func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
+func CreateMempool(ledger core.Ledger, dispatcher *dp.Dispatcher) *Mempool {
 	return &Mempool{
 		mutex:        &sync.Mutex{},
+		ledger:       ledger,
 		dispatcher:   dispatcher,
 		txCandidates: clist.New(),
 		txBookeepper: createTransactionBookkeeper(defaultMaxNumTxs),
@@ -50,7 +54,11 @@ func (mp *Mempool) InsertTransaction(mptx *mempoolTransaction) error {
 
 	mp.txBookeepper.record(mptx)
 
-	// TODO: call ledger.CheckTx to validate the transaction
+	txBytes := mptx.rawTransaction
+	checkTxRes := mp.ledger.CheckTx(txBytes)
+	if !checkTxRes.IsOK() {
+		return errors.New(checkTxRes.Message)
+	}
 
 	mp.txCandidates.PushBack(mptx)
 

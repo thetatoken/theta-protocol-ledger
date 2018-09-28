@@ -55,7 +55,9 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to parse checkpoint hash")
 	}
 
-	db, err := backend.NewLDBDatabase(common.GetDefaultConfigPath(), common.GetDefaultConfigPath()+"_ref", 256, 0)
+	mainDBPath := path.Join(cfgPath, "db", "main")
+	refDBPath := path.Join(cfgPath, "db", "ref")
+	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 	store := kvstore.NewKVStore(db)
 	root := &core.Block{}
 	root.ChainID = chainID
