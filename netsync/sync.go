@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
-	"fmt"
 	"sync"
 
 	"github.com/thetatoken/ukulele/blockchain"
@@ -122,7 +121,6 @@ func (sm *SyncManager) ParseMessage(peerID string, channelID common.ChannelIDEnu
 		PeerID:    peerID,
 		ChannelID: channelID,
 	}
-	fmt.Printf("<<<<<<@@@@<<<<<<< sync: parseMessage: peerID: %v\n", peerID)
 	data, err := decodeMessage(rawMessageBytes)
 	message.Content = data
 	return message, err
@@ -360,12 +358,14 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 }
 
 func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
-	sm.consensus.AddMessage(cc)
+	for _, vote := range cc.Votes.Votes() {
+		sm.consumer.AddMessage(&vote)
+	}
 }
 
 func (sm *SyncManager) handleVote(vote *core.Vote) {
 	if vote.Block != nil {
 		sm.requestMgr.AddHash(vote.Block.Hash, []string{})
 	}
-	sm.consensus.AddMessage(vote)
+	sm.consumer.AddMessage(vote)
 }

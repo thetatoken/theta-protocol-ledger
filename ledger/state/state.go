@@ -6,6 +6,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/store/database"
 )
 
 //
@@ -24,14 +25,15 @@ type LedgerState struct {
 }
 
 // NewLedgerState creates a new Leger State with givn store.
-func NewLedgerState(sv *StoreView) *LedgerState {
-	copiedView, err := sv.Copy()
+func NewLedgerState(root common.Hash, db database.Database) *LedgerState {
+	storeView := NewStoreView(root, db)
+	copiedStoreView, err := storeView.Copy()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create ledger state: %v", err))
 	}
 	return &LedgerState{
-		checked:   copiedView,
-		delivered: sv,
+		checked:   copiedStoreView,
+		delivered: storeView,
 	}
 }
 
@@ -75,7 +77,7 @@ func (s *LedgerState) SetCoinbaseTransactionProcessed(processed bool) {
 	s.coinbaseTransactinProcessed = processed
 }
 
-// GetValidatorDiff retrives validator diff
+// GetAndClearValidatorDiff retrives and clear validator diff
 func (s *LedgerState) GetAndClearValidatorDiff() []*core.Validator {
 	res := s.validatorsDiff
 	s.validatorsDiff = nil

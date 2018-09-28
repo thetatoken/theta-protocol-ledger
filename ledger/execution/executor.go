@@ -22,6 +22,7 @@ type TxExecutor interface {
 type Executor struct {
 	state     *st.LedgerState
 	consensus core.ConsensusEngine
+	valMgr    core.ValidatorManager
 
 	coinbaseTxExec        *CoinbaseTxExecutor
 	slashTxExec           *SlashTxExecutor
@@ -36,12 +37,13 @@ type Executor struct {
 }
 
 // NewExecutor creates a new instance of Executor
-func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine) *Executor {
+func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
 	executor := &Executor{
 		state:                 state,
 		consensus:             consensus,
-		coinbaseTxExec:        NewCoinbaseTxExecutor(state, consensus),
-		slashTxExec:           NewSlashTxExecutor(consensus),
+		valMgr:                valMgr,
+		coinbaseTxExec:        NewCoinbaseTxExecutor(state, consensus, valMgr),
+		slashTxExec:           NewSlashTxExecutor(consensus, valMgr),
 		updateValidatorTxExec: NewUpdateValidatorsTxExecutor(state),
 		sendTxExec:            NewSendTxExecutor(),
 		reserveFundTxExec:     NewReserveFundTxExecutor(),

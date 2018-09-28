@@ -32,10 +32,9 @@ import (
 // }
 
 // getValidatorAddresses returns validators' addresses
-func getValidatorAddresses(consensus core.ConsensusEngine) []common.Address {
+func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.ValidatorManager) []common.Address {
 	epoch := consensus.GetEpoch()
-	vaMgr := consensus.GetValidatorManager()
-	validators := vaMgr.GetValidatorSetForEpoch(epoch).Validators()
+	validators := valMgr.GetValidatorSetForEpoch(epoch).Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
 		validatorAddresses[i] = v.Address()

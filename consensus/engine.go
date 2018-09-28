@@ -61,7 +61,7 @@ type ConsensusEngine struct {
 }
 
 // NewConsensusEngine creates a instance of ConsensusEngine.
-func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validators *core.ValidatorSet) *ConsensusEngine {
+func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validatorManager core.ValidatorManager) *ConsensusEngine {
 	e := &ConsensusEngine{
 		chain:   chain,
 		network: network,
@@ -79,8 +79,10 @@ func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validators
 		voteLog:            make(map[uint32]core.Vote),
 		collectedVotes:     make(map[string]*core.VoteSet),
 		epochVotes:         make(map[string]core.Vote),
-		validatorManager:   NewRotatingValidatorManager(validators),
-		epoch:              0,
+
+		// validatorManager:   NewRotatingValidatorManager(validators),
+		validatorManager: validatorManager,
+		epoch:            0,
 	}
 
 	logger := util.GetLoggerForModule("consensus")
@@ -193,16 +195,13 @@ func (e *ConsensusEngine) AddMessage(msg interface{}) {
 
 func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
-	case core.Proposal:
-		e.handleProposal(m)
-	case core.Vote:
-		return e.handleVote(m)
+	case *core.Vote:
+		return e.handleVote(*m)
 	case *core.Block:
 		e.handleBlock(m)
-	case *core.CommitCertificate:
-		e.handleCC(m)
 	default:
 		log.Errorf("Unknown message type: %v", m)
+		panic(fmt.Sprintf("Unknown message type: %v", m))
 	}
 
 	return false
@@ -218,13 +217,12 @@ func (e *ConsensusEngine) handleProposal(p core.Proposal) {
 
 	e.handleBlock(&p.Block)
 	e.handleCC(p.CommitCertificate)
-	e.vote()
+	return
 }
 
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
 
-	var err error
 	if block.Epoch != e.epoch {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
@@ -232,10 +230,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"e.epoch":     e.epoch,
 		}).Debug("Received block from another epoch")
 	}
-	_, err = e.chain.AddBlock(block)
-	if err != nil {
-		e.logger.WithFields(log.Fields{"block": block}).Error(err)
-	}
+	e.vote()
 }
 
 func (e *ConsensusEngine) vote() {
@@ -274,7 +269,7 @@ func (e *ConsensusEngine) vote() {
 		ChannelID: common.ChannelIDVote,
 		Content:   data,
 	}
-	e.AddMessage(vote)
+	e.AddMessage(&vote)
 	e.network.Broadcast(voteMsg)
 }
 
@@ -464,6 +459,6 @@ func (e *ConsensusEngine) propose() {
 		ChannelID: common.ChannelIDProposal,
 		Content:   data,
 	}
-	e.AddMessage(proposal)
+	e.AddMessage(&block)
 	e.network.Broadcast(proposalMsg)
 }

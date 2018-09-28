@@ -22,6 +22,7 @@ var _ core.Ledger = (*Ledger)(nil)
 //
 type Ledger struct {
 	consensus core.ConsensusEngine
+	valMgr    core.ValidatorManager
 	mempool   *mp.Mempool
 
 	state    *st.LedgerState
@@ -29,7 +30,7 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(consensus core.ConsensusEngine, mempool *mp.Mempool) *Ledger {
+func NewLedger(consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	return nil // TODO: proper implementation..
 }
 
@@ -93,9 +94,8 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(rawTxs *[]common.Bytes) {
 	epoch := ledger.consensus.GetEpoch()
-	vaMgr := ledger.consensus.GetValidatorManager()
-	proposer := vaMgr.GetProposerForEpoch(epoch)
-	validators := vaMgr.GetValidatorSetForEpoch(epoch).Validators()
+	proposer := ledger.valMgr.GetProposerForEpoch(epoch)
+	validators := ledger.valMgr.GetValidatorSetForEpoch(epoch).Validators()
 
 	ledger.addCoinbaseTx(&proposer, &validators, rawTxs)
 	ledger.addSlashTxs(&proposer, &validators, rawTxs)

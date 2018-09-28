@@ -18,19 +18,21 @@ var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 type CoinbaseTxExecutor struct {
 	state     *st.LedgerState
 	consensus core.ConsensusEngine
+	valMgr    core.ValidatorManager
 }
 
 // NewCoinbaseTxExecutor creates a new instance of CoinbaseTxExecutor
-func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine) *CoinbaseTxExecutor {
+func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *CoinbaseTxExecutor {
 	return &CoinbaseTxExecutor{
 		state:     state,
 		consensus: consensus,
+		valMgr:    valMgr,
 	}
 }
 
 func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
 	tx := transaction.(*types.CoinbaseTx)
-	validatorAddresses := getValidatorAddresses(exec.consensus)
+	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()

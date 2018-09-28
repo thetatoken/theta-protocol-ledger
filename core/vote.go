@@ -54,12 +54,15 @@ type Vote struct {
 }
 
 func (v Vote) String() string {
-	return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash, v.ID, v.Epoch)
+	if v.Block != nil {
+		return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash, v.ID, v.Epoch)
+	}
+	return fmt.Sprintf("Vote{block: nil, ID: %s, Epoch: %v}", v.ID, v.Epoch)
 }
 
 // VoteSet represents a set of votes on a proposal.
 type VoteSet struct {
-	votes map[string]Vote
+	votes map[string]Vote // Voter ID to vote
 }
 
 // NewVoteSet creates an instance of VoteSet.

@@ -15,10 +15,11 @@ var _ TxExecutor = (*SlashTxExecutor)(nil)
 
 type SlashTxExecutor struct {
 	consensus core.ConsensusEngine
+	valMgr    core.ValidatorManager
 }
 
 // NewSlashTxExecutor creates a new instance of SlashTxExecutor
-func NewSlashTxExecutor(consensus core.ConsensusEngine) *SlashTxExecutor {
+func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorManager) *SlashTxExecutor {
 	return &SlashTxExecutor{
 		consensus: consensus,
 	}
@@ -27,7 +28,7 @@ func NewSlashTxExecutor(consensus core.ConsensusEngine) *SlashTxExecutor {
 func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
-	validatorAddresses := getValidatorAddresses(exec.consensus)
+	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()

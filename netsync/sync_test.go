@@ -20,26 +20,6 @@ import (
 	"github.com/thetatoken/ukulele/p2p/types"
 )
 
-// type MockConsensusEngine struct {
-
-// }
-
-//	ID() string
-// GetTip() *ExtendedBlock
-// GetEpoch() uint32
-// AddMessage(msg interface{})
-// FinalizedBlocks() chan *Block
-
-// func (m *MockConsensusEngine) ID() string {
-// 	return "test_engine"
-// }
-
-// func (m *MockConsensusEngine) GetEpoch() uint32 {
-// 	return 1
-// }
-
-// func (m *MockConensusEngine) AddMessage(msg )
-
 type MockMessageConsumer struct {
 	Received []interface{}
 }
@@ -89,7 +69,9 @@ func TestSyncManager(t *testing.T) {
 	net2.RegisterMessageHandler(mockMsgHandler)
 	simnet.Start(context.Background())
 
-	consensus := consensus.NewConsensusEngine(initChain, net1, core.NewValidatorSet())
+	valSet := core.NewValidatorSet()
+	valMgr := consensus.NewFixedValidatorManager(valSet)
+	consensus := consensus.NewConsensusEngine(initChain, net1, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 	dispatch := dispatcher.NewDispatcher(net1)
 
