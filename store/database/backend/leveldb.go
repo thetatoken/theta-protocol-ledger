@@ -487,42 +487,31 @@ func (b *ldbBatch) Write() error {
 		}
 	}
 
-	numRefs := len(b.references)
-	if numRefs > 0 {
-		semRefs := make(chan bool, numRefs)
-		for k, v := range b.references {
-			go func() {
-				// check if k/v exists
-				value, err := b.db.Get([]byte(k), nil)
-				if err != nil || value == nil {
-					return
-				}
-
-				var ref int
-				dat, err := b.refdb.Get([]byte(k), nil)
-				if err != nil {
-					return
-				}
-				if dat == nil {
-					ref = v
-				} else {
-					ref, err = strconv.Atoi(string(dat))
-					if err != nil {
-						return
-					}
-					ref = ref + v
-				}
-				if ref < 0 {
-					ref = 0
-				}
-				b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
-
-				semRefs <- true
-			}()
+	for k, v := range b.references {
+		// check if k/v exists
+		value, err := b.db.Get([]byte(k), nil)
+		if err != nil || value == nil {
+			continue
 		}
-		for j := 0; j < numRefs; j++ {
-			<-semRefs
+
+		var ref int
+		dat, err := b.refdb.Get([]byte(k), nil)
+		if err != nil {
+			continue
 		}
+		if dat == nil {
+			ref = v
+		} else {
+			ref, err = strconv.Atoi(string(dat))
+			if err != nil {
+				continue
+			}
+			ref = ref + v
+		}
+		if ref < 0 {
+			ref = 0
+		}
+		b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
 	}
 
 	return err
