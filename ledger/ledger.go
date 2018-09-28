@@ -33,7 +33,7 @@ func NewLedger(consensus core.ConsensusEngine, mempool *mp.Mempool) *Ledger {
 	return nil // TODO: proper implementation..
 }
 
-// CheckTx implements the core.Ledger interface
+// CheckTx checks the validity of the given transaction
 func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 	var tx types.Tx
 	tx, err := types.TxFromBytes(rawTx)
@@ -49,8 +49,9 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 	return res
 }
 
-// DeliverTxs implements the core.Ledger interface
-func (ledger *Ledger) DeliverTxs() (blockRawTxs []common.Bytes, res result.Result) {
+// DeliverBlockTxs executes and returns a list of transactions,
+// which will be used to assemble the next block
+func (ledger *Ledger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
 	blockRawTxs = []common.Bytes{}
 
 	// Add special transactions
@@ -65,12 +66,12 @@ func (ledger *Ledger) DeliverTxs() (blockRawTxs []common.Bytes, res result.Resul
 		}
 		ledger.executor.ExecuteTx(tx, false)
 	}
-	ledger.mempool.Update(regularRawTxs)
+	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
 	return blockRawTxs, result.OK
 }
 
-// Query implements the core.Ledger interface
+// Query returns the account query results
 func (ledger *Ledger) Query() {
 	// TODO: implementation..
 }

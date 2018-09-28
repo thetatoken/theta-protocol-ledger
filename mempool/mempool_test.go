@@ -212,7 +212,7 @@ func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
 	return result.OK
 }
 
-func (tl *TestLedger) DeliverTxs() (blockRawTxs []common.Bytes, res result.Result) {
+func (tl *TestLedger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
 	return []common.Bytes{}, result.OK
 }
 

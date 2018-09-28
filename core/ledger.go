@@ -10,6 +10,6 @@ import (
 //
 type Ledger interface {
 	CheckTx(rawTx common.Bytes) result.Result
-	DeliverTxs() (blockRawTxs []common.Bytes, res result.Result)
+	DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result)
 	Query()
 }
