@@ -491,27 +491,30 @@ func (b *ldbBatch) Write() error {
 		// check if k/v exists
 		value, err := b.db.Get([]byte(k), nil)
 		if err != nil || value == nil {
-			continue
+			return err
 		}
 
 		var ref int
 		dat, err := b.refdb.Get([]byte(k), nil)
 		if err != nil {
-			continue
+			return err
 		}
 		if dat == nil {
 			ref = v
 		} else {
 			ref, err = strconv.Atoi(string(dat))
 			if err != nil {
-				continue
+				return err
 			}
 			ref = ref + v
 		}
 		if ref < 0 {
 			ref = 0
 		}
-		b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
+		err = b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	return err
