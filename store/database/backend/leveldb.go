@@ -148,9 +148,9 @@ func (db *LDBDatabase) Reference(key []byte) error {
 	var ref int
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
-		return err
-	}
-	if dat == nil {
+		if err != leveldb.ErrNotFound {
+			return err
+		}
 		ref = 1
 	} else {
 		ref, err = strconv.Atoi(string(dat))
@@ -175,9 +175,10 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 	var ref int
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
-		return err
-	}
-	if dat != nil {
+		if err != leveldb.ErrNotFound {
+			return err
+		}
+	} else {
 		ref, err = strconv.Atoi(string(dat))
 		if err != nil {
 			return err
@@ -192,7 +193,11 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
-		return 0, err
+		if err != leveldb.ErrNotFound {
+			return 0, err
+		} else {
+			return 0, nil
+		}
 	}
 	if dat == nil {
 		return 0, nil
@@ -228,6 +233,7 @@ func (db *LDBDatabase) Close() {
 		db.quitChan = nil
 	}
 	err := db.db.Close()
+	err = db.refdb.Close()
 	if err == nil {
 		log.Infof("Database closed")
 	} else {

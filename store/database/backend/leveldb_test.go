@@ -76,6 +76,46 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 	}
 
+	for _, k := range testValues {
+		data, err := db.Get([]byte(k))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if len(data) != 0 {
+			t.Fatalf("get returned wrong result, got %q expected nil", string(data))
+		}
+	}
+
+	_, err := db.Get([]byte("non-exist-key"))
+	if err == nil {
+		t.Fatalf("expect to return a not found error")
+	}
+
+	exists, err := db.Has([]byte("non-exist-key"))
+	if err != nil {
+		t.Fatalf("has failed: %v", err)
+	}
+	if exists {
+		t.Fatalf("expect to return not found")
+	}
+
+	for _, v := range testValues {
+		err := db.Put([]byte(v), []byte(v))
+		if err != nil {
+			t.Fatalf("put failed: %v", err)
+		}
+	}
+
+	for _, v := range testValues {
+		data, err := db.Get([]byte(v))
+		if err != nil {
+			t.Fatalf("get failed: %v", err)
+		}
+		if !bytes.Equal(data, []byte(v)) {
+			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+	}
+
 	for i, k := range testValues {
 		for j := 0; j <= i; j++ {
 			err := db.Reference([]byte(k))
@@ -133,46 +173,6 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		err := db.Reference([]byte(k))
 		if err != nil {
 			t.Fatalf("reference failed: %v", err)
-		}
-	}
-
-	for _, k := range testValues {
-		data, err := db.Get([]byte(k))
-		if err != nil {
-			t.Fatalf("get failed: %v", err)
-		}
-		if len(data) != 0 {
-			t.Fatalf("get returned wrong result, got %q expected nil", string(data))
-		}
-	}
-
-	_, err := db.Get([]byte("non-exist-key"))
-	if err == nil {
-		t.Fatalf("expect to return a not found error")
-	}
-
-	exists, err := db.Has([]byte("non-exist-key"))
-	if err != nil {
-		t.Fatalf("has failed: %v", err)
-	}
-	if exists {
-		t.Fatalf("expect to return not found")
-	}
-
-	for _, v := range testValues {
-		err := db.Put([]byte(v), []byte(v))
-		if err != nil {
-			t.Fatalf("put failed: %v", err)
-		}
-	}
-
-	for _, v := range testValues {
-		data, err := db.Get([]byte(v))
-		if err != nil {
-			t.Fatalf("get failed: %v", err)
-		}
-		if !bytes.Equal(data, []byte(v)) {
-			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
 		}
 	}
 
