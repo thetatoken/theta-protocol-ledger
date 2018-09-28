@@ -200,13 +200,12 @@ func (db *LDBDatabase) CountReference(key []byte) (int, error) {
 	}
 	if dat == nil {
 		return 0, nil
-	} else {
-		ref, err := strconv.Atoi(string(dat))
-		if err != nil {
-			return 0, err
-		}
-		return ref, nil
 	}
+	ref, err := strconv.Atoi(string(dat))
+	if err != nil {
+		return 0, err
+	}
+	return ref, nil
 }
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
