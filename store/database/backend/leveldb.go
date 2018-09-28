@@ -195,9 +195,8 @@ func (db *LDBDatabase) CountReference(key []byte) (int, error) {
 	if err != nil {
 		if err != leveldb.ErrNotFound {
 			return 0, err
-		} else {
-			return 0, nil
 		}
+		return 0, nil
 	}
 	if dat == nil {
 		return 0, nil
