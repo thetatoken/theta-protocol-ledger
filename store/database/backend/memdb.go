@@ -94,9 +94,6 @@ func (db *MemDatabase) Delete(key []byte) error {
 }
 
 func (db *MemDatabase) Reference(key []byte) error {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
@@ -112,9 +109,6 @@ func (db *MemDatabase) Reference(key []byte) error {
 }
 
 func (db *MemDatabase) Dereference(key []byte) error {
-	db.lock.Lock()
-	defer db.lock.Unlock()
-
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
@@ -132,9 +126,6 @@ func (db *MemDatabase) Dereference(key []byte) error {
 }
 
 func (db *MemDatabase) CountReference(key []byte) (int, error) {
-	db.lock.RLock()
-	defer db.lock.RUnlock()
-
 	return db.refdb[string(key)], nil
 }
 
