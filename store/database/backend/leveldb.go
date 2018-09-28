@@ -132,6 +132,7 @@ func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 
 // Delete deletes the key from the queue and database
 func (db *LDBDatabase) Delete(key []byte) error {
+	db.refdb.Delete(key, nil)
 	return db.db.Delete(key, nil)
 }
 
@@ -458,6 +459,7 @@ func (b *ldbBatch) Put(key, value []byte) error {
 }
 
 func (b *ldbBatch) Delete(key []byte) error {
+	delete(b.references, string(key))
 	b.b.Delete(key)
 	b.size += 1
 	return nil
