@@ -71,7 +71,7 @@ func (db *MemDatabase) Get(key []byte) ([]byte, error) {
 	if entry, ok := db.db[string(key)]; ok {
 		return common.CopyBytes(entry), nil
 	}
-	return nil, store.ErrKeyNotFound //errors.New("not found")
+	return nil, store.ErrKeyNotFound
 }
 
 func (db *MemDatabase) Keys() [][]byte {
@@ -94,45 +94,42 @@ func (db *MemDatabase) Delete(key []byte) error {
 }
 
 func (db *MemDatabase) Reference(key []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
 	// check if k/v exists
-	value, err := db.Get(key)
-	if err != nil {
-		return err
+	if _, ok := db.db[string(key)]; ok {
+		db.refdb[string(key)] = db.refdb[string(key)] + 1
+		return nil
 	}
-	if value == nil {
-		return store.ErrKeyNotFound
-	}
-
-	db.refdb[string(key)] = db.refdb[string(key)] + 1
-
-	return nil
+	return store.ErrKeyNotFound
 }
 
 func (db *MemDatabase) Dereference(key []byte) error {
+	db.lock.Lock()
+	defer db.lock.Unlock()
+
 	// check if k/v exists
-	value, err := db.Get(key)
-	if err != nil {
-		return err
+	if _, ok := db.db[string(key)]; ok {
+		if db.refdb[string(key)] > 0 {
+			db.refdb[string(key)] = db.refdb[string(key)] - 1
+		}
+		return nil
 	}
-	if value == nil {
-		return store.ErrKeyNotFound
-	}
-
-	if db.refdb[string(key)] > 0 {
-		db.refdb[string(key)] = db.refdb[string(key)] - 1
-	}
-
-	return nil
+	return store.ErrKeyNotFound
 }
 
 func (db *MemDatabase) CountReference(key []byte) (int, error) {
+	db.lock.RLock()
+	defer db.lock.RUnlock()
+
 	return db.refdb[string(key)], nil
 }
 
 func (db *MemDatabase) Close() {}
 
 func (db *MemDatabase) NewBatch() database.Batch {
-	return &memBatch{db: db}
+	return &memBatch{db: db, references: make(map[string]int)}
 }
 
 func (db *MemDatabase) Len() int { return len(db.db) }
@@ -193,15 +190,11 @@ func (b *memBatch) Write() error {
 	}
 
 	for k, v := range b.references {
-		// check if k/v exists
-		value, err := b.db.Get([]byte(k))
-		if err != nil || value == nil {
-			continue
-		}
-
-		b.db.refdb[string(k)] = b.db.refdb[string(k)] + v
-		if b.db.refdb[string(k)] < 0 {
-			b.db.refdb[string(k)] = 0
+		if _, ok := b.db.db[k]; ok {
+			b.db.refdb[string(k)] = b.db.refdb[string(k)] + v
+			if b.db.refdb[string(k)] < 0 {
+				b.db.refdb[string(k)] = 0
+			}
 		}
 	}
 
