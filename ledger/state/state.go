@@ -25,26 +25,20 @@ type LedgerState struct {
 	checked   *StoreView
 }
 
-// NewLedgerState creates a new Leger State with givn store.
-func NewLedgerState(chainID string, height uint32, stateRootHash common.Hash, db database.Database) *LedgerState {
-	storeView := NewStoreView(height, stateRootHash, db)
-	if storeView == nil {
-		panic(fmt.Sprintf("Failed to create ledger state with state root hash: %v", stateRootHash))
-	}
-	copiedStoreView, err := storeView.Copy()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create ledger state: %v", err))
-	}
+// NewLedgerState creates a new Leger State with given store.
+// NOTE: before using the LedgerState, we need to call LedgerState.ResetState() to set
+//       the proper height and stateRootHash
+func NewLedgerState(chainID string, db database.Database) *LedgerState {
 	return &LedgerState{
 		chainID:   chainID,
 		db:        db,
-		checked:   copiedStoreView,
-		delivered: storeView,
+		checked:   nil,
+		delivered: nil,
 	}
 }
 
-// SetStateRoot resets the height and state root of its storeviews, and clear the in-memory states
-func (s *LedgerState) SetStateRoot(height uint32, stateRootHash common.Hash) bool {
+// ResetState resets the height and state root of its storeviews, and clear the in-memory states
+func (s *LedgerState) ResetState(height uint32, stateRootHash common.Hash) bool {
 	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
 		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))

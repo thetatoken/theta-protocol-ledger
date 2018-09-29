@@ -71,7 +71,7 @@ func TestSyncManager(t *testing.T) {
 
 	valSet := core.NewValidatorSet()
 	valMgr := consensus.NewFixedValidatorManager(valSet)
-	consensus := consensus.NewConsensusEngine(initChain, net1, valMgr)
+	consensus := consensus.NewConsensusEngine(nil, initChain, net1, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 	dispatch := dispatcher.NewDispatcher(net1)
 

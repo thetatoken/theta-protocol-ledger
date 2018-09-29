@@ -1,8 +1,13 @@
 package core
 
+import (
+	"github.com/thetatoken/ukulele/crypto"
+)
+
 // ConsensusEngine is the interface of a consensus engine.
 type ConsensusEngine interface {
 	ID() string
+	PrivateKey() *crypto.PrivateKey
 	GetTip() *ExtendedBlock
 	GetEpoch() uint32
 	AddMessage(msg interface{})

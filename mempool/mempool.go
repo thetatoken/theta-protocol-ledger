@@ -32,14 +32,18 @@ type Mempool struct {
 }
 
 // CreateMempool creates an instance of Mempool
-func CreateMempool(ledger core.Ledger, dispatcher *dp.Dispatcher) *Mempool {
+func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
 	return &Mempool{
 		mutex:        &sync.Mutex{},
-		ledger:       ledger,
 		dispatcher:   dispatcher,
 		txCandidates: clist.New(),
 		txBookeepper: createTransactionBookkeeper(defaultMaxNumTxs),
 	}
+}
+
+// SetLedger sets the ledger for the mempool
+func (mp *Mempool) SetLedger(ledger core.Ledger) {
+	mp.ledger = ledger
 }
 
 // InsertTransaction inserts the incoming transaction to mempool (submitted by the clients or relayed from peers)

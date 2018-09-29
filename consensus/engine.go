@@ -21,6 +21,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
@@ -30,6 +31,8 @@ var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 // ConsensusEngine is the default implementation of the Engine interface.
 type ConsensusEngine struct {
 	logger *log.Entry
+
+	privateKey *crypto.PrivateKey
 
 	chain   *blockchain.Chain
 	network p2p.Network
@@ -61,10 +64,12 @@ type ConsensusEngine struct {
 }
 
 // NewConsensusEngine creates a instance of ConsensusEngine.
-func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validatorManager core.ValidatorManager) *ConsensusEngine {
+func NewConsensusEngine(privateKey *crypto.PrivateKey, chain *blockchain.Chain, network p2p.Network, validatorManager core.ValidatorManager) *ConsensusEngine {
 	e := &ConsensusEngine{
 		chain:   chain,
 		network: network,
+
+		privateKey: privateKey,
 
 		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
@@ -101,6 +106,11 @@ func NewConsensusEngine(chain *blockchain.Chain, network p2p.Network, validatorM
 // ID returns the identifier of current node.
 func (e *ConsensusEngine) ID() string {
 	return e.network.ID()
+}
+
+// PrivateKey returns the private key
+func (e *ConsensusEngine) PrivateKey() *crypto.PrivateKey {
+	return e.privateKey
 }
 
 // Chain return a pointer to the underlying chain store.
