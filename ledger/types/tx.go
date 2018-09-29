@@ -140,7 +140,7 @@ func (txOut TxOutput) String() string {
 type CoinbaseTx struct {
 	Proposer    TxInput    `json:"proposer"`
 	Outputs     []TxOutput `json:"outputs"`
-	BlockHeight uint64     `json:"block_height"`
+	BlockHeight uint32     `json:"block_height"`
 }
 
 func (_ *CoinbaseTx) AssertIsTx() {}
@@ -247,7 +247,7 @@ type ReserveFundTx struct {
 	Source      TxInput  `json:"source"`       // Source account
 	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
 	ResourceIds [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint64   `json:"duration"`
+	Duration    uint32   `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -382,7 +382,7 @@ type SplitContractTx struct {
 	ResourceId common.Bytes `json:"resource_id"` // ResourceId of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
 	Splits     []Split      `json:"splits"`      // Agreed splits
-	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
+	Duration   uint32       `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
 func (_ *SplitContractTx) AssertIsTx() {}

@@ -7,6 +7,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
+	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -16,11 +17,14 @@ var _ TxExecutor = (*ReleaseFundTxExecutor)(nil)
 
 // ReleaseFundTxExecutor implements the TxExecutor interface
 type ReleaseFundTxExecutor struct {
+	state *st.LedgerState
 }
 
 // NewReleaseFundTxExecutor creates a new instance of ReleaseFundTxExecutor
-func NewReleaseFundTxExecutor() *ReleaseFundTxExecutor {
-	return &ReleaseFundTxExecutor{}
+func NewReleaseFundTxExecutor(state *st.LedgerState) *ReleaseFundTxExecutor {
+	return &ReleaseFundTxExecutor{
+		state: state,
+	}
 }
 
 func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
@@ -56,7 +60,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
 	}
 
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	reserveSequence := tx.ReserveSequence
 	err := sourceAccount.CheckReleaseFund(currentBlockHeight, reserveSequence)
 	if err != nil {
@@ -80,7 +84,7 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAc
 
 	reserveSequence := tx.ReserveSequence
 
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	sourceAccount.ReleaseFund(currentBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")

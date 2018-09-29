@@ -86,7 +86,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	}
 
 	transferAmount := tx.Source.Coins
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	reserveSequence := tx.ReserveSequence
 	paymentSequence := tx.PaymentSequence
 
@@ -126,7 +126,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
 
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	reserveSequence := tx.ReserveSequence
 	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
@@ -163,7 +163,7 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, 
 	}
 
 	// the splitContract has expired, full payment goes to the target account. also delete the splitContract
-	if GetCurrentBlockHeight() > splitContract.EndBlockHeight {
+	if exec.state.Height() > splitContract.EndBlockHeight {
 		coinsMap[targetAccount] = fullAmount
 		exec.state.DeleteSplitContract(resourceId)
 		accountAddressMap[targetAccount] = targetAddress

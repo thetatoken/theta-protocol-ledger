@@ -81,23 +81,24 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	currHeight := ledger.state.Height()
 	currStateRoot := ledger.state.Delivered().Hash()
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
-			ledger.SetRootHash(currStateRoot)
+			ledger.SetRootHash(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
-			ledger.SetRootHash(currStateRoot)
+			ledger.SetRootHash(currHeight, currStateRoot)
 			return res
 		}
 	}
 
 	newStateRoot := ledger.state.Delivered().Hash()
 	if newStateRoot != expectedStateRoot {
-		ledger.SetRootHash(currStateRoot)
+		ledger.SetRootHash(currHeight, currStateRoot)
 		return result.Error("State root mismatch! root: %v, exptected: %v",
 			hex.EncodeToString(newStateRoot[:]),
 			hex.EncodeToString(expectedStateRoot[:]))
@@ -111,8 +112,8 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 }
 
 // SetRootHash sets the ledger state with the designated root
-func (ledger *Ledger) SetRootHash(rootHash common.Hash) result.Result {
-	success := ledger.state.SetStateRoot(rootHash)
+func (ledger *Ledger) SetRootHash(height uint32, rootHash common.Hash) result.Result {
+	success := ledger.state.SetStateRoot(height, rootHash)
 	if !success {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
 	}
@@ -177,7 +178,7 @@ func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core
 	coinbaseTx := &types.CoinbaseTx{
 		Proposer:    proposerTxIn,
 		Outputs:     coinbaseTxOutputs,
-		BlockHeight: exec.GetCurrentBlockHeight(),
+		BlockHeight: ledger.state.Height(),
 	}
 
 	coinbaseTx.SetSignature(proposerAddress, ledger.signTransaction(coinbaseTx))

@@ -1301,8 +1301,8 @@
              * @property {Array.<serialization.ICoin>|null} [initialFund] ReservedFund initialFund
              * @property {Array.<serialization.ICoin>|null} [usedFund] ReservedFund usedFund
              * @property {Array.<Uint8Array>|null} [resourceIds] ReservedFund resourceIds
-             * @property {number|Long|null} [endBlockHeight] ReservedFund endBlockHeight
-             * @property {number|Long|null} [reserveSequence] ReservedFund reserveSequence
+             * @property {number|null} [endBlockHeight] ReservedFund endBlockHeight
+             * @property {number|null} [reserveSequence] ReservedFund reserveSequence
              * @property {Array.<serialization.ITransferRecord>|null} [transferRecord] ReservedFund transferRecord
              */
     
@@ -1360,19 +1360,19 @@
     
             /**
              * ReservedFund endBlockHeight.
-             * @member {number|Long} endBlockHeight
+             * @member {number} endBlockHeight
              * @memberof serialization.ReservedFund
              * @instance
              */
-            ReservedFund.prototype.endBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            ReservedFund.prototype.endBlockHeight = 0;
     
             /**
              * ReservedFund reserveSequence.
-             * @member {number|Long} reserveSequence
+             * @member {number} reserveSequence
              * @memberof serialization.ReservedFund
              * @instance
              */
-            ReservedFund.prototype.reserveSequence = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            ReservedFund.prototype.reserveSequence = 0;
     
             /**
              * ReservedFund transferRecord.
@@ -1419,9 +1419,9 @@
                     for (var i = 0; i < message.resourceIds.length; ++i)
                         writer.uint32(/* id 4, wireType 2 =*/34).bytes(message.resourceIds[i]);
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    writer.uint32(/* id 5, wireType 0 =*/40).int64(message.endBlockHeight);
+                    writer.uint32(/* id 5, wireType 0 =*/40).int32(message.endBlockHeight);
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    writer.uint32(/* id 6, wireType 0 =*/48).int64(message.reserveSequence);
+                    writer.uint32(/* id 6, wireType 0 =*/48).int32(message.reserveSequence);
                 if (message.transferRecord != null && message.transferRecord.length)
                     for (var i = 0; i < message.transferRecord.length; ++i)
                         $root.serialization.TransferRecord.encode(message.transferRecord[i], writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
@@ -1480,10 +1480,10 @@
                         message.resourceIds.push(reader.bytes());
                         break;
                     case 5:
-                        message.endBlockHeight = reader.int64();
+                        message.endBlockHeight = reader.int32();
                         break;
                     case 6:
-                        message.reserveSequence = reader.int64();
+                        message.reserveSequence = reader.int32();
                         break;
                     case 7:
                         if (!(message.transferRecord && message.transferRecord.length))
@@ -1560,11 +1560,11 @@
                             return "resourceIds: buffer[] expected";
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (!$util.isInteger(message.endBlockHeight) && !(message.endBlockHeight && $util.isInteger(message.endBlockHeight.low) && $util.isInteger(message.endBlockHeight.high)))
-                        return "endBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.endBlockHeight))
+                        return "endBlockHeight: integer expected";
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    if (!$util.isInteger(message.reserveSequence) && !(message.reserveSequence && $util.isInteger(message.reserveSequence.low) && $util.isInteger(message.reserveSequence.high)))
-                        return "reserveSequence: integer|Long expected";
+                    if (!$util.isInteger(message.reserveSequence))
+                        return "reserveSequence: integer expected";
                 if (message.transferRecord != null && message.hasOwnProperty("transferRecord")) {
                     if (!Array.isArray(message.transferRecord))
                         return "transferRecord: array expected";
@@ -1630,23 +1630,9 @@
                             message.resourceIds[i] = object.resourceIds[i];
                 }
                 if (object.endBlockHeight != null)
-                    if ($util.Long)
-                        (message.endBlockHeight = $util.Long.fromValue(object.endBlockHeight)).unsigned = false;
-                    else if (typeof object.endBlockHeight === "string")
-                        message.endBlockHeight = parseInt(object.endBlockHeight, 10);
-                    else if (typeof object.endBlockHeight === "number")
-                        message.endBlockHeight = object.endBlockHeight;
-                    else if (typeof object.endBlockHeight === "object")
-                        message.endBlockHeight = new $util.LongBits(object.endBlockHeight.low >>> 0, object.endBlockHeight.high >>> 0).toNumber();
+                    message.endBlockHeight = object.endBlockHeight | 0;
                 if (object.reserveSequence != null)
-                    if ($util.Long)
-                        (message.reserveSequence = $util.Long.fromValue(object.reserveSequence)).unsigned = false;
-                    else if (typeof object.reserveSequence === "string")
-                        message.reserveSequence = parseInt(object.reserveSequence, 10);
-                    else if (typeof object.reserveSequence === "number")
-                        message.reserveSequence = object.reserveSequence;
-                    else if (typeof object.reserveSequence === "object")
-                        message.reserveSequence = new $util.LongBits(object.reserveSequence.low >>> 0, object.reserveSequence.high >>> 0).toNumber();
+                    message.reserveSequence = object.reserveSequence | 0;
                 if (object.transferRecord) {
                     if (!Array.isArray(object.transferRecord))
                         throw TypeError(".serialization.ReservedFund.transferRecord: array expected");
@@ -1681,16 +1667,8 @@
                     object.transferRecord = [];
                 }
                 if (options.defaults) {
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.endBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.endBlockHeight = options.longs === String ? "0" : 0;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.reserveSequence = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.reserveSequence = options.longs === String ? "0" : 0;
+                    object.endBlockHeight = 0;
+                    object.reserveSequence = 0;
                 }
                 if (message.collateral && message.collateral.length) {
                     object.collateral = [];
@@ -1713,15 +1691,9 @@
                         object.resourceIds[j] = options.bytes === String ? $util.base64.encode(message.resourceIds[j], 0, message.resourceIds[j].length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceIds[j]) : message.resourceIds[j];
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (typeof message.endBlockHeight === "number")
-                        object.endBlockHeight = options.longs === String ? String(message.endBlockHeight) : message.endBlockHeight;
-                    else
-                        object.endBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.endBlockHeight) : options.longs === Number ? new $util.LongBits(message.endBlockHeight.low >>> 0, message.endBlockHeight.high >>> 0).toNumber() : message.endBlockHeight;
+                    object.endBlockHeight = message.endBlockHeight;
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    if (typeof message.reserveSequence === "number")
-                        object.reserveSequence = options.longs === String ? String(message.reserveSequence) : message.reserveSequence;
-                    else
-                        object.reserveSequence = options.longs === String ? $util.Long.prototype.toString.call(message.reserveSequence) : options.longs === Number ? new $util.LongBits(message.reserveSequence.low >>> 0, message.reserveSequence.high >>> 0).toNumber() : message.reserveSequence;
+                    object.reserveSequence = message.reserveSequence;
                 if (message.transferRecord && message.transferRecord.length) {
                     object.transferRecord = [];
                     for (var j = 0; j < message.transferRecord.length; ++j)
@@ -1945,7 +1917,7 @@
              * @property {number|Long|null} [sequence] Account sequence
              * @property {Array.<serialization.ICoin>|null} [balance] Account balance
              * @property {Array.<serialization.IReservedFund>|null} [reservedFunds] Account reservedFunds
-             * @property {number|Long|null} [lastUpdatedBlockHeight] Account lastUpdatedBlockHeight
+             * @property {number|null} [lastUpdatedBlockHeight] Account lastUpdatedBlockHeight
              * @property {serialization.IPublicKey|null} [pubKey] Account pubKey
              */
     
@@ -1992,11 +1964,11 @@
     
             /**
              * Account lastUpdatedBlockHeight.
-             * @member {number|Long} lastUpdatedBlockHeight
+             * @member {number} lastUpdatedBlockHeight
              * @memberof serialization.Account
              * @instance
              */
-            Account.prototype.lastUpdatedBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            Account.prototype.lastUpdatedBlockHeight = 0;
     
             /**
              * Account pubKey.
@@ -2039,7 +2011,7 @@
                     for (var i = 0; i < message.reservedFunds.length; ++i)
                         $root.serialization.ReservedFund.encode(message.reservedFunds[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    writer.uint32(/* id 4, wireType 0 =*/32).int64(message.lastUpdatedBlockHeight);
+                    writer.uint32(/* id 4, wireType 0 =*/32).int32(message.lastUpdatedBlockHeight);
                 if (message.pubKey != null && message.hasOwnProperty("pubKey"))
                     $root.serialization.PublicKey.encode(message.pubKey, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
                 return writer;
@@ -2090,7 +2062,7 @@
                         message.reservedFunds.push($root.serialization.ReservedFund.decode(reader, reader.uint32()));
                         break;
                     case 4:
-                        message.lastUpdatedBlockHeight = reader.int64();
+                        message.lastUpdatedBlockHeight = reader.int32();
                         break;
                     case 5:
                         message.pubKey = $root.serialization.PublicKey.decode(reader, reader.uint32());
@@ -2152,8 +2124,8 @@
                     }
                 }
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    if (!$util.isInteger(message.lastUpdatedBlockHeight) && !(message.lastUpdatedBlockHeight && $util.isInteger(message.lastUpdatedBlockHeight.low) && $util.isInteger(message.lastUpdatedBlockHeight.high)))
-                        return "lastUpdatedBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.lastUpdatedBlockHeight))
+                        return "lastUpdatedBlockHeight: integer expected";
                 if (message.pubKey != null && message.hasOwnProperty("pubKey")) {
                     var error = $root.serialization.PublicKey.verify(message.pubKey);
                     if (error)
@@ -2204,14 +2176,7 @@
                     }
                 }
                 if (object.lastUpdatedBlockHeight != null)
-                    if ($util.Long)
-                        (message.lastUpdatedBlockHeight = $util.Long.fromValue(object.lastUpdatedBlockHeight)).unsigned = false;
-                    else if (typeof object.lastUpdatedBlockHeight === "string")
-                        message.lastUpdatedBlockHeight = parseInt(object.lastUpdatedBlockHeight, 10);
-                    else if (typeof object.lastUpdatedBlockHeight === "number")
-                        message.lastUpdatedBlockHeight = object.lastUpdatedBlockHeight;
-                    else if (typeof object.lastUpdatedBlockHeight === "object")
-                        message.lastUpdatedBlockHeight = new $util.LongBits(object.lastUpdatedBlockHeight.low >>> 0, object.lastUpdatedBlockHeight.high >>> 0).toNumber();
+                    message.lastUpdatedBlockHeight = object.lastUpdatedBlockHeight | 0;
                 if (object.pubKey != null) {
                     if (typeof object.pubKey !== "object")
                         throw TypeError(".serialization.Account.pubKey: object expected");
@@ -2243,11 +2208,7 @@
                         object.sequence = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.sequence = options.longs === String ? "0" : 0;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.lastUpdatedBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.lastUpdatedBlockHeight = options.longs === String ? "0" : 0;
+                    object.lastUpdatedBlockHeight = 0;
                     object.pubKey = null;
                 }
                 if (message.sequence != null && message.hasOwnProperty("sequence"))
@@ -2266,10 +2227,7 @@
                         object.reservedFunds[j] = $root.serialization.ReservedFund.toObject(message.reservedFunds[j], options);
                 }
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    if (typeof message.lastUpdatedBlockHeight === "number")
-                        object.lastUpdatedBlockHeight = options.longs === String ? String(message.lastUpdatedBlockHeight) : message.lastUpdatedBlockHeight;
-                    else
-                        object.lastUpdatedBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.lastUpdatedBlockHeight) : options.longs === Number ? new $util.LongBits(message.lastUpdatedBlockHeight.low >>> 0, message.lastUpdatedBlockHeight.high >>> 0).toNumber() : message.lastUpdatedBlockHeight;
+                    object.lastUpdatedBlockHeight = message.lastUpdatedBlockHeight;
                 if (message.pubKey != null && message.hasOwnProperty("pubKey"))
                     object.pubKey = $root.serialization.PublicKey.toObject(message.pubKey, options);
                 return object;
@@ -3305,7 +3263,7 @@
              * @interface ICoinbaseTx
              * @property {serialization.ITxInput|null} [proposer] CoinbaseTx proposer
              * @property {Array.<serialization.ITxOutput>|null} [outputs] CoinbaseTx outputs
-             * @property {number|Long|null} [blockHeight] CoinbaseTx blockHeight
+             * @property {number|null} [blockHeight] CoinbaseTx blockHeight
              */
     
             /**
@@ -3342,11 +3300,11 @@
     
             /**
              * CoinbaseTx blockHeight.
-             * @member {number|Long} blockHeight
+             * @member {number} blockHeight
              * @memberof serialization.CoinbaseTx
              * @instance
              */
-            CoinbaseTx.prototype.blockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            CoinbaseTx.prototype.blockHeight = 0;
     
             /**
              * Creates a new CoinbaseTx instance using the specified properties.
@@ -3378,7 +3336,7 @@
                     for (var i = 0; i < message.outputs.length; ++i)
                         $root.serialization.TxOutput.encode(message.outputs[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    writer.uint32(/* id 3, wireType 0 =*/24).int64(message.blockHeight);
+                    writer.uint32(/* id 3, wireType 0 =*/24).int32(message.blockHeight);
                 return writer;
             };
     
@@ -3422,7 +3380,7 @@
                         message.outputs.push($root.serialization.TxOutput.decode(reader, reader.uint32()));
                         break;
                     case 3:
-                        message.blockHeight = reader.int64();
+                        message.blockHeight = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -3474,8 +3432,8 @@
                     }
                 }
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    if (!$util.isInteger(message.blockHeight) && !(message.blockHeight && $util.isInteger(message.blockHeight.low) && $util.isInteger(message.blockHeight.high)))
-                        return "blockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.blockHeight))
+                        return "blockHeight: integer expected";
                 return null;
             };
     
@@ -3507,14 +3465,7 @@
                     }
                 }
                 if (object.blockHeight != null)
-                    if ($util.Long)
-                        (message.blockHeight = $util.Long.fromValue(object.blockHeight)).unsigned = false;
-                    else if (typeof object.blockHeight === "string")
-                        message.blockHeight = parseInt(object.blockHeight, 10);
-                    else if (typeof object.blockHeight === "number")
-                        message.blockHeight = object.blockHeight;
-                    else if (typeof object.blockHeight === "object")
-                        message.blockHeight = new $util.LongBits(object.blockHeight.low >>> 0, object.blockHeight.high >>> 0).toNumber();
+                    message.blockHeight = object.blockHeight | 0;
                 return message;
             };
     
@@ -3535,11 +3486,7 @@
                     object.outputs = [];
                 if (options.defaults) {
                     object.proposer = null;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.blockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.blockHeight = options.longs === String ? "0" : 0;
+                    object.blockHeight = 0;
                 }
                 if (message.proposer != null && message.hasOwnProperty("proposer"))
                     object.proposer = $root.serialization.TxInput.toObject(message.proposer, options);
@@ -3549,10 +3496,7 @@
                         object.outputs[j] = $root.serialization.TxOutput.toObject(message.outputs[j], options);
                 }
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    if (typeof message.blockHeight === "number")
-                        object.blockHeight = options.longs === String ? String(message.blockHeight) : message.blockHeight;
-                    else
-                        object.blockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.blockHeight) : options.longs === Number ? new $util.LongBits(message.blockHeight.low >>> 0, message.blockHeight.high >>> 0).toNumber() : message.blockHeight;
+                    object.blockHeight = message.blockHeight;
                 return object;
             };
     
@@ -5452,7 +5396,7 @@
              * @property {Uint8Array|null} [initiatorAddress] SplitContract initiatorAddress
              * @property {Uint8Array|null} [resourceId] SplitContract resourceId
              * @property {Array.<serialization.ISplit>|null} [splits] SplitContract splits
-             * @property {number|Long|null} [endBlockHeight] SplitContract endBlockHeight
+             * @property {number|null} [endBlockHeight] SplitContract endBlockHeight
              */
     
             /**
@@ -5497,11 +5441,11 @@
     
             /**
              * SplitContract endBlockHeight.
-             * @member {number|Long} endBlockHeight
+             * @member {number} endBlockHeight
              * @memberof serialization.SplitContract
              * @instance
              */
-            SplitContract.prototype.endBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            SplitContract.prototype.endBlockHeight = 0;
     
             /**
              * Creates a new SplitContract instance using the specified properties.
@@ -5535,7 +5479,7 @@
                     for (var i = 0; i < message.splits.length; ++i)
                         $root.serialization.Split.encode(message.splits[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    writer.uint32(/* id 4, wireType 0 =*/32).int64(message.endBlockHeight);
+                    writer.uint32(/* id 4, wireType 0 =*/32).int32(message.endBlockHeight);
                 return writer;
             };
     
@@ -5582,7 +5526,7 @@
                         message.splits.push($root.serialization.Split.decode(reader, reader.uint32()));
                         break;
                     case 4:
-                        message.endBlockHeight = reader.int64();
+                        message.endBlockHeight = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -5635,8 +5579,8 @@
                     }
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (!$util.isInteger(message.endBlockHeight) && !(message.endBlockHeight && $util.isInteger(message.endBlockHeight.low) && $util.isInteger(message.endBlockHeight.high)))
-                        return "endBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.endBlockHeight))
+                        return "endBlockHeight: integer expected";
                 return null;
             };
     
@@ -5673,14 +5617,7 @@
                     }
                 }
                 if (object.endBlockHeight != null)
-                    if ($util.Long)
-                        (message.endBlockHeight = $util.Long.fromValue(object.endBlockHeight)).unsigned = false;
-                    else if (typeof object.endBlockHeight === "string")
-                        message.endBlockHeight = parseInt(object.endBlockHeight, 10);
-                    else if (typeof object.endBlockHeight === "number")
-                        message.endBlockHeight = object.endBlockHeight;
-                    else if (typeof object.endBlockHeight === "object")
-                        message.endBlockHeight = new $util.LongBits(object.endBlockHeight.low >>> 0, object.endBlockHeight.high >>> 0).toNumber();
+                    message.endBlockHeight = object.endBlockHeight | 0;
                 return message;
             };
     
@@ -5702,11 +5639,7 @@
                 if (options.defaults) {
                     object.initiatorAddress = options.bytes === String ? "" : [];
                     object.resourceId = options.bytes === String ? "" : [];
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.endBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.endBlockHeight = options.longs === String ? "0" : 0;
+                    object.endBlockHeight = 0;
                 }
                 if (message.initiatorAddress != null && message.hasOwnProperty("initiatorAddress"))
                     object.initiatorAddress = options.bytes === String ? $util.base64.encode(message.initiatorAddress, 0, message.initiatorAddress.length) : options.bytes === Array ? Array.prototype.slice.call(message.initiatorAddress) : message.initiatorAddress;
@@ -5718,10 +5651,7 @@
                         object.splits[j] = $root.serialization.Split.toObject(message.splits[j], options);
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (typeof message.endBlockHeight === "number")
-                        object.endBlockHeight = options.longs === String ? String(message.endBlockHeight) : message.endBlockHeight;
-                    else
-                        object.endBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.endBlockHeight) : options.longs === Number ? new $util.LongBits(message.endBlockHeight.low >>> 0, message.endBlockHeight.high >>> 0).toNumber() : message.endBlockHeight;
+                    object.endBlockHeight = message.endBlockHeight;
                 return object;
             };
     

@@ -26,8 +26,8 @@ type LedgerState struct {
 }
 
 // NewLedgerState creates a new Leger State with givn store.
-func NewLedgerState(chainID string, stateRootHash common.Hash, db database.Database) *LedgerState {
-	storeView := NewStoreView(stateRootHash, db)
+func NewLedgerState(chainID string, height uint32, stateRootHash common.Hash, db database.Database) *LedgerState {
+	storeView := NewStoreView(height, stateRootHash, db)
 	if storeView == nil {
 		panic(fmt.Sprintf("Failed to create ledger state with state root hash: %v", stateRootHash))
 	}
@@ -43,9 +43,9 @@ func NewLedgerState(chainID string, stateRootHash common.Hash, db database.Datab
 	}
 }
 
-// SetStateRoot resets the state root of its storeviews, and clear the in-memory states
-func (s *LedgerState) SetStateRoot(stateRootHash common.Hash) bool {
-	storeview := NewStoreView(stateRootHash, s.db)
+// SetStateRoot resets the height and state root of its storeviews, and clear the in-memory states
+func (s *LedgerState) SetStateRoot(height uint32, stateRootHash common.Hash) bool {
+	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
 		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
 	}
@@ -74,6 +74,11 @@ func (s *LedgerState) GetChainID() string {
 	}
 	s.chainID = string(s.delivered.Get(common.Bytes("chain_id")))
 	return s.chainID
+}
+
+// Height returns the block height corresponding to the ledger state
+func (s *LedgerState) Height() uint32 {
+	return s.delivered.Height()
 }
 
 // AddSlashIntent adds slashIntent
@@ -128,6 +133,7 @@ func (s *LedgerState) Checked() *StoreView {
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
+	s.delivered.IncrementHeight()
 	copiedView, err := s.delivered.Copy()
 	if err != nil {
 		panic(fmt.Errorf("Failed to copy the delivered store view: %v", err))
@@ -189,6 +195,6 @@ func (s *LedgerState) DeleteSplitContract(resourceId common.Bytes) bool {
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor interface
-func (s *LedgerState) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
+func (s *LedgerState) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool {
 	return s.Delivered().DeleteExpiredSplitContracts(currentBlockHeight)
 }

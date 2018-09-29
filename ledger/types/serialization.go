@@ -204,7 +204,7 @@ func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 	for _, split := range splitContract.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(split))
 	}
-	sc.EndBlockHeight = uint64(splitContract.EndBlockHeight)
+	sc.EndBlockHeight = uint32(splitContract.EndBlockHeight)
 	return sc
 }
 
@@ -215,7 +215,7 @@ func SplitContractToProto(sc *SplitContract) *s.SplitContract {
 	for _, split := range sc.Splits {
 		splitContract.Splits = append(splitContract.Splits, SplitToProto(&split))
 	}
-	splitContract.EndBlockHeight = int64(sc.EndBlockHeight)
+	splitContract.EndBlockHeight = int32(sc.EndBlockHeight)
 	return splitContract
 }
 
@@ -283,7 +283,7 @@ func ReserveFundFromProto(rf *s.ReservedFund) *ReservedFund {
 	for _, rsid := range rf.ResourceIds {
 		r.ResourceIds = append(r.ResourceIds, rsid)
 	}
-	r.EndBlockHeight = uint64(rf.EndBlockHeight)
+	r.EndBlockHeight = uint32(rf.EndBlockHeight)
 	r.ReserveSequence = int(rf.ReserveSequence)
 	for _, record := range rf.TransferRecord {
 		r.TransferRecords = append(r.TransferRecords, *TransferRecordFromProto(record))
@@ -299,8 +299,8 @@ func ReserveFundToProto(r *ReservedFund) *s.ReservedFund {
 	for _, rsid := range r.ResourceIds {
 		rf.ResourceIds = append(rf.ResourceIds, rsid)
 	}
-	rf.EndBlockHeight = int64(r.EndBlockHeight)
-	rf.ReserveSequence = int64(r.ReserveSequence)
+	rf.EndBlockHeight = int32(r.EndBlockHeight)
+	rf.ReserveSequence = int32(r.ReserveSequence)
 	for _, record := range r.TransferRecords {
 		rf.TransferRecord = append(rf.TransferRecord, TransferRecordToProto(&record))
 	}
@@ -313,7 +313,7 @@ func AccountFromProto(account *s.Account) *Account {
 	acc := Account{}
 	acc.PubKey = PublicKeyFromProto(account.PubKey)
 	acc.Sequence = int(account.Sequence)
-	acc.LastUpdatedBlockHeight = uint64(account.LastUpdatedBlockHeight)
+	acc.LastUpdatedBlockHeight = uint32(account.LastUpdatedBlockHeight)
 	acc.Balance = CoinsFromProto(account.Balance)
 	for _, fund := range account.ReservedFunds {
 		acc.ReservedFunds = append(acc.ReservedFunds, *ReserveFundFromProto(fund))
@@ -326,7 +326,7 @@ func AccountToProto(acc *Account) *s.Account {
 	pubkey := PublicKeyToProto(acc.PubKey)
 	account.PubKey = pubkey
 	account.Sequence = int64(acc.Sequence)
-	account.LastUpdatedBlockHeight = int64(acc.LastUpdatedBlockHeight)
+	account.LastUpdatedBlockHeight = int32(acc.LastUpdatedBlockHeight)
 	account.Balance = CoinsToProto(acc.Balance)
 	for _, fund := range acc.ReservedFunds {
 		account.ReservedFunds = append(account.ReservedFunds, ReserveFundToProto(&fund))
@@ -445,7 +445,7 @@ func CoinbaseTxFromProto(tx *s.CoinbaseTx) *CoinbaseTx {
 	for _, output := range tx.Outputs {
 		st.Outputs = append(st.Outputs, *OutputFromProto(output))
 	}
-	st.BlockHeight = uint64(tx.BlockHeight)
+	st.BlockHeight = uint32(tx.BlockHeight)
 	return st
 }
 
@@ -455,7 +455,7 @@ func CoinbaseTxToProto(t *CoinbaseTx) *s.CoinbaseTx {
 	for _, output := range t.Outputs {
 		tx.Outputs = append(tx.Outputs, OutputToProto(&output))
 	}
-	tx.BlockHeight = int64(t.BlockHeight)
+	tx.BlockHeight = int32(t.BlockHeight)
 	return tx
 }
 
@@ -518,7 +518,7 @@ func ReserveFundTxFromProto(tx *s.ReserveFundTx) *ReserveFundTx {
 	for _, rsid := range tx.ResourceIds {
 		rf.ResourceIds = append(rf.ResourceIds, rsid)
 	}
-	rf.Duration = uint64(tx.Duration)
+	rf.Duration = uint32(tx.Duration)
 	return rf
 }
 
@@ -592,7 +592,7 @@ func SplitContractTxFromProto(tx *s.SplitContractTx) *SplitContractTx {
 	for _, sp := range tx.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(sp))
 	}
-	sc.Duration = uint64(tx.Duration)
+	sc.Duration = uint32(tx.Duration)
 	return sc
 }
 

@@ -14,7 +14,7 @@ func makeAccount(secret string, balance Coins) Account {
 	return acc
 }
 
-func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceId []byte, endBlockHeight uint64, reserveSequence int) Account {
+func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceId []byte, endBlockHeight uint32, reserveSequence int) Account {
 	acc := makeAccount("srcAcc", initialBalance)
 	resourceIds := [][]byte{resourceId}
 	acc.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
@@ -30,7 +30,7 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	srcAccCollateral := Coins{Coin{"GammaWei", 1001}}
 	srcAccFund := Coins{{"GammaWei", 1000}}
 	resourceId := []byte("rid001")
-	endBlockHeight := uint64(199)
+	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
 	srcAcc := makeAccountAndReserveFund(srcAccInitialBalance,
@@ -104,18 +104,18 @@ func TestCheckReleaseFund(t *testing.T) {
 	collateral := Coins{Coin{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
 	resourceId := []byte("rid001")
-	endBlockHeight := uint64(199)
+	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
 	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceId, endBlockHeight, reserveSequence)
 
-	currentBlockHeight := uint64(80)
+	currentBlockHeight := uint32(80)
 	if acc.CheckReleaseFund(currentBlockHeight, reserveSequence) == nil {
 		acc.ReleaseFund(currentBlockHeight, reserveSequence)
 	}
 	assert.Equal(t, 1, len(acc.ReservedFunds)) // should not be able to release since currentBlockHeight < endBlockHeight
 
-	currentBlockHeight = uint64(234)
+	currentBlockHeight = uint32(234)
 	anotherReserveSequence := 2
 	if acc.CheckReleaseFund(currentBlockHeight, reserveSequence) == nil {
 		acc.ReleaseFund(currentBlockHeight, anotherReserveSequence)
@@ -140,7 +140,7 @@ func TestTransferReservedFund1(t *testing.T) {
 	}
 
 	paymentSequence := 1
-	currentBlockHeight := uint64(900)
+	currentBlockHeight := uint32(900)
 	err := srcAcc.CheckTransferReservedFund(&tgtAcc, totalTransferAmount, paymentSequence, currentBlockHeight, reserveSequence)
 	if err != nil {
 		srcAcc.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, &servicePaymentTx)
@@ -161,7 +161,7 @@ func TestTransferReservedFund2(t *testing.T) {
 
 	paymentSequence := 1
 	reserveSequence2 := 2
-	currentBlockHeight := uint64(100)
+	currentBlockHeight := uint32(100)
 	err := srcAcc.CheckTransferReservedFund(&tgtAcc, totalTransferAmount, paymentSequence, currentBlockHeight, reserveSequence2)
 	if err != nil {
 		srcAcc.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, &servicePaymentTx)
@@ -180,7 +180,7 @@ func TestTransferReservedFund3(t *testing.T) {
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}
-	currentBlockHeight := uint64(100)
+	currentBlockHeight := uint32(100)
 	paymentSequence := 1
 
 	err := srcAcc.CheckTransferReservedFund(&tgtAcc, totalTransferAmount, paymentSequence, currentBlockHeight, reserveSequence)
@@ -205,7 +205,7 @@ func TestTransferReservedFund4(t *testing.T) {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}
 	paymentSequence := 1
-	currentBlockHeight := uint64(100)
+	currentBlockHeight := uint32(100)
 	err := srcAcc.CheckTransferReservedFund(&tgtAcc, totalTransferAmount, paymentSequence, currentBlockHeight, reserveSequence)
 	shouldSlash := false
 	if err == nil {
@@ -226,7 +226,7 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	assert := assert.New(t)
 
 	var acc *Account
-	currentBlockHeight := uint64(1000)
+	currentBlockHeight := uint32(1000)
 
 	// Should update account
 	acc = &Account{
@@ -242,7 +242,7 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	acc.UpdateAccountGammaReward(currentBlockHeight)
 	assert.Equal(int64(1e12), acc.Balance.GetThetaWei().Amount)
 	assert.Equal(int64(189812000), acc.Balance.GetGammaWei().Amount)
-	assert.Equal(uint64(1000), acc.LastUpdatedBlockHeight)
+	assert.Equal(uint32(1000), acc.LastUpdatedBlockHeight)
 
 	// Underflow: Should not update account if reward is less than 1 Gamma
 	acc = &Account{
@@ -258,7 +258,7 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	acc.UpdateAccountGammaReward(currentBlockHeight)
 	assert.Equal(int64(1000), acc.Balance.GetThetaWei().Amount)
 	assert.Equal(int64(2000), acc.Balance.GetGammaWei().Amount)
-	assert.Equal(uint64(1), acc.LastUpdatedBlockHeight)
+	assert.Equal(uint32(1), acc.LastUpdatedBlockHeight)
 
 	// Should not overflow for large span * balance
 	currentBlockHeight = 1e7
@@ -275,10 +275,10 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	acc.UpdateAccountGammaReward(currentBlockHeight)
 	assert.Equal(int64(1e12), acc.Balance.GetThetaWei().Amount)
 	assert.Equal(int64(1899999812000), acc.Balance.GetGammaWei().Amount)
-	assert.Equal(uint64(1e7), acc.LastUpdatedBlockHeight)
+	assert.Equal(uint32(1e7), acc.LastUpdatedBlockHeight)
 
 	// Should panic if the end balance oveflow
-	currentBlockHeight = 9e18
+	currentBlockHeight = 9e8
 	acc = &Account{
 		LastUpdatedBlockHeight: 1,
 		Balance: Coins{{

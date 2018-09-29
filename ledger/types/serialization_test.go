@@ -294,7 +294,7 @@ func TestTx(t *testing.T) {
 		&CoinbaseTx{
 			Proposer:    TxInput{Address: getTestAddress("123")},
 			Outputs:     []TxOutput{{Address: getTestAddress("456")}},
-			BlockHeight: uint64(999),
+			BlockHeight: uint32(999),
 		},
 
 		&SlashTx{},

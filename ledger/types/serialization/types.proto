@@ -38,8 +38,8 @@ message ReservedFund {
     repeated Coin initial_fund = 2;
     repeated Coin used_fund = 3;
     repeated bytes resource_ids = 4;
-    int64 end_block_height = 5;
-    int64 reserve_sequence = 6; 
+    int32 end_block_height = 5;
+    int32 reserve_sequence = 6; 
     repeated TransferRecord transfer_record = 7;
 }
 
@@ -51,7 +51,7 @@ message Account {
     int64 sequence = 1;
     repeated Coin balance = 2;
     repeated ReservedFund reserved_funds = 3;
-    int64 last_updated_block_height = 4;
+    int32 last_updated_block_height = 4;
     PublicKey pub_key = 5;
 }
 
@@ -84,7 +84,7 @@ message Tx {
 message CoinbaseTx {
     TxInput proposer = 1;
     repeated TxOutput outputs = 2;
-    int64 block_height = 3;
+    int32 block_height = 3;
 }
 
 message SendTx {
@@ -136,7 +136,7 @@ message SplitContract {
     bytes initiator_address = 1;
     bytes resource_id = 2;
     repeated Split splits = 3;
-    int64 end_block_height = 4;
+    int32 end_block_height = 4;
 }
 
 message SplitContractTx {

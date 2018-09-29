@@ -16,7 +16,7 @@ type ReservedFund struct {
 	InitialFund     Coins            `json:"initial_fund"`
 	UsedFund        Coins            `json:"used_fund"`
 	ResourceIds     [][]byte         `json:"resource_ids"` // List of resource ID
-	EndBlockHeight  uint64           `json:"end_block_height"`
+	EndBlockHeight  uint32           `json:"end_block_height"`
 	ReserveSequence int              `json:"reserve_sequence"` // sequence number of the corresponding ReserveFundTx transaction
 	TransferRecords []TransferRecord `json:"transfer_records"` // signed ServerPaymentTransactions
 }

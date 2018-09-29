@@ -220,7 +220,7 @@ func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	return result.OK
 }
 
-func (tl *TestLedger) SetRootHash(rootHash common.Hash) result.Result {
+func (tl *TestLedger) SetRootHash(height uint32, rootHash common.Hash) result.Result {
 	return result.OK
 }
 

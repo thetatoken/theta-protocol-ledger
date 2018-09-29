@@ -311,7 +311,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 		},
 		Collateral:  Coins{{"", 22897}},
 		ResourceIds: [][]byte{[]byte("rid00123")},
-		Duration:    uint64(999),
+		Duration:    uint32(999),
 	}
 
 	signBytes := reserveFundTx.SignBytes(chainID)
@@ -335,7 +335,7 @@ func TestReserveFundTxProto(t *testing.T) {
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Collateral:  Coins{{"", 22897}},
 		ResourceIds: [][]byte{[]byte("rid00123")},
-		Duration:    uint64(999),
+		Duration:    uint32(999),
 	}
 
 	// serialize this and back
@@ -625,7 +625,7 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// if err != nil {
 	// 	panic(fmt.Sprintf("Unable to decode public key: %v", id))
 	// }
-	// va := core.NewValidator(idBytes, uint64(100))
+	// va := core.NewValidator(idBytes, uint32(100))
 	// tx := &UpdateValidatorsTx{
 	// 	Validators: []*core.Validator{&va},
 	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),

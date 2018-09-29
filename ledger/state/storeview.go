@@ -16,16 +16,17 @@ import (
 //
 
 type StoreView struct {
-	store *treestore.TreeStore
+	height uint32 // block height
+	store  *treestore.TreeStore
 }
 
 // NewStoreView creates an instance of the StoreView
-func NewStoreView(root common.Hash, db database.Database) *StoreView {
+func NewStoreView(height uint32, root common.Hash, db database.Database) *StoreView {
 	store := treestore.NewTreeStore(root, db, false)
 	if store == nil {
 		return nil
 	}
-	sv := &StoreView{store}
+	sv := &StoreView{height, store}
 	return sv
 }
 
@@ -35,13 +36,26 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 	if err != nil {
 		return nil, err
 	}
-	copiedStoreView := &StoreView{copiedStore}
+	copiedStoreView := &StoreView{
+		sv.height,
+		copiedStore,
+	}
 	return copiedStoreView, nil
 }
 
 // Hash returns the root hash of the tree store
 func (sv *StoreView) Hash() common.Hash {
 	return sv.store.Hash()
+}
+
+// Height returns the block height corresponding to the stored state
+func (sv *StoreView) Height() uint32 {
+	return sv.height
+}
+
+// IncrementHeight increments the block height by 1
+func (sv *StoreView) IncrementHeight() {
+	sv.height++
 }
 
 // Save saves the StoreView to the persistent storage, and return the root hash
@@ -123,7 +137,7 @@ func (sv *StoreView) DeleteSplitContract(resourceId common.Bytes) bool {
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor DeleteExpiredSplitContracts() method
-func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
+func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool {
 	prefix := SplitContractKeyPrefix()
 
 	expiredKeys := []common.Bytes{}

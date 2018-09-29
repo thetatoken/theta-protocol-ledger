@@ -93,7 +93,7 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 		return common.Hash{}, res
 	}
 
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	exec.state.DeleteExpiredSplitContracts(currentBlockHeight)
 
 	resourceId := tx.ResourceId
