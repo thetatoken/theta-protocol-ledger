@@ -16,13 +16,15 @@ import (
 const (
 	Id         string = "_id"
 	Value      string = "value"
+	Reference  string = "ref"
 	Database   string = "peer_service"
 	Collection string = "peer"
 )
 
 type Document struct {
-	Key   []byte `bson:"_id" json:"key"`
-	Value []byte `bson:"value" json:"value"`
+	Key       []byte `bson:"_id" json:"key"`
+	Value     []byte `bson:"value" json:"value"`
+	Reference int    `bson:"ref" json:"ref"`
 }
 
 // MongoDatabase a MongoDB wrapped object.
@@ -71,6 +73,9 @@ func (db *MongoDatabase) Has(key []byte) (bool, error) {
 	filter := bson.NewDocument(bson.EC.Binary(Id, key))
 	option := findopt.Limit(1)
 	res, err := db.collection.Find(nil, filter, option)
+	if res == nil {
+		return false, err
+	}
 	return res.Next(nil), err
 }
 
@@ -79,10 +84,13 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 	result := new(Document)
 	filter := bson.NewDocument(bson.EC.Binary(Id, key))
 	err := db.collection.FindOne(nil, filter).Decode(result)
-	if err == mongo.ErrNoDocuments {
-		return nil, store.ErrKeyNotFound
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, store.ErrKeyNotFound
+		}
+		return nil, err
 	}
-	return []byte(result.Value), err
+	return result.Value, err
 }
 
 // Delete deletes the key from the database
@@ -93,17 +101,55 @@ func (db *MongoDatabase) Delete(key []byte) error {
 }
 
 func (db *MongoDatabase) Reference(key []byte) error {
-	// TODO
+	filter := bson.NewDocument(bson.EC.Binary(Id, key))
+	option := updateopt.Upsert(false)
+	updator := map[string]map[string]int{"$inc": {Reference: 1}}
+	res, err := db.collection.UpdateOne(nil, filter, updator, option)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return store.ErrKeyNotFound
+	}
 	return nil
 }
 
 func (db *MongoDatabase) Dereference(key []byte) error {
-	// TODO
+	filter := bson.NewDocument(bson.EC.Binary(Id, key))
+	result := new(Document)
+	err := db.collection.FindOne(nil, filter).Decode(result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return store.ErrKeyNotFound
+		}
+		return err
+	}
+
+	if result.Reference > 0 {
+		option := updateopt.Upsert(false)
+		updator := map[string]map[string]int{"$inc": {Reference: -1}}
+		res, err := db.collection.UpdateOne(nil, filter, updator, option)
+		if err != nil {
+			return err
+		}
+		if res.MatchedCount == 0 {
+			return store.ErrKeyNotFound
+		}
+	}
 	return nil
 }
 
 func (db *MongoDatabase) CountReference(key []byte) (int, error) {
-	return 0, nil
+	result := new(Document)
+	filter := bson.NewDocument(bson.EC.Binary(Id, key))
+	err := db.collection.FindOne(nil, filter).Decode(result)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return 0, store.ErrKeyNotFound
+		}
+		return 0, nil
+	}
+	return result.Reference, err
 }
 
 func (db *MongoDatabase) Close() {

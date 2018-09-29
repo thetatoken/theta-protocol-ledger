@@ -62,7 +62,7 @@ func (db *MgoDatabase) Get(key []byte) ([]byte, error) {
 	if err == mgo.ErrNotFound {
 		return nil, store.ErrKeyNotFound
 	}
-	return []byte(result.Value), nil
+	return result.Value, nil
 }
 
 // Delete deletes the key from the database
@@ -72,17 +72,45 @@ func (db *MgoDatabase) Delete(key []byte) error {
 }
 
 func (db *MgoDatabase) Reference(key []byte) error {
-	// TODO
-	return nil
+	selector := bson.M{Id: key}
+	incr := bson.M{"$inc": bson.M{Reference: 1}}
+	err := db.collection.Update(selector, incr)
+	if err != nil && err == mgo.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
+	return err
 }
 
 func (db *MgoDatabase) Dereference(key []byte) error {
-	// TODO
+	selector := bson.M{Id: key}
+	result := new(Document)
+	err := db.collection.Find(selector).One(&result)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
+		return err
+	}
+
+	if result.Reference > 0 {
+		decr := bson.M{"$inc": bson.M{Reference: -1}}
+		err := db.collection.Update(selector, decr)
+		return err
+	}
+
 	return nil
 }
 
 func (db *MgoDatabase) CountReference(key []byte) (int, error) {
-	return 0, nil
+	result := new(Document)
+	err := db.collection.Find(bson.M{Id: key}).One(&result)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return 0, store.ErrKeyNotFound
+		}
+		return 0, err
+	}
+	return result.Reference, nil
 }
 
 func (db *MgoDatabase) Close() {
@@ -117,12 +145,18 @@ func (b *mgodbBatch) Delete(key []byte) error {
 }
 
 func (b *mgodbBatch) Reference(key []byte) error {
-	// TODO
+	selector := bson.M{Id: key}
+	incr := bson.M{"$inc": bson.M{Reference: 1}}
+	b.b.Upsert(selector, incr)
+	b.size++
 	return nil
 }
 
 func (b *mgodbBatch) Dereference(key []byte) error {
-	// TODO
+	selector := bson.M{Id: key}
+	decr := bson.M{"$inc": bson.M{Reference: -1}}
+	b.b.Upsert(selector, decr)
+	b.size++
 	return nil
 }
 

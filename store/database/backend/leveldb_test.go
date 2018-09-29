@@ -26,6 +26,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -113,6 +114,36 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 		if !bytes.Equal(data, []byte(v)) {
 			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+	}
+
+	err = db.Reference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("reference non existent key didn't fail")
+	}
+
+	err = db.Dereference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("dereference non existent key didn't fail")
+	}
+
+	_, err = db.CountReference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("count reference non existent key didn't fail")
+	}
+
+	// test dereference on nil refs first
+	for _, k := range testValues {
+		err := db.Dereference([]byte(k))
+		if err != nil {
+			t.Fatalf("dereference failed: %v", err)
+		}
+	}
+
+	for _, k := range testValues {
+		ref, _ := db.CountReference([]byte(k))
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 0)
 		}
 	}
 

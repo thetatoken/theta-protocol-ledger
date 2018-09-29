@@ -125,6 +125,9 @@ func (db *LDBDatabase) Has(key []byte) (bool, error) {
 func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 	dat, err := db.db.Get(key, nil)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, store.ErrKeyNotFound
+		}
 		return nil, err
 	}
 	return dat, nil
@@ -140,6 +143,9 @@ func (db *LDBDatabase) Reference(key []byte) error {
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
 		return err
 	}
 	if value == nil {
@@ -167,6 +173,9 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
 		return err
 	}
 	if value == nil {
@@ -194,10 +203,10 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return 0, err
+		if err == leveldb.ErrNotFound {
+			return 0, store.ErrKeyNotFound
 		}
-		return 0, nil
+		return 0, err
 	}
 	if dat == nil {
 		return 0, nil
