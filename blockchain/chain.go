@@ -46,7 +46,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 	var val core.ExtendedBlock
 	err := ch.store.Get(block.Hash, &val)
-	if err != store.ErrKeyNotFound {
+	if err == nil {
 		// Block has already been added.
 		return nil, errors.New("Block has already been added")
 	}
