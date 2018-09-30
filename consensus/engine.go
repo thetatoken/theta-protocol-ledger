@@ -88,7 +88,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 
 // ID returns the identifier of current node.
 func (e *ConsensusEngine) ID() string {
-	return e.network.ID()
+	return e.privateKey.PublicKey().Address().Hex()
 }
 
 // PrivateKey returns the private key
@@ -294,16 +294,20 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(0)
-	e.state.AddVote(&vote)
+	err := e.state.AddVote(&vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to add vote")
+	}
 
 	if vote.Epoch >= e.GetEpoch() {
 		currentEpochVotes := core.NewVoteSet()
 		allEpochVotes, err := e.state.GetEpochVotes()
 		if err != nil {
-			for _, v := range allEpochVotes.Votes() {
-				if v.Epoch >= vote.Epoch {
-					currentEpochVotes.AddVote(v)
-				}
+			e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve epoch votes")
+		}
+		for _, v := range allEpochVotes.Votes() {
+			if v.Epoch >= vote.Epoch {
+				currentEpochVotes.AddVote(v)
 			}
 		}
 
@@ -331,13 +335,14 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	}
 	votes, err := e.state.GetVoteSetByBlock(vote.Block.Hash)
 	if err != nil {
-		if validators.HasMajority(votes) {
-			cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
-			block.CommitCertificate = cc
+		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
+	}
+	if validators.HasMajority(votes) {
+		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
+		block.CommitCertificate = cc
 
-			e.chain.SaveBlock(block)
-			e.processCCBlock(block)
-		}
+		e.chain.SaveBlock(block)
+		e.processCCBlock(block)
 	}
 
 	return
@@ -381,12 +386,6 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	}
 	if parent.CommitCertificate != nil {
 		e.finalizeBlock(parent)
-	}
-
-	if ccBlock.Epoch >= e.state.GetEpoch() {
-		e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "e.epoch": e.state.GetEpoch()}).Debug("Advancing epoch")
-		e.state.SetEpoch(ccBlock.Epoch + 1)
-		e.enterEpoch()
 	}
 }
 
