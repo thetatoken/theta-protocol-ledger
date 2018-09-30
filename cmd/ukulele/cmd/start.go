@@ -97,7 +97,7 @@ func loadOrCreateKey() *crypto.PrivateKey {
 
 func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	log.WithFields(log.Fields{
-		"pubKey":  fmt.Sprintf("%X", privKey.PublicKey().ToBytes()),
+		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()

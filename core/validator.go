@@ -21,7 +21,10 @@ type Validator struct {
 
 // NewValidator creates a new validator instance.
 func NewValidator(pubKeyBytes common.Bytes, stake uint64) Validator {
-	pubKey, _ := crypto.PublicKeyFromBytes(pubKeyBytes)
+	pubKey, err := crypto.PublicKeyFromBytes(pubKeyBytes)
+	if err != nil {
+		panic(err)
+	}
 	return Validator{*pubKey, stake}
 }
 

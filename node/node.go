@@ -49,7 +49,7 @@ func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewFixedValidatorManager(params.Validators)
-	consensus := consensus.NewConsensusEngine(params.PrivateKey, chain, params.Network, validatorManager)
+	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, params.Network, validatorManager)
 	dispatcher := dispatcher.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 	mempool := mempool.CreateMempool(dispatcher)

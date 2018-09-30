@@ -10,6 +10,7 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/ukulele/store"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/dispatcher"
@@ -71,7 +72,8 @@ func TestSyncManager(t *testing.T) {
 
 	valSet := core.NewValidatorSet()
 	valMgr := consensus.NewFixedValidatorManager(valSet)
-	consensus := consensus.NewConsensusEngine(nil, initChain, net1, valMgr)
+	db := store.NewMemKVStore()
+	consensus := consensus.NewConsensusEngine(nil, db, initChain, net1, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 	dispatch := dispatcher.NewDispatcher(net1)
 
@@ -94,7 +96,7 @@ func TestSyncManager(t *testing.T) {
 	msg1, ok := res.(dispatcher.InventoryRequest)
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
-	assert.Equal("A0", msg1.Start)
+	assert.Equal("A1", msg1.Start)
 
 	// node2 replies with InventoryReponse
 	net2.Broadcast(types.Message{

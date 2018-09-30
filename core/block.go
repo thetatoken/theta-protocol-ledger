@@ -27,17 +27,17 @@ type BlockHeader struct {
 	ChainID    string
 	Epoch      uint32
 	Hash       common.Bytes
+	Height     uint32
 	ParentHash common.Bytes
 }
 
 func (h BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v}", h.ChainID, h.Epoch, h.Hash, h.ParentHash)
+	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v}", h.ChainID, h.Epoch, h.Hash, h.ParentHash, h.Height)
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Height            uint32
 	Children          []common.Bytes
 	Parent            common.Bytes
 	CommitCertificate *CommitCertificate `rlp:"nil"`
