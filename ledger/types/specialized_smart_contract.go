@@ -31,6 +31,6 @@ func (sc *SplitContract) String() string {
 	if sc == nil {
 		return "nil-SlashIntent"
 	}
-	return fmt.Sprintf("SplitContract{%v %v %v}",
-		sc.ResourceId, sc.Splits, sc.EndBlockHeight)
+	return fmt.Sprintf("SplitContract{%v %v %v %v}",
+		sc.InitiatorAddress.Hex(), string(sc.ResourceId), sc.Splits, sc.EndBlockHeight)
 }

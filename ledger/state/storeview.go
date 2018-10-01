@@ -82,7 +82,7 @@ func (sv *StoreView) Set(key common.Bytes, value common.Bytes) {
 // GetAccount implements the ViewDataAccessor GetAccount() method.
 func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	data := sv.Get(AccountKey(addr))
-	if len(data) == 0 {
+	if data == nil || len(data) == 0 {
 		return nil
 	}
 	acc := &types.Account{}
@@ -107,7 +107,7 @@ func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 // GetSplitContract implements the ViewDataAccessor GetSplitContract() method
 func (sv *StoreView) GetSplitContract(resourceId common.Bytes) *types.SplitContract {
 	data := sv.Get(SplitContractKey(resourceId))
-	if len(data) == 0 {
+	if data == nil || len(data) == 0 {
 		return nil
 	}
 	splitContract := &types.SplitContract{}
@@ -149,19 +149,19 @@ func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool
 		}
 
 		expired := (splitContract.EndBlockHeight < currentBlockHeight)
-		return expired
+		if expired {
+			expiredKeys = append(expiredKeys, key)
+		}
+		return true
 	})
 
 	for _, key := range expiredKeys {
-		sv.store.Delete(key)
-	}
-	root, err := sv.store.Commit(nil)
-
-	if err != nil {
-		log.Errorf("Failed to delete expired split contracts")
-		return false
+		deleted := sv.store.Delete(key)
+		if !deleted {
+			log.Errorf("Failed to delete expired split contracts")
+			return false
+		}
 	}
 
-	sv.store.GetDB().Commit(root, false)
 	return true
 }

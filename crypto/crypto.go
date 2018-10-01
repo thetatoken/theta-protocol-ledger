@@ -129,7 +129,6 @@ func PrivateKeyFromBytes(skBytes common.Bytes) (*PrivateKey, error) {
 	key, err := toECDSA(skBytes)
 	sk := &PrivateKey{privKey: key}
 	return sk, err
-
 }
 
 // PublicKeyFromBytes converts the given bytes to a public key
