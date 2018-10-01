@@ -290,7 +290,7 @@ func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs
 		}
 	}
 	block = pendingBlock.block
-	parent := block.ParentHash
+	parent := block.Parent
 	if !rm.processHash(parent, nil, []string{}) {
 		pendingBlock.status = RequestWaitingParent
 		byParents, ok := rm.pendingBlocksByParent[parent.String()]

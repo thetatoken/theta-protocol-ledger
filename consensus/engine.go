@@ -428,7 +428,7 @@ func (e *ConsensusEngine) propose() {
 	block.ChainID = e.chain.ChainID
 	block.Hash = e.randHex()
 	block.Epoch = e.GetEpoch()
-	block.ParentHash = tip.Hash
+	block.Parent = tip.Hash
 	block.Height = tip.Height + 1
 
 	lastCC := e.state.GetHighestCCBlock()

@@ -26,7 +26,7 @@ func CreateTestBlock(hash string, parent string) *core.Block {
 	block := &core.Block{}
 	block.ChainID = "testchain"
 	block.Hash = ParseHex(hash)
-	block.ParentHash = ParseHex(parent)
+	block.Parent = ParseHex(parent)
 	return block
 }
 

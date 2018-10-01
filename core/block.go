@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
 )
@@ -24,22 +25,26 @@ func (b *Block) String() string {
 
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
-	ChainID    string
-	Epoch      uint32
-	Hash       common.Bytes
-	Height     uint32
-	ParentHash common.Bytes
+	ChainID   string
+	Epoch     uint32
+	Hash      common.Bytes
+	Height    uint32
+	Parent    common.Bytes
+	TxHash    common.Bytes
+	StateHash common.Bytes
+	Timestamp *big.Int
+	Proposer  common.Address
 }
 
 func (h BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v}", h.ChainID, h.Epoch, h.Hash, h.ParentHash, h.Height)
+	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %v}",
+		h.ChainID, h.Epoch, h.Hash, h.Parent, h.Height, h.TxHash, h.StateHash, h.Timestamp, h.Proposer)
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
 	Children          []common.Bytes
-	Parent            common.Bytes
 	CommitCertificate *CommitCertificate `rlp:"nil"`
 }
 

@@ -50,12 +50,12 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		return val, errors.New("Block has already been added")
 	}
 
-	if block.ParentHash != nil {
+	if block.Parent != nil {
 		var parentBlock core.ExtendedBlock
-		err = ch.store.Get(block.ParentHash, &parentBlock)
+		err = ch.store.Get(block.Parent, &parentBlock)
 		if err == store.ErrKeyNotFound {
 			// Parent block is not known yet, abandon block.
-			return nil, errors.Errorf("Unknown parent block: %s", block.ParentHash)
+			return nil, errors.Errorf("Unknown parent block: %s", block.Parent)
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to find parent block")
@@ -65,7 +65,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		ch.SaveBlock(&parentBlock)
 	}
 
-	extendedBlock := &core.ExtendedBlock{Block: block, Parent: block.ParentHash}
+	extendedBlock := &core.ExtendedBlock{Block: block}
 	ch.SaveBlock(extendedBlock)
 
 	return extendedBlock, nil
@@ -91,7 +91,7 @@ func (ch *Chain) FindDeepestDescendant(hash common.Bytes) (n *core.ExtendedBlock
 
 func (ch *Chain) IsOrphan(block *core.Block) bool {
 	var val core.ExtendedBlock
-	err := ch.store.Get(block.ParentHash, &val)
+	err := ch.store.Get(block.Parent, &val)
 	return err != nil
 }
 
@@ -114,7 +114,6 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*core.ExtendedBlock, error) {
 	// Returns a copy of the block.
 	ret := &core.ExtendedBlock{
 		Block:             block.Block,
-		Parent:            block.Parent,
 		Children:          make([]common.Bytes, len(block.Children)),
 		CommitCertificate: block.CommitCertificate,
 	}
@@ -134,7 +133,7 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 		if err != nil {
 			return false
 		}
-		hash = currBlock.ParentHash
+		hash = currBlock.Parent
 	}
 	return false
 }
@@ -149,7 +148,7 @@ func (ch *Chain) PrintBranch(hash common.Bytes) string {
 			break
 		}
 		ret = append(ret, hash.String())
-		hash = currBlock.ParentHash
+		hash = currBlock.Parent
 	}
 	return fmt.Sprintf("%v", ret)
 }
