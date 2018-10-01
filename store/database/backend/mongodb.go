@@ -162,7 +162,7 @@ func (db *MongoDatabase) Close() {
 }
 
 func (db *MongoDatabase) NewBatch() database.Batch {
-	return &mdbBatch{db: db, collection: db.collection, puts: []Document{}, deletes: []*bson.Value{}}
+	return &mdbBatch{db: db, collection: db.collection, references: make(map[string]int)}
 }
 
 type mdbBatch struct {
@@ -170,6 +170,7 @@ type mdbBatch struct {
 	collection *mongo.Collection
 	puts       []Document
 	deletes    []*bson.Value
+	references map[string]int
 	size       int
 }
 
@@ -186,31 +187,58 @@ func (b *mdbBatch) Delete(key []byte) error {
 }
 
 func (b *mdbBatch) Reference(key []byte) error {
-	// TODO
+	b.references[string(key)]++
+	b.size++
 	return nil
 }
 
 func (b *mdbBatch) Dereference(key []byte) error {
-	// TODO
+	b.references[string(key)]--
+	b.size++
 	return nil
 }
 
 func (b *mdbBatch) Write() error {
-	numPuts := len(b.puts)
-	semPuts := make(chan bool, numPuts)
-	for i, _ := range b.puts {
-		go func(i int) {
-			doc := b.puts[i]
-			b.db.Put(doc.Key, doc.Value)
-			semPuts <- true
-		}(i)
-	}
-	for j := 0; j < numPuts; j++ {
-		<-semPuts
+	for i := range b.puts {
+		doc := b.puts[i]
+		b.db.Put(doc.Key, doc.Value)
 	}
 
 	filter := bson.NewDocument(bson.EC.SubDocumentFromElements(Id, bson.EC.ArrayFromElements("$in", b.deletes...)))
 	_, err := b.collection.DeleteMany(nil, filter)
+
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
+	for k, v := range b.references {
+		filter := bson.NewDocument(bson.EC.Binary(Id, []byte(k)))
+		result := new(Document)
+		err := b.collection.FindOne(nil, filter).Decode(result)
+		if err != nil {
+			if err == mongo.ErrNoDocuments {
+				continue
+			}
+			return err
+		}
+
+		ref := result.Reference + v
+		if ref < 0 {
+			ref = 0
+		}
+		option := updateopt.Upsert(false)
+		updator := map[string]map[string]int{"$set": {Reference: ref}}
+		res, err := b.collection.UpdateOne(nil, filter, updator, option)
+		if err != nil {
+			return err
+		}
+		if res.MatchedCount == 0 {
+			return store.ErrKeyNotFound
+		}
+	}
 
 	b.Reset()
 
@@ -224,5 +252,6 @@ func (b *mdbBatch) ValueSize() int {
 func (b *mdbBatch) Reset() {
 	b.puts = nil
 	b.deletes = nil
+	b.references = make(map[string]int)
 	b.size = 0
 }

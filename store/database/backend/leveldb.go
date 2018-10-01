@@ -501,18 +501,21 @@ func (b *ldbBatch) Write() error {
 
 	for k, v := range b.references {
 		// check if k/v exists
-		value, err := b.db.Get([]byte(k), nil)
-		if err != nil || value == nil {
+		has, err := b.db.Has([]byte(k), nil)
+		if err != nil {
 			return err
+		}
+		if !has {
+			continue
 		}
 
 		var ref int
 		dat, err := b.refdb.Get([]byte(k), nil)
 		if err != nil {
-			return err
-		}
-		if dat == nil {
-			ref = v
+			if err != leveldb.ErrNotFound {
+				return err
+			}
+			ref = 1
 		} else {
 			ref, err = strconv.Atoi(string(dat))
 			if err != nil {
@@ -529,6 +532,8 @@ func (b *ldbBatch) Write() error {
 		}
 	}
 
+	b.Reset()
+
 	return nil
 }
 
@@ -538,6 +543,7 @@ func (b *ldbBatch) ValueSize() int {
 
 func (b *ldbBatch) Reset() {
 	b.b.Reset()
+	b.references = make(map[string]int)
 	b.size = 0
 }
 

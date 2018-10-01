@@ -145,16 +145,15 @@ func (db *AerospikeDatabase) Close() {
 }
 
 func (db *AerospikeDatabase) NewBatch() database.Batch {
-	return &adbBatch{db: db}
+	return &adbBatch{db: db, references: make(map[string]int)}
 }
 
 type adbBatch struct {
-	db           *AerospikeDatabase
-	puts         []Document
-	deletes      []Document
-	references   []Document
-	dereferences []Document
-	size         int
+	db         *AerospikeDatabase
+	puts       []Document
+	deletes    []Document
+	references map[string]int
+	size       int
 }
 
 func (b *adbBatch) Put(key, value []byte) error {
@@ -170,13 +169,13 @@ func (b *adbBatch) Delete(key []byte) error {
 }
 
 func (b *adbBatch) Reference(key []byte) error {
-	b.references = append(b.references, Document{Key: key})
+	b.references[string(key)]++
 	b.size++
 	return nil
 }
 
 func (b *adbBatch) Dereference(key []byte) error {
-	b.dereferences = append(b.dereferences, Document{Key: key})
+	b.references[string(key)]--
 	b.size++
 	return nil
 }
@@ -191,12 +190,35 @@ func (b *adbBatch) Write() error {
 		b.db.Delete(b.deletes[i].Key)
 	}
 
-	for i := range b.references {
-		b.db.Reference(b.references[i].Key)
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
 	}
 
-	for i := range b.dereferences {
-		b.db.Dereference(b.dereferences[i].Key)
+	for k, v := range b.references {
+		dbKey := getDBKey([]byte(k))
+		rec, err := b.db.client.Get(nil, dbKey, RefBin)
+		if err != nil {
+			return err
+		}
+		if rec == nil {
+			continue
+		}
+
+		ref := v
+		if rec.Bins[RefBin] != nil {
+			ref += rec.Bins[RefBin].(int)
+		}
+		if ref < 0 {
+			ref = 0
+		}
+		bin := aerospike.NewBin(RefBin, ref)
+		writePolicy := aerospike.NewWritePolicy(0, 0)
+		writePolicy.Timeout = 300 * time.Millisecond
+		err = b.db.client.PutBins(writePolicy, dbKey, bin)
+		return err
 	}
 
 	b.Reset()
@@ -211,5 +233,6 @@ func (b *adbBatch) ValueSize() int {
 func (b *adbBatch) Reset() {
 	b.puts = nil
 	b.deletes = nil
+	b.references = make(map[string]int)
 	b.size = 0
 }

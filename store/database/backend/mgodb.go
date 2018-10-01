@@ -118,7 +118,7 @@ func (db *MgoDatabase) Close() {
 }
 
 func (db *MgoDatabase) NewBatch() database.Batch {
-	batch := &mgodbBatch{collection: db.collection, b: db.collection.Bulk()}
+	batch := &mgodbBatch{collection: db.collection, b: db.collection.Bulk(), references: make(map[string]int)}
 	batch.b.Unordered()
 	return batch
 }
@@ -126,6 +126,7 @@ func (db *MgoDatabase) NewBatch() database.Batch {
 type mgodbBatch struct {
 	collection *mgo.Collection
 	b          *mgo.Bulk
+	references map[string]int
 	size       int
 }
 
@@ -145,23 +146,59 @@ func (b *mgodbBatch) Delete(key []byte) error {
 }
 
 func (b *mgodbBatch) Reference(key []byte) error {
-	selector := bson.M{Id: key}
-	incr := bson.M{"$inc": bson.M{Reference: 1}}
-	b.b.Upsert(selector, incr)
+	// selector := bson.M{Id: key}
+	// incr := bson.M{"$inc": bson.M{Reference: 1}}
+	// b.b.Upsert(selector, incr)
+	b.references[string(key)]++
 	b.size++
 	return nil
 }
 
 func (b *mgodbBatch) Dereference(key []byte) error {
-	selector := bson.M{Id: key}
-	decr := bson.M{"$inc": bson.M{Reference: -1}}
-	b.b.Upsert(selector, decr)
+	// selector := bson.M{Id: key}
+	// decr := bson.M{"$inc": bson.M{Reference: -1}}
+	// b.b.Upsert(selector, decr)
+	b.references[string(key)]--
 	b.size++
 	return nil
 }
 
 func (b *mgodbBatch) Write() error {
 	_, err := b.b.Run()
+
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
+	if len(b.references) > 0 {
+		b.b = b.collection.Bulk()
+		b.b.Unordered()
+
+		for k, v := range b.references {
+			selector := bson.M{Id: []byte(k)}
+			result := new(Document)
+			err := b.collection.Find(selector).One(&result)
+			if err != nil {
+				if err == mgo.ErrNotFound {
+					continue
+				}
+				return err
+			}
+
+			ref := result.Reference + v
+			if ref < 0 {
+				ref = 0
+			}
+
+			update := bson.M{"$set": bson.M{Reference: ref}}
+			b.b.Upsert(selector, update)
+		}
+		_, err = b.b.Run()
+	}
+
 	b.Reset()
 	return err
 }
@@ -173,5 +210,6 @@ func (b *mgodbBatch) ValueSize() int {
 func (b *mgodbBatch) Reset() {
 	b.b = b.collection.Bulk()
 	b.b.Unordered()
+	b.references = make(map[string]int)
 	b.size = 0
 }

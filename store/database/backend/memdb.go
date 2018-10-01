@@ -203,6 +203,8 @@ func (b *memBatch) Write() error {
 		}
 	}
 
+	b.Reset()
+
 	return nil
 }
 
@@ -212,5 +214,6 @@ func (b *memBatch) ValueSize() int {
 
 func (b *memBatch) Reset() {
 	b.writes = b.writes[:0]
+	b.references = make(map[string]int)
 	b.size = 0
 }
