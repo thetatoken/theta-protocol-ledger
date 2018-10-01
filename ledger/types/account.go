@@ -65,12 +65,12 @@ func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint
 }
 
 // ReserveFund reserves the given amount of fund for subsequence service payments
-func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIds [][]byte, endBlockHeight uint32, reserveSequence int) {
+func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs [][]byte, endBlockHeight uint32, reserveSequence int) {
 	newReservedFund := ReservedFund{
 		Collateral:      collateral,
 		InitialFund:     fund,
 		UsedFund:        Coins{},
-		ResourceIds:     resourceIds,
+		ResourceIDs:     resourceIDs,
 		EndBlockHeight:  endBlockHeight,
 		ReserveSequence: reserveSequence,
 	}
@@ -168,8 +168,8 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 			continue
 		}
 
-		resourceId := servicePaymentTx.ResourceId
-		if !reservedFund.HasResourceId(resourceId) {
+		resourceID := servicePaymentTx.ResourceID
+		if !reservedFund.HasResourceID(resourceID) {
 			continue
 		}
 

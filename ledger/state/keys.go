@@ -16,7 +16,7 @@ func SplitContractKeyPrefix() common.Bytes {
 	return common.Bytes("ls/ssc/split/") // special smart contract / split contract
 }
 
-// SplitContractKey construct the state key for the given resourceId
-func SplitContractKey(resourceId common.Bytes) common.Bytes {
-	return append(SplitContractKeyPrefix(), resourceId...)
+// SplitContractKey construct the state key for the given resourceID
+func SplitContractKey(resourceID common.Bytes) common.Bytes {
+	return append(SplitContractKeyPrefix(), resourceID...)
 }

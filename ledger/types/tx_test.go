@@ -310,7 +310,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 			Sequence: 67890,
 		},
 		Collateral:  Coins{{"", 22897}},
-		ResourceIds: [][]byte{[]byte("rid00123")},
+		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint32(999),
 	}
 
@@ -334,7 +334,7 @@ func TestReserveFundTxProto(t *testing.T) {
 		Fee:         Coin{"", 111},
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Collateral:  Coins{{"", 22897}},
-		ResourceIds: [][]byte{[]byte("rid00123")},
+		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint32(999),
 	}
 
@@ -448,7 +448,7 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	signBytes := servicePaymentTx.SourceSignBytes(chainID)
@@ -475,7 +475,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	signBytes := servicePaymentTx.TargetSignBytes(chainID)
@@ -501,7 +501,7 @@ func TestServicePaymentTxProto(t *testing.T) {
 		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{{"foo", 0}}, 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	// serialize this and back
@@ -528,7 +528,7 @@ func TestSplitContractTxSignable(t *testing.T) {
 	splitContractTx := &SplitContractTx{
 		Gas:        222,
 		Fee:        Coin{"", 111},
-		ResourceId: []byte("rid00123"),
+		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
 			Coins:    Coins{{"", 12345}},
@@ -560,7 +560,7 @@ func TestSplitContractTxProto(t *testing.T) {
 	tx := &SplitContractTx{
 		Gas:        222,
 		Fee:        Coin{"", 111},
-		ResourceId: []byte("rid00123"),
+		ResourceID: []byte("rid00123"),
 		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Splits:     []Split{split},
 		Duration:   99,

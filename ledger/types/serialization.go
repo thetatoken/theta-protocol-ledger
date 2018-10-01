@@ -200,7 +200,7 @@ func SplitToProto(sp *Split) *s.Split {
 func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 	sc := &SplitContract{}
 	copy(sc.InitiatorAddress[:], splitContract.InitiatorAddress)
-	sc.ResourceId = splitContract.ResourceId
+	sc.ResourceID = splitContract.ResourceID
 	for _, split := range splitContract.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(split))
 	}
@@ -211,7 +211,7 @@ func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 func SplitContractToProto(sc *SplitContract) *s.SplitContract {
 	splitContract := &s.SplitContract{}
 	splitContract.InitiatorAddress = sc.InitiatorAddress[:]
-	splitContract.ResourceId = sc.ResourceId
+	splitContract.ResourceID = sc.ResourceID
 	for _, split := range sc.Splits {
 		splitContract.Splits = append(splitContract.Splits, SplitToProto(&split))
 	}
@@ -280,8 +280,8 @@ func ReserveFundFromProto(rf *s.ReservedFund) *ReservedFund {
 	r.Collateral = CoinsFromProto(rf.Collateral)
 	r.InitialFund = CoinsFromProto(rf.InitialFund)
 	r.UsedFund = CoinsFromProto(rf.UsedFund)
-	for _, rsid := range rf.ResourceIds {
-		r.ResourceIds = append(r.ResourceIds, rsid)
+	for _, rsid := range rf.ResourceIDs {
+		r.ResourceIDs = append(r.ResourceIDs, rsid)
 	}
 	r.EndBlockHeight = uint32(rf.EndBlockHeight)
 	r.ReserveSequence = int(rf.ReserveSequence)
@@ -296,8 +296,8 @@ func ReserveFundToProto(r *ReservedFund) *s.ReservedFund {
 	rf.Collateral = CoinsToProto(r.Collateral)
 	rf.InitialFund = CoinsToProto(r.InitialFund)
 	rf.UsedFund = CoinsToProto(r.UsedFund)
-	for _, rsid := range r.ResourceIds {
-		rf.ResourceIds = append(rf.ResourceIds, rsid)
+	for _, rsid := range r.ResourceIDs {
+		rf.ResourceIDs = append(rf.ResourceIDs, rsid)
 	}
 	rf.EndBlockHeight = int32(r.EndBlockHeight)
 	rf.ReserveSequence = int32(r.ReserveSequence)
@@ -515,8 +515,8 @@ func ReserveFundTxFromProto(tx *s.ReserveFundTx) *ReserveFundTx {
 	rf.Fee = *CoinFromProto(tx.Fee)
 	rf.Source = *InputFromProto(tx.Source)
 	rf.Collateral = CoinsFromProto(tx.Collateral)
-	for _, rsid := range tx.ResourceIds {
-		rf.ResourceIds = append(rf.ResourceIds, rsid)
+	for _, rsid := range tx.ResourceIDs {
+		rf.ResourceIDs = append(rf.ResourceIDs, rsid)
 	}
 	rf.Duration = uint32(tx.Duration)
 	return rf
@@ -528,8 +528,8 @@ func ReserveFundTxToProto(rf *ReserveFundTx) *s.ReserveFundTx {
 	tx.Fee = CoinToProto(&rf.Fee)
 	tx.Source = InputToProto(&rf.Source)
 	tx.Collateral = CoinsToProto(rf.Collateral)
-	for _, rsid := range rf.ResourceIds {
-		tx.ResourceIds = append(tx.ResourceIds, rsid)
+	for _, rsid := range rf.ResourceIDs {
+		tx.ResourceIDs = append(tx.ResourceIDs, rsid)
 	}
 	tx.Duration = int64(rf.Duration)
 	return tx
@@ -565,7 +565,7 @@ func ServicePaymentTxFromProto(tx *s.ServicePaymentTx) *ServicePaymentTx {
 	sp.Target = *InputFromProto(tx.Target)
 	sp.PaymentSequence = int(tx.PaymentSequence)
 	sp.ReserveSequence = int(tx.ReserveSequence)
-	sp.ResourceId = tx.ResourceId
+	sp.ResourceID = tx.ResourceID
 	return sp
 }
 
@@ -577,7 +577,7 @@ func ServicePaymentTxToProto(sp *ServicePaymentTx) *s.ServicePaymentTx {
 	tx.Target = InputToProto(&sp.Target)
 	tx.PaymentSequence = int64(sp.PaymentSequence)
 	tx.ReserveSequence = int64(sp.ReserveSequence)
-	tx.ResourceId = sp.ResourceId
+	tx.ResourceID = sp.ResourceID
 	return tx
 }
 
@@ -587,7 +587,7 @@ func SplitContractTxFromProto(tx *s.SplitContractTx) *SplitContractTx {
 	sc := &SplitContractTx{}
 	sc.Gas = tx.Gas
 	sc.Fee = *(CoinFromProto)(tx.Fee)
-	sc.ResourceId = tx.ResourceId
+	sc.ResourceID = tx.ResourceID
 	sc.Initiator = *InputFromProto(tx.Initiator)
 	for _, sp := range tx.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(sp))
@@ -600,7 +600,7 @@ func SplitContractTxToProto(sc *SplitContractTx) *s.SplitContractTx {
 	tx := &s.SplitContractTx{}
 	tx.Gas = sc.Gas
 	tx.Fee = CoinToProto(&sc.Fee)
-	tx.ResourceId = sc.ResourceId
+	tx.ResourceID = sc.ResourceID
 	tx.Initiator = InputToProto(&sc.Initiator)
 	for _, sp := range sc.Splits {
 		tx.Splits = append(tx.Splits, SplitToProto(&sp))

@@ -117,11 +117,11 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		return common.Hash{}, res
 	}
 
-	resourceId := tx.ResourceId
-	splitContract := exec.state.GetSplitContract(resourceId)
+	resourceID := tx.ResourceID
+	splitContract := exec.state.GetSplitContract(resourceID)
 
 	fullTransferAmount := tx.Source.Coins
-	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceId, targetAddress, targetAccount, fullTransferAmount)
+	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceID, targetAddress, targetAccount, fullTransferAmount)
 	if !splitSuccess {
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
@@ -150,12 +150,12 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	return txHash, result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, splitContract *types.SplitContract, resourceId common.Bytes,
+func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, splitContract *types.SplitContract, resourceID common.Bytes,
 	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
 	coinsMap := map[*types.Account]types.Coins{}
 	accountAddressMap := map[*types.Account](common.Address){}
 
-	// no splitContract associated with the resourceId, full payment goes to the target account
+	// no splitContract associated with the resourceID, full payment goes to the target account
 	if splitContract == nil {
 		coinsMap[targetAccount] = fullAmount
 		accountAddressMap[targetAccount] = targetAddress
@@ -165,7 +165,7 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, 
 	// the splitContract has expired, full payment goes to the target account. also delete the splitContract
 	if exec.state.Height() > splitContract.EndBlockHeight {
 		coinsMap[targetAccount] = fullAmount
-		exec.state.DeleteSplitContract(resourceId)
+		exec.state.DeleteSplitContract(resourceID)
 		accountAddressMap[targetAccount] = targetAddress
 		return true, coinsMap, accountAddressMap
 	}

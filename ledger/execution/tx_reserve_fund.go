@@ -91,12 +91,12 @@ func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAc
 
 	collateral := tx.Collateral
 	fund := tx.Source.Coins
-	resourceIds := tx.ResourceIds
+	resourceIDs := tx.ResourceIDs
 	duration := tx.Duration
 	reserveSequence := tx.Source.Sequence
 	endBlockHeight := exec.state.Height() + duration
 
-	sourceAccount.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
+	sourceAccount.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}

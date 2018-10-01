@@ -105,8 +105,8 @@ func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 }
 
 // GetSplitContract implements the ViewDataAccessor GetSplitContract() method
-func (sv *StoreView) GetSplitContract(resourceId common.Bytes) *types.SplitContract {
-	data := sv.Get(SplitContractKey(resourceId))
+func (sv *StoreView) GetSplitContract(resourceID common.Bytes) *types.SplitContract {
+	data := sv.Get(SplitContractKey(resourceID))
 	if data == nil || len(data) == 0 {
 		return nil
 	}
@@ -120,18 +120,18 @@ func (sv *StoreView) GetSplitContract(resourceId common.Bytes) *types.SplitContr
 }
 
 // SetSplitContract implements the ViewDataAccessor SetSplitContract() method
-func (sv *StoreView) SetSplitContract(resourceId common.Bytes, splitContract *types.SplitContract) {
+func (sv *StoreView) SetSplitContract(resourceID common.Bytes, splitContract *types.SplitContract) {
 	splitContractBytes, err := types.ToBytes(splitContract)
 	if err != nil {
 		panic(fmt.Sprintf("Error writing splitContract %v error: %v",
 			splitContract, err.Error()))
 	}
-	sv.Set(SplitContractKey(resourceId), splitContractBytes)
+	sv.Set(SplitContractKey(resourceID), splitContractBytes)
 }
 
 // DeleteSplitContract implements the ViewDataAccessor DeleteSplitContract() method
-func (sv *StoreView) DeleteSplitContract(resourceId common.Bytes) bool {
-	key := SplitContractKey(resourceId)
+func (sv *StoreView) DeleteSplitContract(resourceID common.Bytes) bool {
+	key := SplitContractKey(resourceID)
 	deleted := sv.store.Delete(key)
 	return deleted
 }

@@ -147,45 +147,45 @@ func (s *LedgerState) SetAccount(addr common.Address, acc *types.Account) {
 	s.Delivered().SetAccount(addr, acc)
 }
 
-// SplitContractExists checks if a split contract associated with the given resourceId already exists
-func (s *LedgerState) SplitContractExists(resourceId common.Bytes) bool {
-	exists := (s.Delivered().GetSplitContract(resourceId) != nil)
+// SplitContractExists checks if a split contract associated with the given resourceID already exists
+func (s *LedgerState) SplitContractExists(resourceID common.Bytes) bool {
+	exists := (s.Delivered().GetSplitContract(resourceID) != nil)
 	return exists
 }
 
 // GetSplitContract implements the ViewDataAccessor interface
-func (s *LedgerState) GetSplitContract(resourceId common.Bytes) *types.SplitContract {
-	return s.Delivered().GetSplitContract(resourceId)
+func (s *LedgerState) GetSplitContract(resourceID common.Bytes) *types.SplitContract {
+	return s.Delivered().GetSplitContract(resourceID)
 }
 
 // SetSplitContract implements the ViewDataAccessor interface
-func (s *LedgerState) SetSplitContract(resourceId common.Bytes, splitContract *types.SplitContract) {
-	s.Delivered().SetSplitContract(resourceId, splitContract)
+func (s *LedgerState) SetSplitContract(resourceID common.Bytes, splitContract *types.SplitContract) {
+	s.Delivered().SetSplitContract(resourceID, splitContract)
 }
 
 // AddSplitContract adds a split contract
 func (s *LedgerState) AddSplitContract(splitContract *types.SplitContract) bool {
-	if s.SplitContractExists(splitContract.ResourceId) {
-		return false // Each resourceId can have at most one corresponding split contract
+	if s.SplitContractExists(splitContract.ResourceID) {
+		return false // Each resourceID can have at most one corresponding split contract
 	}
 
-	s.SetSplitContract(splitContract.ResourceId, splitContract)
+	s.SetSplitContract(splitContract.ResourceID, splitContract)
 	return true
 }
 
 // UpdateSplitContract updates a split contract
 func (s *LedgerState) UpdateSplitContract(splitContract *types.SplitContract) bool {
-	if !s.SplitContractExists(splitContract.ResourceId) {
+	if !s.SplitContractExists(splitContract.ResourceID) {
 		return false
 	}
 
-	s.SetSplitContract(splitContract.ResourceId, splitContract)
+	s.SetSplitContract(splitContract.ResourceID, splitContract)
 	return true
 }
 
 // DeleteSplitContract implements the ViewDataAccessor interface
-func (s *LedgerState) DeleteSplitContract(resourceId common.Bytes) bool {
-	return s.Delivered().DeleteSplitContract(resourceId)
+func (s *LedgerState) DeleteSplitContract(resourceID common.Bytes) bool {
+	return s.Delivered().DeleteSplitContract(resourceID)
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor interface

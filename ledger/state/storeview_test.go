@@ -123,21 +123,21 @@ func TestStoreViewSplitContractAccess(t *testing.T) {
 	rid1 := common.Bytes("rid1")
 	sc1 := &types.SplitContract{
 		InitiatorAddress: initiatorAddr,
-		ResourceId:       rid1,
+		ResourceID:       rid1,
 		EndBlockHeight:   100,
 	}
 
 	rid2 := common.Bytes("rid2")
 	sc2 := &types.SplitContract{
 		InitiatorAddress: initiatorAddr,
-		ResourceId:       rid2,
+		ResourceID:       rid2,
 		EndBlockHeight:   17,
 	}
 
 	rid3 := common.Bytes("rid3")
 	sc3 := &types.SplitContract{
 		InitiatorAddress: initiatorAddr,
-		ResourceId:       rid3,
+		ResourceID:       rid3,
 		EndBlockHeight:   28,
 	}
 

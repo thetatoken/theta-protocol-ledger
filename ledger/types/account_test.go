@@ -14,10 +14,10 @@ func makeAccount(secret string, balance Coins) Account {
 	return acc
 }
 
-func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceId []byte, endBlockHeight uint32, reserveSequence int) Account {
+func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID []byte, endBlockHeight uint32, reserveSequence int) Account {
 	acc := makeAccount("srcAcc", initialBalance)
-	resourceIds := [][]byte{resourceId}
-	acc.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
+	resourceIDs := [][]byte{resourceID}
+	acc.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 
 	return acc
 }
@@ -29,19 +29,19 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	}
 	srcAccCollateral := Coins{Coin{"GammaWei", 1001}}
 	srcAccFund := Coins{{"GammaWei", 1000}}
-	resourceId := []byte("rid001")
+	resourceID := []byte("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
 	srcAcc := makeAccountAndReserveFund(srcAccInitialBalance,
-		srcAccCollateral, srcAccFund, resourceId, endBlockHeight, reserveSequence)
+		srcAccCollateral, srcAccFund, resourceID, endBlockHeight, reserveSequence)
 
 	tgtAcc := makeAccount("tgtAcc", Coins{})
 	splitAcc1 := makeAccount("splitAcc1", Coins{})
 	splitAcc2 := makeAccount("splitAcc2", Coins{})
 
 	servicePaymentTx := ServicePaymentTx{
-		ResourceId: resourceId,
+		ResourceID: resourceID,
 	}
 
 	return srcAcc, tgtAcc, splitAcc1, splitAcc2, servicePaymentTx, reserveSequence
@@ -69,9 +69,9 @@ func TestReserveFund(t *testing.T) {
 	}
 	collateral := Coins{Coin{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceId := []byte("rid001")
+	resourceID := []byte("rid001")
 
-	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceId, 199, 1)
+	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceID, 199, 1)
 	assert.Equal(t, acc.Balance.Plus(collateral).Plus(fund), initialBalance)
 }
 
@@ -82,12 +82,12 @@ func TestReleaseExpiredFunds(t *testing.T) {
 	}
 	collateral := Coins{{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceIds := [][]byte{[]byte("rid001")}
+	resourceIDs := [][]byte{[]byte("rid001")}
 
 	acc := makeAccount("foo", initialBalance)
-	acc.ReserveFund(collateral, fund, resourceIds, 10, 1)
-	acc.ReserveFund(collateral, fund, resourceIds, 20, 2)
-	acc.ReserveFund(collateral, fund, resourceIds, 30, 3)
+	acc.ReserveFund(collateral, fund, resourceIDs, 10, 1)
+	acc.ReserveFund(collateral, fund, resourceIDs, 20, 2)
+	acc.ReserveFund(collateral, fund, resourceIDs, 30, 3)
 
 	acc.ReleaseExpiredFunds(20) // only the first ReservedFund can be released
 	assert.Equal(t, 2, len(acc.ReservedFunds))
@@ -103,11 +103,11 @@ func TestCheckReleaseFund(t *testing.T) {
 	}
 	collateral := Coins{Coin{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceId := []byte("rid001")
+	resourceID := []byte("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
-	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceId, endBlockHeight, reserveSequence)
+	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceID, endBlockHeight, reserveSequence)
 
 	currentBlockHeight := uint32(80)
 	if acc.CheckReleaseFund(currentBlockHeight, reserveSequence) == nil {

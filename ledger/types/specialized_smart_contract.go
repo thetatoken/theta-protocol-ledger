@@ -22,7 +22,7 @@ type Split struct {
 // SplitContract specifies the payment split agreement among differet addresses
 type SplitContract struct {
 	InitiatorAddress common.Address `json:"initiator_address"` // Address of the initiator
-	ResourceId       common.Bytes   `json:"resource_id"`       // ResourceId of the payment to be split
+	ResourceID       common.Bytes   `json:"resource_id"`       // ResourceID of the payment to be split
 	Splits           []Split        `json:"splits"`            // Splits of the payments
 	EndBlockHeight   uint32         `json:"end_block_height"`  // The block height when the split contract expires
 }
@@ -32,5 +32,5 @@ func (sc *SplitContract) String() string {
 		return "nil-SlashIntent"
 	}
 	return fmt.Sprintf("SplitContract{%v %v %v %v}",
-		sc.InitiatorAddress.Hex(), string(sc.ResourceId), sc.Splits, sc.EndBlockHeight)
+		sc.InitiatorAddress.Hex(), string(sc.ResourceID), sc.Splits, sc.EndBlockHeight)
 }
