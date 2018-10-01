@@ -11,7 +11,7 @@ import (
 
 type PrivAccount struct {
 	PrivKey *crypto.PrivateKey
-	Account Account
+	Account
 }
 
 func (pa *PrivAccount) Sign(msg []byte) *crypto.Signature {
@@ -79,8 +79,13 @@ func RandAccounts(num int, minAmount int64, maxAmount int64) []PrivAccount {
 //}
 
 func MakeAcc(secret string) PrivAccount {
+	privAcc := MakeAccWithInitBalance(secret, Coins{Coin{"GammaWei", 5}, {"ThetaWei", 7}})
+	return privAcc
+}
+
+func MakeAccWithInitBalance(secret string, initBalance Coins) PrivAccount {
 	privAcc := PrivAccountFromSecret(secret)
-	privAcc.Account.Balance = Coins{Coin{"GammaWei", 5}, {"ThetaWei", 7}}
+	privAcc.Account.Balance = initBalance
 	return privAcc
 }
 

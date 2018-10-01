@@ -54,8 +54,8 @@ func (sk *PrivateKey) SaveToFile(filepath string) error {
 
 // Sign signs the given message with the private key
 func (sk *PrivateKey) Sign(msg common.Bytes) (*Signature, error) {
-	msgHash := keccak256Hash(msg)
-	sigBytes, err := sign(msgHash[:], sk.privKey)
+	msgHash := keccak256(msg)
+	sigBytes, err := sign(msgHash, sk.privKey)
 	sig := &Signature{data: sigBytes}
 	return sig, err
 }
@@ -88,8 +88,19 @@ func (pk *PublicKey) IsEmpty() bool {
 
 // VerifySignature verifies the signature with the public key
 func (pk *PublicKey) VerifySignature(msg common.Bytes, sig *Signature) bool {
-	msgHash := keccak256Hash(msg)
-	isValid := verifySignature(pk.ToBytes(), msgHash[:], sig.ToBytes())
+	if sig == nil {
+		return false
+	}
+
+	// https://github.com/ethereum/go-ethereum/blob/master/crypto/secp256k1/secp256.go#L52
+	// signature should be 65 bytes long, where the 64th byte is the recovery id
+	sigBytes := sig.ToBytes()
+	if len(sigBytes) != 65 {
+		return false
+	}
+
+	msgHash := keccak256(msg)
+	isValid := verifySignature(pk.ToBytes(), msgHash, sigBytes[:64])
 	return isValid
 }
 

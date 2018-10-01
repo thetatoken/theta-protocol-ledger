@@ -205,10 +205,6 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
 type TestLedger struct {
 }
 
-func newTestLedger() core.Ledger {
-	return &TestLedger{}
-}
-
 func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
 	return result.OK
 }
@@ -226,6 +222,10 @@ func (tl *TestLedger) ResetState(height uint32, rootHash common.Hash) result.Res
 }
 
 func (tl *TestLedger) Query() {
+}
+
+func newTestLedger() core.Ledger {
+	return &TestLedger{}
 }
 
 type TestNetworkMessageInterceptor struct {

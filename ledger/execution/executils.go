@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"encoding/hex"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -204,7 +206,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.Error("SignBytes: %X", signBytes)
+		return result.Error("SignBytes: %v", hex.EncodeToString(signBytes))
 	}
 
 	return result.OK

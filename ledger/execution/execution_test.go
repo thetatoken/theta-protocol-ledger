@@ -1,116 +1,49 @@
 package execution
 
-/*
 import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
-	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/types/result"
 )
-
-//--------------------------------------------------------
-// test environment is a bunch of lists of accountns
-
-type execTest struct {
-	chainID string
-
-	executor *Executor
-
-	accIn  types.PrivAccount
-	accOut types.PrivAccount
-}
-
-func newExecTest() *execTest {
-	et := &execTest{
-		chainID: "test_chain_id",
-	}
-	et.reset()
-	return et
-}
-
-func (et *execTest) signTx(tx *types.SendTx, accsIn ...types.PrivAccount) {
-	types.SignTx(et.chainID, tx, accsIn...)
-}
-
-func (et *execTest) state() *st.LedgerState {
-	return et.executor.state
-}
-
-// returns the final balance and expected balance for input and output accounts
-func (et *execTest) exec(tx *types.SendTx, checkTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
-	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
-
-	res = et.executor.ExecuteTx(tx, checkTx)
-
-	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
-	decrBalInExp := tx.Outputs[0].Coins.Plus(types.Coins{tx.Fee}) //expected decrease in balance In
-	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
-}
-
-func (et *execTest) acc2State(accs ...types.PrivAccount) {
-	for _, acc := range accs {
-		et.executor.state.SetAccount(acc.Account.PubKey.Address(), &acc.Account)
-	}
-	et.executor.state.Commit()
-}
-
-//reset everything. state is empty
-func (et *execTest) reset() {
-	et.accIn = types.MakeAcc("foo")
-	et.accOut = types.MakeAcc("bar")
-
-	et.store = ctx.NewMemTreeKVStore()
-	et.state = ctx.NewState(et.store)
-	et.state.SetChainID(et.chainID)
-
-	ctx.AppContext.SetCheckpoint(&ctx.Checkpoint{Height: 1})
-
-	// NOTE we dont run acc2State here
-	// so we can test non-existing accounts
-
-}
-
-//--------------------------------------------------------
 
 func TestGetInputs(t *testing.T) {
 	assert := assert.New(t)
 	et := newExecTest()
 
-	//nil submissions
+	// nil submissions
 	acc, res := getInputs(nil, nil)
 	assert.True(res.IsOK(), "getInputs: error on nil submission")
 	assert.Zero(len(acc), "getInputs: accounts returned on nil submission")
 
-	//test getInputs for registered, non-registered account
+	// test getInputs for registered, non-registered account
 	et.reset()
 	inputs := types.Accs2TxInputs(1, et.accIn)
 	acc, res = getInputs(et.state(), inputs)
-	assert.True(res.IsErr(), "getInputs: expected error when using getInput with non-registered Input")
+	assert.True(res.IsError(), "getInputs: expected error when using getInput with non-registered Input")
 
 	et.acc2State(et.accIn)
 	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to getInput from registered Input")
 
-	//test sending duplicate accounts
+	// test sending duplicate accounts
 	et.reset()
 	et.acc2State(et.accIn, et.accIn, et.accIn)
 	inputs = types.Accs2TxInputs(1, et.accIn, et.accIn, et.accIn)
 	acc, res = getInputs(et.state(), inputs)
-	assert.True(res.IsErr(), "getInputs: expected error when sending duplicate accounts")
+	assert.True(res.IsError(), "getInputs: expected error when sending duplicate accounts")
 
-	//test calculating reward
+	// test calculating reward
 	et.reset()
 	et.acc2State(et.accIn)
-	ctx.AppContext.SetCheckpoint(&ctx.Checkpoint{Height: 10000000}) // needs enough time to generate Gamma tokens
+
+	et.fastforward(1000) // fastforward to reach a sufficient height for Gamma generation
+
 	inputs = types.Accs2TxInputs(1, et.accIn)
-	acc, res = getInputs(et.state, inputs)
+	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
-	assert.True(acc[string(inputs[0].Address)].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
+	assert.True(acc[string(inputs[0].Address[:])].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
 		"getInputs: expected to update input account gamma balance")
 }
 
@@ -126,8 +59,8 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	//test sending duplicate accounts
 	et.reset()
 	outputs := types.Accs2TxOutputs(et.accIn, et.accIn, et.accIn)
-	_, res = getOrMakeOutputs(et.state, nil, outputs)
-	assert.True(res.IsErr(), "getOrMakeOutputs: expected error when sending duplicate accounts")
+	_, res = getOrMakeOutputs(et.state(), nil, outputs)
+	assert.True(res.IsError(), "getOrMakeOutputs: expected error when sending duplicate accounts")
 
 	//test sending to existing/new account
 	et.reset()
@@ -135,31 +68,32 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	outputs2 := types.Accs2TxOutputs(et.accOut)
 
 	et.acc2State(et.accIn)
-	_, res = getOrMakeOutputs(et.state, nil, outputs1)
+	_, res = getOrMakeOutputs(et.state(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
 
-	mapRes2, res := getOrMakeOutputs(et.state, nil, outputs2)
+	mapRes2, res := getOrMakeOutputs(et.state(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
 
 	//test the map results
-	_, map2ok := mapRes2[string(outputs2[0].Address)]
+	_, map2ok := mapRes2[string(outputs2[0].Address[:])]
 	assert.True(map2ok, "getOrMakeOutputs: account output does not contain new account map item")
 
 	//test calculating reward
 	et.reset()
-	ctx.AppContext.SetCheckpoint(&ctx.Checkpoint{Height: 10000000})
+	et.fastforward(1000) // fastforward to reach a sufficient height for Gamma generation
+
 	outputs1 = types.Accs2TxOutputs(et.accIn)
 	outputs2 = types.Accs2TxOutputs(et.accOut)
 
 	et.acc2State(et.accIn)
-	mapRes1, res := getOrMakeOutputs(et.state, nil, outputs1)
+	mapRes1, res := getOrMakeOutputs(et.state(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
-	assert.True(mapRes1[string(outputs1[0].Address)].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
+	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
 		"getOrMakeOutputs: expected to update existing output account gamma balance")
 
-	mapRes2, res = getOrMakeOutputs(et.state, nil, outputs2)
+	mapRes2, res = getOrMakeOutputs(et.state(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
-	assert.True(mapRes2[string(outputs2[0].Address)].Balance.GetGammaWei().Amount == 0,
+	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.GetGammaWei().Amount == 0,
 		"getOrMakeOutputs: expected to not update new output account gamma balance")
 }
 
@@ -170,14 +104,13 @@ func TestValidateInputsBasic(t *testing.T) {
 	//validate input basic
 	inputs := types.Accs2TxInputs(1, et.accIn)
 	res := validateInputsBasic(inputs)
-	assert.True(res.IsOK(), "validateInputsBasic: expected no error on good tx input. Error: %v", res.Error())
+	assert.True(res.IsOK(), "validateInputsBasic: expected no error on good tx input. Error: %v", res.Message)
 
 	t.Logf("inputs[0].Coins = ", inputs[0].Coins)
 	inputs[0].Coins[0].Amount = 0
 	res = validateInputsBasic(inputs)
-	//assert.True(res.IsErr(), "validateInputsBasic: expected error on bad tx input")
+	//assert.True(res.IsError(), "validateInputsBasic: expected error on bad tx input")
 	assert.True(res.IsOK(), "validateInputsBasic: expected error on bad tx input") // now inputs[0].Coins has two types of coins
-
 }
 
 func TestValidateInputsAdvanced(t *testing.T) {
@@ -193,18 +126,18 @@ func TestValidateInputsAdvanced(t *testing.T) {
 	tx := types.MakeSendTx(1, et.accOut, accIn1, accIn2, accIn3)
 
 	et.acc2State(accIn1, accIn2, accIn3, et.accOut)
-	accMap, res := getInputs(et.state, tx.Inputs)
-	assert.True(res.IsOK(), "validateInputsAdvanced: error retrieving accMap. Error: %v", res.Error())
+	accMap, res := getInputs(et.state(), tx.Inputs)
+	assert.True(res.IsOK(), "validateInputsAdvanced: error retrieving accMap. Error: %v", res.Message)
 	signBytes := tx.SignBytes(et.chainID)
 
 	//test bad case, unsigned
 	totalCoins, res := validateInputsAdvanced(accMap, signBytes, tx.Inputs)
-	assert.True(res.IsErr(), "validateInputsAdvanced: expected an error on an unsigned tx input")
+	assert.True(res.IsError(), "validateInputsAdvanced: expected an error on an unsigned tx input")
 
 	//test good case sgined
 	et.signTx(tx, accIn1, accIn2, accIn3, et.accOut)
 	totalCoins, res = validateInputsAdvanced(accMap, signBytes, tx.Inputs)
-	assert.True(res.IsOK(), "validateInputsAdvanced: expected no error on good tx input. Error: %v", res.Error())
+	assert.True(res.IsOK(), "validateInputsAdvanced: expected no error on good tx input. Error: %v", res.Message)
 
 	txTotalCoins := tx.Inputs[0].Coins.
 		Plus(tx.Inputs[1].Coins).
@@ -214,6 +147,7 @@ func TestValidateInputsAdvanced(t *testing.T) {
 		"ValidateInputsAdvanced: transaction total coins are not equal: got %v, expected %v", txTotalCoins, totalCoins)
 }
 
+/*
 func TestValidateInputAdvanced(t *testing.T) {
 	assert := assert.New(t)
 	et := newExecTest()
@@ -226,7 +160,7 @@ func TestValidateInputAdvanced(t *testing.T) {
 
 	//unsigned case
 	res := validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
-	assert.True(res.IsErr(), "validateInputAdvanced: expected error on tx input without signature")
+	assert.True(res.IsError(), "validateInputAdvanced: expected error on tx input without signature")
 
 	//good signed case
 	et.signTx(tx, et.accIn, et.accOut)
@@ -259,7 +193,7 @@ func TestValidateOutputsBasic(t *testing.T) {
 
 	tx[0].Coins[0].Amount = 0
 	res = validateOutputsBasic(tx)
-	assert.True(res.IsErr(), "validateInputBasic: expected error on bad tx output. Error: %v", res.Error())
+	assert.True(res.IsError(), "validateInputBasic: expected error on bad tx output. Error: %v", res.Error())
 }
 
 func TestSumOutput(t *testing.T) {
@@ -321,10 +255,10 @@ func TestSendTx(t *testing.T) {
 	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}
 	et.acc2State(et.accIn)
 	res, _, _, _, _ := et.exec(tx, true)
-	assert.True(res.IsErr(), "ExecTx/Bad CheckTx: Expected error return from ExecTx, returned: %v", res)
+	assert.True(res.IsError(), "ExecTx/Bad CheckTx: Expected error return from ExecTx, returned: %v", res)
 
 	res, balIn, balInExp, balOut, balOutExp := et.exec(tx, false)
-	assert.True(res.IsErr(), "ExecTx/Bad DeliverTx: Expected error return from ExecTx, returned: %v", res)
+	assert.True(res.IsError(), "ExecTx/Bad DeliverTx: Expected error return from ExecTx, returned: %v", res)
 	assert.False(balIn.IsEqual(balInExp),
 		"ExecTx/Bad DeliverTx: balance shouldn't be equal for accIn: got %v, expected: %v", balIn, balInExp)
 	assert.False(balOut.IsEqual(balOutExp),
@@ -493,7 +427,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 	res = sanityCheckForCoinbaseTx(et.chainID, et.state, tx, validators)
-	assert.True(res.IsErr(), res.String())
+	assert.True(res.IsError(), res.String())
 
 	//Error if reward Gamma amount is incorrect
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}
@@ -508,7 +442,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 	res = sanityCheckForCoinbaseTx(et.chainID, et.state, tx, validators)
-	assert.True(res.IsErr(), res.String())
+	assert.True(res.IsError(), res.String())
 
 	//Error if Validator 2 is not rewarded
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}
@@ -521,7 +455,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 	res = sanityCheckForCoinbaseTx(et.chainID, et.state, tx, validators)
-	assert.True(res.IsErr(), res.String())
+	assert.True(res.IsError(), res.String())
 
 	//Error if non-validator is rewarded
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}
@@ -538,7 +472,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 	res = sanityCheckForCoinbaseTx(et.chainID, et.state, tx, validators)
-	assert.True(res.IsErr(), res.String())
+	assert.True(res.IsError(), res.String())
 
 	//Error if validator address is changed
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}
@@ -553,7 +487,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 	res = sanityCheckForCoinbaseTx(et.chainID, et.state, tx, validators)
-	assert.True(res.IsErr(), res.String())
+	assert.True(res.IsError(), res.String())
 
 	//Process should update validator account
 	validators = [][]byte{va1.Account.PubKey.Address(), va2.Account.PubKey.Address()}
