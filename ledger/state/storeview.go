@@ -16,13 +16,17 @@ import (
 //
 
 type StoreView struct {
-	store *treestore.TreeStore
+	height uint32 // block height
+	store  *treestore.TreeStore
 }
 
 // NewStoreView creates an instance of the StoreView
-func NewStoreView(root common.Hash, db database.Database) *StoreView {
+func NewStoreView(height uint32, root common.Hash, db database.Database) *StoreView {
 	store := treestore.NewTreeStore(root, db, false)
-	sv := &StoreView{store}
+	if store == nil {
+		return nil
+	}
+	sv := &StoreView{height, store}
 	return sv
 }
 
@@ -32,8 +36,26 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 	if err != nil {
 		return nil, err
 	}
-	copiedStoreView := &StoreView{copiedStore}
+	copiedStoreView := &StoreView{
+		sv.height,
+		copiedStore,
+	}
 	return copiedStoreView, nil
+}
+
+// Hash returns the root hash of the tree store
+func (sv *StoreView) Hash() common.Hash {
+	return sv.store.Hash()
+}
+
+// Height returns the block height corresponding to the stored state
+func (sv *StoreView) Height() uint32 {
+	return sv.height
+}
+
+// IncrementHeight increments the block height by 1
+func (sv *StoreView) IncrementHeight() {
+	sv.height++
 }
 
 // Save saves the StoreView to the persistent storage, and return the root hash
@@ -60,7 +82,7 @@ func (sv *StoreView) Set(key common.Bytes, value common.Bytes) {
 // GetAccount implements the ViewDataAccessor GetAccount() method.
 func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	data := sv.Get(AccountKey(addr))
-	if len(data) == 0 {
+	if data == nil || len(data) == 0 {
 		return nil
 	}
 	acc := &types.Account{}
@@ -83,9 +105,9 @@ func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 }
 
 // GetSplitContract implements the ViewDataAccessor GetSplitContract() method
-func (sv *StoreView) GetSplitContract(resourceId common.Bytes) *types.SplitContract {
-	data := sv.Get(SplitContractKey(resourceId))
-	if len(data) == 0 {
+func (sv *StoreView) GetSplitContract(resourceID common.Bytes) *types.SplitContract {
+	data := sv.Get(SplitContractKey(resourceID))
+	if data == nil || len(data) == 0 {
 		return nil
 	}
 	splitContract := &types.SplitContract{}
@@ -98,24 +120,24 @@ func (sv *StoreView) GetSplitContract(resourceId common.Bytes) *types.SplitContr
 }
 
 // SetSplitContract implements the ViewDataAccessor SetSplitContract() method
-func (sv *StoreView) SetSplitContract(resourceId common.Bytes, splitContract *types.SplitContract) {
+func (sv *StoreView) SetSplitContract(resourceID common.Bytes, splitContract *types.SplitContract) {
 	splitContractBytes, err := types.ToBytes(splitContract)
 	if err != nil {
 		panic(fmt.Sprintf("Error writing splitContract %v error: %v",
 			splitContract, err.Error()))
 	}
-	sv.Set(SplitContractKey(resourceId), splitContractBytes)
+	sv.Set(SplitContractKey(resourceID), splitContractBytes)
 }
 
 // DeleteSplitContract implements the ViewDataAccessor DeleteSplitContract() method
-func (sv *StoreView) DeleteSplitContract(resourceId common.Bytes) bool {
-	key := SplitContractKey(resourceId)
+func (sv *StoreView) DeleteSplitContract(resourceID common.Bytes) bool {
+	key := SplitContractKey(resourceID)
 	deleted := sv.store.Delete(key)
 	return deleted
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor DeleteExpiredSplitContracts() method
-func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
+func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool {
 	prefix := SplitContractKeyPrefix()
 
 	expiredKeys := []common.Bytes{}
@@ -127,19 +149,19 @@ func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 		}
 
 		expired := (splitContract.EndBlockHeight < currentBlockHeight)
-		return expired
+		if expired {
+			expiredKeys = append(expiredKeys, key)
+		}
+		return true
 	})
 
 	for _, key := range expiredKeys {
-		sv.store.Delete(key)
-	}
-	root, err := sv.store.Commit(nil)
-
-	if err != nil {
-		log.Errorf("Failed to delete expired split contracts")
-		return false
+		deleted := sv.store.Delete(key)
+		if !deleted {
+			log.Errorf("Failed to delete expired split contracts")
+			return false
+		}
 	}
 
-	sv.store.GetDB().Commit(root, false)
 	return true
 }

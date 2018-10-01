@@ -276,7 +276,7 @@ func TestSplitContract(t *testing.T) {
 	}
 
 	splitContract1 := SplitContract{
-		ResourceId:     []byte("rid0000001"),
+		ResourceID:     []byte("rid0000001"),
 		Splits:         []Split{split},
 		EndBlockHeight: 1006,
 	}
@@ -294,7 +294,7 @@ func TestTx(t *testing.T) {
 		&CoinbaseTx{
 			Proposer:    TxInput{Address: getTestAddress("123")},
 			Outputs:     []TxOutput{{Address: getTestAddress("456")}},
-			BlockHeight: uint64(999),
+			BlockHeight: uint32(999),
 		},
 
 		&SlashTx{},
@@ -319,7 +319,7 @@ func TestTx(t *testing.T) {
 			Gas:         123,
 			Source:      TxInput{Address: getTestAddress("123")},
 			Collateral:  Coins{{Denom: "ThetaWei", Amount: 456}},
-			ResourceIds: [][]byte{[]byte("789")},
+			ResourceIDs: [][]byte{[]byte("789")},
 			Duration:    1,
 		},
 
@@ -345,7 +345,7 @@ func TestTx(t *testing.T) {
 		&SplitContractTx{
 			Fee:        Coin{Denom: "ThetaWei", Amount: 123},
 			Gas:        123,
-			ResourceId: []byte("rid789"),
+			ResourceID: []byte("rid789"),
 			Initiator:  TxInput{Address: getTestAddress("123")},
 			Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}},
 			Duration:   1000,
@@ -372,10 +372,8 @@ func TestTx(t *testing.T) {
 		panic(err)
 	}
 
-	vaAddr := pubkey1.Address()
-	vaID := string(vaAddr[:])
 	vaStake := uint64(1)
-	va := core.NewValidator(vaID, vaStake)
+	va := core.NewValidator(pubkey1.ToBytes(), vaStake)
 	tx := &UpdateValidatorsTx{
 		Proposer:   TxInput{Address: getTestAddress("123")},
 		Validators: []*core.Validator{&va},

@@ -12,7 +12,7 @@ import (
 type SlashIntent struct {
 	Address         common.Address
 	ReserveSequence int
-	Proof           []byte
+	Proof           common.Bytes
 }
 
 func (si *SlashIntent) String() string {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
+	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -17,11 +18,14 @@ var _ TxExecutor = (*ReserveFundTxExecutor)(nil)
 
 // ReserveFundTxExecutor implements the TxExecutor interface
 type ReserveFundTxExecutor struct {
+	state *st.LedgerState
 }
 
 // NewReserveFundTxExecutor creates a new instance of ReserveFundTxExecutor
-func NewReserveFundTxExecutor() *ReserveFundTxExecutor {
-	return &ReserveFundTxExecutor{}
+func NewReserveFundTxExecutor(state *st.LedgerState) *ReserveFundTxExecutor {
+	return &ReserveFundTxExecutor{
+		state: state,
+	}
 }
 
 func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
@@ -87,12 +91,12 @@ func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAc
 
 	collateral := tx.Collateral
 	fund := tx.Source.Coins
-	resourceIds := tx.ResourceIds
+	resourceIDs := tx.ResourceIDs
 	duration := tx.Duration
 	reserveSequence := tx.Source.Sequence
-	endBlockHeight := GetCurrentBlockHeight() + duration
+	endBlockHeight := exec.state.Height() + duration
 
-	sourceAccount.ReserveFund(collateral, fund, resourceIds, endBlockHeight, reserveSequence)
+	sourceAccount.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 	if !chargeFee(sourceAccount, tx.Fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}

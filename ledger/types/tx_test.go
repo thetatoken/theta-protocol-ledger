@@ -310,8 +310,8 @@ func TestReserveFundTxSignable(t *testing.T) {
 			Sequence: 67890,
 		},
 		Collateral:  Coins{{"", 22897}},
-		ResourceIds: [][]byte{[]byte("rid00123")},
-		Duration:    uint64(999),
+		ResourceIDs: [][]byte{[]byte("rid00123")},
+		Duration:    uint32(999),
 	}
 
 	signBytes := reserveFundTx.SignBytes(chainID)
@@ -334,8 +334,8 @@ func TestReserveFundTxProto(t *testing.T) {
 		Fee:         Coin{"", 111},
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Collateral:  Coins{{"", 22897}},
-		ResourceIds: [][]byte{[]byte("rid00123")},
-		Duration:    uint64(999),
+		ResourceIDs: [][]byte{[]byte("rid00123")},
+		Duration:    uint32(999),
 	}
 
 	// serialize this and back
@@ -448,7 +448,7 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	signBytes := servicePaymentTx.SourceSignBytes(chainID)
@@ -475,7 +475,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	signBytes := servicePaymentTx.TargetSignBytes(chainID)
@@ -501,7 +501,7 @@ func TestServicePaymentTxProto(t *testing.T) {
 		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{{"foo", 0}}, 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceId:      []byte("rid00123"),
+		ResourceID:      []byte("rid00123"),
 	}
 
 	// serialize this and back
@@ -528,7 +528,7 @@ func TestSplitContractTxSignable(t *testing.T) {
 	splitContractTx := &SplitContractTx{
 		Gas:        222,
 		Fee:        Coin{"", 111},
-		ResourceId: []byte("rid00123"),
+		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
 			Coins:    Coins{{"", 12345}},
@@ -560,7 +560,7 @@ func TestSplitContractTxProto(t *testing.T) {
 	tx := &SplitContractTx{
 		Gas:        222,
 		Fee:        Coin{"", 111},
-		ResourceId: []byte("rid00123"),
+		ResourceID: []byte("rid00123"),
 		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
@@ -621,7 +621,11 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
 
 	// Construct a UpdateValidatorsTx signature
-	// va := core.NewValidator("id123", uint64(100))
+	// idBytes, err := hex.DecodeString("id123")
+	// if err != nil {
+	// 	panic(fmt.Sprintf("Unable to decode public key: %v", id))
+	// }
+	// va := core.NewValidator(idBytes, uint32(100))
 	// tx := &UpdateValidatorsTx{
 	// 	Validators: []*core.Validator{&va},
 	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),

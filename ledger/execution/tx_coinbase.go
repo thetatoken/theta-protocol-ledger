@@ -68,7 +68,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataG
 		return res
 	}
 
-	if tx.BlockHeight != GetCurrentBlockHeight() {
+	if tx.BlockHeight != exec.state.Height() {
 		return result.Error("invalid block height for the coinbase transaction")
 	}
 

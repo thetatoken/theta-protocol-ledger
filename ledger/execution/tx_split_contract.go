@@ -74,11 +74,11 @@ func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view types.View
 		return result.Error("Sum of the percentages should be at most 100")
 	}
 
-	resourceId := tx.ResourceId
-	if exec.state.SplitContractExists(resourceId) {
-		splitContract := exec.state.GetSplitContract(resourceId)
+	resourceID := tx.ResourceID
+	if exec.state.SplitContractExists(resourceID) {
+		splitContract := exec.state.GetSplitContract(resourceID)
 		if splitContract.InitiatorAddress == tx.Initiator.Address {
-			return result.Error("Cannot create multiple split contracts for the same resourceId")
+			return result.Error("Cannot create multiple split contracts for the same resourceID")
 		}
 	}
 
@@ -93,13 +93,13 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 		return common.Hash{}, res
 	}
 
-	currentBlockHeight := GetCurrentBlockHeight()
+	currentBlockHeight := exec.state.Height()
 	exec.state.DeleteExpiredSplitContracts(currentBlockHeight)
 
-	resourceId := tx.ResourceId
+	resourceID := tx.ResourceID
 	success := false
-	if exec.state.SplitContractExists(resourceId) {
-		splitContract := exec.state.GetSplitContract(resourceId)
+	if exec.state.SplitContractExists(resourceID) {
+		splitContract := exec.state.GetSplitContract(resourceID)
 		if splitContract.InitiatorAddress == tx.Initiator.Address {
 			return common.Hash{}, result.Error("split contract from a different initiator existed")
 		}
@@ -111,7 +111,7 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 		endBlockHeight := currentBlockHeight + tx.Duration
 		splitContract := types.SplitContract{
 			InitiatorAddress: tx.Initiator.Address,
-			ResourceId:       tx.ResourceId,
+			ResourceID:       tx.ResourceID,
 			Splits:           tx.Splits,
 			EndBlockHeight:   endBlockHeight,
 		}

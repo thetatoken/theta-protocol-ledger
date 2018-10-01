@@ -41,8 +41,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 		assert.Nil(err)
 		assert.True(outboundPeer.IsOutbound())
 
-		generatedPeerAAddr := peerANodeInfo.Address
-		receivedPeerBAddr := outboundPeer.nodeInfo.Address
+		generatedPeerAAddr := peerANodeInfo.PubKey.Address().Hex()
+		receivedPeerBAddr := outboundPeer.nodeInfo.PubKey.Address().Hex()
 		t.Logf("Generated PeerA nodeInfo.Address: %v", generatedPeerAAddr)
 		t.Logf("Received  PeerB nodeInfo.Address: %v", receivedPeerBAddr)
 
@@ -76,8 +76,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	assert.Nil(err)
 	assert.False(inboundPeer.IsOutbound())
 
-	receivedPeerAAddr := inboundPeer.nodeInfo.Address
-	generatedPeerBAddr := peerBNodeInfo.Address
+	receivedPeerAAddr := inboundPeer.nodeInfo.PubKey.Address().Hex()
+	generatedPeerBAddr := peerBNodeInfo.PubKey.Address().Hex()
 	t.Logf("Received  PeerA nodeInfo.Address: %v", receivedPeerAAddr)
 	t.Logf("Generated PeerB nodeInfo.Address: %v", generatedPeerBAddr)
 

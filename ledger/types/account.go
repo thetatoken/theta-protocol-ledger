@@ -13,7 +13,7 @@ type Account struct {
 	Sequence               int               `json:"sequence"`
 	Balance                Coins             `json:"coins"`
 	ReservedFunds          []ReservedFund    `json:"reserved_funds"` // TODO: replace the slice with map
-	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
+	LastUpdatedBlockHeight uint32            `json:"last_updated_block_height"`
 }
 
 func (acc *Account) Copy() *Account {
@@ -29,11 +29,11 @@ func (acc *Account) String() string {
 		return "nil-Account"
 	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
-		acc.PubKey, acc.Sequence, acc.Balance, acc.ReservedFunds)
+		acc.PubKey.ToBytes(), acc.Sequence, acc.Balance, acc.ReservedFunds)
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.
-func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint64, reserveSequence int) error {
+func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint32, reserveSequence int) error {
 	if duration < MinimumFundReserveDuration || duration > MaximumFundReserveDuration {
 		return errors.New("Duration is out of permitted range")
 	}
@@ -65,12 +65,12 @@ func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint
 }
 
 // ReserveFund reserves the given amount of fund for subsequence service payments
-func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIds [][]byte, endBlockHeight uint64, reserveSequence int) {
+func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs [][]byte, endBlockHeight uint32, reserveSequence int) {
 	newReservedFund := ReservedFund{
 		Collateral:      collateral,
 		InitialFund:     fund,
 		UsedFund:        Coins{},
-		ResourceIds:     resourceIds,
+		ResourceIDs:     resourceIDs,
 		EndBlockHeight:  endBlockHeight,
 		ReserveSequence: reserveSequence,
 	}
@@ -79,7 +79,7 @@ func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIds [][]by
 }
 
 // ReleaseExpiredFunds releases all expired funds
-func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint64) {
+func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint32) {
 	newReservedFunds := []ReservedFund{}
 	for _, reservedFund := range acc.ReservedFunds {
 		minimumReleaseBlockHeight := calcMinimumReleaseBlockHeight(&reservedFund)
@@ -97,7 +97,7 @@ func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint64) {
 }
 
 // CheckReleaseFund verifies inputs for ReleaseFund
-func (acc *Account) CheckReleaseFund(currentBlockHeight uint64, reserveSequence int) error {
+func (acc *Account) CheckReleaseFund(currentBlockHeight uint32, reserveSequence int) error {
 	for _, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -113,7 +113,7 @@ func (acc *Account) CheckReleaseFund(currentBlockHeight uint64, reserveSequence 
 	return errors.Errorf("No matching ReserveSequence")
 }
 
-func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint64 {
+func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint32 {
 	// The "Freeze Period" is to ensure that in the event of overspending, the slashTx and the
 	// releaseFundTx are NOT included in the same block. Otherwise the releaseFundTx may be
 	// executed before the slashTx, and the overspender can escape from the punishment
@@ -122,7 +122,7 @@ func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint64 {
 }
 
 // ReleaseFund releases the fund reserved for service payment
-func (acc *Account) ReleaseFund(currentBlockHeight uint64, reserveSequence int) {
+func (acc *Account) ReleaseFund(currentBlockHeight uint32, reserveSequence int) {
 	for idx, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -138,7 +138,7 @@ func (acc *Account) ReleaseFund(currentBlockHeight uint64, reserveSequence int) 
 }
 
 // CheckTransferReservedFund verifies inputs for SplitReservedFund
-func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Coins, paymentSequence int, currentBlockHeight uint64, reserveSequence int) error {
+func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Coins, paymentSequence int, currentBlockHeight uint32, reserveSequence int) error {
 	for _, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -160,7 +160,7 @@ func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Co
 }
 
 // TransferReservedFund transfers the specified amount of reserved fund to the accounts participated in the payment split, and send remainder back to the source account (i.e. the acount itself)
-func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, currentBlockHeight uint64,
+func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, currentBlockHeight uint32,
 	reserveSequence int, servicePaymentTx *ServicePaymentTx) (shouldSlash bool, slashIntent SlashIntent) {
 	for idx := range acc.ReservedFunds {
 		reservedFund := &acc.ReservedFunds[idx]
@@ -168,8 +168,8 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 			continue
 		}
 
-		resourceId := servicePaymentTx.ResourceId
-		if !reservedFund.HasResourceId(resourceId) {
+		resourceID := servicePaymentTx.ResourceID
+		if !reservedFund.HasResourceID(resourceID) {
 			continue
 		}
 
@@ -213,12 +213,12 @@ func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServi
 	return slashIntent
 }
 
-func (acc *Account) UpdateToHeight(height uint64) {
+func (acc *Account) UpdateToHeight(height uint32) {
 	acc.UpdateAccountGammaReward(height)
 	acc.ReleaseExpiredFunds(height)
 }
 
-func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint64) {
+func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
 	if acc.LastUpdatedBlockHeight <= 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
 	}

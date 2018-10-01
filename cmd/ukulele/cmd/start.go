@@ -17,7 +17,6 @@ import (
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
 	"github.com/thetatoken/ukulele/store/database/backend"
-	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 // startCmd represents the start command
@@ -40,8 +39,9 @@ func runStart(cmd *cobra.Command, args []string) {
 		return c == ','
 	}
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+	privKey := loadOrCreateKey()
 
-	network := newMessenger(peerSeeds, port)
+	network := newMessenger(privKey, peerSeeds, port)
 
 	checkpoint, err := consensus.LoadCheckpoint(path.Join(cfgPath, "checkpoint.json"))
 	if err != nil {
@@ -58,18 +58,18 @@ func runStart(cmd *cobra.Command, args []string) {
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-	store := kvstore.NewKVStore(db)
 	root := &core.Block{}
 	root.ChainID = chainID
 	root.Epoch = rootEpoch
 	root.Hash = rootHash
 
 	params := &node.Params{
-		Store:      store,
 		ChainID:    chainID,
+		PrivateKey: privKey,
 		Root:       root,
 		Validators: consensus.NewTestValidatorSet(validators),
 		Network:    network,
+		DB:         db,
 	}
 	n := node.NewNode(params)
 	n.Start(context.Background())
@@ -95,10 +95,9 @@ func loadOrCreateKey() *crypto.PrivateKey {
 	return privKey
 }
 
-func newMessenger(seedPeerNetAddresses []string, port int) *messenger.Messenger {
-	privKey := loadOrCreateKey()
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	log.WithFields(log.Fields{
-		"pubKey":  fmt.Sprintf("%X", privKey.PublicKey().ToBytes()),
+		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()

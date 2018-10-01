@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHasResourceId(t *testing.T) {
+func TestHasResourceID(t *testing.T) {
 	assert := assert.New(t)
 
 	rid1 := []byte("rid001")
@@ -15,13 +15,13 @@ func TestHasResourceId(t *testing.T) {
 	rid4 := []byte("rid004")
 
 	rf := ReservedFund{}
-	rf.ResourceIds = append(rf.ResourceIds, rid1)
-	rf.ResourceIds = append(rf.ResourceIds, rid2)
-	rf.ResourceIds = append(rf.ResourceIds, rid3)
-	rf.ResourceIds = append(rf.ResourceIds, rid1)
+	rf.ResourceIDs = append(rf.ResourceIDs, rid1)
+	rf.ResourceIDs = append(rf.ResourceIDs, rid2)
+	rf.ResourceIDs = append(rf.ResourceIDs, rid3)
+	rf.ResourceIDs = append(rf.ResourceIDs, rid1)
 
-	assert.Equal(rf.HasResourceId(rid1), true)
-	assert.Equal(rf.HasResourceId(rid4), false)
+	assert.Equal(rf.HasResourceID(rid1), true)
+	assert.Equal(rf.HasResourceID(rid4), false)
 }
 
 func TestRecordTransfer(t *testing.T) {

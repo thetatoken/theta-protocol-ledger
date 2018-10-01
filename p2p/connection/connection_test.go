@@ -121,8 +121,11 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 		err := rlp.DecodeBytes(receivedBytes, &receivedNodeInfo)
 		assert.Nil(err)
 
-		t.Logf("receivedNodeInfo.Address: %v", receivedNodeInfo.Address)
-		if origNodeInfo.Address != receivedNodeInfo.Address {
+		receivedNodeInfo.PubKey, err = crypto.PublicKeyFromBytes(receivedNodeInfo.PubKeyBytes)
+		assert.Nil(err)
+
+		t.Logf("receivedNodeInfo.Address: %v", receivedNodeInfo.PubKey.Address().Hex())
+		if origNodeInfo.PubKey.Address() != receivedNodeInfo.PubKey.Address() {
 			return errors.New("mismatch")
 		}
 		return nil
@@ -186,7 +189,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 
 			matched <- true
 
-			t.Logf("origNodeInfo.Address:     %v", origNodeInfo.Address)
+			t.Logf("origNodeInfo.Address:     %v", origNodeInfo.PubKey.Address().Hex())
 			t.Logf("packet.ChannelID: %v", packet.ChannelID)
 			t.Logf("packet.Bytes: %v", string(packet.Bytes[:]))
 			t.Logf("packet.IsEOF: %v", packet.IsEOF)
@@ -224,9 +227,12 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 		err := rlp.DecodeBytes(receivedBytes, &receivedNodeInfo)
 		assert.Nil(err)
 
-		t.Logf("origNodeInfo.Address:     %v", origNodeInfo.Address)
-		t.Logf("receivedNodeInfo.Address: %v", receivedNodeInfo.Address)
-		if origNodeInfo.Address != receivedNodeInfo.Address {
+		receivedNodeInfo.PubKey, err = crypto.PublicKeyFromBytes(receivedNodeInfo.PubKeyBytes)
+		assert.Nil(err)
+
+		t.Logf("origNodeInfo.Address:     %v", origNodeInfo.PubKey.Address().Hex())
+		t.Logf("receivedNodeInfo.Address: %v", receivedNodeInfo.PubKey.Address().Hex())
+		if origNodeInfo.PubKey.Address() != receivedNodeInfo.PubKey.Address() {
 			matched <- false
 			return errors.New("mismatch")
 		}

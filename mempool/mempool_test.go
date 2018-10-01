@@ -194,7 +194,8 @@ func TestMempoolTransactionGossip(t *testing.T) {
 func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
 	messenger := simnet.AddEndpoint(peerID)
 	dispatcher := dp.NewDispatcher(messenger)
-	mempool := CreateMempool(newTestLedger(), dispatcher)
+	mempool := CreateMempool(dispatcher)
+	mempool.SetLedger(newTestLedger())
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
 	messenger.Start()
@@ -212,8 +213,16 @@ func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
 	return result.OK
 }
 
-func (tl *TestLedger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
-	return []common.Bytes{}, result.OK
+func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	return common.Hash{}, []common.Bytes{}, result.OK
+}
+
+func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	return result.OK
+}
+
+func (tl *TestLedger) ResetState(height uint32, rootHash common.Hash) result.Result {
+	return result.OK
 }
 
 func (tl *TestLedger) Query() {

@@ -24,14 +24,13 @@ type Chain struct {
 
 // NewChain creates a new Chain instance.
 func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
-	rootBlock := &core.ExtendedBlock{Block: root}
 	chain := &Chain{
 		ChainID: chainID,
 		store:   store,
-		Root:    rootBlock,
 		mu:      &sync.Mutex{},
 	}
-	chain.SaveBlock(rootBlock)
+	rootBlock, _ := chain.AddBlock(root)
+	chain.Root = rootBlock
 	return chain
 }
 
@@ -44,32 +43,29 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, ch.ChainID)
 	}
 
-	var val core.ExtendedBlock
-	err := ch.store.Get(block.Hash, &val)
-	if err != store.ErrKeyNotFound {
+	val := &core.ExtendedBlock{}
+	err := ch.store.Get(block.Hash, val)
+	if err == nil {
 		// Block has already been added.
-		return nil, errors.New("Block has already been added")
+		return val, errors.New("Block has already been added")
 	}
 
-	if block.ParentHash == nil {
-		// Parent block hash cannot be empty.
-		return nil, errors.New("Parent block hash cannot be empty")
+	if block.ParentHash != nil {
+		var parentBlock core.ExtendedBlock
+		err = ch.store.Get(block.ParentHash, &parentBlock)
+		if err == store.ErrKeyNotFound {
+			// Parent block is not known yet, abandon block.
+			return nil, errors.Errorf("Unknown parent block: %s", block.ParentHash)
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to find parent block")
+		}
+
+		parentBlock.Children = append(parentBlock.Children, block.Hash)
+		ch.SaveBlock(&parentBlock)
 	}
 
-	var parentBlock core.ExtendedBlock
-	err = ch.store.Get(block.ParentHash, &parentBlock)
-	if err == store.ErrKeyNotFound {
-		// Parent block is not known yet, abandon block.
-		return nil, errors.Errorf("Unknown parent block: %s", block.ParentHash)
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to find parent block")
-	}
-
-	extendedBlock := &core.ExtendedBlock{Block: block, Parent: parentBlock.Hash, Height: parentBlock.Height + 1}
-	parentBlock.Children = append(parentBlock.Children, extendedBlock.Hash)
-	ch.SaveBlock(&parentBlock)
-
+	extendedBlock := &core.ExtendedBlock{Block: block, Parent: block.ParentHash}
 	ch.SaveBlock(extendedBlock)
 
 	return extendedBlock, nil
@@ -100,8 +96,8 @@ func (ch *Chain) IsOrphan(block *core.Block) bool {
 }
 
 // SaveBlock updates a previously stored block.
-func (ch *Chain) SaveBlock(block *core.ExtendedBlock) {
-	ch.store.Put(block.Hash, *block)
+func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {
+	return ch.store.Put(block.Hash, *block)
 }
 
 // FindBlock tries to retrieve a block by hash.
@@ -118,7 +114,6 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*core.ExtendedBlock, error) {
 	// Returns a copy of the block.
 	ret := &core.ExtendedBlock{
 		Block:             block.Block,
-		Height:            block.Height,
 		Parent:            block.Parent,
 		Children:          make([]common.Bytes, len(block.Children)),
 		CommitCertificate: block.CommitCertificate,

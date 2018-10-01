@@ -1,9 +1,6 @@
 package types
 
 import (
-	"encoding/hex"
-	"strings"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
@@ -21,23 +18,17 @@ type Message struct {
 // NodeInfo provides the information of the corresponding blockchain node of the peer
 //
 type NodeInfo struct {
-	PubKey  *crypto.PublicKey `rlp:"-"`
-	Address string
+	PubKey      *crypto.PublicKey `rlp:"-"`
+	PubKeyBytes common.Bytes      // needed for RLP serialization
 }
 
 // CreateNodeInfo creates an instance of NodeInfo
 func CreateNodeInfo(pubKey *crypto.PublicKey) NodeInfo {
 	nodeInfo := NodeInfo{
-		PubKey:  pubKey,
-		Address: calculateAddress(pubKey),
+		PubKey:      pubKey,
+		PubKeyBytes: pubKey.ToBytes(),
 	}
 	return nodeInfo
-}
-
-func calculateAddress(pubKey *crypto.PublicKey) string {
-	addrBytes := pubKey.Address()
-	address := strings.ToUpper(hex.EncodeToString(addrBytes[:]))
-	return address
 }
 
 const (

@@ -601,7 +601,7 @@
              * Properties of a Validator.
              * @memberof serialization
              * @interface IValidator
-             * @property {Uint8Array|null} [id] Validator id
+             * @property {Uint8Array|null} [pubKey] Validator pubKey
              * @property {number|Long|null} [stake] Validator stake
              */
     
@@ -621,12 +621,12 @@
             }
     
             /**
-             * Validator id.
-             * @member {Uint8Array} id
+             * Validator pubKey.
+             * @member {Uint8Array} pubKey
              * @memberof serialization.Validator
              * @instance
              */
-            Validator.prototype.id = $util.newBuffer([]);
+            Validator.prototype.pubKey = $util.newBuffer([]);
     
             /**
              * Validator stake.
@@ -660,8 +660,8 @@
             Validator.encode = function encode(message, writer) {
                 if (!writer)
                     writer = $Writer.create();
-                if (message.id != null && message.hasOwnProperty("id"))
-                    writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.id);
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.pubKey);
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     writer.uint32(/* id 2, wireType 0 =*/16).int64(message.stake);
                 return writer;
@@ -699,7 +699,7 @@
                     var tag = reader.uint32();
                     switch (tag >>> 3) {
                     case 1:
-                        message.id = reader.bytes();
+                        message.pubKey = reader.bytes();
                         break;
                     case 2:
                         message.stake = reader.int64();
@@ -739,9 +739,9 @@
             Validator.verify = function verify(message) {
                 if (typeof message !== "object" || message === null)
                     return "object expected";
-                if (message.id != null && message.hasOwnProperty("id"))
-                    if (!(message.id && typeof message.id.length === "number" || $util.isString(message.id)))
-                        return "id: buffer expected";
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    if (!(message.pubKey && typeof message.pubKey.length === "number" || $util.isString(message.pubKey)))
+                        return "pubKey: buffer expected";
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     if (!$util.isInteger(message.stake) && !(message.stake && $util.isInteger(message.stake.low) && $util.isInteger(message.stake.high)))
                         return "stake: integer|Long expected";
@@ -760,11 +760,11 @@
                 if (object instanceof $root.serialization.Validator)
                     return object;
                 var message = new $root.serialization.Validator();
-                if (object.id != null)
-                    if (typeof object.id === "string")
-                        $util.base64.decode(object.id, message.id = $util.newBuffer($util.base64.length(object.id)), 0);
-                    else if (object.id.length)
-                        message.id = object.id;
+                if (object.pubKey != null)
+                    if (typeof object.pubKey === "string")
+                        $util.base64.decode(object.pubKey, message.pubKey = $util.newBuffer($util.base64.length(object.pubKey)), 0);
+                    else if (object.pubKey.length)
+                        message.pubKey = object.pubKey;
                 if (object.stake != null)
                     if ($util.Long)
                         (message.stake = $util.Long.fromValue(object.stake)).unsigned = false;
@@ -791,15 +791,15 @@
                     options = {};
                 var object = {};
                 if (options.defaults) {
-                    object.id = options.bytes === String ? "" : [];
+                    object.pubKey = options.bytes === String ? "" : [];
                     if ($util.Long) {
                         var long = new $util.Long(0, 0, false);
                         object.stake = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.stake = options.longs === String ? "0" : 0;
                 }
-                if (message.id != null && message.hasOwnProperty("id"))
-                    object.id = options.bytes === String ? $util.base64.encode(message.id, 0, message.id.length) : options.bytes === Array ? Array.prototype.slice.call(message.id) : message.id;
+                if (message.pubKey != null && message.hasOwnProperty("pubKey"))
+                    object.pubKey = options.bytes === String ? $util.base64.encode(message.pubKey, 0, message.pubKey.length) : options.bytes === Array ? Array.prototype.slice.call(message.pubKey) : message.pubKey;
                 if (message.stake != null && message.hasOwnProperty("stake"))
                     if (typeof message.stake === "number")
                         object.stake = options.longs === String ? String(message.stake) : message.stake;
@@ -1300,9 +1300,9 @@
              * @property {Array.<serialization.ICoin>|null} [collateral] ReservedFund collateral
              * @property {Array.<serialization.ICoin>|null} [initialFund] ReservedFund initialFund
              * @property {Array.<serialization.ICoin>|null} [usedFund] ReservedFund usedFund
-             * @property {Array.<Uint8Array>|null} [resourceIds] ReservedFund resourceIds
-             * @property {number|Long|null} [endBlockHeight] ReservedFund endBlockHeight
-             * @property {number|Long|null} [reserveSequence] ReservedFund reserveSequence
+             * @property {Array.<Uint8Array>|null} [resourceIDs] ReservedFund resourceIDs
+             * @property {number|null} [endBlockHeight] ReservedFund endBlockHeight
+             * @property {number|null} [reserveSequence] ReservedFund reserveSequence
              * @property {Array.<serialization.ITransferRecord>|null} [transferRecord] ReservedFund transferRecord
              */
     
@@ -1318,7 +1318,7 @@
                 this.collateral = [];
                 this.initialFund = [];
                 this.usedFund = [];
-                this.resourceIds = [];
+                this.resourceIDs = [];
                 this.transferRecord = [];
                 if (properties)
                     for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
@@ -1351,28 +1351,28 @@
             ReservedFund.prototype.usedFund = $util.emptyArray;
     
             /**
-             * ReservedFund resourceIds.
-             * @member {Array.<Uint8Array>} resourceIds
+             * ReservedFund resourceIDs.
+             * @member {Array.<Uint8Array>} resourceIDs
              * @memberof serialization.ReservedFund
              * @instance
              */
-            ReservedFund.prototype.resourceIds = $util.emptyArray;
+            ReservedFund.prototype.resourceIDs = $util.emptyArray;
     
             /**
              * ReservedFund endBlockHeight.
-             * @member {number|Long} endBlockHeight
+             * @member {number} endBlockHeight
              * @memberof serialization.ReservedFund
              * @instance
              */
-            ReservedFund.prototype.endBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            ReservedFund.prototype.endBlockHeight = 0;
     
             /**
              * ReservedFund reserveSequence.
-             * @member {number|Long} reserveSequence
+             * @member {number} reserveSequence
              * @memberof serialization.ReservedFund
              * @instance
              */
-            ReservedFund.prototype.reserveSequence = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            ReservedFund.prototype.reserveSequence = 0;
     
             /**
              * ReservedFund transferRecord.
@@ -1415,13 +1415,13 @@
                 if (message.usedFund != null && message.usedFund.length)
                     for (var i = 0; i < message.usedFund.length; ++i)
                         $root.serialization.Coin.encode(message.usedFund[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
-                if (message.resourceIds != null && message.resourceIds.length)
-                    for (var i = 0; i < message.resourceIds.length; ++i)
-                        writer.uint32(/* id 4, wireType 2 =*/34).bytes(message.resourceIds[i]);
+                if (message.resourceIDs != null && message.resourceIDs.length)
+                    for (var i = 0; i < message.resourceIDs.length; ++i)
+                        writer.uint32(/* id 4, wireType 2 =*/34).bytes(message.resourceIDs[i]);
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    writer.uint32(/* id 5, wireType 0 =*/40).int64(message.endBlockHeight);
+                    writer.uint32(/* id 5, wireType 0 =*/40).int32(message.endBlockHeight);
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    writer.uint32(/* id 6, wireType 0 =*/48).int64(message.reserveSequence);
+                    writer.uint32(/* id 6, wireType 0 =*/48).int32(message.reserveSequence);
                 if (message.transferRecord != null && message.transferRecord.length)
                     for (var i = 0; i < message.transferRecord.length; ++i)
                         $root.serialization.TransferRecord.encode(message.transferRecord[i], writer.uint32(/* id 7, wireType 2 =*/58).fork()).ldelim();
@@ -1475,15 +1475,15 @@
                         message.usedFund.push($root.serialization.Coin.decode(reader, reader.uint32()));
                         break;
                     case 4:
-                        if (!(message.resourceIds && message.resourceIds.length))
-                            message.resourceIds = [];
-                        message.resourceIds.push(reader.bytes());
+                        if (!(message.resourceIDs && message.resourceIDs.length))
+                            message.resourceIDs = [];
+                        message.resourceIDs.push(reader.bytes());
                         break;
                     case 5:
-                        message.endBlockHeight = reader.int64();
+                        message.endBlockHeight = reader.int32();
                         break;
                     case 6:
-                        message.reserveSequence = reader.int64();
+                        message.reserveSequence = reader.int32();
                         break;
                     case 7:
                         if (!(message.transferRecord && message.transferRecord.length))
@@ -1552,19 +1552,19 @@
                             return "usedFund." + error;
                     }
                 }
-                if (message.resourceIds != null && message.hasOwnProperty("resourceIds")) {
-                    if (!Array.isArray(message.resourceIds))
-                        return "resourceIds: array expected";
-                    for (var i = 0; i < message.resourceIds.length; ++i)
-                        if (!(message.resourceIds[i] && typeof message.resourceIds[i].length === "number" || $util.isString(message.resourceIds[i])))
-                            return "resourceIds: buffer[] expected";
+                if (message.resourceIDs != null && message.hasOwnProperty("resourceIDs")) {
+                    if (!Array.isArray(message.resourceIDs))
+                        return "resourceIDs: array expected";
+                    for (var i = 0; i < message.resourceIDs.length; ++i)
+                        if (!(message.resourceIDs[i] && typeof message.resourceIDs[i].length === "number" || $util.isString(message.resourceIDs[i])))
+                            return "resourceIDs: buffer[] expected";
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (!$util.isInteger(message.endBlockHeight) && !(message.endBlockHeight && $util.isInteger(message.endBlockHeight.low) && $util.isInteger(message.endBlockHeight.high)))
-                        return "endBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.endBlockHeight))
+                        return "endBlockHeight: integer expected";
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    if (!$util.isInteger(message.reserveSequence) && !(message.reserveSequence && $util.isInteger(message.reserveSequence.low) && $util.isInteger(message.reserveSequence.high)))
-                        return "reserveSequence: integer|Long expected";
+                    if (!$util.isInteger(message.reserveSequence))
+                        return "reserveSequence: integer expected";
                 if (message.transferRecord != null && message.hasOwnProperty("transferRecord")) {
                     if (!Array.isArray(message.transferRecord))
                         return "transferRecord: array expected";
@@ -1619,34 +1619,20 @@
                         message.usedFund[i] = $root.serialization.Coin.fromObject(object.usedFund[i]);
                     }
                 }
-                if (object.resourceIds) {
-                    if (!Array.isArray(object.resourceIds))
-                        throw TypeError(".serialization.ReservedFund.resourceIds: array expected");
-                    message.resourceIds = [];
-                    for (var i = 0; i < object.resourceIds.length; ++i)
-                        if (typeof object.resourceIds[i] === "string")
-                            $util.base64.decode(object.resourceIds[i], message.resourceIds[i] = $util.newBuffer($util.base64.length(object.resourceIds[i])), 0);
-                        else if (object.resourceIds[i].length)
-                            message.resourceIds[i] = object.resourceIds[i];
+                if (object.resourceIDs) {
+                    if (!Array.isArray(object.resourceIDs))
+                        throw TypeError(".serialization.ReservedFund.resourceIDs: array expected");
+                    message.resourceIDs = [];
+                    for (var i = 0; i < object.resourceIDs.length; ++i)
+                        if (typeof object.resourceIDs[i] === "string")
+                            $util.base64.decode(object.resourceIDs[i], message.resourceIDs[i] = $util.newBuffer($util.base64.length(object.resourceIDs[i])), 0);
+                        else if (object.resourceIDs[i].length)
+                            message.resourceIDs[i] = object.resourceIDs[i];
                 }
                 if (object.endBlockHeight != null)
-                    if ($util.Long)
-                        (message.endBlockHeight = $util.Long.fromValue(object.endBlockHeight)).unsigned = false;
-                    else if (typeof object.endBlockHeight === "string")
-                        message.endBlockHeight = parseInt(object.endBlockHeight, 10);
-                    else if (typeof object.endBlockHeight === "number")
-                        message.endBlockHeight = object.endBlockHeight;
-                    else if (typeof object.endBlockHeight === "object")
-                        message.endBlockHeight = new $util.LongBits(object.endBlockHeight.low >>> 0, object.endBlockHeight.high >>> 0).toNumber();
+                    message.endBlockHeight = object.endBlockHeight | 0;
                 if (object.reserveSequence != null)
-                    if ($util.Long)
-                        (message.reserveSequence = $util.Long.fromValue(object.reserveSequence)).unsigned = false;
-                    else if (typeof object.reserveSequence === "string")
-                        message.reserveSequence = parseInt(object.reserveSequence, 10);
-                    else if (typeof object.reserveSequence === "number")
-                        message.reserveSequence = object.reserveSequence;
-                    else if (typeof object.reserveSequence === "object")
-                        message.reserveSequence = new $util.LongBits(object.reserveSequence.low >>> 0, object.reserveSequence.high >>> 0).toNumber();
+                    message.reserveSequence = object.reserveSequence | 0;
                 if (object.transferRecord) {
                     if (!Array.isArray(object.transferRecord))
                         throw TypeError(".serialization.ReservedFund.transferRecord: array expected");
@@ -1677,20 +1663,12 @@
                     object.collateral = [];
                     object.initialFund = [];
                     object.usedFund = [];
-                    object.resourceIds = [];
+                    object.resourceIDs = [];
                     object.transferRecord = [];
                 }
                 if (options.defaults) {
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.endBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.endBlockHeight = options.longs === String ? "0" : 0;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.reserveSequence = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.reserveSequence = options.longs === String ? "0" : 0;
+                    object.endBlockHeight = 0;
+                    object.reserveSequence = 0;
                 }
                 if (message.collateral && message.collateral.length) {
                     object.collateral = [];
@@ -1707,21 +1685,15 @@
                     for (var j = 0; j < message.usedFund.length; ++j)
                         object.usedFund[j] = $root.serialization.Coin.toObject(message.usedFund[j], options);
                 }
-                if (message.resourceIds && message.resourceIds.length) {
-                    object.resourceIds = [];
-                    for (var j = 0; j < message.resourceIds.length; ++j)
-                        object.resourceIds[j] = options.bytes === String ? $util.base64.encode(message.resourceIds[j], 0, message.resourceIds[j].length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceIds[j]) : message.resourceIds[j];
+                if (message.resourceIDs && message.resourceIDs.length) {
+                    object.resourceIDs = [];
+                    for (var j = 0; j < message.resourceIDs.length; ++j)
+                        object.resourceIDs[j] = options.bytes === String ? $util.base64.encode(message.resourceIDs[j], 0, message.resourceIDs[j].length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceIDs[j]) : message.resourceIDs[j];
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (typeof message.endBlockHeight === "number")
-                        object.endBlockHeight = options.longs === String ? String(message.endBlockHeight) : message.endBlockHeight;
-                    else
-                        object.endBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.endBlockHeight) : options.longs === Number ? new $util.LongBits(message.endBlockHeight.low >>> 0, message.endBlockHeight.high >>> 0).toNumber() : message.endBlockHeight;
+                    object.endBlockHeight = message.endBlockHeight;
                 if (message.reserveSequence != null && message.hasOwnProperty("reserveSequence"))
-                    if (typeof message.reserveSequence === "number")
-                        object.reserveSequence = options.longs === String ? String(message.reserveSequence) : message.reserveSequence;
-                    else
-                        object.reserveSequence = options.longs === String ? $util.Long.prototype.toString.call(message.reserveSequence) : options.longs === Number ? new $util.LongBits(message.reserveSequence.low >>> 0, message.reserveSequence.high >>> 0).toNumber() : message.reserveSequence;
+                    object.reserveSequence = message.reserveSequence;
                 if (message.transferRecord && message.transferRecord.length) {
                     object.transferRecord = [];
                     for (var j = 0; j < message.transferRecord.length; ++j)
@@ -1945,7 +1917,7 @@
              * @property {number|Long|null} [sequence] Account sequence
              * @property {Array.<serialization.ICoin>|null} [balance] Account balance
              * @property {Array.<serialization.IReservedFund>|null} [reservedFunds] Account reservedFunds
-             * @property {number|Long|null} [lastUpdatedBlockHeight] Account lastUpdatedBlockHeight
+             * @property {number|null} [lastUpdatedBlockHeight] Account lastUpdatedBlockHeight
              * @property {serialization.IPublicKey|null} [pubKey] Account pubKey
              */
     
@@ -1992,11 +1964,11 @@
     
             /**
              * Account lastUpdatedBlockHeight.
-             * @member {number|Long} lastUpdatedBlockHeight
+             * @member {number} lastUpdatedBlockHeight
              * @memberof serialization.Account
              * @instance
              */
-            Account.prototype.lastUpdatedBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            Account.prototype.lastUpdatedBlockHeight = 0;
     
             /**
              * Account pubKey.
@@ -2039,7 +2011,7 @@
                     for (var i = 0; i < message.reservedFunds.length; ++i)
                         $root.serialization.ReservedFund.encode(message.reservedFunds[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    writer.uint32(/* id 4, wireType 0 =*/32).int64(message.lastUpdatedBlockHeight);
+                    writer.uint32(/* id 4, wireType 0 =*/32).int32(message.lastUpdatedBlockHeight);
                 if (message.pubKey != null && message.hasOwnProperty("pubKey"))
                     $root.serialization.PublicKey.encode(message.pubKey, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
                 return writer;
@@ -2090,7 +2062,7 @@
                         message.reservedFunds.push($root.serialization.ReservedFund.decode(reader, reader.uint32()));
                         break;
                     case 4:
-                        message.lastUpdatedBlockHeight = reader.int64();
+                        message.lastUpdatedBlockHeight = reader.int32();
                         break;
                     case 5:
                         message.pubKey = $root.serialization.PublicKey.decode(reader, reader.uint32());
@@ -2152,8 +2124,8 @@
                     }
                 }
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    if (!$util.isInteger(message.lastUpdatedBlockHeight) && !(message.lastUpdatedBlockHeight && $util.isInteger(message.lastUpdatedBlockHeight.low) && $util.isInteger(message.lastUpdatedBlockHeight.high)))
-                        return "lastUpdatedBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.lastUpdatedBlockHeight))
+                        return "lastUpdatedBlockHeight: integer expected";
                 if (message.pubKey != null && message.hasOwnProperty("pubKey")) {
                     var error = $root.serialization.PublicKey.verify(message.pubKey);
                     if (error)
@@ -2204,14 +2176,7 @@
                     }
                 }
                 if (object.lastUpdatedBlockHeight != null)
-                    if ($util.Long)
-                        (message.lastUpdatedBlockHeight = $util.Long.fromValue(object.lastUpdatedBlockHeight)).unsigned = false;
-                    else if (typeof object.lastUpdatedBlockHeight === "string")
-                        message.lastUpdatedBlockHeight = parseInt(object.lastUpdatedBlockHeight, 10);
-                    else if (typeof object.lastUpdatedBlockHeight === "number")
-                        message.lastUpdatedBlockHeight = object.lastUpdatedBlockHeight;
-                    else if (typeof object.lastUpdatedBlockHeight === "object")
-                        message.lastUpdatedBlockHeight = new $util.LongBits(object.lastUpdatedBlockHeight.low >>> 0, object.lastUpdatedBlockHeight.high >>> 0).toNumber();
+                    message.lastUpdatedBlockHeight = object.lastUpdatedBlockHeight | 0;
                 if (object.pubKey != null) {
                     if (typeof object.pubKey !== "object")
                         throw TypeError(".serialization.Account.pubKey: object expected");
@@ -2243,11 +2208,7 @@
                         object.sequence = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.sequence = options.longs === String ? "0" : 0;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.lastUpdatedBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.lastUpdatedBlockHeight = options.longs === String ? "0" : 0;
+                    object.lastUpdatedBlockHeight = 0;
                     object.pubKey = null;
                 }
                 if (message.sequence != null && message.hasOwnProperty("sequence"))
@@ -2266,10 +2227,7 @@
                         object.reservedFunds[j] = $root.serialization.ReservedFund.toObject(message.reservedFunds[j], options);
                 }
                 if (message.lastUpdatedBlockHeight != null && message.hasOwnProperty("lastUpdatedBlockHeight"))
-                    if (typeof message.lastUpdatedBlockHeight === "number")
-                        object.lastUpdatedBlockHeight = options.longs === String ? String(message.lastUpdatedBlockHeight) : message.lastUpdatedBlockHeight;
-                    else
-                        object.lastUpdatedBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.lastUpdatedBlockHeight) : options.longs === Number ? new $util.LongBits(message.lastUpdatedBlockHeight.low >>> 0, message.lastUpdatedBlockHeight.high >>> 0).toNumber() : message.lastUpdatedBlockHeight;
+                    object.lastUpdatedBlockHeight = message.lastUpdatedBlockHeight;
                 if (message.pubKey != null && message.hasOwnProperty("pubKey"))
                     object.pubKey = $root.serialization.PublicKey.toObject(message.pubKey, options);
                 return object;
@@ -3305,7 +3263,7 @@
              * @interface ICoinbaseTx
              * @property {serialization.ITxInput|null} [proposer] CoinbaseTx proposer
              * @property {Array.<serialization.ITxOutput>|null} [outputs] CoinbaseTx outputs
-             * @property {number|Long|null} [blockHeight] CoinbaseTx blockHeight
+             * @property {number|null} [blockHeight] CoinbaseTx blockHeight
              */
     
             /**
@@ -3342,11 +3300,11 @@
     
             /**
              * CoinbaseTx blockHeight.
-             * @member {number|Long} blockHeight
+             * @member {number} blockHeight
              * @memberof serialization.CoinbaseTx
              * @instance
              */
-            CoinbaseTx.prototype.blockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            CoinbaseTx.prototype.blockHeight = 0;
     
             /**
              * Creates a new CoinbaseTx instance using the specified properties.
@@ -3378,7 +3336,7 @@
                     for (var i = 0; i < message.outputs.length; ++i)
                         $root.serialization.TxOutput.encode(message.outputs[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    writer.uint32(/* id 3, wireType 0 =*/24).int64(message.blockHeight);
+                    writer.uint32(/* id 3, wireType 0 =*/24).int32(message.blockHeight);
                 return writer;
             };
     
@@ -3422,7 +3380,7 @@
                         message.outputs.push($root.serialization.TxOutput.decode(reader, reader.uint32()));
                         break;
                     case 3:
-                        message.blockHeight = reader.int64();
+                        message.blockHeight = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -3474,8 +3432,8 @@
                     }
                 }
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    if (!$util.isInteger(message.blockHeight) && !(message.blockHeight && $util.isInteger(message.blockHeight.low) && $util.isInteger(message.blockHeight.high)))
-                        return "blockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.blockHeight))
+                        return "blockHeight: integer expected";
                 return null;
             };
     
@@ -3507,14 +3465,7 @@
                     }
                 }
                 if (object.blockHeight != null)
-                    if ($util.Long)
-                        (message.blockHeight = $util.Long.fromValue(object.blockHeight)).unsigned = false;
-                    else if (typeof object.blockHeight === "string")
-                        message.blockHeight = parseInt(object.blockHeight, 10);
-                    else if (typeof object.blockHeight === "number")
-                        message.blockHeight = object.blockHeight;
-                    else if (typeof object.blockHeight === "object")
-                        message.blockHeight = new $util.LongBits(object.blockHeight.low >>> 0, object.blockHeight.high >>> 0).toNumber();
+                    message.blockHeight = object.blockHeight | 0;
                 return message;
             };
     
@@ -3535,11 +3486,7 @@
                     object.outputs = [];
                 if (options.defaults) {
                     object.proposer = null;
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.blockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.blockHeight = options.longs === String ? "0" : 0;
+                    object.blockHeight = 0;
                 }
                 if (message.proposer != null && message.hasOwnProperty("proposer"))
                     object.proposer = $root.serialization.TxInput.toObject(message.proposer, options);
@@ -3549,10 +3496,7 @@
                         object.outputs[j] = $root.serialization.TxOutput.toObject(message.outputs[j], options);
                 }
                 if (message.blockHeight != null && message.hasOwnProperty("blockHeight"))
-                    if (typeof message.blockHeight === "number")
-                        object.blockHeight = options.longs === String ? String(message.blockHeight) : message.blockHeight;
-                    else
-                        object.blockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.blockHeight) : options.longs === Number ? new $util.LongBits(message.blockHeight.low >>> 0, message.blockHeight.high >>> 0).toNumber() : message.blockHeight;
+                    object.blockHeight = message.blockHeight;
                 return object;
             };
     
@@ -3897,7 +3841,7 @@
              * @property {serialization.ICoin|null} [fee] ReserveFundTx fee
              * @property {serialization.ITxInput|null} [source] ReserveFundTx source
              * @property {Array.<serialization.ICoin>|null} [collateral] ReserveFundTx collateral
-             * @property {Array.<Uint8Array>|null} [resourceIds] ReserveFundTx resourceIds
+             * @property {Array.<Uint8Array>|null} [resourceIDs] ReserveFundTx resourceIDs
              * @property {number|Long|null} [duration] ReserveFundTx duration
              */
     
@@ -3911,7 +3855,7 @@
              */
             function ReserveFundTx(properties) {
                 this.collateral = [];
-                this.resourceIds = [];
+                this.resourceIDs = [];
                 if (properties)
                     for (var keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                         if (properties[keys[i]] != null)
@@ -3951,12 +3895,12 @@
             ReserveFundTx.prototype.collateral = $util.emptyArray;
     
             /**
-             * ReserveFundTx resourceIds.
-             * @member {Array.<Uint8Array>} resourceIds
+             * ReserveFundTx resourceIDs.
+             * @member {Array.<Uint8Array>} resourceIDs
              * @memberof serialization.ReserveFundTx
              * @instance
              */
-            ReserveFundTx.prototype.resourceIds = $util.emptyArray;
+            ReserveFundTx.prototype.resourceIDs = $util.emptyArray;
     
             /**
              * ReserveFundTx duration.
@@ -3999,9 +3943,9 @@
                 if (message.collateral != null && message.collateral.length)
                     for (var i = 0; i < message.collateral.length; ++i)
                         $root.serialization.Coin.encode(message.collateral[i], writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
-                if (message.resourceIds != null && message.resourceIds.length)
-                    for (var i = 0; i < message.resourceIds.length; ++i)
-                        writer.uint32(/* id 5, wireType 2 =*/42).bytes(message.resourceIds[i]);
+                if (message.resourceIDs != null && message.resourceIDs.length)
+                    for (var i = 0; i < message.resourceIDs.length; ++i)
+                        writer.uint32(/* id 5, wireType 2 =*/42).bytes(message.resourceIDs[i]);
                 if (message.duration != null && message.hasOwnProperty("duration"))
                     writer.uint32(/* id 6, wireType 0 =*/48).int64(message.duration);
                 return writer;
@@ -4053,9 +3997,9 @@
                         message.collateral.push($root.serialization.Coin.decode(reader, reader.uint32()));
                         break;
                     case 5:
-                        if (!(message.resourceIds && message.resourceIds.length))
-                            message.resourceIds = [];
-                        message.resourceIds.push(reader.bytes());
+                        if (!(message.resourceIDs && message.resourceIDs.length))
+                            message.resourceIDs = [];
+                        message.resourceIDs.push(reader.bytes());
                         break;
                     case 6:
                         message.duration = reader.int64();
@@ -4117,12 +4061,12 @@
                             return "collateral." + error;
                     }
                 }
-                if (message.resourceIds != null && message.hasOwnProperty("resourceIds")) {
-                    if (!Array.isArray(message.resourceIds))
-                        return "resourceIds: array expected";
-                    for (var i = 0; i < message.resourceIds.length; ++i)
-                        if (!(message.resourceIds[i] && typeof message.resourceIds[i].length === "number" || $util.isString(message.resourceIds[i])))
-                            return "resourceIds: buffer[] expected";
+                if (message.resourceIDs != null && message.hasOwnProperty("resourceIDs")) {
+                    if (!Array.isArray(message.resourceIDs))
+                        return "resourceIDs: array expected";
+                    for (var i = 0; i < message.resourceIDs.length; ++i)
+                        if (!(message.resourceIDs[i] && typeof message.resourceIDs[i].length === "number" || $util.isString(message.resourceIDs[i])))
+                            return "resourceIDs: buffer[] expected";
                 }
                 if (message.duration != null && message.hasOwnProperty("duration"))
                     if (!$util.isInteger(message.duration) && !(message.duration && $util.isInteger(message.duration.low) && $util.isInteger(message.duration.high)))
@@ -4171,15 +4115,15 @@
                         message.collateral[i] = $root.serialization.Coin.fromObject(object.collateral[i]);
                     }
                 }
-                if (object.resourceIds) {
-                    if (!Array.isArray(object.resourceIds))
-                        throw TypeError(".serialization.ReserveFundTx.resourceIds: array expected");
-                    message.resourceIds = [];
-                    for (var i = 0; i < object.resourceIds.length; ++i)
-                        if (typeof object.resourceIds[i] === "string")
-                            $util.base64.decode(object.resourceIds[i], message.resourceIds[i] = $util.newBuffer($util.base64.length(object.resourceIds[i])), 0);
-                        else if (object.resourceIds[i].length)
-                            message.resourceIds[i] = object.resourceIds[i];
+                if (object.resourceIDs) {
+                    if (!Array.isArray(object.resourceIDs))
+                        throw TypeError(".serialization.ReserveFundTx.resourceIDs: array expected");
+                    message.resourceIDs = [];
+                    for (var i = 0; i < object.resourceIDs.length; ++i)
+                        if (typeof object.resourceIDs[i] === "string")
+                            $util.base64.decode(object.resourceIDs[i], message.resourceIDs[i] = $util.newBuffer($util.base64.length(object.resourceIDs[i])), 0);
+                        else if (object.resourceIDs[i].length)
+                            message.resourceIDs[i] = object.resourceIDs[i];
                 }
                 if (object.duration != null)
                     if ($util.Long)
@@ -4208,7 +4152,7 @@
                 var object = {};
                 if (options.arrays || options.defaults) {
                     object.collateral = [];
-                    object.resourceIds = [];
+                    object.resourceIDs = [];
                 }
                 if (options.defaults) {
                     if ($util.Long) {
@@ -4238,10 +4182,10 @@
                     for (var j = 0; j < message.collateral.length; ++j)
                         object.collateral[j] = $root.serialization.Coin.toObject(message.collateral[j], options);
                 }
-                if (message.resourceIds && message.resourceIds.length) {
-                    object.resourceIds = [];
-                    for (var j = 0; j < message.resourceIds.length; ++j)
-                        object.resourceIds[j] = options.bytes === String ? $util.base64.encode(message.resourceIds[j], 0, message.resourceIds[j].length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceIds[j]) : message.resourceIds[j];
+                if (message.resourceIDs && message.resourceIDs.length) {
+                    object.resourceIDs = [];
+                    for (var j = 0; j < message.resourceIDs.length; ++j)
+                        object.resourceIDs[j] = options.bytes === String ? $util.base64.encode(message.resourceIDs[j], 0, message.resourceIDs[j].length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceIDs[j]) : message.resourceIDs[j];
                 }
                 if (message.duration != null && message.hasOwnProperty("duration"))
                     if (typeof message.duration === "number")
@@ -4569,7 +4513,7 @@
              * @property {serialization.ITxInput|null} [target] ServicePaymentTx target
              * @property {number|Long|null} [PaymentSequence] ServicePaymentTx PaymentSequence
              * @property {number|Long|null} [ReserveSequence] ServicePaymentTx ReserveSequence
-             * @property {Uint8Array|null} [ResourceId] ServicePaymentTx ResourceId
+             * @property {Uint8Array|null} [ResourceID] ServicePaymentTx ResourceID
              */
     
             /**
@@ -4636,12 +4580,12 @@
             ServicePaymentTx.prototype.ReserveSequence = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
     
             /**
-             * ServicePaymentTx ResourceId.
-             * @member {Uint8Array} ResourceId
+             * ServicePaymentTx ResourceID.
+             * @member {Uint8Array} ResourceID
              * @memberof serialization.ServicePaymentTx
              * @instance
              */
-            ServicePaymentTx.prototype.ResourceId = $util.newBuffer([]);
+            ServicePaymentTx.prototype.ResourceID = $util.newBuffer([]);
     
             /**
              * Creates a new ServicePaymentTx instance using the specified properties.
@@ -4679,8 +4623,8 @@
                     writer.uint32(/* id 5, wireType 0 =*/40).int64(message.PaymentSequence);
                 if (message.ReserveSequence != null && message.hasOwnProperty("ReserveSequence"))
                     writer.uint32(/* id 6, wireType 0 =*/48).int64(message.ReserveSequence);
-                if (message.ResourceId != null && message.hasOwnProperty("ResourceId"))
-                    writer.uint32(/* id 7, wireType 2 =*/58).bytes(message.ResourceId);
+                if (message.ResourceID != null && message.hasOwnProperty("ResourceID"))
+                    writer.uint32(/* id 7, wireType 2 =*/58).bytes(message.ResourceID);
                 return writer;
             };
     
@@ -4734,7 +4678,7 @@
                         message.ReserveSequence = reader.int64();
                         break;
                     case 7:
-                        message.ResourceId = reader.bytes();
+                        message.ResourceID = reader.bytes();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -4795,9 +4739,9 @@
                 if (message.ReserveSequence != null && message.hasOwnProperty("ReserveSequence"))
                     if (!$util.isInteger(message.ReserveSequence) && !(message.ReserveSequence && $util.isInteger(message.ReserveSequence.low) && $util.isInteger(message.ReserveSequence.high)))
                         return "ReserveSequence: integer|Long expected";
-                if (message.ResourceId != null && message.hasOwnProperty("ResourceId"))
-                    if (!(message.ResourceId && typeof message.ResourceId.length === "number" || $util.isString(message.ResourceId)))
-                        return "ResourceId: buffer expected";
+                if (message.ResourceID != null && message.hasOwnProperty("ResourceID"))
+                    if (!(message.ResourceID && typeof message.ResourceID.length === "number" || $util.isString(message.ResourceID)))
+                        return "ResourceID: buffer expected";
                 return null;
             };
     
@@ -4855,11 +4799,11 @@
                         message.ReserveSequence = object.ReserveSequence;
                     else if (typeof object.ReserveSequence === "object")
                         message.ReserveSequence = new $util.LongBits(object.ReserveSequence.low >>> 0, object.ReserveSequence.high >>> 0).toNumber();
-                if (object.ResourceId != null)
-                    if (typeof object.ResourceId === "string")
-                        $util.base64.decode(object.ResourceId, message.ResourceId = $util.newBuffer($util.base64.length(object.ResourceId)), 0);
-                    else if (object.ResourceId.length)
-                        message.ResourceId = object.ResourceId;
+                if (object.ResourceID != null)
+                    if (typeof object.ResourceID === "string")
+                        $util.base64.decode(object.ResourceID, message.ResourceID = $util.newBuffer($util.base64.length(object.ResourceID)), 0);
+                    else if (object.ResourceID.length)
+                        message.ResourceID = object.ResourceID;
                 return message;
             };
     
@@ -4895,7 +4839,7 @@
                         object.ReserveSequence = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
                     } else
                         object.ReserveSequence = options.longs === String ? "0" : 0;
-                    object.ResourceId = options.bytes === String ? "" : [];
+                    object.ResourceID = options.bytes === String ? "" : [];
                 }
                 if (message.gas != null && message.hasOwnProperty("gas"))
                     if (typeof message.gas === "number")
@@ -4918,8 +4862,8 @@
                         object.ReserveSequence = options.longs === String ? String(message.ReserveSequence) : message.ReserveSequence;
                     else
                         object.ReserveSequence = options.longs === String ? $util.Long.prototype.toString.call(message.ReserveSequence) : options.longs === Number ? new $util.LongBits(message.ReserveSequence.low >>> 0, message.ReserveSequence.high >>> 0).toNumber() : message.ReserveSequence;
-                if (message.ResourceId != null && message.hasOwnProperty("ResourceId"))
-                    object.ResourceId = options.bytes === String ? $util.base64.encode(message.ResourceId, 0, message.ResourceId.length) : options.bytes === Array ? Array.prototype.slice.call(message.ResourceId) : message.ResourceId;
+                if (message.ResourceID != null && message.hasOwnProperty("ResourceID"))
+                    object.ResourceID = options.bytes === String ? $util.base64.encode(message.ResourceID, 0, message.ResourceID.length) : options.bytes === Array ? Array.prototype.slice.call(message.ResourceID) : message.ResourceID;
                 return object;
             };
     
@@ -5450,9 +5394,9 @@
              * @memberof serialization
              * @interface ISplitContract
              * @property {Uint8Array|null} [initiatorAddress] SplitContract initiatorAddress
-             * @property {Uint8Array|null} [resourceId] SplitContract resourceId
+             * @property {Uint8Array|null} [resourceID] SplitContract resourceID
              * @property {Array.<serialization.ISplit>|null} [splits] SplitContract splits
-             * @property {number|Long|null} [endBlockHeight] SplitContract endBlockHeight
+             * @property {number|null} [endBlockHeight] SplitContract endBlockHeight
              */
     
             /**
@@ -5480,12 +5424,12 @@
             SplitContract.prototype.initiatorAddress = $util.newBuffer([]);
     
             /**
-             * SplitContract resourceId.
-             * @member {Uint8Array} resourceId
+             * SplitContract resourceID.
+             * @member {Uint8Array} resourceID
              * @memberof serialization.SplitContract
              * @instance
              */
-            SplitContract.prototype.resourceId = $util.newBuffer([]);
+            SplitContract.prototype.resourceID = $util.newBuffer([]);
     
             /**
              * SplitContract splits.
@@ -5497,11 +5441,11 @@
     
             /**
              * SplitContract endBlockHeight.
-             * @member {number|Long} endBlockHeight
+             * @member {number} endBlockHeight
              * @memberof serialization.SplitContract
              * @instance
              */
-            SplitContract.prototype.endBlockHeight = $util.Long ? $util.Long.fromBits(0,0,false) : 0;
+            SplitContract.prototype.endBlockHeight = 0;
     
             /**
              * Creates a new SplitContract instance using the specified properties.
@@ -5529,13 +5473,13 @@
                     writer = $Writer.create();
                 if (message.initiatorAddress != null && message.hasOwnProperty("initiatorAddress"))
                     writer.uint32(/* id 1, wireType 2 =*/10).bytes(message.initiatorAddress);
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.resourceId);
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.resourceID);
                 if (message.splits != null && message.splits.length)
                     for (var i = 0; i < message.splits.length; ++i)
                         $root.serialization.Split.encode(message.splits[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    writer.uint32(/* id 4, wireType 0 =*/32).int64(message.endBlockHeight);
+                    writer.uint32(/* id 4, wireType 0 =*/32).int32(message.endBlockHeight);
                 return writer;
             };
     
@@ -5574,7 +5518,7 @@
                         message.initiatorAddress = reader.bytes();
                         break;
                     case 2:
-                        message.resourceId = reader.bytes();
+                        message.resourceID = reader.bytes();
                         break;
                     case 3:
                         if (!(message.splits && message.splits.length))
@@ -5582,7 +5526,7 @@
                         message.splits.push($root.serialization.Split.decode(reader, reader.uint32()));
                         break;
                     case 4:
-                        message.endBlockHeight = reader.int64();
+                        message.endBlockHeight = reader.int32();
                         break;
                     default:
                         reader.skipType(tag & 7);
@@ -5622,9 +5566,9 @@
                 if (message.initiatorAddress != null && message.hasOwnProperty("initiatorAddress"))
                     if (!(message.initiatorAddress && typeof message.initiatorAddress.length === "number" || $util.isString(message.initiatorAddress)))
                         return "initiatorAddress: buffer expected";
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    if (!(message.resourceId && typeof message.resourceId.length === "number" || $util.isString(message.resourceId)))
-                        return "resourceId: buffer expected";
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    if (!(message.resourceID && typeof message.resourceID.length === "number" || $util.isString(message.resourceID)))
+                        return "resourceID: buffer expected";
                 if (message.splits != null && message.hasOwnProperty("splits")) {
                     if (!Array.isArray(message.splits))
                         return "splits: array expected";
@@ -5635,8 +5579,8 @@
                     }
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (!$util.isInteger(message.endBlockHeight) && !(message.endBlockHeight && $util.isInteger(message.endBlockHeight.low) && $util.isInteger(message.endBlockHeight.high)))
-                        return "endBlockHeight: integer|Long expected";
+                    if (!$util.isInteger(message.endBlockHeight))
+                        return "endBlockHeight: integer expected";
                 return null;
             };
     
@@ -5657,11 +5601,11 @@
                         $util.base64.decode(object.initiatorAddress, message.initiatorAddress = $util.newBuffer($util.base64.length(object.initiatorAddress)), 0);
                     else if (object.initiatorAddress.length)
                         message.initiatorAddress = object.initiatorAddress;
-                if (object.resourceId != null)
-                    if (typeof object.resourceId === "string")
-                        $util.base64.decode(object.resourceId, message.resourceId = $util.newBuffer($util.base64.length(object.resourceId)), 0);
-                    else if (object.resourceId.length)
-                        message.resourceId = object.resourceId;
+                if (object.resourceID != null)
+                    if (typeof object.resourceID === "string")
+                        $util.base64.decode(object.resourceID, message.resourceID = $util.newBuffer($util.base64.length(object.resourceID)), 0);
+                    else if (object.resourceID.length)
+                        message.resourceID = object.resourceID;
                 if (object.splits) {
                     if (!Array.isArray(object.splits))
                         throw TypeError(".serialization.SplitContract.splits: array expected");
@@ -5673,14 +5617,7 @@
                     }
                 }
                 if (object.endBlockHeight != null)
-                    if ($util.Long)
-                        (message.endBlockHeight = $util.Long.fromValue(object.endBlockHeight)).unsigned = false;
-                    else if (typeof object.endBlockHeight === "string")
-                        message.endBlockHeight = parseInt(object.endBlockHeight, 10);
-                    else if (typeof object.endBlockHeight === "number")
-                        message.endBlockHeight = object.endBlockHeight;
-                    else if (typeof object.endBlockHeight === "object")
-                        message.endBlockHeight = new $util.LongBits(object.endBlockHeight.low >>> 0, object.endBlockHeight.high >>> 0).toNumber();
+                    message.endBlockHeight = object.endBlockHeight | 0;
                 return message;
             };
     
@@ -5701,27 +5638,20 @@
                     object.splits = [];
                 if (options.defaults) {
                     object.initiatorAddress = options.bytes === String ? "" : [];
-                    object.resourceId = options.bytes === String ? "" : [];
-                    if ($util.Long) {
-                        var long = new $util.Long(0, 0, false);
-                        object.endBlockHeight = options.longs === String ? long.toString() : options.longs === Number ? long.toNumber() : long;
-                    } else
-                        object.endBlockHeight = options.longs === String ? "0" : 0;
+                    object.resourceID = options.bytes === String ? "" : [];
+                    object.endBlockHeight = 0;
                 }
                 if (message.initiatorAddress != null && message.hasOwnProperty("initiatorAddress"))
                     object.initiatorAddress = options.bytes === String ? $util.base64.encode(message.initiatorAddress, 0, message.initiatorAddress.length) : options.bytes === Array ? Array.prototype.slice.call(message.initiatorAddress) : message.initiatorAddress;
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    object.resourceId = options.bytes === String ? $util.base64.encode(message.resourceId, 0, message.resourceId.length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceId) : message.resourceId;
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    object.resourceID = options.bytes === String ? $util.base64.encode(message.resourceID, 0, message.resourceID.length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceID) : message.resourceID;
                 if (message.splits && message.splits.length) {
                     object.splits = [];
                     for (var j = 0; j < message.splits.length; ++j)
                         object.splits[j] = $root.serialization.Split.toObject(message.splits[j], options);
                 }
                 if (message.endBlockHeight != null && message.hasOwnProperty("endBlockHeight"))
-                    if (typeof message.endBlockHeight === "number")
-                        object.endBlockHeight = options.longs === String ? String(message.endBlockHeight) : message.endBlockHeight;
-                    else
-                        object.endBlockHeight = options.longs === String ? $util.Long.prototype.toString.call(message.endBlockHeight) : options.longs === Number ? new $util.LongBits(message.endBlockHeight.low >>> 0, message.endBlockHeight.high >>> 0).toNumber() : message.endBlockHeight;
+                    object.endBlockHeight = message.endBlockHeight;
                 return object;
             };
     
@@ -5747,7 +5677,7 @@
              * @interface ISplitContractTx
              * @property {number|Long|null} [gas] SplitContractTx gas
              * @property {serialization.ICoin|null} [fee] SplitContractTx fee
-             * @property {Uint8Array|null} [resourceId] SplitContractTx resourceId
+             * @property {Uint8Array|null} [resourceID] SplitContractTx resourceID
              * @property {serialization.ITxInput|null} [initiator] SplitContractTx initiator
              * @property {Array.<serialization.ISplit>|null} [splits] SplitContractTx splits
              * @property {number|Long|null} [duration] SplitContractTx duration
@@ -5786,12 +5716,12 @@
             SplitContractTx.prototype.fee = null;
     
             /**
-             * SplitContractTx resourceId.
-             * @member {Uint8Array} resourceId
+             * SplitContractTx resourceID.
+             * @member {Uint8Array} resourceID
              * @memberof serialization.SplitContractTx
              * @instance
              */
-            SplitContractTx.prototype.resourceId = $util.newBuffer([]);
+            SplitContractTx.prototype.resourceID = $util.newBuffer([]);
     
             /**
              * SplitContractTx initiator.
@@ -5845,8 +5775,8 @@
                     writer.uint32(/* id 1, wireType 0 =*/8).int64(message.gas);
                 if (message.fee != null && message.hasOwnProperty("fee"))
                     $root.serialization.Coin.encode(message.fee, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    writer.uint32(/* id 3, wireType 2 =*/26).bytes(message.resourceId);
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    writer.uint32(/* id 3, wireType 2 =*/26).bytes(message.resourceID);
                 if (message.initiator != null && message.hasOwnProperty("initiator"))
                     $root.serialization.TxInput.encode(message.initiator, writer.uint32(/* id 4, wireType 2 =*/34).fork()).ldelim();
                 if (message.splits != null && message.splits.length)
@@ -5895,7 +5825,7 @@
                         message.fee = $root.serialization.Coin.decode(reader, reader.uint32());
                         break;
                     case 3:
-                        message.resourceId = reader.bytes();
+                        message.resourceID = reader.bytes();
                         break;
                     case 4:
                         message.initiator = $root.serialization.TxInput.decode(reader, reader.uint32());
@@ -5951,9 +5881,9 @@
                     if (error)
                         return "fee." + error;
                 }
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    if (!(message.resourceId && typeof message.resourceId.length === "number" || $util.isString(message.resourceId)))
-                        return "resourceId: buffer expected";
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    if (!(message.resourceID && typeof message.resourceID.length === "number" || $util.isString(message.resourceID)))
+                        return "resourceID: buffer expected";
                 if (message.initiator != null && message.hasOwnProperty("initiator")) {
                     var error = $root.serialization.TxInput.verify(message.initiator);
                     if (error)
@@ -6000,11 +5930,11 @@
                         throw TypeError(".serialization.SplitContractTx.fee: object expected");
                     message.fee = $root.serialization.Coin.fromObject(object.fee);
                 }
-                if (object.resourceId != null)
-                    if (typeof object.resourceId === "string")
-                        $util.base64.decode(object.resourceId, message.resourceId = $util.newBuffer($util.base64.length(object.resourceId)), 0);
-                    else if (object.resourceId.length)
-                        message.resourceId = object.resourceId;
+                if (object.resourceID != null)
+                    if (typeof object.resourceID === "string")
+                        $util.base64.decode(object.resourceID, message.resourceID = $util.newBuffer($util.base64.length(object.resourceID)), 0);
+                    else if (object.resourceID.length)
+                        message.resourceID = object.resourceID;
                 if (object.initiator != null) {
                     if (typeof object.initiator !== "object")
                         throw TypeError(".serialization.SplitContractTx.initiator: object expected");
@@ -6054,7 +5984,7 @@
                     } else
                         object.gas = options.longs === String ? "0" : 0;
                     object.fee = null;
-                    object.resourceId = options.bytes === String ? "" : [];
+                    object.resourceID = options.bytes === String ? "" : [];
                     object.initiator = null;
                     if ($util.Long) {
                         var long = new $util.Long(0, 0, false);
@@ -6069,8 +5999,8 @@
                         object.gas = options.longs === String ? $util.Long.prototype.toString.call(message.gas) : options.longs === Number ? new $util.LongBits(message.gas.low >>> 0, message.gas.high >>> 0).toNumber() : message.gas;
                 if (message.fee != null && message.hasOwnProperty("fee"))
                     object.fee = $root.serialization.Coin.toObject(message.fee, options);
-                if (message.resourceId != null && message.hasOwnProperty("resourceId"))
-                    object.resourceId = options.bytes === String ? $util.base64.encode(message.resourceId, 0, message.resourceId.length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceId) : message.resourceId;
+                if (message.resourceID != null && message.hasOwnProperty("resourceID"))
+                    object.resourceID = options.bytes === String ? $util.base64.encode(message.resourceID, 0, message.resourceID.length) : options.bytes === Array ? Array.prototype.slice.call(message.resourceID) : message.resourceID;
                 if (message.initiator != null && message.hasOwnProperty("initiator"))
                     object.initiator = $root.serialization.TxInput.toObject(message.initiator, options);
                 if (message.splits && message.splits.length) {

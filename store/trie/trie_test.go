@@ -212,6 +212,50 @@ func TestGet(t *testing.T) {
 	}
 }
 
+func TestCopy(t *testing.T) {
+	trie := newEmpty()
+	updateString(trie, "doe", "reindeer")
+	updateString(trie, "dog", "puppy")
+	updateString(trie, "dogglesworth", "cat")
+	trie.Commit(nil)
+
+	copy, err := trie.Copy()
+	if err != nil {
+		t.Errorf("failed to copy trie: %v", err)
+	}
+
+	res := getString(trie, "dog")
+	if !bytes.Equal(res, []byte("puppy")) {
+		t.Errorf("trie: expected puppy but got %x", res)
+	}
+
+	res = getString(copy, "dog")
+	if !bytes.Equal(res, []byte("puppy")) {
+		t.Errorf("copy: expected puppy but got %x", res)
+	}
+
+	if trie.Hash() != copy.Hash() {
+		t.Errorf("trie and its copy have different root hash: %v vs %v",
+			trie.Hash().Hex(), copy.Hash().Hex())
+	}
+
+	updateString(trie, "cat", "meow")
+	res = getString(trie, "cat")
+	if !bytes.Equal(res, []byte("meow")) {
+		t.Errorf("trie: expected meow but got %x", res)
+	}
+
+	res = getString(copy, "cat")
+	if res != nil {
+		t.Errorf("copy: expected nil but got %x", res)
+	}
+
+	if trie.Hash() == copy.Hash() {
+		t.Errorf("trie and its copy now should have different root hash: %v vs %v",
+			trie.Hash().Hex(), copy.Hash().Hex())
+	}
+}
+
 func TestDelete(t *testing.T) {
 	trie := newEmpty()
 	vals := []struct{ k, v string }{

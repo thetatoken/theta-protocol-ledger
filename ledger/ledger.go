@@ -13,6 +13,7 @@ import (
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	mp "github.com/thetatoken/ukulele/mempool"
+	"github.com/thetatoken/ukulele/store/database"
 )
 
 var _ core.Ledger = (*Ledger)(nil)
@@ -30,8 +31,16 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
-	return nil // TODO: proper implementation..
+func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Ledger {
+	state := st.NewLedgerState(chainID, db)
+	executor := exec.NewExecutor(state, consensus, valMgr)
+	ledger := &Ledger{
+		consensus: consensus,
+		valMgr:    valMgr,
+		state:     state,
+		executor:  executor,
+	}
+	return ledger
 }
 
 // CheckTx checks the validity of the given transaction
@@ -46,13 +55,19 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 		return result.Error("Unauthorized transaction, should skip")
 	}
 
-	_, res := ledger.executor.ExecuteTx(tx, true) // Sanity check only
+	_, res := ledger.executor.CheckTx(tx)
 	return res
 }
 
-// DeliverBlockTxs executes and returns a list of transactions,
-// which will be used to assemble the next block
-func (ledger *Ledger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.Result) {
+// ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
+// It also clears these transactions from the mempool.
+func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	if ledger.mempool == nil {
+		errMsg := "Skip block proposal, ledger.mempool is nil"
+		log.Errorf(errMsg)
+		return common.Hash{}, []common.Bytes{}, result.Error(errMsg)
+	}
+
 	blockRawTxs = []common.Bytes{}
 
 	// Add special transactions
@@ -65,11 +80,59 @@ func (ledger *Ledger) DeliverBlockTxs() (blockRawTxs []common.Bytes, res result.
 		if err != nil {
 			continue
 		}
-		ledger.executor.ExecuteTx(tx, false)
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsOK() {
+			blockRawTxs = append(blockRawTxs, regularRawTx)
+		}
 	}
+	stateRootHash = ledger.state.Commit()
+
 	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
-	return blockRawTxs, result.OK
+	return stateRootHash, blockRawTxs, result.OK
+}
+
+// ApplyBlockTxs applies the given block transactions. If any of the transactions failed, it returns
+// an error immediately. If all the transactions execute successfully, it then validates the state
+// root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
+func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	currHeight := ledger.state.Height()
+	currStateRoot := ledger.state.Delivered().Hash()
+	for _, rawTx := range blockRawTxs {
+		tx, err := types.TxFromBytes(rawTx)
+		if err != nil {
+			ledger.ResetState(currHeight, currStateRoot)
+			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsError() {
+			ledger.ResetState(currHeight, currStateRoot)
+			return res
+		}
+	}
+
+	newStateRoot := ledger.state.Delivered().Hash()
+	if newStateRoot != expectedStateRoot {
+		ledger.ResetState(currHeight, currStateRoot)
+		return result.Error("State root mismatch! root: %v, exptected: %v",
+			hex.EncodeToString(newStateRoot[:]),
+			hex.EncodeToString(expectedStateRoot[:]))
+	}
+
+	ledger.state.Commit() // commit to persistent storage
+
+	ledger.mempool.Update(blockRawTxs) // clear txs from the mempool
+
+	return result.OK
+}
+
+// ResetState sets the ledger state with the designated root
+func (ledger *Ledger) ResetState(height uint32, rootHash common.Hash) result.Result {
+	success := ledger.state.ResetState(height, rootHash)
+	if !success {
+		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
+	}
+	return result.OK
 }
 
 // Query returns the account query results
@@ -130,10 +193,15 @@ func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core
 	coinbaseTx := &types.CoinbaseTx{
 		Proposer:    proposerTxIn,
 		Outputs:     coinbaseTxOutputs,
-		BlockHeight: exec.GetCurrentBlockHeight(),
+		BlockHeight: ledger.state.Height(),
 	}
 
-	coinbaseTx.SetSignature(proposerAddress, ledger.signTransaction(coinbaseTx))
+	signature, err := ledger.signTransaction(coinbaseTx)
+	if err != nil {
+		log.Errorf("Failed to add coinbase transaction: %v", err)
+		return
+	}
+	coinbaseTx.SetSignature(proposerAddress, signature)
 	coinbaseTxBytes := types.TxToBytes(coinbaseTx)
 
 	*rawTxs = append(*rawTxs, coinbaseTxBytes)
@@ -157,8 +225,13 @@ func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.V
 			ReserveSequence: slashIntent.ReserveSequence,
 			SlashProof:      slashIntent.Proof,
 		}
-		slashTx.SetSignature(proposerAddress, ledger.signTransaction(slashTx))
 
+		signature, err := ledger.signTransaction(slashTx)
+		if err != nil {
+			log.Errorf("Failed to add slash transaction: %v", err)
+			continue
+		}
+		slashTx.SetSignature(proposerAddress, signature)
 		slashTxBytes := types.TxToBytes(slashTx)
 
 		*rawTxs = append(*rawTxs, slashTxBytes)
@@ -168,9 +241,12 @@ func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.V
 }
 
 // signTransaction signs the given transaction
-func (ledger *Ledger) signTransaction(tx types.Tx) *crypto.Signature {
-	// chainID := ledger.state.GetChainID()
-	// signBytes := tx.SignBytes(chainID)
-	signature := crypto.Signature{} // FIXME: use the node's private key to sign the transaction
-	return &signature
+func (ledger *Ledger) signTransaction(tx types.Tx) (*crypto.Signature, error) {
+	chainID := ledger.state.GetChainID()
+	signBytes := tx.SignBytes(chainID)
+	signature, err := ledger.consensus.PrivateKey().Sign(signBytes)
+	if err != nil {
+		return nil, err
+	}
+	return signature, nil
 }

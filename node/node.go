@@ -7,10 +7,15 @@ import (
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/ukulele/ledger"
+	"github.com/thetatoken/ukulele/mempool"
 	"github.com/thetatoken/ukulele/netsync"
 	"github.com/thetatoken/ukulele/p2p"
 	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 type Node struct {
@@ -21,6 +26,7 @@ type Node struct {
 	SyncManager      *netsync.SyncManager
 	Dispatcher       *dispatcher.Dispatcher
 	Network          p2p.Network
+	Ledger           core.Ledger
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -32,27 +38,33 @@ type Node struct {
 
 type Params struct {
 	ChainID    string
+	PrivateKey *crypto.PrivateKey
 	Root       *core.Block
 	Validators *core.ValidatorSet
 	Network    p2p.Network
-	Store      store.Store
+	DB         database.Database
 }
 
 func NewNode(params *Params) *Node {
-	chain := blockchain.NewChain(params.ChainID, params.Store, params.Root)
+	store := kvstore.NewKVStore(params.DB)
+	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewFixedValidatorManager(params.Validators)
-	consensus := consensus.NewConsensusEngine(chain, params.Network, validatorManager)
+	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, params.Network, validatorManager)
 	dispatcher := dispatcher.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
+	mempool := mempool.CreateMempool(dispatcher)
+	ledger := ledger.NewLedger(params.ChainID, params.DB, consensus, validatorManager)
+	mempool.SetLedger(ledger)
 
 	return &Node{
-		Store:            params.Store,
+		Store:            store,
 		Chain:            chain,
 		Consensus:        consensus,
 		ValidatorManager: validatorManager,
 		SyncManager:      syncMgr,
 		Dispatcher:       dispatcher,
 		Network:          params.Network,
+		Ledger:           ledger,
 	}
 }
 

@@ -95,7 +95,7 @@ func (txIn TxInput) ValidateBasic() result.Result {
 }
 
 func (txIn TxInput) String() string {
-	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", hex.EncodeToString(txIn.Address[:]), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
+	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", txIn.Address.Hex(), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
 }
 
 func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
@@ -132,7 +132,7 @@ func (txOut TxOutput) ValidateBasic() result.Result {
 }
 
 func (txOut TxOutput) String() string {
-	return fmt.Sprintf("TxOutput{%v,%v}", hex.EncodeToString(txOut.Address[:]), txOut.Coins)
+	return fmt.Sprintf("TxOutput{%v,%v}", txOut.Address.Hex(), txOut.Coins)
 }
 
 //-----------------------------------------------------------------------------
@@ -140,7 +140,7 @@ func (txOut TxOutput) String() string {
 type CoinbaseTx struct {
 	Proposer    TxInput    `json:"proposer"`
 	Outputs     []TxOutput `json:"outputs"`
-	BlockHeight uint64     `json:"block_height"`
+	BlockHeight uint32     `json:"block_height"`
 }
 
 func (_ *CoinbaseTx) AssertIsTx() {}
@@ -196,7 +196,7 @@ func (tx *SlashTx) SetSignature(addr common.Address, sig *crypto.Signature) bool
 
 func (tx *SlashTx) String() string {
 	return fmt.Sprintf("SlashTx{%v->%v, reserve_sequence: %v, slash_proof: %v}",
-		hex.EncodeToString(tx.SlashedAddress[:]), tx.Proposer.Address[:],
+		tx.SlashedAddress.Hex(), tx.Proposer.Address[:],
 		tx.ReserveSequence, hex.EncodeToString(tx.SlashProof))
 }
 
@@ -246,8 +246,8 @@ type ReserveFundTx struct {
 	Fee         Coin     `json:"fee"`          // Fee
 	Source      TxInput  `json:"source"`       // Source account
 	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
-	ResourceIds [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint64   `json:"duration"`
+	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
+	Duration    uint32   `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -270,7 +270,7 @@ func (tx *ReserveFundTx) SetSignature(addr common.Address, sig *crypto.Signature
 }
 
 func (tx *ReserveFundTx) String() string {
-	return fmt.Sprintf("ReserveFundTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Collateral, tx.ResourceIds, tx.Duration)
+	return fmt.Sprintf("ReserveFundTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Collateral, tx.ResourceIDs, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------
@@ -314,7 +314,7 @@ type ServicePaymentTx struct {
 	Target          TxInput `json:"target"`           // target account
 	PaymentSequence int     `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
 	ReserveSequence int     `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceId      []byte  `json:"resource_id"`      // The corresponding resourceId
+	ResourceID      []byte  `json:"resource_id"`      // The corresponding resourceID
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}
@@ -363,7 +363,7 @@ func (tx *ServicePaymentTx) SignBytes(chainID string) []byte {
 }
 
 func (tx *ServicePaymentTx) String() string {
-	return fmt.Sprintf("ServicePaymentTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Target, tx.ReserveSequence, tx.ResourceId)
+	return fmt.Sprintf("ServicePaymentTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Target, tx.ReserveSequence, tx.ResourceID)
 }
 
 // TxBytes returns the transaction data as well as all signatures
@@ -379,10 +379,10 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 type SplitContractTx struct {
 	Gas        int64        `json:"gas"`         // Gas
 	Fee        Coin         `json:"fee"`         // Fee
-	ResourceId common.Bytes `json:"resource_id"` // ResourceId of the payment to be split
+	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
 	Splits     []Split      `json:"splits"`      // Agreed splits
-	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
+	Duration   uint32       `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
 func (_ *SplitContractTx) AssertIsTx() {}
@@ -405,7 +405,7 @@ func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *SplitContractTx) String() string {
-	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceId, tx.Initiator, tx.Splits, tx.Duration)
+	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------

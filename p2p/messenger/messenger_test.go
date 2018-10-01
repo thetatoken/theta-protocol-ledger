@@ -36,7 +36,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	go func() {
 		seedPeerNetAddressStrs := []string{} // passively listen
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerAPort)
-		peerID := messenger.nodeInfo.Address
+		peerID := messenger.nodeInfo.PubKey.Address().Hex()
 		peerAMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.RegisterMessageHandler(peerAMessageHandler)
 		messenger.Start()
@@ -52,7 +52,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	go func() {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // passively listen + actively connect to Peer C
 		messenger := newTestMessenger(seedPeerNetAddressStrs, peerBPort)
-		peerID := messenger.nodeInfo.Address
+		peerID := messenger.nodeInfo.PubKey.Address().Hex()
 		peerBMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.RegisterMessageHandler(peerBMessageHandler)
 		messenger.Start()
@@ -70,7 +70,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 
 	seedPeerNetAddressStrs := []string{peerANetAddr} // passively listen + actively connect to Peer A
 	messenger := newTestMessenger(seedPeerNetAddressStrs, peerCPort)
-	peerID := messenger.nodeInfo.Address
+	peerID := messenger.nodeInfo.PubKey.Address().Hex()
 	peerCMessageHandler := newTestMessageHandler(peerID, t, assert)
 	messenger.RegisterMessageHandler(peerCMessageHandler)
 	messenger.Start()

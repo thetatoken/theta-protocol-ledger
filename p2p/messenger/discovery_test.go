@@ -24,7 +24,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start()
 
-		peerID := discMgr.nodeInfo.Address
+		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A] ID: %v", peerID)
 		peerAIDChan <- peerID
 	}()
@@ -38,7 +38,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start()
 
-		peerID := discMgr.nodeInfo.Address
+		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B] ID: %v", peerID)
 		peerBIDChan <- peerID
 	}()
@@ -80,7 +80,7 @@ func TestInboundPeerListener(t *testing.T) {
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start()
 
-		peerID := discMgr.nodeInfo.Address
+		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A] ID: %v", peerID)
 		peerAIDChan <- peerID
 	}()
@@ -94,7 +94,7 @@ func TestInboundPeerListener(t *testing.T) {
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start()
 
-		peerID := discMgr.nodeInfo.Address
+		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B] ID: %v", peerID)
 		peerBIDChan <- peerID
 	}()

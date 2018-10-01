@@ -23,10 +23,13 @@ func TestNodeInfoRLPEncoding1(t *testing.T) {
 
 	var decodedNodeInfo NodeInfo
 	rlp.DecodeBytes(encodedNodeInfoBytes, &decodedNodeInfo)
-	t.Logf("nodeInfo: Address        = %v", nodeInfo.Address)
-	t.Logf("decodedNodeINfo: Address = %v", decodedNodeInfo.Address)
+	decodedNodeInfo.PubKey, err = crypto.PublicKeyFromBytes(decodedNodeInfo.PubKeyBytes)
+	assert.Nil(err)
 
-	assert.Equal(nodeInfo.Address, decodedNodeInfo.Address)
+	t.Logf("nodeInfo: Address        = %v", nodeInfo.PubKey.Address().Hex())
+	t.Logf("decodedNodeINfo: Address = %v", decodedNodeInfo.PubKey.Address().Hex())
+
+	assert.Equal(nodeInfo.PubKey.Address(), decodedNodeInfo.PubKey.Address())
 }
 
 func TestNodeInfoRLPEncoding2(t *testing.T) {
@@ -43,8 +46,11 @@ func TestNodeInfoRLPEncoding2(t *testing.T) {
 
 	var decodedNodeInfo NodeInfo
 	rlp.Decode(strBuf, &decodedNodeInfo)
-	t.Logf("nodeInfo: Address        = %v", nodeInfo.Address)
-	t.Logf("decodedNodeINfo: Address = %v", decodedNodeInfo.Address)
+	decodedNodeInfo.PubKey, err = crypto.PublicKeyFromBytes(decodedNodeInfo.PubKeyBytes)
+	assert.Nil(err)
 
-	assert.Equal(nodeInfo.Address, decodedNodeInfo.Address)
+	t.Logf("nodeInfo: Address        = %v", nodeInfo.PubKey.Address().Hex())
+	t.Logf("decodedNodeINfo: Address = %v", decodedNodeInfo.PubKey.Address().Hex())
+
+	assert.Equal(nodeInfo.PubKey.Address(), decodedNodeInfo.PubKey.Address())
 }
