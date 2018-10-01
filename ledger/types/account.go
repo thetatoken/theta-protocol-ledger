@@ -29,7 +29,7 @@ func (acc *Account) String() string {
 		return "nil-Account"
 	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
-		acc.PubKey, acc.Sequence, acc.Balance, acc.ReservedFunds)
+		acc.PubKey.ToBytes(), acc.Sequence, acc.Balance, acc.ReservedFunds)
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.
