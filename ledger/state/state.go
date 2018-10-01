@@ -55,12 +55,6 @@ func (s *LedgerState) ResetState(height uint32, stateRootHash common.Hash) bool 
 	return true
 }
 
-// SetChainID sets chain ID.
-func (s *LedgerState) SetChainID(chainID string) {
-	s.chainID = chainID
-	s.delivered.Set(ChainIDKey(), common.Bytes(chainID))
-}
-
 // GetChainID gets chain ID.
 func (s *LedgerState) GetChainID() string {
 	if s.chainID != "" {
