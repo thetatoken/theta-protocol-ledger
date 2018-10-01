@@ -3,9 +3,13 @@
 package integration
 
 import (
+	"encoding/hex"
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/store/database/backend"
 
 	"github.com/stretchr/testify/assert"
@@ -20,6 +24,8 @@ import (
 func TestConsensusBaseCase(t *testing.T) {
 	assert := assert.New(t)
 
+	viper.Set(common.CfgLogPrintSelfID, true)
+
 	simnet := p2psim.NewSimnet()
 
 	nodes := []*node.Node{}
@@ -31,7 +37,16 @@ func TestConsensusBaseCase(t *testing.T) {
 		"0455BDC5CF697F9519DF40E837BEE3E246C8D47C1B58CD1892FD3B0F780D2C09E718FF50A5929B86B8B88C7031164BDE553E285103F1B4DF668B44AFC907264C1C",
 	})
 
-	for _, v := range validators.Validators() {
+	privKeys := []string{
+		"A249A82C42A282E87B2DDEF63404D9DFCF6EA501DCAF5D447761765BD74F666D",
+		"93A90EA508331DFDF27FB79757D4250B4E84954927BA0073CD67454AC432C737",
+		"D0D53AC0B4CD47D0CE0060DDDC179D04145FEA2EE2E0B66C3EE1699C6B492013",
+		"83F0BB8655139CEF4657F90DB64A7BB57847038A9BD0CCD87C9B0828E9CBF76D",
+	}
+
+	for i, v := range validators.Validators() {
+		privateKeyBytes, _ := hex.DecodeString(privKeys[i])
+		privateKey, _ := crypto.PrivateKeyFromBytes(privateKeyBytes)
 		db := backend.NewMemDatabase()
 		chainID := "testchain"
 		root := &core.Block{}
@@ -40,6 +55,7 @@ func TestConsensusBaseCase(t *testing.T) {
 		root.Hash = blockchain.ParseHex("a0")
 
 		params := &node.Params{
+			PrivateKey: privateKey,
 			DB:         db,
 			ChainID:    chainID,
 			Root:       root,
