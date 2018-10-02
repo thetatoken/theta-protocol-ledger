@@ -201,6 +201,18 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 }
 
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return 0, store.ErrKeyNotFound
+		}
+		return 0, err
+	}
+	if value == nil {
+		return 0, store.ErrKeyNotFound
+	}
+
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
 		if err == leveldb.ErrNotFound {
@@ -515,16 +527,22 @@ func (b *ldbBatch) Write() error {
 			if err != leveldb.ErrNotFound {
 				return err
 			}
-			ref = 1
+			if v < 0 {
+				continue
+			}
+			ref = v
 		} else {
 			ref, err = strconv.Atoi(string(dat))
 			if err != nil {
 				return err
 			}
+			if ref <= 0 && v < 0 {
+				continue
+			}
 			ref = ref + v
-		}
-		if ref < 0 {
-			ref = 0
+			if ref < 0 {
+				ref = 0
+			}
 		}
 		err = b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
 		if err != nil {

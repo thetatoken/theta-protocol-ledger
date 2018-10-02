@@ -124,8 +124,11 @@ func (db *MemDatabase) CountReference(key []byte) (int, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	if ref, ok := db.refdb[string(key)]; ok {
-		return ref, nil
+	// check if k/v exists
+	if _, ok := db.db[string(key)]; ok {
+		if ref, ok := db.refdb[string(key)]; ok {
+			return ref, nil
+		}
 	}
 	return 0, store.ErrKeyNotFound
 }
