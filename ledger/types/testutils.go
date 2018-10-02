@@ -125,7 +125,7 @@ func MakeSendTx(seq int, accOut PrivAccount, accsIn ...PrivAccount) *SendTx {
 	return tx
 }
 
-func SignTx(chainID string, tx *SendTx, accs ...PrivAccount) {
+func SignSendTx(chainID string, tx *SendTx, accs ...PrivAccount) {
 	signBytes := tx.SignBytes(chainID)
 	for i, _ := range tx.Inputs {
 		tx.Inputs[i].Signature = accs[i].Sign(signBytes)

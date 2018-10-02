@@ -79,7 +79,7 @@ func getInputs(view types.ViewDataGetter, ins []types.TxInput) (map[string]*type
 			return nil, result.Error("getInputs - Unknown address: %v", in.Address)
 		}
 
-		if !in.PubKey.IsEmpty() {
+		if in.PubKey != nil && !in.PubKey.IsEmpty() {
 			acc.PubKey = in.PubKey
 		}
 		accounts[string(in.Address[:])] = acc

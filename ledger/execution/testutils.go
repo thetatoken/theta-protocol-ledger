@@ -38,7 +38,7 @@ func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint32) *core.Val
 	return tvm.valSet
 }
 
-func NewTestValidatorManager(proposer core.Validator, valSet *core.ValidatorSet) *TestValidatorManager {
+func NewTestValidatorManager(proposer core.Validator, valSet *core.ValidatorSet) core.ValidatorManager {
 	return &TestValidatorManager{
 		proposer: proposer,
 		valSet:   valSet,
@@ -109,8 +109,8 @@ func (et *execTest) fastforwardTo(targetHeight uint32) bool {
 	return true
 }
 
-func (et *execTest) signTx(tx *types.SendTx, accsIn ...types.PrivAccount) {
-	types.SignTx(et.chainID, tx, accsIn...)
+func (et *execTest) signSendTx(tx *types.SendTx, accsIn ...types.PrivAccount) {
+	types.SignSendTx(et.chainID, tx, accsIn...)
 }
 
 func (et *execTest) state() *st.LedgerState {

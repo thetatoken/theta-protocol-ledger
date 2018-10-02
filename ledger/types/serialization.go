@@ -6,6 +6,7 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	s "github.com/thetatoken/ukulele/ledger/types/serialization"
@@ -183,14 +184,14 @@ func OverspendingProofToProto(obj *OverspendingProof) *s.OverspendingProof {
 
 func SplitFromProto(split *s.Split) *Split {
 	sp := &Split{}
-	copy(sp.Address[:], split.Address)
+	sp.Address = common.BytesToAddress(split.Address)
 	sp.Percentage = uint(split.Percentage)
 	return sp
 }
 
 func SplitToProto(sp *Split) *s.Split {
 	split := &s.Split{}
-	split.Address = sp.Address[:]
+	split.Address = sp.Address.Bytes()
 	split.Percentage = int64(sp.Percentage)
 	return split
 }
@@ -199,7 +200,7 @@ func SplitToProto(sp *Split) *s.Split {
 
 func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 	sc := &SplitContract{}
-	copy(sc.InitiatorAddress[:], splitContract.InitiatorAddress)
+	sc.InitiatorAddress = common.BytesToAddress(splitContract.InitiatorAddress)
 	sc.ResourceID = splitContract.ResourceID
 	for _, split := range splitContract.Splits {
 		sc.Splits = append(sc.Splits, *SplitFromProto(split))
@@ -210,7 +211,7 @@ func SplitContractFromProto(splitContract *s.SplitContract) *SplitContract {
 
 func SplitContractToProto(sc *SplitContract) *s.SplitContract {
 	splitContract := &s.SplitContract{}
-	splitContract.InitiatorAddress = sc.InitiatorAddress[:]
+	splitContract.InitiatorAddress = sc.InitiatorAddress.Bytes()
 	splitContract.ResourceID = sc.ResourceID
 	for _, split := range sc.Splits {
 		splitContract.Splits = append(splitContract.Splits, SplitToProto(&split))
@@ -338,7 +339,7 @@ func AccountToProto(acc *Account) *s.Account {
 
 func InputFromProto(ti *s.TxInput) *TxInput {
 	txInput := &TxInput{}
-	copy(txInput.Address[:], ti.Address)
+	txInput.Address = common.BytesToAddress(ti.Address)
 	txInput.Sequence = int(ti.Sequence)
 	txInput.Coins = CoinsFromProto(ti.Coins)
 	txInput.Signature = SignatureFromProto(ti.Signature)
@@ -348,7 +349,7 @@ func InputFromProto(ti *s.TxInput) *TxInput {
 
 func InputToProto(txInput *TxInput) *s.TxInput {
 	ti := &s.TxInput{}
-	ti.Address = txInput.Address[:]
+	ti.Address = txInput.Address.Bytes()
 	ti.Sequence = int64(txInput.Sequence)
 	ti.Coins = CoinsToProto(txInput.Coins)
 	ti.Pubkey = PublicKeyToProto(txInput.PubKey)
@@ -360,14 +361,14 @@ func InputToProto(txInput *TxInput) *s.TxInput {
 
 func OutputFromProto(to *s.TxOutput) *TxOutput {
 	txOutput := &TxOutput{}
-	copy(txOutput.Address[:], to.Address)
+	txOutput.Address = common.BytesToAddress(to.Address)
 	txOutput.Coins = CoinsFromProto(to.Coins)
 	return txOutput
 }
 
 func OutputToProto(txOutput *TxOutput) *s.TxOutput {
 	to := &s.TxOutput{}
-	to.Address = txOutput.Address[:]
+	to.Address = txOutput.Address.Bytes()
 	to.Coins = CoinsToProto(txOutput.Coins)
 	return to
 }
@@ -464,7 +465,7 @@ func CoinbaseTxToProto(t *CoinbaseTx) *s.CoinbaseTx {
 func SlashTxFromProto(tx *s.SlashTx) *SlashTx {
 	st := &SlashTx{}
 	st.Proposer = *InputFromProto(tx.Proposer)
-	copy(st.SlashedAddress[:], tx.SlashedAddress)
+	st.SlashedAddress = common.BytesToAddress(tx.SlashedAddress)
 	st.ReserveSequence = int(tx.ReserveSequence)
 	st.SlashProof = tx.SlashProof
 	return st
@@ -473,7 +474,7 @@ func SlashTxFromProto(tx *s.SlashTx) *SlashTx {
 func SlashTxToProto(t *SlashTx) *s.SlashTx {
 	tx := &s.SlashTx{}
 	tx.Proposer = InputToProto(&t.Proposer)
-	tx.SlashedAddress = t.SlashedAddress[:]
+	tx.SlashedAddress = t.SlashedAddress.Bytes()
 	tx.ReserveSequence = int64(t.ReserveSequence)
 	tx.SlashProof = t.SlashProof
 	return tx

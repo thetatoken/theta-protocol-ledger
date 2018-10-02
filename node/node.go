@@ -8,9 +8,9 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/ledger"
-	"github.com/thetatoken/ukulele/mempool"
+	dp "github.com/thetatoken/ukulele/dispatcher"
+	ld "github.com/thetatoken/ukulele/ledger"
+	mp "github.com/thetatoken/ukulele/mempool"
 	"github.com/thetatoken/ukulele/netsync"
 	"github.com/thetatoken/ukulele/p2p"
 	"github.com/thetatoken/ukulele/store"
@@ -24,9 +24,10 @@ type Node struct {
 	Consensus        *consensus.ConsensusEngine
 	ValidatorManager core.ValidatorManager
 	SyncManager      *netsync.SyncManager
-	Dispatcher       *dispatcher.Dispatcher
+	Dispatcher       *dp.Dispatcher
 	Network          p2p.Network
 	Ledger           core.Ledger
+	Mempool          *mp.Mempool
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -50,12 +51,14 @@ func NewNode(params *Params) *Node {
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewFixedValidatorManager(params.Validators)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, params.Network, validatorManager)
-	dispatcher := dispatcher.NewDispatcher(params.Network)
+	dispatcher := dp.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
-	mempool := mempool.CreateMempool(dispatcher)
-	ledger := ledger.NewLedger(params.ChainID, params.DB, consensus, validatorManager, mempool)
+	mempool := mp.CreateMempool(dispatcher)
+	ledger := ld.NewLedger(params.ChainID, params.DB, consensus, validatorManager, mempool)
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
+	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
+	params.Network.RegisterMessageHandler(txMsgHandler)
 
 	return &Node{
 		Store:            store,
@@ -66,6 +69,7 @@ func NewNode(params *Params) *Node {
 		Dispatcher:       dispatcher,
 		Network:          params.Network,
 		Ledger:           ledger,
+		Mempool:          mempool,
 	}
 }
 
@@ -78,6 +82,7 @@ func (n *Node) Start(ctx context.Context) {
 	n.Consensus.Start(n.ctx)
 	n.SyncManager.Start(n.ctx)
 	n.Network.Start()
+	n.Mempool.Start()
 }
 
 // Stop notifies all sub components to stop without blocking.

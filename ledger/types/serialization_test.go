@@ -293,7 +293,7 @@ func TestTx(t *testing.T) {
 		&CoinbaseTx{},
 		&CoinbaseTx{
 			Proposer:    TxInput{Address: getTestAddress("123")},
-			Outputs:     []TxOutput{{Address: getTestAddress("456")}},
+			Outputs:     []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
 			BlockHeight: uint32(999),
 		},
 
@@ -309,8 +309,8 @@ func TestTx(t *testing.T) {
 		&SendTx{
 			Fee:     Coin{Denom: "ThetaWei", Amount: 123},
 			Gas:     123,
-			Inputs:  []TxInput{{Address: getTestAddress("123")}},
-			Outputs: []TxOutput{{Address: getTestAddress("456")}},
+			Inputs:  []TxInput{{Address: getTestAddress("123")}, {Address: getTestAddress("798")}},
+			Outputs: []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
 		},
 
 		&ReserveFundTx{},
@@ -347,7 +347,7 @@ func TestTx(t *testing.T) {
 			Gas:        123,
 			ResourceID: []byte("rid789"),
 			Initiator:  TxInput{Address: getTestAddress("123")},
-			Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}},
+			Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}, Split{Address: getTestAddress("777"), Percentage: 20}},
 			Duration:   1000,
 		},
 

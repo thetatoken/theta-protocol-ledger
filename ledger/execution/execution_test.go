@@ -137,7 +137,7 @@ func TestValidateInputsAdvanced(t *testing.T) {
 	assert.True(res.IsError(), "validateInputsAdvanced: expected an error on an unsigned tx input")
 
 	//test good case sgined
-	et.signTx(tx, accIn1, accIn2, accIn3, et.accOut)
+	et.signSendTx(tx, accIn1, accIn2, accIn3, et.accOut)
 	totalCoins, res = validateInputsAdvanced(accMap, signBytes, tx.Inputs)
 	assert.True(res.IsOK(), "validateInputsAdvanced: expected no error on good tx input. Error: %v", res.Message)
 
@@ -164,20 +164,20 @@ func TestValidateInputAdvanced(t *testing.T) {
 	assert.True(res.IsError(), "validateInputAdvanced: expected error on tx input without signature")
 
 	//good signed case
-	et.signTx(tx, et.accIn, et.accOut)
+	et.signSendTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
 	assert.True(res.IsOK(), "validateInputAdvanced: expected no error on good tx input. Error: %v", res.Message)
 
 	//bad sequence case
 	et.accIn.Sequence = 1
-	et.signTx(tx, et.accIn, et.accOut)
+	et.signSendTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
 	assert.Equal(result.CodeInvalidSequence, res.Code, "validateInputAdvanced: expected error on tx input with bad sequence")
 	et.accIn.Sequence = 0 //restore sequence
 
 	//bad balance case
 	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}
-	et.signTx(tx, et.accIn, et.accOut)
+	et.signSendTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
 	assert.Equal(result.CodeInsufficientFund, res.Code,
 		"validateInputAdvanced: expected error on tx input with insufficient funds %v", et.accIn.Sequence)
@@ -246,7 +246,7 @@ func TestSendTx(t *testing.T) {
 	tx := types.MakeSendTx(1, et.accOut, et.accIn)
 	et.acc2State(et.accIn)
 	et.acc2State(et.accOut)
-	et.signTx(tx, et.accIn)
+	et.signSendTx(tx, et.accIn)
 
 	//Bad Balance
 	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}

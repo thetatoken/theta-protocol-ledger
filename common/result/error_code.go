@@ -10,4 +10,5 @@ const (
 	CodeInvalidSequence          ErrorCode = 10002
 	CodeInsufficientFund         ErrorCode = 10003
 	CodeEmptyPubKeyWithSequence1 ErrorCode = 10004
+	CodeUnauthorizedTx           ErrorCode = 10005
 )
