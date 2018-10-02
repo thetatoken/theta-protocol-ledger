@@ -219,7 +219,7 @@ func (acc *Account) UpdateToHeight(height uint32) {
 }
 
 func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
-	if acc.LastUpdatedBlockHeight <= 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
+	if acc.LastUpdatedBlockHeight < 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
 	}
 
