@@ -85,10 +85,10 @@ func (txIn TxInput) ValidateBasic() result.Result {
 	// if txIn.Sequence <= 0 {
 	// 	return result.Error("Sequence must be greater than 0")
 	// }
-	if txIn.Sequence == 1 && txIn.PubKey.IsEmpty() {
+	if txIn.Sequence == 1 && (txIn.PubKey == nil || txIn.PubKey.IsEmpty()) {
 		return result.Error("PubKey must be present when Sequence == 1")
 	}
-	if txIn.Sequence > 1 && !txIn.PubKey.IsEmpty() {
+	if txIn.Sequence > 1 && !(txIn.PubKey == nil || txIn.PubKey.IsEmpty()) {
 		return result.Error("PubKey must be nil when Sequence > 1")
 	}
 	return result.OK

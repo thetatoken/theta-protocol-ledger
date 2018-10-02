@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"reflect"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	s "github.com/thetatoken/ukulele/ledger/types/serialization"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // ----------------- Common -------------------

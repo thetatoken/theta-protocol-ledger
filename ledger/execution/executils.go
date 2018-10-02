@@ -45,7 +45,7 @@ func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.Validator
 }
 
 func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address) result.Result {
-	if pubKey.IsEmpty() {
+	if pubKey == nil || pubKey.IsEmpty() {
 		return result.Error("Null proposer pubKey detected in coinbaseTx sanity check")
 	}
 	addr := pubKey.Address()

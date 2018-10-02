@@ -200,7 +200,7 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServicePaymentTx *ServicePaymentTx) SlashIntent {
 	overspendingProof := constructOverspendingProof(reservedFund, currentServicePaymentTx)
 
-	if acc.PubKey.IsEmpty() {
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
 		panic("Account PubKey is empty!")
 	}
 

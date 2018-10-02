@@ -13,8 +13,14 @@ import (
 	dp "github.com/thetatoken/ukulele/dispatcher"
 )
 
-type mempoolTransaction struct {
+type MempoolTransaction struct {
 	rawTransaction common.Bytes
+}
+
+func CreateMempoolTransaction(rawTransaction common.Bytes) *MempoolTransaction {
+	return &MempoolTransaction{
+		rawTransaction: rawTransaction,
+	}
 }
 
 //
@@ -47,7 +53,7 @@ func (mp *Mempool) SetLedger(ledger core.Ledger) {
 }
 
 // InsertTransaction inserts the incoming transaction to mempool (submitted by the clients or relayed from peers)
-func (mp *Mempool) InsertTransaction(mptx *mempoolTransaction) error {
+func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
@@ -113,7 +119,7 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 
 	txs := make([]common.Bytes, 0, maxNumTxs)
 	for e := mp.txCandidates.Front(); e != nil && len(txs) < maxNumTxs; e = e.Next() {
-		mptx := e.Value.(*mempoolTransaction)
+		mptx := e.Value.(*MempoolTransaction)
 		txs = append(txs, mptx.rawTransaction)
 	}
 
@@ -131,7 +137,7 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 	}
 
 	for e := mp.txCandidates.Front(); e != nil; e = e.Next() {
-		rawmptx := e.Value.(*mempoolTransaction).rawTransaction
+		rawmptx := e.Value.(*MempoolTransaction).rawTransaction
 		if _, exists := committedRawTxMap[string(rawmptx[:])]; exists {
 			mp.txCandidates.Remove(e)
 			e.DetachPrev()
@@ -162,7 +168,7 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			next = mp.txCandidates.FrontWait() // Wait until a tx is available
 		}
 
-		mptx := next.Value.(*mempoolTransaction)
+		mptx := next.Value.(*MempoolTransaction)
 
 		// Broadcast the transaction
 		data := dp.DataResponse{

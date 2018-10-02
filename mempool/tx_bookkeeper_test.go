@@ -55,8 +55,8 @@ func TestTxBookkeeper(t *testing.T) {
 
 // --------------- Test Utilities --------------- //
 
-func createTestMempoolTx(rawTx string) *mempoolTransaction {
-	return &mempoolTransaction{
+func createTestMempoolTx(rawTx string) *MempoolTransaction {
+	return &MempoolTransaction{
 		rawTransaction: []byte(rawTx),
 	}
 }
