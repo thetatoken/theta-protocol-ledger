@@ -53,7 +53,8 @@ func NewNode(params *Params) *Node {
 	dispatcher := dispatcher.NewDispatcher(params.Network)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 	mempool := mempool.CreateMempool(dispatcher)
-	ledger := ledger.NewLedger(params.ChainID, params.DB, consensus, validatorManager)
+	ledger := ledger.NewLedger(params.ChainID, params.DB, consensus, validatorManager, mempool)
+	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 
 	return &Node{

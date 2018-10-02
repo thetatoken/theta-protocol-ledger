@@ -23,7 +23,7 @@ func ParseHex(s string) common.Bytes {
 
 // CreateTestBlock creates a block for testing.
 func CreateTestBlock(hash string, parent string) *core.Block {
-	block := &core.Block{}
+	block := core.NewBlock()
 	block.ChainID = "testchain"
 	block.Hash = ParseHex(hash)
 	block.Parent = ParseHex(parent)
@@ -33,7 +33,7 @@ func CreateTestBlock(hash string, parent string) *core.Block {
 // CreateTestChain creates a chain for testing.
 func CreateTestChain() *Chain {
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
-	root := &core.Block{}
+	root := core.NewBlock()
 	root.ChainID = "testchain"
 	root.Epoch = 0
 	root.Hash = ParseHex("a0")

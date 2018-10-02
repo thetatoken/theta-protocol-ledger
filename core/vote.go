@@ -11,7 +11,7 @@ import (
 
 // Proposal represents a proposal of a new block.
 type Proposal struct {
-	Block             Block
+	Block             *Block
 	ProposerID        string
 	CommitCertificate *CommitCertificate `rlp:"nil"`
 }

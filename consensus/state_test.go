@@ -53,17 +53,17 @@ func TestConsensusStateVoteSet(t *testing.T) {
 
 	state1 := NewState(db, chain)
 	vote1 := &core.Vote{
-		Block: &block1.BlockHeader,
+		Block: block1.BlockHeader,
 		ID:    "Alice",
 		Epoch: 13,
 	}
 	vote2 := &core.Vote{
-		Block: &block2.BlockHeader,
+		Block: block2.BlockHeader,
 		ID:    "Alice",
 		Epoch: 20,
 	}
 	vote3 := &core.Vote{
-		Block: &block1.BlockHeader,
+		Block: block1.BlockHeader,
 		ID:    "Bob",
 		Epoch: 20,
 	}

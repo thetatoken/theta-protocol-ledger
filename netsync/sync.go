@@ -299,7 +299,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
-		block := &core.Block{}
+		block := core.NewBlock()
 		err := rlp.DecodeBytes(data.Payload, block)
 		if err != nil {
 			m.logger.WithFields(log.Fields{
@@ -345,7 +345,7 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 	if p.CommitCertificate != nil {
 		sm.handleCC(p.CommitCertificate)
 	}
-	sm.handleBlock(&p.Block)
+	sm.handleBlock(p.Block)
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {

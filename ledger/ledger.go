@@ -31,12 +31,13 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Ledger {
+func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db)
 	executor := exec.NewExecutor(state, consensus, valMgr)
 	ledger := &Ledger{
 		consensus: consensus,
 		valMgr:    valMgr,
+		mempool:   mempool,
 		state:     state,
 		executor:  executor,
 	}
@@ -62,11 +63,11 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
-	if ledger.mempool == nil {
-		errMsg := "Skip block proposal, ledger.mempool is nil"
-		log.Errorf(errMsg)
-		return common.Hash{}, []common.Bytes{}, result.Error(errMsg)
-	}
+	// if ledger.mempool == nil {
+	// 	errMsg := "Skip block proposal, ledger.mempool is nil"
+	// 	log.Errorf(errMsg)
+	// 	return common.Hash{}, []common.Bytes{}, result.Error(errMsg)
+	// }
 
 	blockRawTxs = []common.Bytes{}
 

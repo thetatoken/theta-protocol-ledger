@@ -58,7 +58,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-	root := &core.Block{}
+	root := core.NewBlock()
 	root.ChainID = chainID
 	root.Epoch = rootEpoch
 	root.Hash = rootHash

@@ -49,7 +49,7 @@ func TestConsensusBaseCase(t *testing.T) {
 		privateKey, _ := crypto.PrivateKeyFromBytes(privateKeyBytes)
 		db := backend.NewMemDatabase()
 		chainID := "testchain"
-		root := &core.Block{}
+		root := core.NewBlock()
 		root.ChainID = chainID
 		root.Epoch = 0
 		root.Hash = blockchain.ParseHex("a0")
