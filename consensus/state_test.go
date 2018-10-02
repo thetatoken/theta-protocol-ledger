@@ -6,17 +6,17 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/store"
-
-	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 func TestConsensusStateBasic(t *testing.T) {
 	assert := assert.New(t)
 
-	db := store.NewMemKVStore()
+	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	chain := blockchain.CreateTestChainByBlocks([]string{
 		"A1", "A0",
 		"A2", "A1",
@@ -43,7 +43,7 @@ func TestConsensusStateBasic(t *testing.T) {
 func TestConsensusStateVoteSet(t *testing.T) {
 	assert := assert.New(t)
 
-	db := store.NewMemKVStore()
+	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	chain := blockchain.CreateTestChainByBlocks([]string{
 		"A1", "A0",
 		"A2", "A1",
