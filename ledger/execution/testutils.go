@@ -38,16 +38,7 @@ func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint32) *core.Val
 	return tvm.valSet
 }
 
-func NewTestValidatorManager(proposerSeed, val2Seed string) *TestValidatorManager {
-	_, propPubKey, _ := crypto.TEST_GenerateKeyPairWithSeed(proposerSeed)
-	_, va2PubKey, _ := crypto.TEST_GenerateKeyPairWithSeed(val2Seed)
-	proposer := core.NewValidator(propPubKey.ToBytes(), uint64(100))
-	val2 := core.NewValidator(va2PubKey.ToBytes(), uint64(999))
-
-	valSet := core.NewValidatorSet()
-	valSet.AddValidator(proposer)
-	valSet.AddValidator(val2)
-
+func NewTestValidatorManager(proposer core.Validator, valSet *core.ValidatorSet) *TestValidatorManager {
 	return &TestValidatorManager{
 		proposer: proposer,
 		valSet:   valSet,
@@ -58,27 +49,15 @@ type execTest struct {
 	chainID  string
 	executor *Executor
 
+	accProposer types.PrivAccount
+	accVal2     types.PrivAccount
+
 	accIn  types.PrivAccount
 	accOut types.PrivAccount
 }
 
 func newExecTest() *execTest {
-	chainID := "test_chain_id"
-	initHeight := uint32(1)
-	initRootHash := common.Hash{}
-	db := backend.NewMemDatabase()
-	ledgerState := st.NewLedgerState(chainID, db)
-	ledgerState.ResetState(initHeight, initRootHash)
-
-	proposerSeed := "proposer_val"
-	consensus := NewTestConsensusEngine(proposerSeed)
-	valMgr := NewTestValidatorManager(proposerSeed, "val2")
-	executor := NewExecutor(ledgerState, consensus, valMgr)
-
-	et := &execTest{
-		chainID:  chainID,
-		executor: executor,
-	}
+	et := &execTest{}
 	et.reset()
 
 	return et
@@ -88,18 +67,46 @@ func newExecTest() *execTest {
 func (et *execTest) reset() {
 	et.accIn = types.MakeAccWithInitBalance("foo", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
 	et.accOut = types.MakeAccWithInitBalance("bar", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
+	et.accProposer = types.MakeAcc("proposer")
+	et.accVal2 = types.MakeAcc("val2")
 
+	chainID := "test_chain_id"
 	initHeight := uint32(1)
 	initRootHash := common.Hash{}
 	db := backend.NewMemDatabase()
-	et.executor.state = st.NewLedgerState(et.chainID, db)
-	et.executor.state.ResetState(initHeight, initRootHash)
+	ledgerState := st.NewLedgerState(chainID, db)
+	ledgerState.ResetState(initHeight, initRootHash)
+
+	consensus := NewTestConsensusEngine("localseed")
+
+	propser := core.NewValidator(et.accProposer.PubKey.ToBytes(), uint64(999))
+	val2 := core.NewValidator(et.accVal2.PubKey.ToBytes(), uint64(100))
+	valSet := core.NewValidatorSet()
+	valSet.AddValidator(propser)
+	valSet.AddValidator(val2)
+	valMgr := NewTestValidatorManager(propser, valSet)
+
+	executor := NewExecutor(ledgerState, consensus, valMgr)
+
+	et.chainID = chainID
+	et.executor = executor
 }
 
-func (et *execTest) fastforward(heightIncrement uint32) {
-	for i := uint32(0); i < heightIncrement; i++ {
-		et.executor.state.Commit()
+func (et *execTest) fastforwardBy(heightIncrement uint32) bool {
+	height := et.executor.state.Height()
+	rootHash := et.executor.state.Commit()
+	et.executor.state.ResetState(height+heightIncrement-1, rootHash)
+	return true
+}
+
+func (et *execTest) fastforwardTo(targetHeight uint32) bool {
+	height := et.executor.state.Height()
+	rootHash := et.executor.state.Commit()
+	if targetHeight < height+1 {
+		return false
 	}
+	et.executor.state.ResetState(targetHeight, rootHash)
+	return true
 }
 
 func (et *execTest) signTx(tx *types.SendTx, accsIn ...types.PrivAccount) {
@@ -115,7 +122,11 @@ func (et *execTest) execSendTx(tx *types.SendTx, checkTx bool) (res result.Resul
 	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
 	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 
-	_, res = et.executor.ExecuteTx(tx)
+	if checkTx {
+		_, res = et.executor.CheckTx(tx)
+	} else {
+		_, res = et.executor.ExecuteTx(tx)
+	}
 
 	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
 	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance

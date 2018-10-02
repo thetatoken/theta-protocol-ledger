@@ -20,7 +20,7 @@ func (res Result) IsError() bool {
 
 // String returns the string representation of the result
 func (res Result) String() string {
-	return fmt.Sprintf("Result{code:%v, message:%X}", res.Code, res.Message)
+	return fmt.Sprintf("Result{code:%v, message:%v}", res.Code, res.Message)
 }
 
 // WithErrorCode attach the error code to the result

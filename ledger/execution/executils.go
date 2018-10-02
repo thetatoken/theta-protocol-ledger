@@ -106,12 +106,12 @@ func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAcco
 	// 	return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
 	// }
 
-	if acc.PubKey.IsEmpty() {
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
 		acc.PubKey = in.PubKey
 	}
 
-	if acc.PubKey.IsEmpty() {
-		return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
+		return nil, result.Error("TxInput PubKey cannot be nil or empty when Sequence == 1").WithErrorCode(result.CodeEmptyPubKeyWithSequence1)
 	}
 
 	return acc, result.OK
@@ -191,12 +191,14 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	// Check sequence/coins
 	seq, balance := acc.Sequence, acc.Balance
 	if seq+1 != in.Sequence {
-		return result.Error("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence)
+		return result.Error("Got %v, expected %v. (acc.seq=%v)",
+			in.Sequence, seq+1, acc.Sequence).WithErrorCode(result.CodeInvalidSequence)
 	}
 
 	// Check amount
 	if !balance.IsGTE(in.Coins) {
-		return result.Error("balance is %v, tried to send %v", balance, in.Coins)
+		return result.Error("balance is %v, tried to send %v",
+			balance, in.Coins).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	// Check pubkey
@@ -206,7 +208,8 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.Error("SignBytes: %v", hex.EncodeToString(signBytes))
+		return result.Error("SignBytes: %v",
+			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}
 
 	return result.OK
