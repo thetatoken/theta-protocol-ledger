@@ -10,7 +10,8 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/ukulele/store/kvstore"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/dispatcher"
@@ -72,7 +73,7 @@ func TestSyncManager(t *testing.T) {
 
 	valSet := core.NewValidatorSet()
 	valMgr := consensus.NewFixedValidatorManager(valSet)
-	db := store.NewMemKVStore()
+	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	consensus := consensus.NewConsensusEngine(nil, db, initChain, net1, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 	dispatch := dispatcher.NewDispatcher(net1)
