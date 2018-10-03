@@ -36,7 +36,7 @@ var OK = Result{Code: CodeOK}
 
 // Error returns an error result
 func Error(msgFormat string, a ...interface{}) Result {
-	msg := fmt.Sprintf(msgFormat, a)
+	msg := fmt.Sprintf(msgFormat, a...)
 	return Result{
 		Code:    CodeGenericError,
 		Message: msg,

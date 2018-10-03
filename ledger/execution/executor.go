@@ -62,28 +62,36 @@ func (exec *Executor) SetSkipSanityCheck(skip bool) {
 	exec.skipSanityCheck = skip
 }
 
-// CheckTx checks the validity of the given transaction
-func (exec *Executor) CheckTx(tx types.Tx) (common.Hash, result.Result) {
-	return exec.processTx(tx, true)
-}
-
 // ExecuteTx executes the given transaction
 func (exec *Executor) ExecuteTx(tx types.Tx) (common.Hash, result.Result) {
-	return exec.processTx(tx, false)
+	return exec.processTx(tx, core.DeliveredView)
 }
 
-// processTx contains the main logic for CheckTx and DeliverTx. If the tx is invalid, a TMSP error will be returned.
-func (exec *Executor) processTx(tx types.Tx, isCheckTx bool) (common.Hash, result.Result) {
+// CheckTx checks the validity of the given transaction
+func (exec *Executor) CheckTx(tx types.Tx) (common.Hash, result.Result) {
+	return exec.processTx(tx, core.CheckedView)
+}
+
+// ScreenTx checks the validity of the given transaction
+func (exec *Executor) ScreenTx(tx types.Tx) (common.Hash, result.Result) {
+	return exec.processTx(tx, core.ScreenedView)
+}
+
+// processTx contains the main logic to process the transaction. If the tx is invalid, a TMSP error will be returned.
+func (exec *Executor) processTx(tx types.Tx, viewSel core.ViewSelector) (common.Hash, result.Result) {
 	chainID := exec.state.GetChainID()
 	var view *st.StoreView
-	if isCheckTx {
-		view = exec.state.Checked()
-	} else {
+	switch viewSel {
+	case core.DeliveredView:
 		view = exec.state.Delivered()
+	case core.CheckedView:
+		view = exec.state.Checked()
+	default:
+		view = exec.state.Screened()
 	}
 
 	sanityCheckResult := exec.sanityCheck(chainID, view, tx)
-	if sanityCheckResult.IsError() || isCheckTx {
+	if sanityCheckResult.IsError() {
 		return common.Hash{}, sanityCheckResult
 	}
 

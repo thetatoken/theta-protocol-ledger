@@ -65,7 +65,7 @@ func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 	mp.txBookeepper.record(mptx)
 
 	txBytes := mptx.rawTransaction
-	checkTxRes := mp.ledger.CheckTx(txBytes)
+	checkTxRes := mp.ledger.ScreenTx(txBytes)
 	if !checkTxRes.IsOK() {
 		return errors.New(checkTxRes.Message)
 	}

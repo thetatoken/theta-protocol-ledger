@@ -118,12 +118,12 @@ func (et *execTest) state() *st.LedgerState {
 }
 
 // returns the final balance and expected balance for input and output accounts
-func (et *execTest) execSendTx(tx *types.SendTx, checkTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
+func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
 	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
 	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 
-	if checkTx {
-		_, res = et.executor.CheckTx(tx)
+	if screenTx {
+		_, res = et.executor.ScreenTx(tx)
 	} else {
 		_, res = et.executor.ExecuteTx(tx)
 	}
