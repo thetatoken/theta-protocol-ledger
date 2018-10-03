@@ -1,18 +1,43 @@
 package treestore
 
 import (
+	"bytes"
+	"io/ioutil"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
+func newTestTreeStore() (database.Database, func()) {
+	dirname, err := ioutil.TempDir(os.TempDir(), "db_test_")
+	if err != nil {
+		panic("failed to create test file: " + err.Error())
+	}
+
+	db, err := backend.NewBadgerDatabase(dirname)
+	if err != nil {
+		panic("failed to create test database: " + err.Error())
+	}
+
+	return db, func() {
+		db.Close()
+		os.RemoveAll(dirname)
+	}
+}
+
 func TestTreeStore(t *testing.T) {
+	db, close := newTestTreeStore()
+	defer close()
+	testTreeStore(db, t)
+}
+
+func testTreeStore(db database.Database, t *testing.T) {
 	assert := assert.New(t)
 
-	db, err := backend.NewAerospikeDatabase()
-	assert.Nil(err)
 	treestore := NewTreeStore(common.Hash{}, db)
 
 	key1 := common.Bytes("s1")
@@ -53,37 +78,33 @@ func TestTreeStore(t *testing.T) {
 	value9 := common.Bytes("iii")
 	treestore.Set(key9, value9)
 
-	// var cnt int
+	var cnt int
 
-	// cb := func(prefix common.Bytes) func(k, v common.Bytes) bool {
-	// 	cnt = 0
-	// 	return func(k, v common.Bytes) bool {
-	// 		cnt++
-	// 		success := bytes.HasPrefix(k, prefix)
-	// 		success = success && (bytes.Compare(v, treestore.Get(k)) == 0)
-	// 		return success
-	// 	}
-	// }
+	cb := func(prefix common.Bytes) func(k, v common.Bytes) bool {
+		cnt = 0
+		return func(k, v common.Bytes) bool {
+			cnt++
+			success := bytes.HasPrefix(k, prefix)
+			success = success && (bytes.Compare(v, treestore.Get(k)) == 0)
+			return success
+		}
+	}
 
-	// // prefix1 := common.Bytes("test/1")
-	// // treestore.Traverse(prefix1, cb(prefix1))
-	// // assert.Equal(2, cnt)
+	prefix1 := common.Bytes("s1")
+	treestore.Traverse(prefix1, cb(prefix1))
+	assert.Equal(1, cnt)
 
-	// // prefix2 := common.Bytes("test/2")
-	// // treestore.Traverse(prefix2, cb(prefix2))
-	// // assert.Equal(1, cnt)
+	prefix2 := common.Bytes("s")
+	treestore.Traverse(prefix2, cb(prefix2))
+	assert.Equal(3, cnt)
 
-	// prefix3 := common.Bytes("test/333")
-	// treestore.Traverse(prefix3, cb(prefix3))
-	// assert.Equal(5, cnt)
+	prefix3 := common.Bytes("test/333")
+	treestore.Traverse(prefix3, cb(prefix3))
+	assert.Equal(5, cnt)
 
-	// prefix4 := common.Bytes("test/33")
-	// treestore.Traverse(prefix4, cb(prefix4))
-	// assert.Equal(6, cnt)
-
-	// prefix5 := common.Bytes("test")
-	// treestore.Traverse(prefix5, cb(prefix5))
-	// assert.Equal(6, cnt)
+	prefix4 := common.Bytes("test/33")
+	treestore.Traverse(prefix4, cb(prefix4))
+	assert.Equal(6, cnt)
 
 	assert.Equal(value9, treestore.Get(key9))
 	treestore.Set(key9, nil)
@@ -92,8 +113,11 @@ func TestTreeStore(t *testing.T) {
 	assert.Equal(value9, treestore.Get(key9))
 	treestore.Delete(key9)
 	assert.Nil(treestore.Get(key9))
-	// treestore.Traverse(prefix5, cb(prefix5))
-	// assert.Equal(6, cnt)
+
+	treestore.Traverse(prefix3, cb(prefix3))
+	assert.Equal(4, cnt)
+	treestore.Traverse(prefix4, cb(prefix4))
+	assert.Equal(5, cnt)
 
 	root, _ := treestore.Commit(nil)
 	treestore.Trie.GetDB().Commit(root, true)
@@ -122,8 +146,35 @@ func TestTreeStore(t *testing.T) {
 
 	//////////////////////////////
 
+	hashMap := make(map[common.Hash]bool)
+	hashMap1 := make(map[common.Hash]bool)
+
+	for it := treestore.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hashMap[it.Hash()] = true
+		}
+	}
+
+	for it := treestore1.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hashMap1[it.Hash()] = true
+		}
+	}
+
 	pruneStore := NewTreeStore(treestore.Hash(), db)
 	pruneStore.Prune()
+
+	assert.False(db.Has(root[:]))
+	assert.True(db.Has(root1[:]))
+
+	for hash := range hashMap {
+		has, _ := db.Has(hash[:])
+		if _, ok := hashMap1[hash]; ok {
+			assert.True(has)
+		} else {
+			assert.False(has)
+		}
+	}
 
 	//////////////////////////////
 
