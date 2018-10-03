@@ -14,7 +14,7 @@ func TestTreeStore(t *testing.T) {
 
 	db, err := backend.NewAerospikeDatabase()
 	assert.Nil(err)
-	treestore := NewTreeStore(common.Hash{}, db, false)
+	treestore := NewTreeStore(common.Hash{}, db)
 
 	key1 := common.Bytes("s1")
 	value1 := common.Bytes("aaa")
@@ -170,7 +170,7 @@ func TestTreeStore(t *testing.T) {
 
 	//////////////////////////////
 
-	treestore1 := NewTreeStore(treestore.Hash(), db, false)
+	treestore1 := NewTreeStore(treestore.Hash(), db)
 	// assert.Nil(treestore1.Get(key1))
 	assert.Equal(value2, treestore1.Get(key2))
 
@@ -183,7 +183,7 @@ func TestTreeStore(t *testing.T) {
 
 	//////////////////////////////
 
-	pruneStore := NewTreeStore(treestore.Hash(), db, false)
+	pruneStore := NewTreeStore(treestore.Hash(), db)
 	pruneStore.Prune()
 
 	//////////////////////////////

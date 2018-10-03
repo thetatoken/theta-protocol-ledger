@@ -22,7 +22,7 @@ type StoreView struct {
 
 // NewStoreView creates an instance of the StoreView
 func NewStoreView(height uint32, root common.Hash, db database.Database) *StoreView {
-	store := treestore.NewTreeStore(root, db, false)
+	store := treestore.NewTreeStore(root, db)
 	if store == nil {
 		return nil
 	}
