@@ -134,7 +134,7 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	//////////////////////////////
 
-	treestore1 := NewTreeStore(treestore.Hash(), db)
+	treestore1, _ := treestore.Copy() // NewTreeStore(treestore.Hash(), db)
 	assert.Equal(value2, treestore1.Get(key2))
 
 	treestore1.Set(key2, value3)
@@ -161,7 +161,7 @@ func testTreeStore(db database.Database, t *testing.T) {
 		}
 	}
 
-	pruneStore := NewTreeStore(treestore.Hash(), db)
+	pruneStore, _ := treestore.Copy() // NewTreeStore(treestore.Hash(), db)
 	pruneStore.Prune()
 
 	assert.False(db.Has(root[:]))
