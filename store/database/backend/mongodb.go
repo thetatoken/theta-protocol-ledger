@@ -22,9 +22,9 @@ const (
 )
 
 type Document struct {
-	Key       []byte `bson:"_id" json:"key"`
-	Value     []byte `bson:"value" json:"value"`
-	Reference int    `bson:"ref" json:"ref"`
+	Key       []byte `bson:"_id" json:"k,omitempty"`
+	Value     []byte `bson:"value" json:"v"`
+	Reference int    `bson:"ref" json:"ref,omitempty"`
 }
 
 // MongoDatabase a MongoDB wrapped object.

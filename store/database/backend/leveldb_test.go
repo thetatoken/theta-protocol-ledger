@@ -43,7 +43,7 @@ func newTestLDB() (*LDBDatabase, func()) {
 
 	db, err := NewLDBDatabase(dirname, refname, 0, 0)
 	if err != nil {
-		panic("failed to create test reference database: " + err.Error())
+		panic("failed to create test database: " + err.Error())
 	}
 
 	return db, func() {
@@ -53,7 +53,7 @@ func newTestLDB() (*LDBDatabase, func()) {
 	}
 }
 
-var testValues = []string{"", "a", "1251", "\x00123\x00"}
+var testValues = []string{"a", "1251", "\x00123\x00"}
 
 func TestLDB_PutGet(t *testing.T) {
 	db, remove := newTestLDB()
@@ -268,7 +268,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 
 	for _, v := range testValues {
 		_, err := db.Get([]byte(v))
-		if err == nil {
+		if err == nil || err != store.ErrKeyNotFound {
 			t.Fatalf("got deleted value %q", v)
 		}
 	}

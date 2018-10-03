@@ -96,8 +96,7 @@ func (db *AerospikeDatabase) Reference(key []byte) error {
 	bin := aerospike.NewBin(RefBin, ref)
 	writePolicy := aerospike.NewWritePolicy(0, 0)
 	writePolicy.Timeout = 300 * time.Millisecond
-	err = db.client.PutBins(writePolicy, getDBKey(key), bin)
-	return err
+	return db.client.PutBins(writePolicy, getDBKey(key), bin)
 }
 
 func (db *AerospikeDatabase) Dereference(key []byte) error {
@@ -207,10 +206,17 @@ func (b *adbBatch) Write() error {
 			continue
 		}
 
-		ref := v
+		var ref int
 		if rec.Bins[RefBin] != nil {
-			ref += rec.Bins[RefBin].(int)
+			ref = rec.Bins[RefBin].(int)
+		} else {
+			ref = 0
 		}
+
+		if ref <= 0 && v < 0 {
+			continue
+		}
+		ref += v
 		if ref < 0 {
 			ref = 0
 		}
@@ -218,7 +224,9 @@ func (b *adbBatch) Write() error {
 		writePolicy := aerospike.NewWritePolicy(0, 0)
 		writePolicy.Timeout = 300 * time.Millisecond
 		err = b.db.client.PutBins(writePolicy, dbKey, bin)
-		return err
+		if err != nil {
+			return err
+		}
 	}
 
 	b.Reset()
