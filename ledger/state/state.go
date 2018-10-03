@@ -23,7 +23,7 @@ type LedgerState struct {
 	slashIntents                []types.SlashIntent
 	validatorsDiff              []*core.Validator
 
-	delivered *StoreView // for actually apply the transactions
+	delivered *StoreView // for actually applying the transactions
 	checked   *StoreView // for block proposal check
 	screened  *StoreView // for mempool screening
 }
