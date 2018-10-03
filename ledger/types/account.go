@@ -200,7 +200,7 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServicePaymentTx *ServicePaymentTx) SlashIntent {
 	overspendingProof := constructOverspendingProof(reservedFund, currentServicePaymentTx)
 
-	if acc.PubKey.IsEmpty() {
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
 		panic("Account PubKey is empty!")
 	}
 
@@ -219,7 +219,7 @@ func (acc *Account) UpdateToHeight(height uint32) {
 }
 
 func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
-	if acc.LastUpdatedBlockHeight <= 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
+	if acc.LastUpdatedBlockHeight < 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
 	}
 

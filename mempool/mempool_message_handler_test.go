@@ -25,7 +25,7 @@ func TestMempoolMessageHandler(t *testing.T) {
 		tx1 := createTestMempoolTx("tx1")
 		tx2 := createTestMempoolTx("tx2")
 		tx3 := createTestMempoolTx("tx3")
-		txs := [](*mempoolTransaction){tx1, tx2, tx3}
+		txs := [](*MempoolTransaction){tx1, tx2, tx3}
 
 		for _, tx := range txs {
 			dataResponse := dp.DataResponse{

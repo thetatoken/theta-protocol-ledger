@@ -116,6 +116,30 @@ func TestSign(t *testing.T) {
 	}
 }
 
+func TestSignAndVerifySignature(t *testing.T) {
+	key, _ := hexToECDSA(testPrivHex)
+	addr := pubkeyToAddress(key.PublicKey)
+	t.Logf("original addr: %v", hex.EncodeToString(addr[:]))
+
+	hash := keccak256([]byte("foo"))
+	sig, err := sign(hash, key)
+	if err != nil {
+		t.Errorf("Sign error: %s", err)
+	}
+
+	pubkeyBytes := fromECDSAPub(&(key.PublicKey))
+	if len(sig) != 65 {
+		t.Errorf("Invalid signature length")
+	}
+
+	// https://github.com/ethereum/go-ethereum/blob/master/crypto/secp256k1/secp256.go#L52
+	// The 64th byte is the recovery id
+	verified := verifySignature(pubkeyBytes, hash, sig[:64])
+	if !verified {
+		t.Errorf("Invalid signature")
+	}
+}
+
 func TestInvalidSign(t *testing.T) {
 	if _, err := sign(make([]byte, 1), nil); err == nil {
 		t.Errorf("expected sign with hash 1 byte to error")

@@ -13,6 +13,8 @@ import (
 // ------------------------- State -------------------------
 //
 
+var _ types.ViewDataAccessor = (*LedgerState)(nil)
+
 type LedgerState struct {
 	chainID string
 	db      database.Database
@@ -29,12 +31,12 @@ type LedgerState struct {
 // NOTE: before using the LedgerState, we need to call LedgerState.ResetState() to set
 //       the proper height and stateRootHash
 func NewLedgerState(chainID string, db database.Database) *LedgerState {
-	return &LedgerState{
-		chainID:   chainID,
-		db:        db,
-		checked:   nil,
-		delivered: nil,
+	s := &LedgerState{
+		chainID: chainID,
+		db:      db,
 	}
+	s.ResetState(uint32(0), common.Hash{})
+	return s
 }
 
 // ResetState resets the height and state root of its storeviews, and clear the in-memory states

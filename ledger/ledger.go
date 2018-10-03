@@ -31,12 +31,13 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Ledger {
+func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db)
 	executor := exec.NewExecutor(state, consensus, valMgr)
 	ledger := &Ledger{
 		consensus: consensus,
 		valMgr:    valMgr,
+		mempool:   mempool,
 		state:     state,
 		executor:  executor,
 	}
@@ -52,7 +53,8 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 	}
 
 	if ledger.shouldSkipCheckTx(tx) {
-		return result.Error("Unauthorized transaction, should skip")
+		return result.Error("Unauthorized transaction, should skip").
+			WithErrorCode(result.CodeUnauthorizedTx)
 	}
 
 	_, res := ledger.executor.CheckTx(tx)
@@ -62,31 +64,30 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
-	if ledger.mempool == nil {
-		errMsg := "Skip block proposal, ledger.mempool is nil"
-		log.Errorf(errMsg)
-		return common.Hash{}, []common.Bytes{}, result.Error(errMsg)
-	}
-
-	blockRawTxs = []common.Bytes{}
 
 	// Add special transactions
-	ledger.addSpecialTransactions(&blockRawTxs)
+	rawTxCandidates := []common.Bytes{}
+	ledger.addSpecialTransactions(&rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
 	regularRawTxs := ledger.mempool.Reap(core.MaxNumRegularTxsPerBlock)
 	for _, regularRawTx := range regularRawTxs {
-		tx, err := types.TxFromBytes(regularRawTx)
+		rawTxCandidates = append(rawTxCandidates, regularRawTx)
+	}
+
+	blockRawTxs = []common.Bytes{}
+	for _, rawTxCandidate := range rawTxCandidates {
+		tx, err := types.TxFromBytes(rawTxCandidate)
 		if err != nil {
 			continue
 		}
-		_, res := ledger.executor.ExecuteTx(tx)
+		_, res := ledger.executor.CheckTx(tx)
 		if res.IsOK() {
-			blockRawTxs = append(blockRawTxs, regularRawTx)
+			blockRawTxs = append(blockRawTxs, rawTxCandidate)
 		}
 	}
-	stateRootHash = ledger.state.Commit()
 
+	stateRootHash = ledger.state.Checked().Hash()
 	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
 	return stateRootHash, blockRawTxs, result.OK

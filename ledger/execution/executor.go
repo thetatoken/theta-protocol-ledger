@@ -92,7 +92,7 @@ func (exec *Executor) processTx(tx types.Tx, isCheckTx bool) (common.Hash, resul
 }
 
 func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx types.Tx) result.Result {
-	if exec.skipSanityCheck {
+	if exec.skipSanityCheck { // Skip checks, e.g. while replaying commmitted blocks.
 		return result.OK
 	}
 

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"sync"
 	"time"
@@ -34,6 +35,7 @@ type ConsensusEngine struct {
 	chain            *blockchain.Chain
 	network          p2p.Network
 	validatorManager core.ValidatorManager
+	ledger           core.Ledger
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
@@ -84,6 +86,10 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 	e.rand = rand.New(rand.NewSource(time.Now().Unix()))
 
 	return e
+}
+
+func (e *ConsensusEngine) SetLedger(ledger core.Ledger) {
+	e.ledger = ledger
 }
 
 // ID returns the identifier of current node.
@@ -208,8 +214,8 @@ func (e *ConsensusEngine) handleProposal(p core.Proposal) {
 		return
 	}
 
-	e.chain.AddBlock(&p.Block)
-	e.handleBlock(&p.Block)
+	e.chain.AddBlock(p.Block)
+	e.handleBlock(p.Block)
 	e.handleCC(p.CommitCertificate)
 	return
 }
@@ -238,7 +244,7 @@ func (e *ConsensusEngine) vote() {
 			"tip.Hash":       tip.Hash,
 		}).Debug("Voting nil since already voted at height")
 	} else {
-		header = &tip.BlockHeader
+		header = tip.BlockHeader
 		e.state.SetLastVoteHeight(tip.Height)
 	}
 
@@ -423,13 +429,24 @@ func (e *ConsensusEngine) shouldPropose(epoch uint32) bool {
 
 func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
+	e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
 
-	block := core.Block{}
+	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
-	block.Hash = e.randHex()
 	block.Epoch = e.GetEpoch()
-	block.ParentHash = tip.Hash
+	block.Parent = tip.Hash
 	block.Height = tip.Height + 1
+	block.Proposer = e.privateKey.PublicKey().Address()
+	block.Timestamp = big.NewInt(time.Now().Unix())
+
+	newRoot, txs, result := e.ledger.ProposeBlockTxs()
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{"error": result.String()}).Error("Failed to collect Txs for block proposal")
+		return
+	}
+	block.Txs = txs
+	block.StateHash = newRoot[:]
+	block.BlockHeader.UpdateHash()
 
 	lastCC := e.state.GetHighestCCBlock()
 	proposal := core.Proposal{Block: block, ProposerID: e.ID()}
@@ -452,10 +469,10 @@ func (e *ConsensusEngine) propose() {
 		ChannelID: common.ChannelIDProposal,
 		Content:   data,
 	}
-	_, err = e.chain.AddBlock(&block)
+	_, err = e.chain.AddBlock(block)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Error("Failed to add proposed block to chain")
 	}
-	e.handleBlock(&block)
+	e.handleBlock(block)
 	e.network.Broadcast(proposalMsg)
 }

@@ -37,7 +37,7 @@ func (tb *transactionBookkeeper) reset() {
 	tb.txList.Init()
 }
 
-func (tb *transactionBookkeeper) hasSeen(mptx *mempoolTransaction) bool {
+func (tb *transactionBookkeeper) hasSeen(mptx *MempoolTransaction) bool {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 	txhash := getTransactionHash(mptx)
@@ -45,7 +45,7 @@ func (tb *transactionBookkeeper) hasSeen(mptx *mempoolTransaction) bool {
 	return exists
 }
 
-func (tb *transactionBookkeeper) record(mptx *mempoolTransaction) bool {
+func (tb *transactionBookkeeper) record(mptx *MempoolTransaction) bool {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 	txhash := getTransactionHash(mptx)
@@ -67,14 +67,14 @@ func (tb *transactionBookkeeper) record(mptx *mempoolTransaction) bool {
 	return true
 }
 
-func (tb *transactionBookkeeper) remove(mptx *mempoolTransaction) {
+func (tb *transactionBookkeeper) remove(mptx *MempoolTransaction) {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
 	txhash := getTransactionHash(mptx)
 	delete(tb.txMap, txhash)
 }
 
-func getTransactionHash(mptx *mempoolTransaction) string {
+func getTransactionHash(mptx *MempoolTransaction) string {
 	txhash := crypto.Keccak256Hash(mptx.rawTransaction)
 	txhashStr := hex.EncodeToString(txhash[:])
 	return txhashStr

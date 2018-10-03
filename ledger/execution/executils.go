@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"encoding/hex"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -43,7 +45,7 @@ func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.Validator
 }
 
 func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address) result.Result {
-	if pubKey.IsEmpty() {
+	if pubKey == nil || pubKey.IsEmpty() {
 		return result.Error("Null proposer pubKey detected in coinbaseTx sanity check")
 	}
 	addr := pubKey.Address()
@@ -77,7 +79,7 @@ func getInputs(view types.ViewDataGetter, ins []types.TxInput) (map[string]*type
 			return nil, result.Error("getInputs - Unknown address: %v", in.Address)
 		}
 
-		if !in.PubKey.IsEmpty() {
+		if in.PubKey != nil && !in.PubKey.IsEmpty() {
 			acc.PubKey = in.PubKey
 		}
 		accounts[string(in.Address[:])] = acc
@@ -104,12 +106,12 @@ func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAcco
 	// 	return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
 	// }
 
-	if acc.PubKey.IsEmpty() {
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
 		acc.PubKey = in.PubKey
 	}
 
-	if acc.PubKey.IsEmpty() {
-		return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
+	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
+		return nil, result.Error("TxInput PubKey cannot be nil or empty when Sequence == 1").WithErrorCode(result.CodeEmptyPubKeyWithSequence1)
 	}
 
 	return acc, result.OK
@@ -189,12 +191,14 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	// Check sequence/coins
 	seq, balance := acc.Sequence, acc.Balance
 	if seq+1 != in.Sequence {
-		return result.Error("Got %v, expected %v. (acc.seq=%v)", in.Sequence, seq+1, acc.Sequence)
+		return result.Error("Got %v, expected %v. (acc.seq=%v)",
+			in.Sequence, seq+1, acc.Sequence).WithErrorCode(result.CodeInvalidSequence)
 	}
 
 	// Check amount
 	if !balance.IsGTE(in.Coins) {
-		return result.Error("balance is %v, tried to send %v", balance, in.Coins)
+		return result.Error("balance is %v, tried to send %v",
+			balance, in.Coins).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	// Check pubkey
@@ -204,7 +208,8 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.Error("SignBytes: %X", signBytes)
+		return result.Error("SignBytes: %v",
+			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}
 
 	return result.OK

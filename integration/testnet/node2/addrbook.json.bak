@@ -1,0 +1,56 @@
+{
+	"Key": "8d7acdbe9be075a465277e80a625540bb8d829f2",
+	"Addrs": [
+		{
+			"Addr": {
+				"IP": "127.0.0.1",
+				"Port": 11000
+			},
+			"Src": {
+				"IP": "127.0.0.1",
+				"Port": 12000
+			},
+			"Attempts": 0,
+			"LastAttempt": "2018-10-01T21:39:40.192214186-07:00",
+			"LastSuccess": "0001-01-01T00:00:00Z",
+			"BucketType": 1,
+			"Buckets": [
+				224
+			]
+		},
+		{
+			"Addr": {
+				"IP": "127.0.0.1",
+				"Port": 13000
+			},
+			"Src": {
+				"IP": "127.0.0.1",
+				"Port": 12000
+			},
+			"Attempts": 0,
+			"LastAttempt": "2018-10-01T21:39:40.192256322-07:00",
+			"LastSuccess": "0001-01-01T00:00:00Z",
+			"BucketType": 1,
+			"Buckets": [
+				224
+			]
+		},
+		{
+			"Addr": {
+				"IP": "127.0.0.1",
+				"Port": 14000
+			},
+			"Src": {
+				"IP": "127.0.0.1",
+				"Port": 12000
+			},
+			"Attempts": 0,
+			"LastAttempt": "2018-10-01T21:39:40.192291784-07:00",
+			"LastSuccess": "0001-01-01T00:00:00Z",
+			"BucketType": 1,
+			"Buckets": [
+				224
+			]
+		}
+	]
+}
