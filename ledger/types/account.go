@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/pkg/errors"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
 
@@ -28,8 +29,12 @@ func (acc *Account) String() string {
 	if acc == nil {
 		return "nil-Account"
 	}
+	var address common.Address
+	if acc.PubKey != nil {
+		address = acc.PubKey.Address()
+	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
-		acc.PubKey.ToBytes(), acc.Sequence, acc.Balance, acc.ReservedFunds)
+		address, acc.Sequence, acc.Balance, acc.ReservedFunds)
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.
