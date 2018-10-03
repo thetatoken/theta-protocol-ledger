@@ -93,13 +93,6 @@ func (pk *PublicKey) VerifySignature(msg common.Bytes, sig *Signature) bool {
 		return false
 	}
 
-	// https://github.com/ethereum/go-ethereum/blob/master/crypto/secp256k1/secp256.go#L52
-	// signature should be 65 bytes long, where the 64th byte is the recovery id
-	sigBytes := sig.ToBytes()
-	if len(sigBytes) != 65 {
-		return false
-	}
-
 	msgHash := keccak256(msg)
 	recoveredUncompressedPubKey, err := ecrecover(msgHash, sig.ToBytes())
 	if err != nil {
