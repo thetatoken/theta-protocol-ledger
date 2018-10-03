@@ -176,6 +176,14 @@ func testTreeStore(db database.Database, t *testing.T) {
 		}
 	}
 
+	for it := treestore1.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hash := it.Hash()
+			ref, _ := db.CountReference(hash[:])
+			assert.Equal(1, ref)
+		}
+	}
+
 	//////////////////////////////
 
 	for it := treestore.NodeIterator(nil); it.Next(true); {
