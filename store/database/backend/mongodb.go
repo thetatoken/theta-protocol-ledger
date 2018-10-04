@@ -97,6 +97,9 @@ func (db *MongoDatabase) Get(key []byte) ([]byte, error) {
 func (db *MongoDatabase) Delete(key []byte) error {
 	filter := bson.NewDocument(bson.EC.Binary(Id, key))
 	_, err := db.collection.DeleteOne(nil, filter)
+	if err != nil && err == mongo.ErrNoDocuments {
+		return store.ErrKeyNotFound
+	}
 	return err
 }
 

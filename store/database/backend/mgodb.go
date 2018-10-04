@@ -68,6 +68,9 @@ func (db *MgoDatabase) Get(key []byte) ([]byte, error) {
 // Delete deletes the key from the database
 func (db *MgoDatabase) Delete(key []byte) error {
 	err := db.collection.Remove(bson.M{Id: key})
+	if err != nil && err == mgo.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
 	return err
 }
 

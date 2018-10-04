@@ -136,7 +136,11 @@ func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 // Delete deletes the key from the queue and database
 func (db *LDBDatabase) Delete(key []byte) error {
 	db.refdb.Delete(key, nil)
-	return db.db.Delete(key, nil)
+	err := db.db.Delete(key, nil)
+	if err != nil && err == leveldb.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
+	return err
 }
 
 func (db *LDBDatabase) Reference(key []byte) error {

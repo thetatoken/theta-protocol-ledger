@@ -73,7 +73,10 @@ func (db *AerospikeDatabase) Get(key []byte) ([]byte, error) {
 
 // Delete deletes the key from the database
 func (db *AerospikeDatabase) Delete(key []byte) error {
-	_, err := db.client.Delete(nil, getDBKey(key))
+	deleted, err := db.client.Delete(nil, getDBKey(key))
+	if !deleted {
+		return store.ErrKeyNotFound
+	}
 	return err
 }
 

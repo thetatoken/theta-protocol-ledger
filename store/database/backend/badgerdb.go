@@ -8,11 +8,6 @@ import (
 	"github.com/thetatoken/ukulele/store/database"
 )
 
-// type Item struct {
-// 	Value     []byte `json:"v"`
-// 	Reference int    `json:"ref,omitempty"`
-// }
-
 // BadgerDatabase a MongoDB (using badger driver) wrapped object.
 type BadgerDatabase struct {
 	db *badger.DB
@@ -52,7 +47,7 @@ func (db *BadgerDatabase) Has(key []byte) (bool, error) {
 		return err
 	})
 	if err != nil {
-		if err == badger.ErrKeyNotFound {
+		if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 			return false, nil
 		}
 		return false, err
@@ -66,7 +61,7 @@ func (db *BadgerDatabase) Get(key []byte) ([]byte, error) {
 	err := db.db.View(func(txn *badger.Txn) error {
 		unmarshal, err := txn.Get(key)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 				return store.ErrKeyNotFound
 			}
 			return err
@@ -81,16 +76,22 @@ func (db *BadgerDatabase) Get(key []byte) ([]byte, error) {
 
 // Delete deletes the key from the database
 func (db *BadgerDatabase) Delete(key []byte) error {
-	return db.db.Update(func(txn *badger.Txn) error {
+	err := db.db.Update(func(txn *badger.Txn) error {
 		return txn.Delete(key)
 	})
+	if err != nil {
+		if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
+			return store.ErrKeyNotFound
+		}
+	}
+	return err
 }
 
 func (db *BadgerDatabase) Reference(key []byte) error {
 	return db.db.Update(func(txn *badger.Txn) error {
 		unmarshal, err := txn.Get(key)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 				return store.ErrKeyNotFound
 			}
 			return err
@@ -117,7 +118,7 @@ func (db *BadgerDatabase) Dereference(key []byte) error {
 	return db.db.Update(func(txn *badger.Txn) error {
 		unmarshal, err := txn.Get(key)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 				return store.ErrKeyNotFound
 			}
 			return err
@@ -148,7 +149,7 @@ func (db *BadgerDatabase) CountReference(key []byte) (int, error) {
 	err := db.db.View(func(txn *badger.Txn) error {
 		unmarshal, err := txn.Get(key)
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
+			if err == badger.ErrKeyNotFound || err == badger.ErrEmptyKey {
 				return store.ErrKeyNotFound
 			}
 			return err
