@@ -31,7 +31,7 @@ func runInit(cmd *cobra.Command, args []string) {
 		log.WithFields(log.Fields{"err": err, "path": cfgPath}).Fatal("Failed to create config folder")
 	}
 
-	if err := consensus.WriteGenesisCheckpoint(path.Join(cfgPath, "checkpoint.json")); err != nil {
+	if err := consensus.WriteGenesisCheckpoint(path.Join(cfgPath, "genesis")); err != nil {
 		log.WithFields(log.Fields{"err": err, "path": cfgPath}).Fatal("Failed to write genesis checkpoint")
 	}
 

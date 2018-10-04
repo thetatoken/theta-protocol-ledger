@@ -24,6 +24,12 @@ import (
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
+var logger *log.Entry
+
+func init() {
+	logger = util.GetLoggerForModule("consensus")
+}
+
 var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
 // ConsensusEngine is the default implementation of the Engine interface.
@@ -75,7 +81,6 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		validatorManager: validatorManager,
 	}
 
-	logger := util.GetLoggerForModule("consensus")
 	if viper.GetBool(common.CfgLogPrintSelfID) {
 		logger = logger.WithFields(log.Fields{"id": network.ID()})
 	}

@@ -1,8 +1,10 @@
 package consensus
 
 import (
+	"bytes"
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
@@ -10,6 +12,7 @@ import (
 )
 
 type StateStub struct {
+	Root               common.Bytes
 	HighestCCBlock     common.Bytes
 	LastFinalizedBlock common.Bytes
 	LastVoteHeight     uint32
@@ -41,6 +44,7 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
+		epoch:              chain.Root.Epoch,
 	}
 	err := s.Load()
 	if err != nil {
@@ -72,6 +76,7 @@ func (s *State) commit() error {
 	stub := &StateStub{
 		LastVoteHeight: s.lastVoteHeight,
 		Epoch:          s.epoch,
+		Root:           s.chain.Root.Hash,
 	}
 	if s.highestCCBlock != nil {
 		stub.HighestCCBlock = s.highestCCBlock.Hash
@@ -88,6 +93,15 @@ func (s *State) Load() (err error) {
 	key := []byte(DBStateStubKey)
 	stub := &StateStub{}
 	s.db.Get(key, stub)
+
+	if bytes.Compare(stub.Root, s.chain.Root.Hash) != 0 {
+		logger.WithFields(log.Fields{
+			"stub.Root":  stub.Root,
+			"chain.Root": s.chain.Root.Hash,
+		}).Warn("Ignoring previous consensus state since it is on a different root")
+		s.SetTip()
+		return
+	}
 
 	s.lastVoteHeight = stub.LastVoteHeight
 	s.epoch = stub.Epoch

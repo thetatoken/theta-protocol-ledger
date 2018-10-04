@@ -50,7 +50,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		return val, errors.New("Block has already been added")
 	}
 
-	if block.Parent != nil {
+	if len(block.Parent) != 0 {
 		var parentBlock core.ExtendedBlock
 		err = ch.store.Get(block.Parent, &parentBlock)
 		if err == store.ErrKeyNotFound {

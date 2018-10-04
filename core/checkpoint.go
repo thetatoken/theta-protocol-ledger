@@ -1,9 +1,17 @@
 package core
 
-// Checkpoint contains metadata of a snapshot of system state.
+import "github.com/thetatoken/ukulele/common"
+
+type KVPair struct {
+	Key   common.Bytes
+	Value common.Bytes
+}
+
 type Checkpoint struct {
-	ChainID    string   `json:"chain_id"`
-	Epoch      uint32   `json:"epoch"`
-	Hash       string   `json:"hash"`
-	Validators []string `json:"validators"`
+	FirstBlock  *Block             `rlp:"nil"`
+	FirstCC     *CommitCertificate `rlp:"nil"`
+	SecondBlock *Block             `rlp:"nil"`
+	SecondCC    *CommitCertificate `rlp:"nil"`
+	LedgerState []KVPair
+	Validators  []string `json:"validators"`
 }
