@@ -1,3 +1,5 @@
+// +build cluster_deployment
+
 package treestore
 
 import (
