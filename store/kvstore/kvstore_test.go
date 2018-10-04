@@ -1,3 +1,5 @@
+// +build cluster_deployment
+
 package kvstore
 
 import (

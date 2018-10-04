@@ -251,7 +251,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch write %q failed")
+		t.Fatal("batch write failed")
 	}
 
 	for _, v := range testValues {
@@ -282,7 +282,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch write %q failed")
+		t.Fatal("batch write failed")
 	}
 
 	for _, v := range testValues {
@@ -303,7 +303,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch delete %q failed")
+		t.Fatal("batch delete failed")
 	}
 
 	for _, v := range testValues {

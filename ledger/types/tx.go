@@ -405,7 +405,7 @@ func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *SplitContractTx) String() string {
-	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
+	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------

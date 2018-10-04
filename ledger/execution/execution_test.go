@@ -108,7 +108,7 @@ func TestValidateInputsBasic(t *testing.T) {
 	res := validateInputsBasic(inputs)
 	assert.True(res.IsOK(), "validateInputsBasic: expected no error on good tx input. Error: %v", res.Message)
 
-	t.Logf("inputs[0].Coins = ", inputs[0].Coins)
+	t.Log("inputs[0].Coins = ", inputs[0].Coins)
 	inputs[0].Coins[0].Amount = 0
 	res = validateInputsBasic(inputs)
 	//assert.True(res.IsError(), "validateInputsBasic: expected error on bad tx input")
