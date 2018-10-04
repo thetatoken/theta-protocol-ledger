@@ -17,10 +17,10 @@ type StateStub struct {
 }
 
 const (
-	DBStateStubKey       = "consensus:state_stub"
-	DBVoteByHeightPrefix = "consensus:vote_by_height"
-	DBVoteByBlockPrefix  = "consensus:vote_by_block"
-	DBEpochVotesKey      = "consensus:epoch_votes"
+	DBStateStubKey       = "cs/ss"
+	DBVoteByHeightPrefix = "cs/vbh/"
+	DBVoteByBlockPrefix  = "cs/vbb/"
+	DBEpochVotesKey      = "cs/ev"
 )
 
 type State struct {

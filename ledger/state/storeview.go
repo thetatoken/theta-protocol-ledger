@@ -165,3 +165,7 @@ func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool
 
 	return true
 }
+
+func (sv *StoreView) GetStore() *treestore.TreeStore {
+	return sv.store
+}

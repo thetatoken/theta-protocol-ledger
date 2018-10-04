@@ -205,7 +205,7 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
 type TestLedger struct {
 }
 
-func (tl *TestLedger) CheckTx(rawTx common.Bytes) result.Result {
+func (tl *TestLedger) ScreenTx(rawTx common.Bytes) result.Result {
 	return result.OK
 }
 

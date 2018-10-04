@@ -23,8 +23,9 @@ type LedgerState struct {
 	slashIntents                []types.SlashIntent
 	validatorsDiff              []*core.Validator
 
-	delivered *StoreView
-	checked   *StoreView
+	delivered *StoreView // for actually applying the transactions
+	checked   *StoreView // for block proposal check
+	screened  *StoreView // for mempool screening
 }
 
 // NewLedgerState creates a new Leger State with given store.
@@ -46,11 +47,17 @@ func (s *LedgerState) ResetState(height uint32, stateRootHash common.Hash) bool 
 		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
 	}
 	s.delivered = storeview
-	copiedStoreView, err := s.delivered.Copy()
+
+	var err error
+	s.checked, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to set ledger state: %v", err))
+		panic(fmt.Sprintf("Failed to copy to the checked view: %v", err))
 	}
-	s.checked = copiedStoreView
+	s.screened, err = s.delivered.Copy()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to copy to the screened view: %v", err))
+	}
+
 	s.coinbaseTransactinProcessed = false
 	s.slashIntents = []types.SlashIntent{}
 	s.validatorsDiff = []*core.Validator{}
@@ -119,16 +126,26 @@ func (s *LedgerState) Checked() *StoreView {
 	return s.checked
 }
 
+// Screened creates a fresh clone of delivered view to be used for checking transcations.
+func (s *LedgerState) Screened() *StoreView {
+	return s.screened
+}
+
 // Commit stores the current delivered view as committed, starts new delivered/checked state and
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
 	s.delivered.IncrementHeight()
-	copiedView, err := s.delivered.Copy()
+
+	var err error
+	s.checked, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Errorf("Failed to copy the delivered store view: %v", err))
+		panic(fmt.Errorf("Commit: failed to copy to the checked view: %v", err))
 	}
-	s.checked = copiedView
+	s.screened, err = s.delivered.Copy()
+	if err != nil {
+		panic(fmt.Errorf("Commit: failed to copy to the screened view: %v", err))
+	}
 	return hash
 }
 

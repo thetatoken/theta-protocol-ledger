@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 
 	"github.com/thetatoken/ukulele/common"
@@ -86,23 +87,43 @@ func (pk *PublicKey) IsEmpty() bool {
 	return isEmpty
 }
 
-// VerifySignature verifies the signature with the public key
+// VerifySignature verifies the signature with the public key (using ecrecover)
 func (pk *PublicKey) VerifySignature(msg common.Bytes, sig *Signature) bool {
 	if sig == nil {
 		return false
 	}
 
-	// https://github.com/ethereum/go-ethereum/blob/master/crypto/secp256k1/secp256.go#L52
-	// signature should be 65 bytes long, where the 64th byte is the recovery id
-	sigBytes := sig.ToBytes()
-	if len(sigBytes) != 65 {
+	msgHash := keccak256(msg)
+	recoveredUncompressedPubKey, err := ecrecover(msgHash, sig.ToBytes())
+	if err != nil {
 		return false
 	}
 
-	msgHash := keccak256(msg)
-	isValid := verifySignature(pk.ToBytes(), msgHash, sigBytes[:64])
-	return isValid
+	uncompressedPubKey := pk.ToBytes()
+	if bytes.Compare(recoveredUncompressedPubKey, uncompressedPubKey) != 0 {
+		return false
+	}
+
+	return true
 }
+
+// // VerifySignature verifies the signature with the public key (using secp256k1.VerifySignature)
+// func (pk *PublicKey) VerifySignature(msg common.Bytes, sig *Signature) bool {
+// 	if sig == nil {
+// 		return false
+// 	}
+
+// 	// https://github.com/ethereum/go-ethereum/blob/master/crypto/secp256k1/secp256.go#L52
+// 	// signature should be 65 bytes long, where the 64th byte is the recovery id
+// 	sigBytes := sig.ToBytes()
+// 	if len(sigBytes) != 65 {
+// 		return false
+// 	}
+
+// 	msgHash := keccak256(msg)
+// 	isValid := verifySignature(pk.ToBytes(), msgHash, sigBytes[:64])
+// 	return isValid
+// }
 
 //
 // Signature represents the digital signature

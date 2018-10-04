@@ -50,6 +50,7 @@ func GetLoggerForModule(module string) *log.Entry {
 	log.SetFormatter(customFormatter)
 	customFormatter.FullTimestamp = true
 	customFormatter.ForceFormatting = true
+	customFormatter.ForceColors = true
 
 	logger := log.New()
 	logger.Formatter = customFormatter

@@ -230,6 +230,28 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"e.epoch":     e.GetEpoch(),
 		}).Debug("Received block from another epoch")
 	}
+
+	parent, err := e.chain.FindBlock(block.Parent)
+	if err != nil {
+		e.logger.WithFields(log.Fields{
+			"error":  err,
+			"parent": block.Parent,
+			"block":  block.Hash,
+		}).Error("Failed to find parent block")
+		return
+	}
+	e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
+	result := e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":           result.String(),
+			"parent":          block.Parent,
+			"block":           block.Hash,
+			"block.StateHash": block.StateHash,
+		}).Error("Failed to apply block Txs")
+		return
+	}
+
 	e.vote()
 }
 

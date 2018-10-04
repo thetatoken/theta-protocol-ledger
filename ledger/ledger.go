@@ -44,8 +44,8 @@ func NewLedger(chainID string, db database.Database, consensus core.ConsensusEng
 	return ledger
 }
 
-// CheckTx checks the validity of the given transaction
-func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
+// ScreenTx screens the given transaction
+func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
 	var tx types.Tx
 	tx, err := types.TxFromBytes(rawTx)
 	if err != nil {
@@ -57,7 +57,7 @@ func (ledger *Ledger) CheckTx(rawTx common.Bytes) result.Result {
 			WithErrorCode(result.CodeUnauthorizedTx)
 	}
 
-	_, res := ledger.executor.CheckTx(tx)
+	_, res := ledger.executor.ScreenTx(tx)
 	return res
 }
 
@@ -82,9 +82,11 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 			continue
 		}
 		_, res := ledger.executor.CheckTx(tx)
-		if res.IsOK() {
-			blockRawTxs = append(blockRawTxs, rawTxCandidate)
+		if res.IsError() {
+			log.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
+			continue
 		}
+		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
 	stateRootHash = ledger.state.Checked().Hash()

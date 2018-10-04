@@ -27,7 +27,7 @@ func TestLedgerSetup(t *testing.T) {
 	assert.NotNil(mempool)
 }
 
-func TestLedgerCheckTx(t *testing.T) {
+func TestLedgerScreenTx(t *testing.T) {
 	assert := assert.New(t)
 
 	chainID, ledger, _ := newTestLedger()
@@ -35,11 +35,11 @@ func TestLedgerCheckTx(t *testing.T) {
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
 	sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[0])
-	res := ledger.CheckTx(sendTxBytes)
+	res := ledger.ScreenTx(sendTxBytes)
 	assert.True(res.IsOK(), res.Message)
 
 	coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
-	res = ledger.CheckTx(coinbaseTxBytes)
+	res = ledger.ScreenTx(coinbaseTxBytes)
 	assert.Equal(result.CodeUnauthorizedTx, res.Code, res.Message)
 }
 
