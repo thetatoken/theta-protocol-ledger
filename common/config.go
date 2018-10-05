@@ -1,11 +1,6 @@
 package common
 
 import (
-	"fmt"
-	"os"
-	"path"
-
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
@@ -67,17 +62,6 @@ func init() {
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
-}
-
-// GetDefaultConfigPath returns the default config path.
-func GetDefaultConfigPath() string {
-	// Find home directory.
-	home, err := homedir.Dir()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	return path.Join(home, ".ukulele")
 }
 
 // WriteInitialConfig writes initial config file to file system.

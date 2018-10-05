@@ -3,11 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/key"
-	"github.com/thetatoken/ukulele/common"
 )
 
 var cfgPath string
@@ -31,7 +32,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", "config path (default is $HOME/.banjo/)")
+	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 
 	rootCmd.AddCommand(key.KeyCmd)
 }
@@ -39,7 +40,7 @@ func init() {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	if cfgPath == "" {
-		cfgPath = common.GetDefaultConfigPath()
+		cfgPath = getDefaultConfigPath()
 	}
 	viper.AddConfigPath(cfgPath)
 
@@ -52,4 +53,13 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+func getDefaultConfigPath() string {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return path.Join(home, ".banjo")
 }
