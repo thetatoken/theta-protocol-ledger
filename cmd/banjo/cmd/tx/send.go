@@ -47,23 +47,25 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{{
-			Amount: thetaAmountFlag,
-			Denom:  types.DenomThetaWei,
-		}, {
 			Amount: gammaAmountFlag + feeInGammaFlag,
 			Denom:  types.DenomGammaWei,
+		}, {
+			Amount: thetaAmountFlag,
+			Denom:  types.DenomThetaWei,
 		}},
 		Sequence: seqFlag,
-		PubKey:   privKey.PublicKey(),
 	}}
+	if seqFlag == 1 {
+		inputs[0].PubKey = privKey.PublicKey()
+	}
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{{
-			Amount: thetaAmountFlag,
-			Denom:  types.DenomThetaWei,
-		}, {
 			Amount: gammaAmountFlag,
 			Denom:  types.DenomGammaWei,
+		}, {
+			Amount: thetaAmountFlag,
+			Denom:  types.DenomThetaWei,
 		}},
 	}}
 	sendTx := &types.SendTx{
