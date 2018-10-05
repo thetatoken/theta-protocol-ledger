@@ -40,7 +40,7 @@ func createNewKey(cfgPath string) (*crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("%s must have permission set to 0700", dirPath)
 	}
 
-	filePath := path.Join(dirPath, pubKey.Address().Hex())
+	filePath := path.Join(dirPath, pubKey.Address().Hex()[2:])
 	err = privKey.SaveToFile(filePath)
 	return privKey, err
 }

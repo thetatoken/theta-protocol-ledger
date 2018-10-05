@@ -4,7 +4,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// KeyNewCmd represents the keyNew command
+// KeyCmd represents the key command
 var KeyCmd = &cobra.Command{
 	Use:   "key",
 	Short: "Manage keys",

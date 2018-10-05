@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/key"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/tx"
 )
 
 var cfgPath string
@@ -35,6 +36,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 
 	rootCmd.AddCommand(key.KeyCmd)
+	rootCmd.AddCommand(tx.TxCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
