@@ -13,6 +13,7 @@ import (
 	mp "github.com/thetatoken/ukulele/mempool"
 	"github.com/thetatoken/ukulele/netsync"
 	"github.com/thetatoken/ukulele/p2p"
+	"github.com/thetatoken/ukulele/rpc"
 	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/kvstore"
@@ -28,6 +29,7 @@ type Node struct {
 	Network          p2p.Network
 	Ledger           core.Ledger
 	Mempool          *mp.Mempool
+	RPC              *rpc.ThetaRPCServer
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -59,6 +61,7 @@ func NewNode(params *Params) *Node {
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
+	rpcServer := rpc.NewThetaRPCServer(mempool)
 
 	return &Node{
 		Store:            store,
@@ -70,6 +73,7 @@ func NewNode(params *Params) *Node {
 		Network:          params.Network,
 		Ledger:           ledger,
 		Mempool:          mempool,
+		RPC:              rpcServer,
 	}
 }
 
@@ -83,6 +87,7 @@ func (n *Node) Start(ctx context.Context) {
 	n.SyncManager.Start(n.ctx)
 	n.Network.Start()
 	n.Mempool.Start()
+	n.RPC.Start(n.ctx)
 }
 
 // Stop notifies all sub components to stop without blocking.
@@ -94,4 +99,5 @@ func (n *Node) Stop() {
 func (n *Node) Wait() {
 	n.Consensus.Wait()
 	n.SyncManager.Wait()
+	n.RPC.Wait()
 }

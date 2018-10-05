@@ -30,7 +30,12 @@ const (
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 
-	// CfgLogDebug sets the log level.
+	// CfgRPCPort sets the port of RPC service.
+	CfgRPCPort = "rpc.port"
+	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
+	CfgRPCMaxConnections = "rpc.maxConnections"
+
+	// CfgLogLevels sets the log level.
 	CfgLogLevels = "log.levels"
 	// CfgLogPrintSelfID determines whether to print node's ID in log (Useful in simulation when
 	// there are more than one node running).
@@ -56,6 +61,9 @@ func init() {
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
+
+	viper.SetDefault(CfgRPCPort, "16888")
+	viper.SetDefault(CfgRPCMaxConnections, 200)
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)

@@ -1,8 +1,8 @@
-hash: a152d772428b1d48d8990e1989f7d51bffef758e933b852d311b48a440ed3c52
-updated: 2018-09-25T15:42:25.739874646-07:00
+hash: ad55a2aa33b33308bca20d982f7e621e29ccb11534ede5c3509246decd203f18
+updated: 2018-10-04T14:01:53.792860348-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
-  version: 7cb6228c3de365117a866ddd51ed124ce7405c2c
+  version: 506514fe33c61d0efcab7f89dc589c6b55664cea
   subpackages:
   - internal/lua
   - internal/lua/resources
@@ -32,6 +32,17 @@ imports:
   - protoc-gen-gogo/descriptor
 - name: github.com/golang/snappy
   version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
+- name: github.com/gorilla/context
+  version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
+- name: github.com/gorilla/handlers
+  version: 90663712d74cb411cbef281bc1e08c19d1a76145
+- name: github.com/gorilla/mux
+  version: e3702bed27f0d39777b0b37b664b6280e8ef8fbf
+- name: github.com/gorilla/rpc
+  version: 5c1378103183095acc1b9289ac1475e3bc1e818e
+  subpackages:
+  - v2
+  - v2/json2
 - name: github.com/hashicorp/hcl
   version: 8cb6e5b959231cc1119e43259c4a608f9c51a241
   subpackages:
@@ -67,9 +78,10 @@ imports:
 - name: github.com/mitchellh/mapstructure
   version: fa473d140ef3c6adf42d6b391fe76707f1f243c8
 - name: github.com/mongodb/mongo-go-driver
-  version: e9228a40a480a5403b7256fb755ab000ff754c35
+  version: 71de844febff6ac5b6fc6ba165e24e9677d2ee05
   subpackages:
   - bson
+  - bson/bsoncodec
   - bson/builder
   - bson/decimal
   - bson/elements
@@ -143,9 +155,9 @@ imports:
 - name: github.com/spf13/jwalterweatherman
   version: 14d3d4c518341bea657dd8a226f5121c0ff8c9f2
 - name: github.com/spf13/pflag
-  version: 9a97c102cda95a86cec2345a6f09f55a939babf5
+  version: 298182f68c66c05229eb03ac171abe6e309ee79a
 - name: github.com/spf13/viper
-  version: 8fb642006536c8d3760c99d4fa2389f5e2205631
+  version: 2c12c60302a5a0e62ee102ca9bc996277c2f64f5
 - name: github.com/stretchr/testify
   version: f35b8ab0b5a2cef36673838d662e249dd9c94686
   subpackages:
@@ -170,6 +182,8 @@ imports:
   version: 7eeb5667e42c09cb51bf7b7c28aea8c56767da90
 - name: github.com/xdg/stringprep
   version: 73f8eece6fdcd902c185bf651de50f3828bed5ed
+- name: github.com/ybbus/jsonrpc
+  version: 649ede3181b7a6d7329afc6612b494434c641499
 - name: github.com/yuin/gopher-lua
   version: b942cacc89fe49895d145e8b360612a9a51d0423
   subpackages:
@@ -185,6 +199,7 @@ imports:
   version: 92b859f39abd2d91a854c9f9c4621b2f5054a92d
   subpackages:
   - context
+  - netutil
 - name: golang.org/x/sync
   version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
   subpackages:

@@ -48,7 +48,6 @@ type ConsensusEngine struct {
 
 	// Life cycle
 	wg      *sync.WaitGroup
-	quit    chan struct{}
 	ctx     context.Context
 	cancel  context.CancelFunc
 	stopped bool
@@ -72,8 +71,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 
-		wg:   &sync.WaitGroup{},
-		quit: make(chan struct{}),
+		wg: &sync.WaitGroup{},
 
 		mu:    &sync.Mutex{},
 		state: NewState(db, chain),
