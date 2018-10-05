@@ -32,16 +32,13 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 
 	rootCmd.AddCommand(key.KeyCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgPath == "" {
-		cfgPath = getDefaultConfigPath()
-	}
 	viper.AddConfigPath(cfgPath)
 
 	// Search config (without extension).
