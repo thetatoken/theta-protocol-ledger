@@ -57,8 +57,7 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view types.ViewDataGette
 
 	outTotal := sumOutputs(tx.Outputs)
 	outPlusFees := outTotal
-	fees := types.Coins{tx.Fee}
-	outPlusFees = outTotal.Plus(fees)
+	outPlusFees = outTotal.Plus(tx.Fee)
 	if !inTotal.IsEqual(outPlusFees) {
 		return result.Error("Input total (%v) != output total + fees (%v)", inTotal, outPlusFees)
 	}

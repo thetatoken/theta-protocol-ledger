@@ -2,7 +2,6 @@ package execution
 
 import (
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
@@ -54,10 +53,8 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 		return res
 	}
 
-	for _, transferAmount := range tx.Source.Coins {
-		if strings.Compare(transferAmount.Denom, types.DenomGammaWei) != 0 {
-			return result.Error("Cannot send %s as service payment!", transferAmount.Denom)
-		}
+	if tx.Source.Coins.ThetaWei != 0 {
+		return result.Error("Cannot send ThetaWei as service payment!")
 	}
 
 	// Verify source

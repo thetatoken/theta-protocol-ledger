@@ -79,11 +79,11 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
 
-	initCoin := types.Coin{"CoolToken", int64(786)}
+	initCoin := types.Coins{ThetaWei: int64(786)}
 	acc1 := &types.Account{
 		PubKey:   pubKey,
 		Sequence: 173,
-		Balance:  types.Coins{initCoin},
+		Balance:  initCoin,
 	}
 	acc1Addr := acc1.PubKey.Address()
 

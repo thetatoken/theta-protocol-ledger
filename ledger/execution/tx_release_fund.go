@@ -54,7 +54,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 		return result.Error("invalid fee")
 	}
 
-	minimalBalance := types.Coins{tx.Fee}
+	minimalBalance := tx.Fee
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
 		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)

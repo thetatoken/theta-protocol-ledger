@@ -204,7 +204,7 @@ func (tx *SlashTx) String() string {
 
 type SendTx struct {
 	Gas     int64      `json:"gas"` // Gas
-	Fee     Coin       `json:"fee"` // Fee
+	Fee     Coins      `json:"fee"` // Fee
 	Inputs  []TxInput  `json:"inputs"`
 	Outputs []TxOutput `json:"outputs"`
 }
@@ -243,7 +243,7 @@ func (tx *SendTx) String() string {
 
 type ReserveFundTx struct {
 	Gas         int64    `json:"gas"`          // Gas
-	Fee         Coin     `json:"fee"`          // Fee
+	Fee         Coins    `json:"fee"`          // Fee
 	Source      TxInput  `json:"source"`       // Source account
 	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
 	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
@@ -277,7 +277,7 @@ func (tx *ReserveFundTx) String() string {
 
 type ReleaseFundTx struct {
 	Gas             int64   `json:"gas"`    // Gas
-	Fee             Coin    `json:"fee"`    // Fee
+	Fee             Coins   `json:"fee"`    // Fee
 	Source          TxInput `json:"source"` // source account
 	ReserveSequence int     `json:"reserve_sequence"`
 }
@@ -309,7 +309,7 @@ func (tx *ReleaseFundTx) String() string {
 
 type ServicePaymentTx struct {
 	Gas             int64   `json:"gas"`              // Gas
-	Fee             Coin    `json:"fee"`              // Fee
+	Fee             Coins   `json:"fee"`              // Fee
 	Source          TxInput `json:"source"`           // source account
 	Target          TxInput `json:"target"`           // target account
 	PaymentSequence int     `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
@@ -329,7 +329,7 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 
 	tx.Source = TxInput{Address: source.Address, Coins: source.Coins}
 	tx.Target = TxInput{Address: target.Address}
-	tx.Fee = Coin{}
+	tx.Fee = Coins{}
 	tx.Gas = int64(0)
 
 	signBytes = append(signBytes, TxToBytes(tx)...)
@@ -378,7 +378,7 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 
 type SplitContractTx struct {
 	Gas        int64        `json:"gas"`         // Gas
-	Fee        Coin         `json:"fee"`         // Fee
+	Fee        Coins        `json:"fee"`         // Fee
 	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
 	Splits     []Split      `json:"splits"`      // Agreed splits
@@ -412,7 +412,7 @@ func (tx *SplitContractTx) String() string {
 
 type UpdateValidatorsTx struct {
 	Gas        int64             `json:"gas"`        // Gas
-	Fee        Coin              `json:"fee"`        // Fee
+	Fee        Coins             `json:"fee"`        // Fee
 	Validators []*core.Validator `json:"validators"` // validators diff
 	Proposer   TxInput           `json:"source"`     // source account
 }

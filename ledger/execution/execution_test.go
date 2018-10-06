@@ -45,7 +45,7 @@ func TestGetInputs(t *testing.T) {
 	inputs = types.Accs2TxInputs(1, et.accIn)
 	acc, res = getInputs(et.state(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
-	assert.True(acc[string(inputs[0].Address[:])].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
+	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei > et.accIn.Balance.GammaWei,
 		"getInputs: expected to update input account gamma balance")
 }
 
@@ -90,12 +90,12 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	et.acc2State(et.accIn)
 	mapRes1, res := getOrMakeOutputs(et.state(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
-	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GetGammaWei().Amount > et.accIn.Balance.GetGammaWei().Amount,
+	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei > et.accIn.Balance.GammaWei,
 		"getOrMakeOutputs: expected to update existing output account gamma balance")
 
 	mapRes2, res = getOrMakeOutputs(et.state(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
-	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.GetGammaWei().Amount == 0,
+	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.GammaWei == 0,
 		"getOrMakeOutputs: expected to not update new output account gamma balance")
 }
 
@@ -109,10 +109,10 @@ func TestValidateInputsBasic(t *testing.T) {
 	assert.True(res.IsOK(), "validateInputsBasic: expected no error on good tx input. Error: %v", res.Message)
 
 	t.Log("inputs[0].Coins = ", inputs[0].Coins)
-	inputs[0].Coins[0].Amount = 0
+	inputs[0].Coins.ThetaWei = -1
 	res = validateInputsBasic(inputs)
 	//assert.True(res.IsError(), "validateInputsBasic: expected error on bad tx input")
-	assert.True(res.IsOK(), "validateInputsBasic: expected error on bad tx input") // now inputs[0].Coins has two types of coins
+	assert.True(res.IsOK(), "validateInputsBasic: expected error on bad tx input")
 }
 
 func TestValidateInputsAdvanced(t *testing.T) {
@@ -176,7 +176,7 @@ func TestValidateInputAdvanced(t *testing.T) {
 	et.accIn.Sequence = 0 //restore sequence
 
 	//bad balance case
-	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}
+	et.accIn.Balance = types.Coins{ThetaWei: 2}
 	et.signSendTx(tx, et.accIn, et.accOut)
 	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
 	assert.Equal(result.CodeInsufficientFund, res.Code,
@@ -192,7 +192,7 @@ func TestValidateOutputsBasic(t *testing.T) {
 	res := validateOutputsBasic(tx)
 	assert.True(res.IsOK(), "validateOutputsBasic: expected no error on good tx output. Error: %v", res.Message)
 
-	tx[0].Coins[0].Amount = 0
+	tx[0].Coins.ThetaWei = -1
 	res = validateOutputsBasic(tx)
 	assert.True(res.IsError(), "validateInputBasic: expected error on bad tx output. Error: %v", res.Message)
 }
@@ -249,7 +249,7 @@ func TestSendTx(t *testing.T) {
 	et.signSendTx(tx, et.accIn)
 
 	//Bad Balance
-	et.accIn.Balance = types.Coins{{Denom: "ThetaWei", Amount: 2}}
+	et.accIn.Balance = types.Coins{ThetaWei: 2}
 	et.acc2State(et.accIn)
 	res, _, _, _, _ := et.execSendTx(tx, true)
 	assert.True(res.IsError(), "ExecTx/Bad CheckTx: Expected error return from ExecTx, returned: %v", res)
@@ -284,7 +284,7 @@ func TestCalculateThetaReward(t *testing.T) {
 	assert := assert.New(t)
 
 	res := calculateThetaReward(1e17, true)
-	assert.True(res.Amount > 0)
+	assert.True(res.ThetaWei > 0)
 }
 
 func TestNonEmptyPubKey(t *testing.T) {
@@ -378,15 +378,15 @@ func TestCoinbaseTx(t *testing.T) {
 	et := newExecTest()
 
 	va1 := et.accProposer
-	va1.Balance = types.Coins{{"ThetaWei", 1e11}}
+	va1.Balance = types.Coins{ThetaWei: 1e11}
 	et.acc2State(va1)
 
 	va2 := et.accVal2
-	va2.Balance = types.Coins{{"ThetaWei", 3e11}}
+	va2.Balance = types.Coins{ThetaWei: 3e11}
 	et.acc2State(va2)
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{{"ThetaWei", 1e11}}
+	user1.Balance = types.Coins{ThetaWei: 1e11}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -399,9 +399,9 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			va2.Account.PubKey.Address(), types.Coins{{"ThetaWei", 951}},
+			va2.Account.PubKey.Address(), types.Coins{ThetaWei: 951},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -415,9 +415,9 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			va2.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va2.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -429,9 +429,9 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			va2.Account.PubKey.Address(), types.Coins{{"ThetaWei", 951}, {"GammaWei", 1}},
+			va2.Account.PubKey.Address(), types.Coins{ThetaWei: 951, GammaWei: 1},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -443,7 +443,7 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -455,11 +455,11 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			va2.Account.PubKey.Address(), types.Coins{{"ThetaWei", 951}},
+			va2.Account.PubKey.Address(), types.Coins{ThetaWei: 951},
 		}, {
-			user1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			user1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -471,9 +471,9 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			user1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			user1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -485,9 +485,9 @@ func TestCoinbaseTx(t *testing.T) {
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.Coins{{"ThetaWei", 317}},
+			va1.Account.PubKey.Address(), types.Coins{ThetaWei: 317},
 		}, {
-			va2.Account.PubKey.Address(), types.Coins{{"ThetaWei", 951}},
+			va2.Account.PubKey.Address(), types.Coins{ThetaWei: 951},
 		}},
 		BlockHeight: 1e7,
 	}
@@ -496,16 +496,16 @@ func TestCoinbaseTx(t *testing.T) {
 	assert.True(res.IsOK(), res.String())
 
 	va1balance := et.state().GetAccount(va1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000317), va1balance.GetThetaWei().Amount)
+	assert.Equal(int64(100000000317), va1balance.ThetaWei)
 	// validator's Gamma is also updated.
-	assert.Equal(int64(189999981000), va1balance.GetGammaWei().Amount)
+	assert.Equal(int64(189999981000), va1balance.GammaWei)
 
 	va2balance := et.state().GetAccount(va2.Account.PubKey.Address()).Balance
-	assert.Equal(int64(300000000951), va2balance.GetThetaWei().Amount)
-	assert.Equal(int64(569999943000), va2balance.GetGammaWei().Amount)
+	assert.Equal(int64(300000000951), va2balance.ThetaWei)
+	assert.Equal(int64(569999943000), va2balance.GammaWei)
 
 	user1balance := et.state().GetAccount(user1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000000), user1balance.GetThetaWei().Amount)
+	assert.Equal(int64(100000000000), user1balance.ThetaWei)
 	// user's Gamma is not updated.
-	assert.Equal(int64(0), user1balance.GetGammaWei().Amount)
+	assert.Equal(int64(0), user1balance.GammaWei)
 }

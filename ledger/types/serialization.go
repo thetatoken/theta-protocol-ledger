@@ -220,44 +220,16 @@ func SplitContractToProto(sc *SplitContract) *s.SplitContract {
 	return splitContract
 }
 
-// ----------------  Coin   -------------------
-
-func CoinFromProto(coin *s.Coin) *Coin {
-	c := &Coin{}
-	c.Denom = coin.Denom
-	c.Amount = coin.Amount
-	return c
-}
-
-func CoinToProto(c *Coin) *s.Coin {
-	coin := &s.Coin{}
-	coin.Amount = c.Amount
-	coin.Denom = c.Denom
-	return coin
-}
-
 // ----------------  Coins   -------------------
 
 func CoinsFromProto(coins []*s.Coin) Coins {
-	if coins == nil {
-		return nil
-	}
-	cc := Coins{}
-	for _, coin := range coins {
-		cc = append(cc, *CoinFromProto(coin))
-	}
-	return cc
+	// FIXME
+	return Coins{}
 }
 
 func CoinsToProto(cc Coins) []*s.Coin {
-	if cc == nil {
-		return nil
-	}
-	coins := []*s.Coin{}
-	for _, c := range cc {
-		coins = append(coins, CoinToProto(&c))
-	}
-	return coins
+	// FIXME
+	return []*s.Coin{}
 }
 
 // ---------------- TransferRecord --------------
@@ -485,7 +457,8 @@ func SlashTxToProto(t *SlashTx) *s.SlashTx {
 func SendTxFromProto(tx *s.SendTx) *SendTx {
 	st := &SendTx{}
 	st.Gas = tx.Gas
-	st.Fee = *CoinFromProto(tx.Fee)
+	// FIXME
+	// st.Fee = *CoinsFromProto(tx.Fee)
 	for _, input := range tx.Inputs {
 		st.Inputs = append(st.Inputs, *InputFromProto(input))
 	}
@@ -498,7 +471,8 @@ func SendTxFromProto(tx *s.SendTx) *SendTx {
 func SendTxToProto(st *SendTx) *s.SendTx {
 	tx := &s.SendTx{}
 	tx.Gas = st.Gas
-	tx.Fee = CoinToProto(&st.Fee)
+	// FIXME
+	// tx.Fee = CoinToProto(&st.Fee)
 	for _, input := range st.Inputs {
 		tx.Inputs = append(tx.Inputs, InputToProto(&input))
 	}
@@ -513,7 +487,8 @@ func SendTxToProto(st *SendTx) *s.SendTx {
 func ReserveFundTxFromProto(tx *s.ReserveFundTx) *ReserveFundTx {
 	rf := &ReserveFundTx{}
 	rf.Gas = tx.Gas
-	rf.Fee = *CoinFromProto(tx.Fee)
+	// FIXME
+	// rf.Fee = *CoinFromProto(tx.Fee)
 	rf.Source = *InputFromProto(tx.Source)
 	rf.Collateral = CoinsFromProto(tx.Collateral)
 	for _, rsid := range tx.ResourceIDs {
@@ -526,7 +501,8 @@ func ReserveFundTxFromProto(tx *s.ReserveFundTx) *ReserveFundTx {
 func ReserveFundTxToProto(rf *ReserveFundTx) *s.ReserveFundTx {
 	tx := &s.ReserveFundTx{}
 	tx.Gas = rf.Gas
-	tx.Fee = CoinToProto(&rf.Fee)
+	// FIXME
+	// tx.Fee = CoinToProto(&rf.Fee)
 	tx.Source = InputToProto(&rf.Source)
 	tx.Collateral = CoinsToProto(rf.Collateral)
 	for _, rsid := range rf.ResourceIDs {
@@ -541,7 +517,8 @@ func ReserveFundTxToProto(rf *ReserveFundTx) *s.ReserveFundTx {
 func ReleaseFundTxFromProto(tx *s.ReleaseFundTx) *ReleaseFundTx {
 	rf := &ReleaseFundTx{}
 	rf.Gas = tx.Gas
-	rf.Fee = *CoinFromProto(tx.Fee)
+	// FIXME
+	// rf.Fee = *CoinFromProto(tx.Fee)
 	rf.Source = *InputFromProto(tx.Source)
 	rf.ReserveSequence = int(tx.ReserveSequence)
 	return rf
@@ -550,7 +527,8 @@ func ReleaseFundTxFromProto(tx *s.ReleaseFundTx) *ReleaseFundTx {
 func ReleaseFundTxToProto(rf *ReleaseFundTx) *s.ReleaseFundTx {
 	tx := &s.ReleaseFundTx{}
 	tx.Gas = rf.Gas
-	tx.Fee = CoinToProto(&rf.Fee)
+	// FIXME
+	// tx.Fee = CoinToProto(&rf.Fee)
 	tx.Source = InputToProto(&rf.Source)
 	tx.ReserveSequence = int64(rf.ReserveSequence)
 	return tx
@@ -561,7 +539,8 @@ func ReleaseFundTxToProto(rf *ReleaseFundTx) *s.ReleaseFundTx {
 func ServicePaymentTxFromProto(tx *s.ServicePaymentTx) *ServicePaymentTx {
 	sp := &ServicePaymentTx{}
 	sp.Gas = tx.Gas
-	sp.Fee = *CoinFromProto(tx.Fee)
+	// FIXME
+	// sp.Fee = *CoinFromProto(tx.Fee)
 	sp.Source = *InputFromProto(tx.Source)
 	sp.Target = *InputFromProto(tx.Target)
 	sp.PaymentSequence = int(tx.PaymentSequence)
@@ -573,7 +552,8 @@ func ServicePaymentTxFromProto(tx *s.ServicePaymentTx) *ServicePaymentTx {
 func ServicePaymentTxToProto(sp *ServicePaymentTx) *s.ServicePaymentTx {
 	tx := &s.ServicePaymentTx{}
 	tx.Gas = sp.Gas
-	tx.Fee = CoinToProto(&sp.Fee)
+	// FIXME
+	// tx.Fee = CoinToProto(&sp.Fee)
 	tx.Source = InputToProto(&sp.Source)
 	tx.Target = InputToProto(&sp.Target)
 	tx.PaymentSequence = int64(sp.PaymentSequence)
@@ -587,7 +567,8 @@ func ServicePaymentTxToProto(sp *ServicePaymentTx) *s.ServicePaymentTx {
 func SplitContractTxFromProto(tx *s.SplitContractTx) *SplitContractTx {
 	sc := &SplitContractTx{}
 	sc.Gas = tx.Gas
-	sc.Fee = *(CoinFromProto)(tx.Fee)
+	// FIXME
+	// sc.Fee = *(CoinFromProto)(tx.Fee)
 	sc.ResourceID = tx.ResourceID
 	sc.Initiator = *InputFromProto(tx.Initiator)
 	for _, sp := range tx.Splits {
@@ -600,7 +581,8 @@ func SplitContractTxFromProto(tx *s.SplitContractTx) *SplitContractTx {
 func SplitContractTxToProto(sc *SplitContractTx) *s.SplitContractTx {
 	tx := &s.SplitContractTx{}
 	tx.Gas = sc.Gas
-	tx.Fee = CoinToProto(&sc.Fee)
+	// FIXME
+	// tx.Fee = CoinToProto(&sc.Fee)
 	tx.ResourceID = sc.ResourceID
 	tx.Initiator = InputToProto(&sc.Initiator)
 	for _, sp := range sc.Splits {

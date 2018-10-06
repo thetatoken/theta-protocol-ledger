@@ -228,7 +228,7 @@ func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
 	}
 
-	totalThetaWei := acc.Balance.GetThetaWei().Amount
+	totalThetaWei := acc.Balance.ThetaWei
 	span := currentBlockHeight - acc.LastUpdatedBlockHeight
 
 	newGammaBalance := big.NewInt(int64(span))
@@ -241,19 +241,16 @@ func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
 		return
 	}
 
-	newGammaBalance.Add(newGammaBalance, big.NewInt(acc.Balance.GetGammaWei().Amount))
+	newGammaBalance.Add(newGammaBalance, big.NewInt(acc.Balance.GammaWei))
 
 	if !newGammaBalance.IsInt64() {
 		panic("Account Gamma balance will overflow")
 	}
 
-	newBalance := Coins{{
-		Denom:  DenomThetaWei,
-		Amount: acc.Balance.GetThetaWei().Amount,
-	}, {
-		Denom:  DenomGammaWei,
-		Amount: newGammaBalance.Int64(),
-	}}
+	newBalance := Coins{
+		ThetaWei: acc.Balance.ThetaWei,
+		GammaWei: newGammaBalance.Int64(),
+	}
 	acc.Balance = newBalance
 	acc.LastUpdatedBlockHeight = currentBlockHeight
 }

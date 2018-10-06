@@ -260,19 +260,15 @@ func adjustByOutputs(view types.ViewDataSetter, accounts map[string]*types.Accou
 	}
 }
 
-func sanityCheckForFee(fee types.Coin) bool {
-	success := true
-	success = success && (fee.Denom == types.DenomGammaWei)
-	success = success && (types.Coins{fee}.IsNonnegative())
-	return success
+func sanityCheckForFee(fee types.Coins) bool {
+	return fee.IsNonnegative()
 }
 
-func chargeFee(account *types.Account, fee types.Coin) bool {
-	feeCoins := types.Coins{fee}
-	if !account.Balance.IsGTE(feeCoins) {
+func chargeFee(account *types.Account, fee types.Coins) bool {
+	if !account.Balance.IsGTE(fee) {
 		return false
 	}
 
-	account.Balance = account.Balance.Minus(feeCoins)
+	account.Balance = account.Balance.Minus(fee)
 	return true
 }

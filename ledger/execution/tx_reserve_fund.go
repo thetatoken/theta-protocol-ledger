@@ -2,7 +2,6 @@ package execution
 
 import (
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -51,10 +50,8 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 		return res
 	}
 
-	for _, coin := range tx.Source.Coins {
-		if strings.Compare(coin.Denom, types.DenomGammaWei) != 0 {
-			return result.Error("Cannot reserve %s as service fund!", coin.Denom)
-		}
+	if tx.Source.Coins.ThetaWei != 0 {
+		return result.Error("Cannot reserve Theta as service fund!")
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
@@ -66,7 +63,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	duration := tx.Duration
 	reserveSequence := tx.Source.Sequence
 
-	minimalBalance := fund.Plus(collateral).Plus(types.Coins{tx.Fee})
+	minimalBalance := fund.Plus(collateral).Plus(tx.Fee)
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
 		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)

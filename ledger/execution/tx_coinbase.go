@@ -124,18 +124,15 @@ func CalculateReward(view types.ViewDataGetter, validatorAddresses []common.Addr
 
 		// FIXME: for now count the validator Theta balance as their Stake. Should implement
 		//        stake binding and slashing later!!!!
-		totalStakeInThetaWei := validatorAccount.Balance.GetThetaWei().Amount
+		totalStakeInThetaWei := validatorAccount.Balance.ThetaWei
 		thetaReward := calculateThetaReward(totalStakeInThetaWei, true)
-
-		reward := types.Coins{thetaReward}
-		reward.Sort()
-		accountReward[string(validatorAddress[:])] = reward
+		accountReward[string(validatorAddress[:])] = thetaReward
 	}
 
 	return accountReward
 }
 
-func calculateThetaReward(totalStakeInThetaWei int64, isValidator bool) types.Coin {
+func calculateThetaReward(totalStakeInThetaWei int64, isValidator bool) types.Coins {
 	thetaRewardAmountInWei := int64(0)
 	if isValidator {
 		tmp := big.NewInt(totalStakeInThetaWei)
@@ -146,6 +143,6 @@ func calculateThetaReward(totalStakeInThetaWei int64, isValidator bool) types.Co
 		}
 		thetaRewardAmountInWei = tmp.Int64()
 	}
-	thetaReward := types.Coin{Denom: types.DenomThetaWei, Amount: thetaRewardAmountInWei}
+	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei}
 	return thetaReward
 }

@@ -65,8 +65,8 @@ func newExecTest() *execTest {
 
 //reset everything. state is empty
 func (et *execTest) reset() {
-	et.accIn = types.MakeAccWithInitBalance("foo", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
-	et.accOut = types.MakeAccWithInitBalance("bar", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
+	et.accIn = types.MakeAccWithInitBalance("foo", types.Coins{GammaWei: 5, ThetaWei: 700000})
+	et.accOut = types.MakeAccWithInitBalance("bar", types.Coins{GammaWei: 5, ThetaWei: 700000})
 	et.accProposer = types.MakeAcc("proposer")
 	et.accVal2 = types.MakeAcc("val2")
 
@@ -130,7 +130,7 @@ func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Resu
 
 	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
 	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
-	decrBalInExp := tx.Outputs[0].Coins.Plus(types.Coins{tx.Fee}) //expected decrease in balance In
+	decrBalInExp := tx.Outputs[0].Coins.Plus(tx.Fee) //expected decrease in balance In
 	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
 }
 

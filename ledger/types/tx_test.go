@@ -17,15 +17,15 @@ func TestCoinbaseTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 
 	coinbaseTx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{{"", 0}}, 1),
+		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{{"", 333}},
+				Coins:   Coins{ThetaWei: 333},
 			},
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{{"", 444}},
+				Coins:   Coins{ThetaWei: 444},
 			},
 		},
 		BlockHeight: 10,
@@ -47,11 +47,11 @@ func TestCoinbaseTxProto(t *testing.T) {
 
 	// Construct a CoinbaseTx signature
 	tx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{{"", 0}}, 1),
+		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{{"foo", 8}},
+				Coins:   Coins{ThetaWei: 8},
 			},
 		},
 		BlockHeight: 10,
@@ -158,7 +158,7 @@ func TestCoinbaseTxRLP(t *testing.T) {
 func TestSlashTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 	slashTx := &SlashTx{
-		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{{"", 0}}, 1),
+		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		SlashedAddress:  getTestAddress("014FAB"),
 		ReserveSequence: 1,
 		SlashProof:      []byte("2345ABC"),
@@ -179,7 +179,7 @@ func TestSlashTxProto(t *testing.T) {
 
 	// Construct a SlashTx signature
 	tx := &SlashTx{
-		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{{"", 0}}, 1),
+		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		SlashedAddress:  getTestAddress("014FAB"),
 		ReserveSequence: 1,
 		SlashProof:      []byte("2345ABC"),
@@ -217,27 +217,27 @@ func TestSlashTxProto(t *testing.T) {
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
 		Gas: 222,
-		Fee: Coin{"", 111},
+		Fee: Coins{ThetaWei: 111},
 		Inputs: []TxInput{
 			TxInput{
 				Address:  getTestAddress("input1"),
-				Coins:    Coins{{"", 12345}},
+				Coins:    Coins{ThetaWei: 12345},
 				Sequence: 67890,
 			},
 			TxInput{
 				Address:  getTestAddress("input2"),
-				Coins:    Coins{{"", 111}},
+				Coins:    Coins{ThetaWei: 111},
 				Sequence: 222,
 			},
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("output1"),
-				Coins:   Coins{{"", 333}},
+				Coins:   Coins{ThetaWei: 333},
 			},
 			TxOutput{
 				Address: getTestAddress("output2"),
-				Coins:   Coins{{"", 444}},
+				Coins:   Coins{ThetaWei: 444},
 			},
 		},
 	}
@@ -259,14 +259,14 @@ func TestSendTxProto(t *testing.T) {
 	// Construct a SendTx signature
 	tx := &SendTx{
 		Gas: 1,
-		Fee: Coin{"foo", 2},
+		Fee: Coins{GammaWei: 2},
 		Inputs: []TxInput{
-			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"foo", 10}}, 1),
+			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: test2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{{"foo", 8}},
+				Coins:   Coins{GammaWei: 8},
 			},
 		},
 	}
@@ -303,13 +303,13 @@ func TestSendTxProto(t *testing.T) {
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
 		Gas: 222,
-		Fee: Coin{"", 111},
+		Fee: Coins{GammaWei: 111},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
-		Collateral:  Coins{{"", 22897}},
+		Collateral:  Coins{GammaWei: 22897},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint32(999),
 	}
@@ -331,9 +331,9 @@ func TestReserveFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
 		Gas:         222,
-		Fee:         Coin{"", 111},
-		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
-		Collateral:  Coins{{"", 22897}},
+		Fee:         Coins{GammaWei: 111},
+		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
+		Collateral:  Coins{GammaWei: 22897},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint32(999),
 	}
@@ -371,10 +371,10 @@ func TestReserveFundTxProto(t *testing.T) {
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
 		Gas: 222,
-		Fee: Coin{"", 111},
+		Fee: Coins{GammaWei: 111},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
 		ReserveSequence: 12,
@@ -397,8 +397,8 @@ func TestReleaseFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
 		Gas:             222,
-		Fee:             Coin{"", 111},
-		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+		Fee:             Coins{GammaWei: 111},
+		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
 		ReserveSequence: 1,
 	}
 
@@ -435,15 +435,15 @@ func TestReleaseFundTxProto(t *testing.T) {
 func TestServicePaymentTxSourceSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
 		Gas: 222,
-		Fee: Coin{"", 111},
+		Fee: Coins{GammaWei: 111},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
 		Target: TxInput{
 			Address:  getTestAddress("target"),
-			Coins:    Coins{{"", 0}},
+			Coins:    Coins{},
 			Sequence: 22341,
 		},
 		PaymentSequence: 3,
@@ -462,15 +462,15 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 func TestServicePaymentTxTargetSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
 		Gas: 222,
-		Fee: Coin{"", 111},
+		Fee: Coins{GammaWei: 111},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
 		Target: TxInput{
 			Address:  getTestAddress("target"),
-			Coins:    Coins{{"", 0}},
+			Coins:    Coins{},
 			Sequence: 22341,
 		},
 		PaymentSequence: 3,
@@ -496,9 +496,9 @@ func TestServicePaymentTxProto(t *testing.T) {
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
 		Gas:             222,
-		Fee:             Coin{"", 111},
-		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{{"foo", 10000}}, 1),
-		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{{"foo", 0}}, 1),
+		Fee:             Coins{GammaWei: 111},
+		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10000}, 1),
+		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
 		ResourceID:      []byte("rid00123"),
@@ -527,11 +527,11 @@ func TestSplitContractTxSignable(t *testing.T) {
 	}
 	splitContractTx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coin{"", 111},
+		Fee:        Coins{GammaWei: 111},
 		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
 		Splits:   []Split{split},
@@ -559,9 +559,9 @@ func TestSplitContractTxProto(t *testing.T) {
 	}
 	tx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coin{"", 111},
+		Fee:        Coins{GammaWei: 111},
 		ResourceID: []byte("rid00123"),
-		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
 	}
@@ -601,7 +601,7 @@ func TestUpdateValidatorsTxSignable(t *testing.T) {
 		Validators: []*core.Validator{},
 		Proposer: TxInput{
 			Address:  getTestAddress("validator1"),
-			Coins:    Coins{{"", 12345}},
+			Coins:    Coins{GammaWei: 12345},
 			Sequence: 67890,
 		},
 	}
@@ -632,7 +632,7 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// }
 
 	tx := &UpdateValidatorsTx{
-		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
 	}
 
 	// serialize this and back

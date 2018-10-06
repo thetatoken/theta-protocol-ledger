@@ -24,11 +24,11 @@ func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coin
 
 func prepareForTransferReservedFund() (Account, Account, Account, Account, ServicePaymentTx, int) {
 	srcAccInitialBalance := Coins{
-		Coin{"ThetaWei", 1000},
-		Coin{"GammaWei", 20000},
+		ThetaWei: 1000,
+		GammaWei: 20000,
 	}
-	srcAccCollateral := Coins{Coin{"GammaWei", 1001}}
-	srcAccFund := Coins{{"GammaWei", 1000}}
+	srcAccCollateral := Coins{GammaWei: 1001}
+	srcAccFund := Coins{GammaWei: 1000}
 	resourceID := []byte("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
@@ -64,11 +64,11 @@ func TestNilAccount(t *testing.T) {
 
 func TestReserveFund(t *testing.T) {
 	initialBalance := Coins{
-		Coin{"ThetaWei", 1000},
-		Coin{"GammaWei", 20000},
+		ThetaWei: 1000,
+		GammaWei: 20000,
 	}
-	collateral := Coins{Coin{"GammaWei", 101}}
-	fund := Coins{{"GammaWei", 100}}
+	collateral := Coins{GammaWei: 101}
+	fund := Coins{GammaWei: 100}
 	resourceID := []byte("rid001")
 
 	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceID, 199, 1)
@@ -77,11 +77,11 @@ func TestReserveFund(t *testing.T) {
 
 func TestReleaseExpiredFunds(t *testing.T) {
 	initialBalance := Coins{
-		{"ThetaWei", 1000},
-		{"GammaWei", 20000},
+		ThetaWei: 1000,
+		GammaWei: 20000,
 	}
-	collateral := Coins{{"GammaWei", 101}}
-	fund := Coins{{"GammaWei", 100}}
+	collateral := Coins{GammaWei: 101}
+	fund := Coins{GammaWei: 100}
 	resourceIDs := [][]byte{[]byte("rid001")}
 
 	acc := makeAccount("foo", initialBalance)
@@ -98,11 +98,11 @@ func TestReleaseExpiredFunds(t *testing.T) {
 
 func TestCheckReleaseFund(t *testing.T) {
 	initialBalance := Coins{
-		Coin{"ThetaWei", 1000},
-		Coin{"GammaWei", 20000},
+		ThetaWei: 1000,
+		GammaWei: 20000,
 	}
-	collateral := Coins{Coin{"GammaWei", 101}}
-	fund := Coins{{"GammaWei", 100}}
+	collateral := Coins{GammaWei: 101}
+	fund := Coins{GammaWei: 100}
 	resourceID := []byte("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
@@ -133,7 +133,7 @@ func TestTransferReservedFund1(t *testing.T) {
 	srcAcc, tgtAcc, splitAcc1, _, servicePaymentTx, reserveSequence := prepareForTransferReservedFund()
 
 	coinsMap := make(map[*Account]Coins)
-	coinsMap[&splitAcc1] = Coins{Coin{"GammaWei", 234}}
+	coinsMap[&splitAcc1] = Coins{GammaWei: 234}
 	totalTransferAmount := Coins{}
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
@@ -153,7 +153,7 @@ func TestTransferReservedFund2(t *testing.T) {
 	srcAcc, tgtAcc, splitAcc1, _, servicePaymentTx, reserveSequence := prepareForTransferReservedFund()
 
 	coinsMap := make(map[*Account]Coins)
-	coinsMap[&splitAcc1] = Coins{Coin{"GammaWei", 234}}
+	coinsMap[&splitAcc1] = Coins{GammaWei: 234}
 	totalTransferAmount := Coins{}
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
@@ -174,8 +174,8 @@ func TestTransferReservedFund3(t *testing.T) {
 	srcAcc, tgtAcc, splitAcc1, splitAcc2, servicePaymentTx, reserveSequence := prepareForTransferReservedFund()
 
 	coinsMap := make(map[*Account]Coins)
-	coinsMap[&splitAcc1] = Coins{Coin{"GammaWei", 234}}
-	coinsMap[&splitAcc2] = Coins{Coin{"GammaWei", 5945}}
+	coinsMap[&splitAcc1] = Coins{GammaWei: 234}
+	coinsMap[&splitAcc2] = Coins{GammaWei: 5945}
 	totalTransferAmount := Coins{}
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
@@ -197,9 +197,9 @@ func TestTransferReservedFund4(t *testing.T) {
 	srcAcc, tgtAcc, splitAcc1, splitAcc2, servicePaymentTx, reserveSequence := prepareForTransferReservedFund()
 
 	coinsMap := make(map[*Account]Coins)
-	coinsMap[&splitAcc1] = Coins{Coin{"GammaWei", 234}}
-	coinsMap[&splitAcc2] = Coins{Coin{"GammaWei", 127}}
-	coinsMap[&tgtAcc] = Coins{Coin{"GammaWei", 100}}
+	coinsMap[&splitAcc1] = Coins{GammaWei: 234}
+	coinsMap[&splitAcc2] = Coins{GammaWei: 127}
+	coinsMap[&tgtAcc] = Coins{GammaWei: 100}
 	totalTransferAmount := Coins{}
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
@@ -214,8 +214,8 @@ func TestTransferReservedFund4(t *testing.T) {
 
 	assert.Equal(t, nil, err)
 	assert.False(t, shouldSlash)
-	assert.Equal(t, Coins{Coin{"GammaWei", 234}}, splitAcc1.Balance)
-	assert.Equal(t, Coins{Coin{"GammaWei", 127}}, splitAcc2.Balance)
+	assert.Equal(t, Coins{GammaWei: 234}, splitAcc1.Balance)
+	assert.Equal(t, Coins{GammaWei: 127}, splitAcc2.Balance)
 
 	remainderAmount := totalTransferAmount.Minus(coinsMap[&splitAcc1]).Minus(coinsMap[&splitAcc2])
 	assert.Equal(t, remainderAmount, tgtAcc.Balance)
@@ -231,63 +231,51 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	// Should update account
 	acc = &Account{
 		LastUpdatedBlockHeight: 1,
-		Balance: Coins{{
-			Denom:  "ThetaWei",
-			Amount: 1e12,
-		}, {
-			Denom:  "GammaWei",
-			Amount: 2000,
-		}}}
+		Balance: Coins{
+			ThetaWei: 1e12,
+			GammaWei: 2000,
+		}}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.GetThetaWei().Amount)
-	assert.Equal(int64(189812000), acc.Balance.GetGammaWei().Amount)
+	assert.Equal(int64(1e12), acc.Balance.ThetaWei)
+	assert.Equal(int64(189812000), acc.Balance.GammaWei)
 	assert.Equal(uint32(1000), acc.LastUpdatedBlockHeight)
 
 	// Underflow: Should not update account if reward is less than 1 Gamma
 	acc = &Account{
 		LastUpdatedBlockHeight: 1,
-		Balance: Coins{{
-			Denom:  "ThetaWei",
-			Amount: 1000,
-		}, {
-			Denom:  "GammaWei",
-			Amount: 2000,
-		}}}
+		Balance: Coins{
+			ThetaWei: 1000,
+			GammaWei: 2000,
+		}}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1000), acc.Balance.GetThetaWei().Amount)
-	assert.Equal(int64(2000), acc.Balance.GetGammaWei().Amount)
+	assert.Equal(int64(1000), acc.Balance.ThetaWei)
+	assert.Equal(int64(2000), acc.Balance.GammaWei)
 	assert.Equal(uint32(1), acc.LastUpdatedBlockHeight)
 
 	// Should not overflow for large span * balance
 	currentBlockHeight = 1e7
 	acc = &Account{
 		LastUpdatedBlockHeight: 1,
-		Balance: Coins{{
-			Denom:  "ThetaWei",
-			Amount: 1e12,
-		}, {
-			Denom:  "GammaWei",
-			Amount: 2000,
-		}}}
+		Balance: Coins{
+			ThetaWei: 1e12,
+			GammaWei: 2000,
+		}}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.GetThetaWei().Amount)
-	assert.Equal(int64(1899999812000), acc.Balance.GetGammaWei().Amount)
+	assert.Equal(int64(1e12), acc.Balance.ThetaWei)
+	assert.Equal(int64(1899999812000), acc.Balance.GammaWei)
 	assert.Equal(uint32(1e7), acc.LastUpdatedBlockHeight)
 
 	// Should panic if the end balance oveflow
 	currentBlockHeight = 9e8
 	acc = &Account{
 		LastUpdatedBlockHeight: 1,
-		Balance: Coins{{
-			Denom:  "ThetaWei",
-			Amount: 1e18,
-		}, {
-			Denom:  "GammaWei",
-			Amount: 2000,
-		}}}
+		Balance: Coins{
+			ThetaWei: 1e18,
+			GammaWei: 2000,
+		}}
 	defer func() {
 		if r := recover(); r == nil {
 			t.Errorf("The code did not panic")

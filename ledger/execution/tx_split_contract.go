@@ -52,7 +52,7 @@ func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view types.View
 		return result.Error("invalid fee")
 	}
 
-	minimalBalance := types.Coins{tx.Fee}
+	minimalBalance := tx.Fee
 	if !initiatorAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("the contract initiator did not have enough to cover the fee %X", tx.Initiator.Address))
 		return result.Error("the contract initiator account balance is %v, but required minimal balance is %v", initiatorAccount.Balance, minimalBalance)
