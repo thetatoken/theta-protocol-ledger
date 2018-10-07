@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 )
 
@@ -310,7 +311,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 			Sequence: 67890,
 		},
 		Collateral:  Coins{{"", 22897}},
-		ResourceIDs: [][]byte{[]byte("rid00123")},
+		ResourceIDs: []common.Bytes{common.Bytes("rid00123")},
 		Duration:    uint32(999),
 	}
 
@@ -334,7 +335,7 @@ func TestReserveFundTxProto(t *testing.T) {
 		Fee:         Coin{"", 111},
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 		Collateral:  Coins{{"", 22897}},
-		ResourceIDs: [][]byte{[]byte("rid00123")},
+		ResourceIDs: []common.Bytes{common.Bytes("rid00123")},
 		Duration:    uint32(999),
 	}
 

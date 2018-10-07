@@ -172,7 +172,7 @@ type SlashTx struct {
 	Proposer        TxInput        `json:"proposer"`
 	SlashedAddress  common.Address `json:"slashed_address"`
 	ReserveSequence int            `json:"reserved_sequence"`
-	SlashProof      []byte         `json:"slash_proof"`
+	SlashProof      common.Bytes   `json:"slash_proof"`
 }
 
 func (_ *SlashTx) AssertIsTx() {}
@@ -242,12 +242,12 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Gas         int64    `json:"gas"`          // Gas
-	Fee         Coin     `json:"fee"`          // Fee
-	Source      TxInput  `json:"source"`       // Source account
-	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
-	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint32   `json:"duration"`
+	Gas         int64          `json:"gas"`          // Gas
+	Fee         Coin           `json:"fee"`          // Fee
+	Source      TxInput        `json:"source"`       // Source account
+	Collateral  Coins          `json:"collateral"`   // Collateral for the micropayment pool
+	ResourceIDs []common.Bytes `json:"resource_ids"` // List of resource ID
+	Duration    uint32         `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}

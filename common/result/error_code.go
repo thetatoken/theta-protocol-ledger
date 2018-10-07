@@ -5,10 +5,20 @@ type ErrorCode int
 const (
 	CodeOK ErrorCode = 0
 
-	CodeGenericError             ErrorCode = 10000
-	CodeInvalidSignature         ErrorCode = 10001
-	CodeInvalidSequence          ErrorCode = 10002
-	CodeInsufficientFund         ErrorCode = 10003
-	CodeEmptyPubKeyWithSequence1 ErrorCode = 10004
-	CodeUnauthorizedTx           ErrorCode = 10005
+	// Common Errors
+	CodeGenericError             ErrorCode = 100000
+	CodeInvalidSignature         ErrorCode = 100001
+	CodeInvalidSequence          ErrorCode = 100002
+	CodeInsufficientFund         ErrorCode = 100003
+	CodeEmptyPubKeyWithSequence1 ErrorCode = 100004
+	CodeUnauthorizedTx           ErrorCode = 100005
+	CodeInvalidFee               ErrorCode = 100006
+
+	// ReserveFund Errors
+	CodeReserveFundCheckFailed   ErrorCode = 101001
+	CodeReservedFundNotSpecified ErrorCode = 101002
+	CodeInvalidFundToReserve     ErrorCode = 101003
+
+	// ReleaseFund Errors
+	CodeReleaseFundCheckFailed ErrorCode = 102001
 )

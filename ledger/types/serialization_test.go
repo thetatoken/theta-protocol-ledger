@@ -319,7 +319,7 @@ func TestTx(t *testing.T) {
 			Gas:         123,
 			Source:      TxInput{Address: getTestAddress("123")},
 			Collateral:  Coins{{Denom: "ThetaWei", Amount: 456}},
-			ResourceIDs: [][]byte{[]byte("789")},
+			ResourceIDs: []common.Bytes{common.Bytes("789")},
 			Duration:    1,
 		},
 

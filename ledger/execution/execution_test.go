@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
@@ -407,7 +408,7 @@ func TestCoinbaseTx(t *testing.T) {
 	}
 	tx.Proposer.Signature = va1.Sign(tx.SignBytes(et.chainID))
 
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
 	//Error if reward Theta amount is incorrect
@@ -421,7 +422,7 @@ func TestCoinbaseTx(t *testing.T) {
 		}},
 		BlockHeight: 1e7,
 	}
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
 	//Error if reward Gamma amount is incorrect
@@ -435,7 +436,7 @@ func TestCoinbaseTx(t *testing.T) {
 		}},
 		BlockHeight: 1e7,
 	}
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
 	//Error if Validator 2 is not rewarded
@@ -447,7 +448,7 @@ func TestCoinbaseTx(t *testing.T) {
 		}},
 		BlockHeight: 1e7,
 	}
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
 	//Error if non-validator is rewarded
@@ -463,7 +464,7 @@ func TestCoinbaseTx(t *testing.T) {
 		}},
 		BlockHeight: 1e7,
 	}
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
 	//Error if validator address is changed
@@ -477,7 +478,7 @@ func TestCoinbaseTx(t *testing.T) {
 		}},
 		BlockHeight: 1e7,
 	}
-	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state(), tx)
+	res = et.executor.coinbaseTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
 	//Process should update validator account
@@ -492,7 +493,7 @@ func TestCoinbaseTx(t *testing.T) {
 		BlockHeight: 1e7,
 	}
 
-	_, res = et.executor.coinbaseTxExec.process(et.chainID, et.state(), tx)
+	_, res = et.executor.coinbaseTxExec.process(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
 	va1balance := et.state().GetAccount(va1.Account.PubKey.Address()).Balance
@@ -508,4 +509,206 @@ func TestCoinbaseTx(t *testing.T) {
 	assert.Equal(int64(100000000000), user1balance.GetThetaWei().Amount)
 	// user's Gamma is not updated.
 	assert.Equal(int64(0), user1balance.GetGammaWei().Amount)
+}
+
+func TestReserveFundTx(t *testing.T) {
+	assert := assert.New(t)
+	et := newExecTest()
+
+	user1 := types.MakeAcc("user 1")
+	user1.Balance = types.Coins{{"GammaWei", 10000 * 1e6}, {"ThetaWei", 10000 * 1e6}}
+	et.acc2State(user1)
+
+	et.fastforwardTo(1e7)
+
+	var tx *types.ReserveFundTx
+	var res result.Result
+
+	// Invalid Fee
+	tx = &types.ReserveFundTx{
+		Fee: types.Coin{"foo", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeInvalidFee)
+
+	// Reserved fund not specified
+	tx = &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeReservedFundNotSpecified)
+
+	// Insufficient fund
+	tx = &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Coins:    types.Coins{{"GammaWei", 50000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeInsufficientFund)
+
+	// Reserved fund more than collateral
+	tx = &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Coins:    types.Coins{{"GammaWei", 5000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeReserveFundCheckFailed)
+
+	// Regular check
+	tx = &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), tx)
+	assert.True(res.IsOK(), res.String())
+	_, res = et.executor.reserveFundTxExec.process(et.chainID, et.state().Delivered(), tx)
+	assert.True(res.IsOK(), res.String())
+}
+
+func TestReleaseFundTx(t *testing.T) {
+	assert := assert.New(t)
+	et := newExecTest()
+
+	user1 := types.MakeAcc("user 1")
+	user1.Balance = types.Coins{{"GammaWei", 10000 * 1e6}, {"ThetaWei", 10000 * 1e6}}
+	et.acc2State(user1)
+
+	et.fastforwardTo(1e7)
+
+	var reserveFundTx *types.ReserveFundTx
+	var releaseFundTx *types.ReleaseFundTx
+	var res result.Result
+
+	reserveFundTx = &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			PubKey:   user1.PubKey,
+			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		Duration:    1000,
+	}
+	reserveFundTx.Source.Signature = user1.Sign(reserveFundTx.SignBytes(et.chainID))
+	res = et.executor.reserveFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
+	assert.True(res.IsOK(), res.String())
+	_, res = et.executor.reserveFundTxExec.process(et.chainID, et.state().Delivered(), reserveFundTx)
+	assert.True(res.IsOK(), res.String())
+
+	et.state().Commit()
+
+	// Invalid Fee
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.Coin{"foo", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 1,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.releaseFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeInvalidFee, res.String())
+
+	// Not expire yet
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 1,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.releaseFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeReleaseFundCheckFailed, res.String())
+
+	et.fastforwardTo(1e7 + 9999)
+
+	// No matching ReserveSequence
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 99,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.releaseFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeReleaseFundCheckFailed, res.String())
+
+	// NOTE: The following check should FAIL, since the expired ReservedFunds are now
+	//       released by the Account.UpdateToHeight() function. Once the height
+	//       reaches the target release height, the ReservedFunds will be released
+	//       automatically. No need to explicitly execute ReleaseFundTx
+
+	// Check auto-expiration
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 1,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.releaseFundTxExec.sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeReleaseFundCheckFailed, res.String())
 }

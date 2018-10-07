@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/common"
 )
 
 func makeAccount(secret string, balance Coins) Account {
@@ -14,9 +15,9 @@ func makeAccount(secret string, balance Coins) Account {
 	return acc
 }
 
-func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID []byte, endBlockHeight uint32, reserveSequence int) Account {
+func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID common.Bytes, endBlockHeight uint32, reserveSequence int) Account {
 	acc := makeAccount("srcAcc", initialBalance)
-	resourceIDs := [][]byte{resourceID}
+	resourceIDs := []common.Bytes{resourceID}
 	acc.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 
 	return acc
@@ -29,7 +30,7 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	}
 	srcAccCollateral := Coins{Coin{"GammaWei", 1001}}
 	srcAccFund := Coins{{"GammaWei", 1000}}
-	resourceID := []byte("rid001")
+	resourceID := common.Bytes("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
@@ -69,7 +70,7 @@ func TestReserveFund(t *testing.T) {
 	}
 	collateral := Coins{Coin{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceID := []byte("rid001")
+	resourceID := common.Bytes("rid001")
 
 	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceID, 199, 1)
 	assert.Equal(t, acc.Balance.Plus(collateral).Plus(fund), initialBalance)
@@ -82,7 +83,7 @@ func TestReleaseExpiredFunds(t *testing.T) {
 	}
 	collateral := Coins{{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceIDs := [][]byte{[]byte("rid001")}
+	resourceIDs := []common.Bytes{common.Bytes("rid001")}
 
 	acc := makeAccount("foo", initialBalance)
 	acc.ReserveFund(collateral, fund, resourceIDs, 10, 1)
@@ -103,7 +104,7 @@ func TestCheckReleaseFund(t *testing.T) {
 	}
 	collateral := Coins{Coin{"GammaWei", 101}}
 	fund := Coins{{"GammaWei", 100}}
-	resourceID := []byte("rid001")
+	resourceID := common.Bytes("rid001")
 	endBlockHeight := uint32(199)
 	reserveSequence := 1
 
