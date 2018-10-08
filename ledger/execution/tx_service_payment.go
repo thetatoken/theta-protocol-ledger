@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	st "github.com/thetatoken/ukulele/ledger/state"
@@ -63,7 +64,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	// Verify source
 	sourceSignBytes := tx.SourceSignBytes(chainID)
 	if !sourceAccount.PubKey.VerifySignature(sourceSignBytes, tx.Source.Signature) {
-		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature %X", sourceAddress)
+		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
 	}
@@ -76,7 +77,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
 	if !targetAccount.PubKey.VerifySignature(targetSignBytes, tx.Target.Signature) {
-		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature %X", targetAddress)
+		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
 	}
@@ -92,10 +93,10 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 
 	// Note: No need to check whether the source account has enough reserved fund to cover the
 	//       transaction. If the source account does not have sufficient reserved fund,
-	//       the source account will be slashed by the processServicePaymentTx() function
+	//       the source account will be slashed by the process() function
 	err := sourceAccount.CheckTransferReservedFund(targetAccount, transferAmount, paymentSequence, currentBlockHeight, reserveSequence)
 	if err != nil {
-		return result.Error(err.Error())
+		return result.Error(err.Error()).WithErrorCode(result.CodeCheckTransferReservedFundFailed)
 	}
 
 	return result.OK

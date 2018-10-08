@@ -21,4 +21,7 @@ const (
 
 	// ReleaseFund Errors
 	CodeReleaseFundCheckFailed ErrorCode = 102001
+
+	// ServerPayment Errors
+	CodeCheckTransferReservedFundFailed ErrorCode = 103001
 )

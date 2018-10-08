@@ -34,7 +34,14 @@ type Tx interface {
 //-----------------------------------------------------------------------------
 
 func TxID(chainID string, tx Tx) common.Hash {
-	signBytes := tx.SignBytes(chainID)
+	var signBytes []byte
+	switch tx.(type) {
+	default:
+		signBytes = tx.SignBytes(chainID)
+	case *ServicePaymentTx:
+		spTx := tx.(*ServicePaymentTx)
+		signBytes = spTx.TargetSignBytes(chainID)
+	}
 	return crypto.Keccak256Hash(signBytes)
 }
 
@@ -308,13 +315,13 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Gas             int64   `json:"gas"`              // Gas
-	Fee             Coin    `json:"fee"`              // Fee
-	Source          TxInput `json:"source"`           // source account
-	Target          TxInput `json:"target"`           // target account
-	PaymentSequence int     `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence int     `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceID      []byte  `json:"resource_id"`      // The corresponding resourceID
+	Gas             int64        `json:"gas"`              // Gas
+	Fee             Coin         `json:"fee"`              // Fee
+	Source          TxInput      `json:"source"`           // source account
+	Target          TxInput      `json:"target"`           // target account
+	PaymentSequence int          `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence int          `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	ResourceID      common.Bytes `json:"resource_id"`      // The corresponding resourceID
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}
