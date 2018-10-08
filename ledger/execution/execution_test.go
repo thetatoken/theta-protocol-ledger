@@ -910,6 +910,129 @@ func TestSlashTx(t *testing.T) {
 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
+func TestSplitContractTx1(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	et.acc2State(initiator)
+
+	splitCarol := types.Split{
+		Address:    carol.PubKey.Address(),
+		Percentage: 30,
+	}
+	splitContractTx := &types.SplitContractTx{
+		Fee:        types.Coin{"GammaWei", 10},
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.PubKey.Address(),
+			PubKey:   initiator.PubKey,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitCarol},
+		Duration: uint32(99999),
+	}
+	signBytes := splitContractTx.SignBytes(et.chainID)
+	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+
+	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	payAmount := int64(10000)
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &bob, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	bobFinalBalance := et.state().GetAccount(bob.PubKey.Address()).Balance
+	carolFinalBalance := et.state().GetAccount(carol.PubKey.Address()).Balance
+	log.Infof("Bob's final balance:   %v", bobFinalBalance)
+	log.Infof("Carol's final balance: %v", carolFinalBalance)
+
+	// Check the balances of the relevant accounts
+	bobSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount * 70 / 100)}}
+	servicePaymentTxFee := types.Coins{types.Coin{"GammaWei", 1}}
+	carolSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount * 30 / 100)}}
+	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
+	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
+}
+
+func TestSplitContractTx2(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	et.acc2State(initiator)
+
+	splitCarol := types.Split{
+		Address:    carol.PubKey.Address(),
+		Percentage: 30,
+	}
+	splitContractTx := &types.SplitContractTx{
+		Fee:        types.Coin{"GammaWei", 10},
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.PubKey.Address(),
+			PubKey:   initiator.PubKey,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitCarol},
+		Duration: uint32(100),
+	}
+	signBytes := splitContractTx.SignBytes(et.chainID)
+	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.fastforwardBy(105) // The split contract should expire after the fastforward
+
+	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	payAmount := int64(10000)
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &bob, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	bobFinalBalance := et.state().GetAccount(bob.PubKey.Address()).Balance
+	carolFinalBalance := et.state().GetAccount(carol.PubKey.Address()).Balance
+	log.Infof("Bob's final balance:   %v", bobFinalBalance)
+	log.Infof("Carol's final balance: %v", carolFinalBalance)
+
+	// Check the balances of the relevant accounts
+	bobSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount)}}
+	servicePaymentTxFee := types.Coins{types.Coin{"GammaWei", 1}}
+	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
+	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
+}
+
 // ------------------------------ Test Utils ------------------------------ //
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
