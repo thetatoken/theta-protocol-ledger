@@ -4,6 +4,7 @@ package types
 
 import (
 	"fmt"
+	"math/big"
 	"math/rand"
 
 	"github.com/thetatoken/ukulele/crypto"
@@ -58,7 +59,7 @@ func RandAccounts(num int, minAmount int64, maxAmount int64) []PrivAccount {
 			PrivKey: privKey,
 			Account: Account{
 				PubKey:                 pubKey,
-				Balance:                Coins{GammaWei: balance, ThetaWei: balance},
+				Balance:                Coins{GammaWei: big.NewInt(balance), ThetaWei: big.NewInt(balance)},
 				LastUpdatedBlockHeight: 1,
 			},
 		}
@@ -79,7 +80,7 @@ func RandAccounts(num int, minAmount int64, maxAmount int64) []PrivAccount {
 //}
 
 func MakeAcc(secret string) PrivAccount {
-	privAcc := MakeAccWithInitBalance(secret, Coins{GammaWei: 5, ThetaWei: 7})
+	privAcc := MakeAccWithInitBalance(secret, NewCoins(7, 5))
 	return privAcc
 }
 
@@ -94,7 +95,7 @@ func Accs2TxInputs(seq int, accs ...PrivAccount) []TxInput {
 	for _, acc := range accs {
 		tx := NewTxInput(
 			acc.Account.PubKey,
-			Coins{GammaWei: 1, ThetaWei: 4},
+			NewCoins(4, 1),
 			seq)
 		txs = append(txs, tx)
 	}
@@ -107,7 +108,7 @@ func Accs2TxOutputs(accs ...PrivAccount) []TxOutput {
 	for _, acc := range accs {
 		tx := TxOutput{
 			Address: acc.Account.PubKey.Address(),
-			Coins:   Coins{ThetaWei: 4},
+			Coins:   NewCoins(4, 0),
 		}
 		txs = append(txs, tx)
 	}
@@ -117,7 +118,7 @@ func Accs2TxOutputs(accs ...PrivAccount) []TxOutput {
 func MakeSendTx(seq int, accOut PrivAccount, accsIn ...PrivAccount) *SendTx {
 	tx := &SendTx{
 		Gas:     0,
-		Fee:     Coins{GammaWei: 1},
+		Fee:     NewCoins(0, 1),
 		Inputs:  Accs2TxInputs(seq, accsIn...),
 		Outputs: Accs2TxOutputs(accOut),
 	}

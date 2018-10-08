@@ -3,7 +3,7 @@ package types
 import "github.com/thetatoken/ukulele/common"
 
 type ViewDataAccessor interface {
-	Height() uint32
+	Height() uint64
 
 	GetAccount(addr common.Address) *Account
 	SetAccount(addr common.Address, acc *Account)
@@ -11,11 +11,11 @@ type ViewDataAccessor interface {
 	GetSplitContract(resourceID common.Bytes) *SplitContract
 	SetSplitContract(resourceID common.Bytes, splitContract *SplitContract)
 	DeleteSplitContract(resourceID common.Bytes) bool
-	DeleteExpiredSplitContracts(currentBlockHeight uint32) bool
+	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }
 
 type ViewDataGetter interface {
-	Height() uint32
+	Height() uint64
 	GetAccount(addr common.Address) *Account
 	GetSplitContract(resourceID common.Bytes) *SplitContract
 }
@@ -25,5 +25,5 @@ type ViewDataSetter interface {
 
 	SetSplitContract(resourceID common.Bytes, splitContract *SplitContract)
 	DeleteSplitContract(resourceID common.Bytes) bool
-	DeleteExpiredSplitContracts(currentBlockHeight uint32) bool
+	DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 }

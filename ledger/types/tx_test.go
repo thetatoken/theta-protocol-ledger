@@ -3,6 +3,7 @@ package types
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -21,11 +22,11 @@ func TestCoinbaseTxSignable(t *testing.T) {
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: 333},
+				Coins:   Coins{ThetaWei: big.NewInt(333)},
 			},
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: 444},
+				Coins:   Coins{ThetaWei: big.NewInt(444)},
 			},
 		},
 		BlockHeight: 10,
@@ -51,7 +52,7 @@ func TestCoinbaseTxProto(t *testing.T) {
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{ThetaWei: 8},
+				Coins:   Coins{ThetaWei: big.NewInt(8)},
 			},
 		},
 		BlockHeight: 10,
@@ -217,27 +218,27 @@ func TestSlashTxProto(t *testing.T) {
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
 		Gas: 222,
-		Fee: Coins{ThetaWei: 111},
+		Fee: Coins{ThetaWei: big.NewInt(111)},
 		Inputs: []TxInput{
 			TxInput{
 				Address:  getTestAddress("input1"),
-				Coins:    Coins{ThetaWei: 12345},
+				Coins:    Coins{ThetaWei: big.NewInt(12345)},
 				Sequence: 67890,
 			},
 			TxInput{
 				Address:  getTestAddress("input2"),
-				Coins:    Coins{ThetaWei: 111},
+				Coins:    Coins{ThetaWei: big.NewInt(111)},
 				Sequence: 222,
 			},
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("output1"),
-				Coins:   Coins{ThetaWei: 333},
+				Coins:   Coins{ThetaWei: big.NewInt(333)},
 			},
 			TxOutput{
 				Address: getTestAddress("output2"),
-				Coins:   Coins{ThetaWei: 444},
+				Coins:   Coins{ThetaWei: big.NewInt(444)},
 			},
 		},
 	}
@@ -259,14 +260,14 @@ func TestSendTxProto(t *testing.T) {
 	// Construct a SendTx signature
 	tx := &SendTx{
 		Gas: 1,
-		Fee: Coins{GammaWei: 2},
+		Fee: Coins{GammaWei: big.NewInt(2)},
 		Inputs: []TxInput{
-			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
+			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: test2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{GammaWei: 8},
+				Coins:   Coins{GammaWei: big.NewInt(8)},
 			},
 		},
 	}
@@ -303,15 +304,15 @@ func TestSendTxProto(t *testing.T) {
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: 111},
+		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
-		Collateral:  Coins{GammaWei: 22897},
+		Collateral:  Coins{GammaWei: big.NewInt(22897)},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
-		Duration:    uint32(999),
+		Duration:    uint64(999),
 	}
 
 	signBytes := reserveFundTx.SignBytes(chainID)
@@ -331,11 +332,11 @@ func TestReserveFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
 		Gas:         222,
-		Fee:         Coins{GammaWei: 111},
-		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
-		Collateral:  Coins{GammaWei: 22897},
+		Fee:         Coins{GammaWei: big.NewInt(111)},
+		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
+		Collateral:  Coins{GammaWei: big.NewInt(22897)},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
-		Duration:    uint32(999),
+		Duration:    uint64(999),
 	}
 
 	// serialize this and back
@@ -371,10 +372,10 @@ func TestReserveFundTxProto(t *testing.T) {
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: 111},
+		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		ReserveSequence: 12,
@@ -397,8 +398,8 @@ func TestReleaseFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
 		Gas:             222,
-		Fee:             Coins{GammaWei: 111},
-		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
+		Fee:             Coins{GammaWei: big.NewInt(111)},
+		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
 		ReserveSequence: 1,
 	}
 
@@ -435,10 +436,10 @@ func TestReleaseFundTxProto(t *testing.T) {
 func TestServicePaymentTxSourceSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: 111},
+		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
@@ -462,10 +463,10 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 func TestServicePaymentTxTargetSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: 111},
+		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
@@ -496,8 +497,8 @@ func TestServicePaymentTxProto(t *testing.T) {
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
 		Gas:             222,
-		Fee:             Coins{GammaWei: 111},
-		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10000}, 1),
+		Fee:             Coins{GammaWei: big.NewInt(111)},
+		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10000)}, 1),
 		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{}, 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
@@ -527,11 +528,11 @@ func TestSplitContractTxSignable(t *testing.T) {
 	}
 	splitContractTx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coins{GammaWei: 111},
+		Fee:        Coins{GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Splits:   []Split{split},
@@ -559,9 +560,9 @@ func TestSplitContractTxProto(t *testing.T) {
 	}
 	tx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coins{GammaWei: 111},
+		Fee:        Coins{GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
-		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
+		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
 	}
@@ -601,7 +602,7 @@ func TestUpdateValidatorsTxSignable(t *testing.T) {
 		Validators: []*core.Validator{},
 		Proposer: TxInput{
 			Address:  getTestAddress("validator1"),
-			Coins:    Coins{GammaWei: 12345},
+			Coins:    Coins{GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 	}
@@ -625,14 +626,14 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// if err != nil {
 	// 	panic(fmt.Sprintf("Unable to decode public key: %v", id))
 	// }
-	// va := core.NewValidator(idBytes, uint32(100))
+	// va := core.NewValidator(idBytes, uint64(100))
 	// tx := &UpdateValidatorsTx{
 	// 	Validators: []*core.Validator{&va},
 	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
 	// }
 
 	tx := &UpdateValidatorsTx{
-		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: 10}, 1),
+		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
 	}
 
 	// serialize this and back

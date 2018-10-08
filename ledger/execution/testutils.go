@@ -19,7 +19,7 @@ type TestConsensusEngine struct {
 func (tce *TestConsensusEngine) ID() string                        { return tce.privKey.PublicKey().Address().Hex() }
 func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey    { return tce.privKey }
 func (tce *TestConsensusEngine) GetTip() *core.ExtendedBlock       { return nil }
-func (tce *TestConsensusEngine) GetEpoch() uint32                  { return 100 }
+func (tce *TestConsensusEngine) GetEpoch() uint64                  { return 100 }
 func (tce *TestConsensusEngine) AddMessage(msg interface{})        {}
 func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block { return nil }
 
@@ -33,8 +33,8 @@ type TestValidatorManager struct {
 	valSet   *core.ValidatorSet
 }
 
-func (tvm *TestValidatorManager) GetProposerForEpoch(epoch uint32) core.Validator { return tvm.proposer }
-func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint32) *core.ValidatorSet {
+func (tvm *TestValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator { return tvm.proposer }
+func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint64) *core.ValidatorSet {
 	return tvm.valSet
 }
 
@@ -65,13 +65,13 @@ func newExecTest() *execTest {
 
 //reset everything. state is empty
 func (et *execTest) reset() {
-	et.accIn = types.MakeAccWithInitBalance("foo", types.Coins{GammaWei: 5, ThetaWei: 700000})
-	et.accOut = types.MakeAccWithInitBalance("bar", types.Coins{GammaWei: 5, ThetaWei: 700000})
+	et.accIn = types.MakeAccWithInitBalance("foo", types.NewCoins(700000, 5))
+	et.accOut = types.MakeAccWithInitBalance("bar", types.NewCoins(700000, 5))
 	et.accProposer = types.MakeAcc("proposer")
 	et.accVal2 = types.MakeAcc("val2")
 
 	chainID := "test_chain_id"
-	initHeight := uint32(1)
+	initHeight := uint64(1)
 	initRootHash := common.Hash{}
 	db := backend.NewMemDatabase()
 	ledgerState := st.NewLedgerState(chainID, db)
@@ -92,14 +92,14 @@ func (et *execTest) reset() {
 	et.executor = executor
 }
 
-func (et *execTest) fastforwardBy(heightIncrement uint32) bool {
+func (et *execTest) fastforwardBy(heightIncrement uint64) bool {
 	height := et.executor.state.Height()
 	rootHash := et.executor.state.Commit()
 	et.executor.state.ResetState(height+heightIncrement-1, rootHash)
 	return true
 }
 
-func (et *execTest) fastforwardTo(targetHeight uint32) bool {
+func (et *execTest) fastforwardTo(targetHeight uint64) bool {
 	height := et.executor.state.Height()
 	rootHash := et.executor.state.Commit()
 	if targetHeight < height+1 {

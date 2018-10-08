@@ -1,6 +1,7 @@
 package state
 
 import (
+	"math/big"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ func TestLedgerStateBasics(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 
@@ -71,14 +72,14 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 
 	// Account and Commit
 	_, acc1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
-	initCoin := types.Coins{ThetaWei: int64(956)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(956)}
 	acc1 := &types.Account{
 		PubKey:   acc1PubKey,
 		Sequence: 657,
@@ -128,7 +129,7 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 

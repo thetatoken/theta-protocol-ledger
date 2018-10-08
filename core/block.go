@@ -33,9 +33,9 @@ func (b *Block) String() string {
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
 	ChainID   string
-	Epoch     uint32
+	Epoch     uint64
 	Hash      common.Bytes
-	Height    uint32
+	Height    uint64
 	Parent    common.Bytes
 	TxHash    common.Bytes
 	StateHash common.Bytes

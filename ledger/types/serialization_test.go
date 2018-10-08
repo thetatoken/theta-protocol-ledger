@@ -288,7 +288,7 @@ import "github.com/thetatoken/ukulele/common"
 // 		&CoinbaseTx{
 // 			Proposer:    TxInput{Address: getTestAddress("123")},
 // 			Outputs:     []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
-// 			BlockHeight: uint32(999),
+// 			BlockHeight: uint64(999),
 // 		},
 
 // 		&SlashTx{},

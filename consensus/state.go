@@ -15,8 +15,8 @@ type StateStub struct {
 	Root               common.Bytes
 	HighestCCBlock     common.Bytes
 	LastFinalizedBlock common.Bytes
-	LastVoteHeight     uint32
-	Epoch              uint32
+	LastVoteHeight     uint64
+	Epoch              uint64
 }
 
 const (
@@ -33,8 +33,8 @@ type State struct {
 	highestCCBlock     *core.ExtendedBlock
 	lastFinalizedBlock *core.ExtendedBlock
 	tip                *core.ExtendedBlock
-	lastVoteHeight     uint32
-	epoch              uint32
+	lastVoteHeight     uint64
+	epoch              uint64
 }
 
 func NewState(db store.Store, chain *blockchain.Chain) *State {
@@ -121,20 +121,20 @@ func (s *State) Load() (err error) {
 	return
 }
 
-func (s *State) GetEpoch() uint32 {
+func (s *State) GetEpoch() uint64 {
 	return s.epoch
 }
 
-func (s *State) SetEpoch(epoch uint32) error {
+func (s *State) SetEpoch(epoch uint64) error {
 	s.epoch = epoch
 	return s.commit()
 }
 
-func (s *State) GetLastVoteHeight() uint32 {
+func (s *State) GetLastVoteHeight() uint64 {
 	return s.lastVoteHeight
 }
 
-func (s *State) SetLastVoteHeight(height uint32) error {
+func (s *State) SetLastVoteHeight(height uint64) error {
 	s.lastVoteHeight = height
 	return s.commit()
 }
@@ -183,7 +183,7 @@ func (s *State) AddVote(vote *core.Vote) error {
 	return nil
 }
 
-func (s *State) GetVoteSetByHeight(height uint32) (*core.VoteSet, error) {
+func (s *State) GetVoteSetByHeight(height uint64) (*core.VoteSet, error) {
 	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
 	ret := core.NewVoteSet()
 	err := s.db.Get(key, ret)

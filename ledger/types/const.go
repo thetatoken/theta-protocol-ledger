@@ -37,10 +37,10 @@ const (
 const (
 
 	// ServiceRewardVerificationBlockDelay gives the block delay for service certificate verification
-	ServiceRewardVerificationBlockDelay uint32 = 2
+	ServiceRewardVerificationBlockDelay uint64 = 2
 
 	// ServiceRewardFulfillmentBlockDelay gives the block delay for service reward fulfillment
-	ServiceRewardFulfillmentBlockDelay uint32 = 4
+	ServiceRewardFulfillmentBlockDelay uint64 = 4
 )
 
 const (
@@ -49,11 +49,11 @@ const (
 	MaximumTargetAddressesForStakeBinding uint = 1024
 
 	// MaximumFundReserveDuration indicates the maximum duration (in terms of number of blocks) of reserving fund
-	MaximumFundReserveDuration uint32 = 12 * 3600
+	MaximumFundReserveDuration uint64 = 12 * 3600
 
 	// MinimumFundReserveDuration indicates the minimum duration (in terms of number of blocks) of reserving fund
-	MinimumFundReserveDuration uint32 = 300
+	MinimumFundReserveDuration uint64 = 300
 
 	// ReservedFundFreezePeriodDuration indicates the freeze duration (in terms of number of blocks) of the reserved fund
-	ReservedFundFreezePeriodDuration uint32 = 5
+	ReservedFundFreezePeriodDuration uint64 = 5
 )

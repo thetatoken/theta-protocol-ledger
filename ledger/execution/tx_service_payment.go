@@ -53,7 +53,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 		return res
 	}
 
-	if tx.Source.Coins.ThetaWei != 0 {
+	if tx.Source.Coins.ThetaWei.Cmp(types.Zero) != 0 {
 		return result.Error("Cannot send ThetaWei as service payment!")
 	}
 

@@ -130,7 +130,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 }
 
 // ResetState sets the ledger state with the designated root
-func (ledger *Ledger) ResetState(height uint32, rootHash common.Hash) result.Result {
+func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
 	success := ledger.state.ResetState(height, rootHash)
 	if !success {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))

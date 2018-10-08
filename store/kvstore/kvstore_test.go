@@ -13,7 +13,7 @@ import (
 
 type NodeHeader struct {
 	ChainID    string
-	Epoch      uint32
+	Epoch      uint64
 	Hash       common.Bytes
 	ParentHash common.Bytes
 }
@@ -41,7 +41,7 @@ type Certificate struct {
 
 type ExtendedNode struct {
 	*Node
-	Height      uint32
+	Height      uint64
 	Children    []common.Bytes
 	Parent      common.Bytes
 	Certificate *Certificate `rlp:"nil"`

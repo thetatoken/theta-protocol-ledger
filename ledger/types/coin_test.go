@@ -1,6 +1,7 @@
 package types
 
 import (
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,10 +11,7 @@ func TestCoins(t *testing.T) {
 	assert := assert.New(t)
 
 	//Define the coins to be used in tests
-	good := Coins{
-		ThetaWei: 1,
-		GammaWei: 2,
-	}
+	good := NewCoins(1, 2)
 	empty := Coins{}
 	neg := good.Negative()
 
@@ -28,7 +26,7 @@ func TestCoins(t *testing.T) {
 func TestInvalidCoin(t *testing.T) {
 	assert := assert.New(t)
 
-	coinsA := Coins{ThetaWei: 123}
+	coinsA := NewCoins(123, 0)
 	coinsEmpty := Coins{}
 
 	ret1 := coinsA.Plus(coinsEmpty)
@@ -37,14 +35,14 @@ func TestInvalidCoin(t *testing.T) {
 	assert.True(coinsA.IsEqual(ret1), "Sum is correct")
 
 	// Result should be a copy
-	ret1.ThetaWei = 456
-	assert.True(coinsA.ThetaWei == 123)
-	assert.True(ret1.ThetaWei == 456)
+	ret1.ThetaWei = big.NewInt(456)
+	assert.True(coinsA.ThetaWei.Cmp(big.NewInt(123)) == 0)
+	assert.True(ret1.ThetaWei.Cmp(big.NewInt(456)) == 0)
 
 	ret2 := coinsA.Minus(coinsEmpty)
 	assert.True(coinsA.IsEqual(ret2), "Sum is correct")
 	// Result should be a copy
-	ret2.ThetaWei = 456
-	assert.True(coinsA.ThetaWei == 123)
-	assert.True(ret2.ThetaWei == 456)
+	ret2.ThetaWei = big.NewInt(456)
+	assert.True(coinsA.ThetaWei.Cmp(big.NewInt(123)) == 0)
+	assert.True(ret2.ThetaWei.Cmp(big.NewInt(456)) == 0)
 }

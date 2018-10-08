@@ -36,12 +36,12 @@ func NewLedgerState(chainID string, db database.Database) *LedgerState {
 		chainID: chainID,
 		db:      db,
 	}
-	s.ResetState(uint32(0), common.Hash{})
+	s.ResetState(uint64(0), common.Hash{})
 	return s
 }
 
 // ResetState resets the height and state root of its storeviews, and clear the in-memory states
-func (s *LedgerState) ResetState(height uint32, stateRootHash common.Hash) bool {
+func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) bool {
 	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
 		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
@@ -74,7 +74,7 @@ func (s *LedgerState) GetChainID() string {
 }
 
 // Height returns the block height corresponding to the ledger state
-func (s *LedgerState) Height() uint32 {
+func (s *LedgerState) Height() uint64 {
 	return s.delivered.Height()
 }
 
@@ -202,6 +202,6 @@ func (s *LedgerState) DeleteSplitContract(resourceID common.Bytes) bool {
 }
 
 // DeleteExpiredSplitContracts implements the ViewDataAccessor interface
-func (s *LedgerState) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool {
+func (s *LedgerState) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
 	return s.Delivered().DeleteExpiredSplitContracts(currentBlockHeight)
 }

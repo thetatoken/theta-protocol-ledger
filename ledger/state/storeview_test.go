@@ -2,6 +2,7 @@ package state
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -16,7 +17,7 @@ import (
 func TestStoreViewBasics(t *testing.T) {
 	assert := assert.New(t)
 
-	initHeight := uint32(1)
+	initHeight := uint64(1)
 	incrementedHeight := initHeight + 1
 	db := backend.NewMemDatabase()
 	sv1 := NewStoreView(initHeight, common.Hash{}, db)
@@ -79,7 +80,7 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
 
-	initCoin := types.Coins{ThetaWei: int64(786)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(786)}
 	acc1 := &types.Account{
 		PubKey:   pubKey,
 		Sequence: 173,
@@ -88,7 +89,7 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	acc1Addr := acc1.PubKey.Address()
 
 	db := backend.NewMemDatabase()
-	sv1 := NewStoreView(uint32(1), common.Hash{}, db)
+	sv1 := NewStoreView(uint64(1), common.Hash{}, db)
 
 	sv1.SetAccount(acc1Addr, acc1)
 	accRetrieved := sv1.GetAccount(acc1Addr)
@@ -114,7 +115,7 @@ func TestStoreViewSplitContractAccess(t *testing.T) {
 	assert := assert.New(t)
 
 	db := backend.NewMemDatabase()
-	sv := NewStoreView(uint32(1), common.Hash{}, db)
+	sv := NewStoreView(uint64(1), common.Hash{}, db)
 	_, initiatorPubKey, err := crypto.TEST_GenerateKeyPairWithSeed("initiator")
 	assert.Nil(err)
 

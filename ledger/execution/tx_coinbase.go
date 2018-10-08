@@ -132,16 +132,11 @@ func CalculateReward(view types.ViewDataGetter, validatorAddresses []common.Addr
 	return accountReward
 }
 
-func calculateThetaReward(totalStakeInThetaWei int64, isValidator bool) types.Coins {
-	thetaRewardAmountInWei := int64(0)
+func calculateThetaReward(totalStakeInThetaWei *big.Int, isValidator bool) types.Coins {
+	thetaRewardAmountInWei := big.NewInt(0)
 	if isValidator {
-		tmp := big.NewInt(totalStakeInThetaWei)
-		tmp = tmp.Mul(tmp, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
-		tmp = tmp.Div(tmp, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
-		if !tmp.IsInt64() {
-			panic("Theta balance will overflow")
-		}
-		thetaRewardAmountInWei = tmp.Int64()
+		thetaRewardAmountInWei.Mul(totalStakeInThetaWei, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
+		thetaRewardAmountInWei.Div(thetaRewardAmountInWei, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
 	}
 	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei}
 	return thetaReward

@@ -116,7 +116,7 @@ func (e *ConsensusEngine) Network() p2p.Network {
 }
 
 // GetEpoch returns the current epoch
-func (e *ConsensusEngine) GetEpoch() uint32 {
+func (e *ConsensusEngine) GetEpoch() uint64 {
 	return e.state.GetEpoch()
 }
 
@@ -447,7 +447,7 @@ func (e *ConsensusEngine) randHex() []byte {
 	return bytes
 }
 
-func (e *ConsensusEngine) shouldPropose(epoch uint32) bool {
+func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
 	return proposer.ID() == e.ID()
 }

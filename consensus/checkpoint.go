@@ -83,7 +83,7 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		}
 		acc := &types.Account{
 			PubKey:                 pubKey,
-			Balance:                types.Coins{ThetaWei: 100000000000},
+			Balance:                types.NewCoins(100000000000, 0),
 			LastUpdatedBlockHeight: 0,
 		}
 		s.SetAccount(acc.PubKey.Address(), acc)

@@ -3,6 +3,7 @@ package tx
 import (
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"path"
 	"strings"
 
@@ -20,10 +21,10 @@ var (
 	chainIDFlag     string
 	fromFlag        string
 	toFlag          string
-	seqFlag         int
+	seqFlag         uint64
 	thetaAmountFlag int64
 	gammaAmountFlag int64
-	gasAmountFlag   int64
+	gasAmountFlag   uint64
 	feeInGammaFlag  int64
 )
 
@@ -47,10 +48,10 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{
-			GammaWei: gammaAmountFlag + feeInGammaFlag,
-			ThetaWei: thetaAmountFlag,
+			GammaWei: big.NewInt(gammaAmountFlag + feeInGammaFlag),
+			ThetaWei: big.NewInt(thetaAmountFlag),
 		},
-		Sequence: seqFlag,
+		Sequence: uint64(seqFlag),
 	}}
 	if seqFlag == 1 {
 		inputs[0].PubKey = privKey.PublicKey()
@@ -58,13 +59,13 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{
-			GammaWei: gammaAmountFlag,
-			ThetaWei: thetaAmountFlag,
+			GammaWei: big.NewInt(gammaAmountFlag),
+			ThetaWei: big.NewInt(thetaAmountFlag),
 		},
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
-			GammaWei: feeInGammaFlag,
+			GammaWei: big.NewInt(feeInGammaFlag),
 		},
 		Gas:     gasAmountFlag,
 		Inputs:  inputs,
@@ -98,10 +99,10 @@ func init() {
 	sendCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
-	sendCmd.Flags().IntVar(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	sendCmd.Flags().Int64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
 	sendCmd.Flags().Int64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
-	sendCmd.Flags().Int64Var(&gasAmountFlag, "gas", 1, "Gas limit")
+	sendCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
 	sendCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
 
 	sendCmd.MarkFlagRequired("chain")

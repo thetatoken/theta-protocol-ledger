@@ -62,7 +62,7 @@ func encodeToBytes(str string) []byte {
 type TxInput struct {
 	Address   common.Address    `json:"address"`   // Hash of the PubKey
 	Coins     Coins             `json:"coins"`     //
-	Sequence  int               `json:"sequence"`  // Must be 1 greater than the last committed TxInput
+	Sequence  uint64            `json:"sequence"`  // Must be 1 greater than the last committed TxInput
 	Signature *crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
 	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
 }
@@ -102,7 +102,7 @@ func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
 	input := TxInput{
 		Address:  pubKey.Address(),
 		Coins:    coins,
-		Sequence: sequence,
+		Sequence: uint64(sequence),
 	}
 	if sequence == 1 {
 		input.PubKey = pubKey
@@ -140,7 +140,7 @@ func (txOut TxOutput) String() string {
 type CoinbaseTx struct {
 	Proposer    TxInput    `json:"proposer"`
 	Outputs     []TxOutput `json:"outputs"`
-	BlockHeight uint32     `json:"block_height"`
+	BlockHeight uint64     `json:"block_height"`
 }
 
 func (_ *CoinbaseTx) AssertIsTx() {}
@@ -171,7 +171,7 @@ func (tx *CoinbaseTx) String() string {
 type SlashTx struct {
 	Proposer        TxInput        `json:"proposer"`
 	SlashedAddress  common.Address `json:"slashed_address"`
-	ReserveSequence int            `json:"reserved_sequence"`
+	ReserveSequence uint64         `json:"reserved_sequence"`
 	SlashProof      []byte         `json:"slash_proof"`
 }
 
@@ -203,7 +203,7 @@ func (tx *SlashTx) String() string {
 //-----------------------------------------------------------------------------
 
 type SendTx struct {
-	Gas     int64      `json:"gas"` // Gas
+	Gas     uint64     `json:"gas"` // Gas
 	Fee     Coins      `json:"fee"` // Fee
 	Inputs  []TxInput  `json:"inputs"`
 	Outputs []TxOutput `json:"outputs"`
@@ -242,12 +242,12 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Gas         int64    `json:"gas"`          // Gas
+	Gas         uint64   `json:"gas"`          // Gas
 	Fee         Coins    `json:"fee"`          // Fee
 	Source      TxInput  `json:"source"`       // Source account
 	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
 	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint32   `json:"duration"`
+	Duration    uint64   `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -276,10 +276,10 @@ func (tx *ReserveFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReleaseFundTx struct {
-	Gas             int64   `json:"gas"`    // Gas
+	Gas             uint64  `json:"gas"`    // Gas
 	Fee             Coins   `json:"fee"`    // Fee
 	Source          TxInput `json:"source"` // source account
-	ReserveSequence int     `json:"reserve_sequence"`
+	ReserveSequence uint64  `json:"reserve_sequence"`
 }
 
 func (_ *ReleaseFundTx) AssertIsTx() {}
@@ -308,12 +308,12 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Gas             int64   `json:"gas"`              // Gas
+	Gas             uint64  `json:"gas"`              // Gas
 	Fee             Coins   `json:"fee"`              // Fee
 	Source          TxInput `json:"source"`           // source account
 	Target          TxInput `json:"target"`           // target account
-	PaymentSequence int     `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence int     `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	PaymentSequence uint64  `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence uint64  `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
 	ResourceID      []byte  `json:"resource_id"`      // The corresponding resourceID
 }
 
@@ -330,7 +330,7 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	tx.Source = TxInput{Address: source.Address, Coins: source.Coins}
 	tx.Target = TxInput{Address: target.Address}
 	tx.Fee = Coins{}
-	tx.Gas = int64(0)
+	tx.Gas = uint64(0)
 
 	signBytes = append(signBytes, TxToBytes(tx)...)
 
@@ -377,12 +377,12 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 //-----------------------------------------------------------------------------
 
 type SplitContractTx struct {
-	Gas        int64        `json:"gas"`         // Gas
+	Gas        uint64       `json:"gas"`         // Gas
 	Fee        Coins        `json:"fee"`         // Fee
 	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
 	Splits     []Split      `json:"splits"`      // Agreed splits
-	Duration   uint32       `json:"duration"`    // Duration of the payment split in terms of blocks
+	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
 func (_ *SplitContractTx) AssertIsTx() {}
@@ -411,7 +411,7 @@ func (tx *SplitContractTx) String() string {
 //-----------------------------------------------------------------------------
 
 type UpdateValidatorsTx struct {
-	Gas        int64             `json:"gas"`        // Gas
+	Gas        uint64            `json:"gas"`        // Gas
 	Fee        Coins             `json:"fee"`        // Fee
 	Validators []*core.Validator `json:"validators"` // validators diff
 	Proposer   TxInput           `json:"source"`     // source account
