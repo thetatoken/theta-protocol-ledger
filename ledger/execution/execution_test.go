@@ -723,47 +723,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 func TestServicePaymentTx1(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
-
-	alice := types.MakeAcc("User Alice")
-	aliceInitBalance := types.Coins{{"GammaWei", 10000 * 1e6}}
-	alice.Balance = aliceInitBalance
-	et.acc2State(alice)
-	log.Infof("alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
-
-	bob := types.MakeAcc("User Bob")
-	bobInitBalance := types.Coins{{"GammaWei", 3000 * 1e6}}
-	bob.Balance = bobInitBalance
-	et.acc2State(bob)
-	log.Infof("bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
-
-	carol := types.MakeAcc("User Carol")
-	carolInitBalance := types.Coins{{"GammaWei", 3000 * 1e6}}
-	carol.Balance = carolInitBalance
-	et.acc2State(carol)
-	log.Infof("carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
-
-	et.fastforwardTo(1e2)
-
-	resourceID := common.Bytes("rid001")
-	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
-		Source: types.TxInput{
-			Address:  alice.PubKey.Address(),
-			PubKey:   alice.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
-			Sequence: 1,
-		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
-		ResourceIDs: []common.Bytes{resourceID},
-		Duration:    1000,
-	}
-	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
-	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
-	assert.True(res.IsOK(), res.String())
-	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
-	assert.True(res.IsOK(), res.String())
-
+	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	et.state().Commit()
 
 	retrievedAliceAcc0 := et.state().GetAccount(alice.PubKey.Address())
@@ -778,10 +738,11 @@ func TestServicePaymentTx1(t *testing.T) {
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	res = et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
+	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
+	assert.Equal(0, len(et.state().GetSlashIntents()))
 
 	et.state().Commit()
 
@@ -799,6 +760,7 @@ func TestServicePaymentTx1(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx2).process(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.True(res.IsOK(), res.Message)
+	assert.Equal(0, len(et.state().GetSlashIntents()))
 
 	et.state().Commit()
 
@@ -816,6 +778,7 @@ func TestServicePaymentTx1(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx3).process(et.chainID, et.state().Delivered(), servicePaymentTx3)
 	assert.True(res.IsOK(), res.Message)
+	assert.Equal(0, len(et.state().GetSlashIntents()))
 
 	et.state().Commit()
 
@@ -824,7 +787,7 @@ func TestServicePaymentTx1(t *testing.T) {
 	retrievedCarolAcc3 := et.state().GetAccount(carol.PubKey.Address())
 	assert.Equal(carolInitBalance.Plus(types.Coins{{"GammaWei", payAmount3 - 1}}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
 
-	// Simulate micropayment #3 between Alice and Carol. This is an overspend, alice should get slashed.
+	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
 	payAmount4 := int64(2000 * 1e6)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 4, 1
 	_ = createServicePaymentTx(et.chainID, &alice, &carol, 70000, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
@@ -840,47 +803,7 @@ func TestServicePaymentTx1(t *testing.T) {
 
 func TestServicePaymentTx2(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
-
-	alice := types.MakeAcc("User Alice")
-	aliceInitBalance := types.Coins{{"GammaWei", 10000 * 1e6}}
-	alice.Balance = aliceInitBalance
-	et.acc2State(alice)
-	log.Infof("alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
-
-	bob := types.MakeAcc("User Bob")
-	bobInitBalance := types.Coins{{"GammaWei", 3000 * 1e6}}
-	bob.Balance = bobInitBalance
-	et.acc2State(bob)
-	log.Infof("bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
-
-	carol := types.MakeAcc("User Carol")
-	carolInitBalance := types.Coins{{"GammaWei", 3000 * 1e6}}
-	carol.Balance = carolInitBalance
-	et.acc2State(carol)
-	log.Infof("carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
-
-	et.fastforwardTo(1e6)
-
-	resourceID := common.Bytes("rid001")
-	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
-		Source: types.TxInput{
-			Address:  alice.PubKey.Address(),
-			PubKey:   alice.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
-			Sequence: 1,
-		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
-		ResourceIDs: []common.Bytes{resourceID},
-		Duration:    1000,
-	}
-	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
-	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
-	assert.True(res.IsOK(), res.String())
-	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
-	assert.True(res.IsOK(), res.String())
-
+	et, resourceID, alice, bob, _, _, bobInitBalance, _ := setupForServicePayment(assert)
 	et.state().Commit()
 
 	retrievedAliceAcc1 := et.state().GetAccount(alice.PubKey.Address())
@@ -895,7 +818,7 @@ func TestServicePaymentTx2(t *testing.T) {
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	res = et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
+	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -918,6 +841,73 @@ func TestServicePaymentTx2(t *testing.T) {
 	assert.False(res.IsOK(), res.Message)
 	assert.Equal(result.CodeCheckTransferReservedFundFailed, res.Code)
 	log.Infof("Service payment check message: %v", res.Message)
+}
+
+func TestSlashTx(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, _, _, _, _ := setupForServicePayment(assert)
+
+	proposer := et.accProposer
+	proposerInitBalance := proposer.Account.Balance
+	et.acc2State(proposer)
+	log.Infof("Proposer's pubKey:  %v", hex.EncodeToString(proposer.PubKey.ToBytes()))
+	log.Infof("Proposer's Address: %v", proposer.PubKey.Address().Hex())
+
+	et.state().Commit()
+
+	retrievedAliceAccount := et.state().GetAccount(alice.PubKey.Address())
+	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
+	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
+	aliceReservedFund := retrievedAliceAccount.ReservedFunds[0].InitialFund
+	expectedAliceSlashedAmount := aliceCollateral.Plus(aliceReservedFund)
+
+	// Simulate micropayment #1 between Alice and Bob, which is an overspend
+	payAmount1 := int64(8000 * 1e6)
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
+	assert.True(res.IsOK(), res.Message)
+	assert.Equal(1, len(et.state().GetSlashIntents()))
+
+	slashIntent := et.state().GetSlashIntents()[0]
+
+	et.state().Commit()
+
+	// Test the slashTx
+	slashTx := &types.SlashTx{
+		Proposer: types.TxInput{
+			Address:  proposer.PubKey.Address(),
+			Sequence: 1,
+			PubKey:   proposer.PubKey,
+		},
+		SlashedAddress:  slashIntent.Address,
+		ReserveSequence: slashIntent.ReserveSequence,
+		SlashProof:      slashIntent.Proof,
+	}
+	signBytes := slashTx.SignBytes(et.chainID)
+	slashTx.Proposer.Signature = proposer.Sign(signBytes)
+
+	res = et.executor.getTxExecutor(slashTx).sanityCheck(et.chainID, et.state().Delivered(), slashTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(slashTx).process(et.chainID, et.state().Delivered(), slashTx)
+	assert.True(res.IsOK(), res.Message)
+
+	retrievedProposerAccount := et.state().GetAccount(proposer.PubKey.Address())
+	assert.Equal(proposerInitBalance.Plus(expectedAliceSlashedAmount), retrievedProposerAccount.Balance) // slashed tokens transferred to the proposer
+
+	retrievedAliceAccountAfterSlash := et.state().GetAccount(alice.PubKey.Address())
+	assert.Equal(0, len(retrievedAliceAccountAfterSlash.ReservedFunds)) // Alice is slashed
+
+	log.Infof("Proposer initial balance: %v", proposerInitBalance)
+	log.Infof("Alice collateral: %v", aliceCollateral)
+	log.Infof("Alice reserved fund: %v", aliceReservedFund)
+	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
 // ------------------------------ Test Utils ------------------------------ //
@@ -960,4 +950,53 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 	}
 
 	return servicePaymentTx
+}
+
+func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID common.Bytes,
+	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
+	et = newExecTest()
+
+	alice = types.MakeAcc("User Alice")
+	aliceInitBalance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	alice.Balance = aliceInitBalance
+	et.acc2State(alice)
+	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
+	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
+
+	bob = types.MakeAcc("User Bob")
+	bobInitBalance = types.Coins{{"GammaWei", 3000 * 1e6}}
+	bob.Balance = bobInitBalance
+	et.acc2State(bob)
+	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
+	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
+
+	carol = types.MakeAcc("User Carol")
+	carolInitBalance = types.Coins{{"GammaWei", 3000 * 1e6}}
+	carol.Balance = carolInitBalance
+	et.acc2State(carol)
+	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
+	log.Infof("Carol's Address: %v", carol.PubKey.Address().Hex())
+
+	et.fastforwardTo(1e2)
+
+	resourceID = common.Bytes("rid001")
+	reserveFundTx := &types.ReserveFundTx{
+		Fee: types.Coin{"GammaWei", 100},
+		Source: types.TxInput{
+			Address:  alice.PubKey.Address(),
+			PubKey:   alice.PubKey,
+			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		ResourceIDs: []common.Bytes{resourceID},
+		Duration:    1000,
+	}
+	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
+	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
+	ast.True(res.IsOK(), res.String())
+	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
+	ast.True(res.IsOK(), res.String())
+
+	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance
 }

@@ -1,7 +1,7 @@
 package execution
 
 import (
-	"fmt"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
@@ -22,6 +22,7 @@ type SlashTxExecutor struct {
 func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorManager) *SlashTxExecutor {
 	return &SlashTxExecutor{
 		consensus: consensus,
+		valMgr:    valMgr,
 	}
 }
 
@@ -81,8 +82,6 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGett
 		return result.Error("Validator %v does not exist!", validatorAddress)
 	}
 
-	// TODO: Add a check that validatorAccount is indeed a validator (check against the current validator list)
-
 	overspendingProofBytes := tx.SlashProof
 	slashProofVerified := exec.verifySlashProof(chainID, slashedAccount, overspendingProofBytes)
 	if !slashProofVerified {
@@ -119,7 +118,7 @@ func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor
 	}
 
 	// TODO: We should transfer the collateral to a special address, e.g. 0x0 instead of
-	//       transfering to the validator, so the validator gain no extra benefit if it colludes with
+	//       transfering to the proposer, so the proposer gain no extra benefit if it colludes with
 	//       the address that overspent
 
 	// Slash: transfer the collateral and remainding deposit to the validator that identified the overspending
@@ -145,7 +144,9 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 	err := types.FromBytes(overspendingProofBytes, &overspendingProof)
 	if err != nil {
 		// TODO: need proper logging and error handling here.
-		panic(fmt.Sprintf("Failed to parse overspending proof: %v\n", err))
+		//panic(fmt.Sprintf("Failed to parse overspending proof: %v\n", err))
+		log.Errorf("Failed to parse overspending proof: %v", err)
+		return false
 	}
 
 	slashedAddress := slashedAccount.PubKey.Address()
@@ -158,7 +159,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 		settledPaymentLookup := make(map[string]bool)
 		fundIntendedToSpend := types.Coins{}
 		for _, servicePaymentTx := range overspendingProof.ServicePayments {
-			if slashedAddress == servicePaymentTx.Source.Address {
+			if slashedAddress != servicePaymentTx.Source.Address {
 				return false // servicePaymentTx does not come from the slashed account
 			}
 
