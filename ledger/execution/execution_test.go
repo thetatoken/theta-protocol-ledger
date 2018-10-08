@@ -721,7 +721,7 @@ func TestReleaseFundTx(t *testing.T) {
 	assert.Equal(res.Code, result.CodeReleaseFundCheckFailed, res.String())
 }
 
-func TestServicePaymentTx1(t *testing.T) {
+func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	et.state().Commit()
@@ -801,7 +801,7 @@ func TestServicePaymentTx1(t *testing.T) {
 	assert.Equal(1, len(et.state().GetSlashIntents()))
 }
 
-func TestServicePaymentTx2(t *testing.T) {
+func TestServicePaymentTxExpiration(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, _, _, bobInitBalance, _ := setupForServicePayment(assert)
 	et.state().Commit()
@@ -910,7 +910,7 @@ func TestSlashTx(t *testing.T) {
 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
-func TestSplitContractTx1(t *testing.T) {
+func TestSplitContractTxNormalExecution(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -971,7 +971,7 @@ func TestSplitContractTx1(t *testing.T) {
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
 
-func TestSplitContractTx2(t *testing.T) {
+func TestSplitContractTxExpiration(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -1006,7 +1006,7 @@ func TestSplitContractTx2(t *testing.T) {
 
 	et.fastforwardBy(105) // The split contract should expire after the fastforward
 
-	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	// Simulate micropayment #1 between Alice and Bob, Carol should NOT get a cut
 	payAmount := int64(10000)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
@@ -1031,6 +1031,104 @@ func TestSplitContractTx2(t *testing.T) {
 	servicePaymentTxFee := types.Coins{types.Coin{"GammaWei", 1}}
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
+}
+
+func TestSplitContractTxUpdate(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, _, _, carol, _, _, _ := setupForServicePayment(assert)
+	et.fastforwardBy(1000)
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	et.acc2State(initiator)
+
+	fakeInitiator := types.MakeAcc("User Eric")
+	fakeInitiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	et.acc2State(fakeInitiator)
+
+	splitCarol := types.Split{
+		Address:    carol.PubKey.Address(),
+		Percentage: 30,
+	}
+	splitContractTx := &types.SplitContractTx{
+		Fee:        types.Coin{"GammaWei", 10},
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.PubKey.Address(),
+			PubKey:   initiator.PubKey,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitCarol},
+		Duration: uint32(100),
+	}
+	signBytes := splitContractTx.SignBytes(et.chainID)
+	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	assert.True(res.IsOK(), res.Message)
+
+	splitContract := et.executor.state.GetSplitContract(resourceID)
+	assert.NotNil(splitContract)
+	originalEndHeight := splitContract.EndBlockHeight
+	log.Infof("originalEndHeight = %v", originalEndHeight)
+
+	// Another user tries to update the split contract, should fail
+	fakeSplitContractUpdateTx := &types.SplitContractTx{
+		Fee:        types.Coin{"GammaWei", 10},
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  fakeInitiator.PubKey.Address(),
+			PubKey:   fakeInitiator.PubKey,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitCarol},
+		Duration: uint32(1000),
+	}
+	signBytes = fakeSplitContractUpdateTx.SignBytes(et.chainID)
+	fakeSplitContractUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
+
+	res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	assert.False(res.IsOK(), res.Message)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
+	_, res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	assert.False(res.IsOK(), res.Message)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
+
+	splitContract1 := et.executor.state.GetSplitContract(resourceID)
+	assert.NotNil(splitContract1)
+	endHeight1 := splitContract1.EndBlockHeight
+	assert.Equal(originalEndHeight, endHeight1)
+	log.Infof("endHeight1 = %v", endHeight1)
+
+	// The original initiator tries to update the split contract, should succeed
+	extendedDuration := uint32(1000)
+	splitContractUpdateTx := &types.SplitContractTx{
+		Fee:        types.Coin{"GammaWei", 10},
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.PubKey.Address(),
+			Sequence: 2,
+		},
+		Splits:   []types.Split{splitCarol},
+		Duration: extendedDuration,
+	}
+	signBytes = splitContractUpdateTx.SignBytes(et.chainID)
+	splitContractUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res = et.executor.getTxExecutor(splitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitContractUpdateTx).process(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	assert.True(res.IsOK(), res.Message)
+
+	splitContract2 := et.executor.state.GetSplitContract(resourceID)
+	assert.NotNil(splitContract2)
+	currHeight := et.executor.state.Height()
+	endHeight2 := splitContract2.EndBlockHeight
+	assert.Equal(currHeight+extendedDuration, endHeight2)
+	log.Infof("currHeight = %v", currHeight)
+	log.Infof("endHeight2 = %v", endHeight2)
 }
 
 // ------------------------------ Test Utils ------------------------------ //

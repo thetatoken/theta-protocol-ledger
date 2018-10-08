@@ -77,8 +77,9 @@ func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view types.View
 	resourceID := tx.ResourceID
 	if exec.state.SplitContractExists(resourceID) {
 		splitContract := exec.state.GetSplitContract(resourceID)
-		if splitContract.InitiatorAddress == tx.Initiator.Address {
-			return result.Error("Cannot create multiple split contracts for the same resourceID")
+		if splitContract.InitiatorAddress != tx.Initiator.Address {
+			return result.Error("Cannot create multiple split contracts for the same resourceID").
+				WithErrorCode(result.CodeUnauthorizedToUpdateSplitContract)
 		}
 	}
 
@@ -100,8 +101,9 @@ func (exec *SplitContractTxExecutor) process(chainID string, view types.ViewData
 	success := false
 	if exec.state.SplitContractExists(resourceID) {
 		splitContract := exec.state.GetSplitContract(resourceID)
-		if splitContract.InitiatorAddress == tx.Initiator.Address {
-			return common.Hash{}, result.Error("split contract from a different initiator existed")
+		if splitContract.InitiatorAddress != tx.Initiator.Address {
+			return common.Hash{}, result.Error("split contract from a different initiator existed").
+				WithErrorCode(result.CodeUnauthorizedToUpdateSplitContract)
 		}
 		endBlockHeight := currentBlockHeight + tx.Duration
 		splitContract.EndBlockHeight = endBlockHeight

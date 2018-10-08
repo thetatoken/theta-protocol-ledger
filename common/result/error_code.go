@@ -24,4 +24,7 @@ const (
 
 	// ServerPayment Errors
 	CodeCheckTransferReservedFundFailed ErrorCode = 103001
+
+	// SplitContract Errors
+	CodeUnauthorizedToUpdateSplitContract ErrorCode = 104001
 )

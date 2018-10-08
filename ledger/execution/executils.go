@@ -208,7 +208,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.Error("SignBytes: %v",
+		return result.Error("Signature verification failed, SignBytes: %v",
 			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}
 
