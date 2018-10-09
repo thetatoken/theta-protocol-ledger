@@ -134,6 +134,7 @@ func getOrMakeAccountImpl(view types.ViewDataGetter, address common.Address, mak
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
 		acc = &types.Account{
+			Balance:                types.NewCoins(0, 0),
 			LastUpdatedBlockHeight: view.Height(),
 		}
 	}

@@ -73,7 +73,7 @@ func TestReleaseExpiredFunds(t *testing.T) {
 	initialBalance := NewCoins(1000, 20000)
 	collateral := NewCoins(0, 101)
 	fund := NewCoins(0, 100)
-	resourceIDs := [][]byte{[]byte("rid001")}
+	resourceIDs := []common.Bytes{common.Bytes("rid001")}
 
 	acc := makeAccount("foo", initialBalance)
 	acc.ReserveFund(collateral, fund, resourceIDs, 10, 1)

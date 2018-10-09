@@ -229,6 +229,9 @@ func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint64) {
 	}
 
 	totalThetaWei := acc.Balance.ThetaWei
+	if totalThetaWei == nil {
+		totalThetaWei = big.NewInt(0)
+	}
 	span := currentBlockHeight - acc.LastUpdatedBlockHeight
 
 	newGammaBalance := big.NewInt(int64(span))

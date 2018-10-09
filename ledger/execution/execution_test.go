@@ -115,8 +115,7 @@ func TestValidateInputsBasic(t *testing.T) {
 	t.Log("inputs[0].Coins = ", inputs[0].Coins)
 	inputs[0].Coins.ThetaWei = big.NewInt(-1)
 	res = validateInputsBasic(inputs)
-	//assert.True(res.IsError(), "validateInputsBasic: expected error on bad tx input")
-	assert.True(res.IsOK(), "validateInputsBasic: expected error on bad tx input")
+	assert.True(res.IsError(), "validateInputsBasic: expected error on bad tx input")
 }
 
 func TestValidateInputsAdvanced(t *testing.T) {
@@ -306,7 +305,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 
 	accInit, res := getAccount(et.state(), userAddr)
 	assert.True(res.IsOK())
-	assert.Nil(accInit.PubKey)
+	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
 
 	txInput1 := types.TxInput{
 		Address:  userAddr,
@@ -321,7 +320,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 
 	accInit, res = getAccount(et.state(), userAddr)
 	assert.True(res.IsOK())
-	assert.Nil(accInit.PubKey)
+	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
 
 	txInput2 := types.TxInput{
 		Address:  userAddr,
@@ -500,18 +499,18 @@ func TestCoinbaseTx(t *testing.T) {
 	assert.True(res.IsOK(), res.String())
 
 	va1balance := et.state().GetAccount(va1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000317), va1balance.ThetaWei)
+	assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
 	// validator's Gamma is also updated.
-	assert.Equal(int64(189999981000), va1balance.GammaWei)
+	assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
 
 	va2balance := et.state().GetAccount(va2.Account.PubKey.Address()).Balance
-	assert.Equal(int64(300000000951), va2balance.ThetaWei)
-	assert.Equal(int64(569999943000), va2balance.GammaWei)
+	assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
+	assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
 
 	user1balance := et.state().GetAccount(user1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000000), user1balance.ThetaWei)
+	assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
 	// user's Gamma is not updated.
-	assert.Equal(int64(0), user1balance.GammaWei)
+	assert.Equal(int64(0), user1balance.GammaWei.Int64())
 }
 
 func TestReserveFundTx(t *testing.T) {
@@ -519,7 +518,7 @@ func TestReserveFundTx(t *testing.T) {
 	et := newExecTest()
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{{"GammaWei", 10000 * 1e6}, {"ThetaWei", 10000 * 1e6}}
+	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -527,33 +526,15 @@ func TestReserveFundTx(t *testing.T) {
 	var tx *types.ReserveFundTx
 	var res result.Result
 
-	// Invalid Fee
-	tx = &types.ReserveFundTx{
-		Fee: types.Coin{"foo", 100},
-		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
-			Sequence: 1,
-		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
-		Duration:    1000,
-	}
-	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.False(res.IsOK(), res.String())
-	assert.Equal(res.Code, result.CodeInvalidFee)
-
 	// Reserved fund not specified
 	tx = &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -564,14 +545,14 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Insufficient fund
 	tx = &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{{"GammaWei", 50000 * 1e6}},
+			Coins:    types.Coins{GammaWei: big.NewInt(50000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -582,14 +563,14 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Reserved fund more than collateral
 	tx = &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{{"GammaWei", 5000 * 1e6}},
+			Coins:    types.Coins{GammaWei: big.NewInt(5000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -600,14 +581,14 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Regular check
 	tx = &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -620,7 +601,7 @@ func TestReserveFundTx(t *testing.T) {
 	retrievedUserAcc := et.state().GetAccount(user1.PubKey.Address())
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{{"GammaWei", 1001 * 1e6}}, retrievedUserAcc.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
 	assert.Equal(1, retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
 
@@ -629,7 +610,7 @@ func TestReleaseFundTx(t *testing.T) {
 	et := newExecTest()
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{{"GammaWei", 10000 * 1e6}, {"ThetaWei", 10000 * 1e6}}
+	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -639,14 +620,14 @@ func TestReleaseFundTx(t *testing.T) {
 	var res result.Result
 
 	reserveFundTx = &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 1000),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -660,7 +641,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Invalid Fee
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.Coin{"foo", 100},
+		Fee: types.NewCoins(100, 0),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -674,7 +655,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Not expire yet
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -690,7 +671,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// No matching ReserveSequence
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -709,7 +690,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Check auto-expiration
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -730,8 +711,8 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc0 := et.state().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{{"GammaWei", 1001 * 1e6}}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
-	assert.Equal(1, retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
+	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bob
 	payAmount1 := int64(800)
@@ -748,9 +729,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc1 := et.state().GetAccount(alice.PubKey.Address())
-	assert.Equal(types.Coins{{"GammaWei", payAmount1}}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
 	retrievedBobAcc1 := et.state().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{{"GammaWei", payAmount1 - 1}}), retrievedBobAcc1.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - 1: need to account for Gas
 
 	// Simulate micropayment #2 between Alice and Bob
 	payAmount2 := int64(500)
@@ -766,9 +747,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc2 := et.state().GetAccount(alice.PubKey.Address())
-	assert.Equal(types.Coins{{"GammaWei", payAmount1 + payAmount2}}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{{"GammaWei", payAmount1 + payAmount2 - 2}}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2: need to account for Gas
 
 	// Simulate micropayment #3 between Alice and Carol
 	payAmount3 := int64(1200)
@@ -784,9 +765,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc3 := et.state().GetAccount(alice.PubKey.Address())
-	assert.Equal(types.Coins{{"GammaWei", payAmount1 + payAmount2 + payAmount3}}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
 	retrievedCarolAcc3 := et.state().GetAccount(carol.PubKey.Address())
-	assert.Equal(carolInitBalance.Plus(types.Coins{{"GammaWei", payAmount3 - 1}}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
+	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - 1)}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
 	payAmount4 := int64(2000 * 1e6)
@@ -810,8 +791,8 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	retrievedAliceAcc1 := et.state().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{{"GammaWei", 1001 * 1e6}}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
-	assert.Equal(1, retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
+	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bobs
 	payAmount1 := int64(800)
@@ -827,9 +808,9 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc2 := et.state().GetAccount(alice.PubKey.Address())
-	assert.Equal(types.Coins{{"GammaWei", payAmount1}}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{{"GammaWei", payAmount1 - 1}}), retrievedBobAcc2.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1)}), retrievedBobAcc2.Balance) // payAmount1 - 1: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
 
@@ -918,7 +899,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -926,7 +907,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Percentage: 30,
 	}
 	splitContractTx := &types.SplitContractTx{
-		Fee:        types.Coin{"GammaWei", 10},
+		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -934,7 +915,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
-		Duration: uint32(99999),
+		Duration: uint64(99999),
 	}
 	signBytes := splitContractTx.SignBytes(et.chainID)
 	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
@@ -965,9 +946,9 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
 	// Check the balances of the relevant accounts
-	bobSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount * 70 / 100)}}
-	servicePaymentTxFee := types.Coins{types.Coin{"GammaWei", 1}}
-	carolSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount * 30 / 100)}}
+	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 70 / 100), ThetaWei: big.NewInt(0)}
+	servicePaymentTxFee := types.NewCoins(0, 1)
+	carolSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 30 / 100), ThetaWei: big.NewInt(0)}
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
@@ -979,7 +960,7 @@ func TestSplitContractTxExpiration(t *testing.T) {
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -987,7 +968,7 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Percentage: 30,
 	}
 	splitContractTx := &types.SplitContractTx{
-		Fee:        types.Coin{"GammaWei", 10},
+		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -995,7 +976,7 @@ func TestSplitContractTxExpiration(t *testing.T) {
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
-		Duration: uint32(100),
+		Duration: uint64(100),
 	}
 	signBytes := splitContractTx.SignBytes(et.chainID)
 	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
@@ -1028,8 +1009,8 @@ func TestSplitContractTxExpiration(t *testing.T) {
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
 	// Check the balances of the relevant accounts
-	bobSplitCoins := types.Coins{types.Coin{"GammaWei", int64(payAmount)}}
-	servicePaymentTxFee := types.Coins{types.Coin{"GammaWei", 1}}
+	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
+	servicePaymentTxFee := types.NewCoins(0, 1)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
 }
@@ -1040,11 +1021,11 @@ func TestSplitContractTxUpdate(t *testing.T) {
 	et.fastforwardBy(1000)
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	fakeInitiator := types.MakeAcc("User Eric")
-	fakeInitiator.Balance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
 	et.acc2State(fakeInitiator)
 
 	splitCarol := types.Split{
@@ -1052,7 +1033,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Percentage: 30,
 	}
 	splitContractTx := &types.SplitContractTx{
-		Fee:        types.Coin{"GammaWei", 10},
+		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1060,7 +1041,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
-		Duration: uint32(100),
+		Duration: uint64(100),
 	}
 	signBytes := splitContractTx.SignBytes(et.chainID)
 	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
@@ -1077,7 +1058,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 
 	// Another user tries to update the split contract, should fail
 	fakeSplitContractUpdateTx := &types.SplitContractTx{
-		Fee:        types.Coin{"GammaWei", 10},
+		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  fakeInitiator.PubKey.Address(),
@@ -1085,7 +1066,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
-		Duration: uint32(1000),
+		Duration: uint64(1000),
 	}
 	signBytes = fakeSplitContractUpdateTx.SignBytes(et.chainID)
 	fakeSplitContractUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
@@ -1104,9 +1085,9 @@ func TestSplitContractTxUpdate(t *testing.T) {
 	log.Infof("endHeight1 = %v", endHeight1)
 
 	// The original initiator tries to update the split contract, should succeed
-	extendedDuration := uint32(1000)
+	extendedDuration := uint64(1000)
 	splitContractUpdateTx := &types.SplitContractTx{
-		Fee:        types.Coin{"GammaWei", 10},
+		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1136,18 +1117,18 @@ func TestSplitContractTxUpdate(t *testing.T) {
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
 	servicePaymentTx := &types.ServicePaymentTx{
-		Fee: types.Coin{"GammaWei", 1},
+		Fee: types.NewCoins(0, 1),
 		Source: types.TxInput{
 			Address:  source.PubKey.Address(),
-			Coins:    types.Coins{{"GammaWei", amount}},
-			Sequence: srcSeq,
+			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
+			Sequence: uint64(srcSeq),
 		},
 		Target: types.TxInput{
 			Address:  target.PubKey.Address(),
-			Sequence: tgtSeq,
+			Sequence: uint64(tgtSeq),
 		},
-		PaymentSequence: paymentSeq,
-		ReserveSequence: reserveSeq,
+		PaymentSequence: uint64(paymentSeq),
+		ReserveSequence: uint64(reserveSeq),
 		ResourceID:      resourceID,
 	}
 
@@ -1179,21 +1160,21 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 	et = newExecTest()
 
 	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{{"GammaWei", 10000 * 1e6}}
+	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
 	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
 	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
 
 	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{{"GammaWei", 3000 * 1e6}}
+	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
 	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
 	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
 
 	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{{"GammaWei", 3000 * 1e6}}
+	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
 	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
@@ -1203,14 +1184,14 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 
 	resourceID = common.Bytes("rid001")
 	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.Coin{"GammaWei", 100},
+		Fee: types.NewCoins(0, 100),
 		Source: types.TxInput{
 			Address:  alice.PubKey.Address(),
 			PubKey:   alice.PubKey,
-			Coins:    types.Coins{{"GammaWei", 1000 * 1e6}},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{{"GammaWei", 1001 * 1e6}},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{resourceID},
 		Duration:    1000,
 	}
