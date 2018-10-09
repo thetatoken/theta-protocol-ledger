@@ -48,6 +48,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger) *ThetaRP
 	}
 
 	t.mempool = mempool
+	t.ledger = ledger
 
 	t.handler = rpc.NewServer()
 	t.handler.RegisterCodec(json.NewCodec(), "application/json")
