@@ -34,7 +34,14 @@ type Tx interface {
 //-----------------------------------------------------------------------------
 
 func TxID(chainID string, tx Tx) common.Hash {
-	signBytes := tx.SignBytes(chainID)
+	var signBytes []byte
+	switch tx.(type) {
+	default:
+		signBytes = tx.SignBytes(chainID)
+	case *ServicePaymentTx:
+		spTx := tx.(*ServicePaymentTx)
+		signBytes = spTx.TargetSignBytes(chainID)
+	}
 	return crypto.Keccak256Hash(signBytes)
 }
 
@@ -173,7 +180,7 @@ type SlashTx struct {
 	Proposer        TxInput        `json:"proposer"`
 	SlashedAddress  common.Address `json:"slashed_address"`
 	ReserveSequence uint64         `json:"reserved_sequence"`
-	SlashProof      []byte         `json:"slash_proof"`
+	SlashProof      common.Bytes   `json:"slash_proof"`
 }
 
 func (_ *SlashTx) AssertIsTx() {}
@@ -245,12 +252,12 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Gas         uint64   `json:"gas"`          // Gas
-	Fee         Coins    `json:"fee"`          // Fee
-	Source      TxInput  `json:"source"`       // Source account
-	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
-	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint64   `json:"duration"`
+	Gas         uint64         `json:"gas"`          // Gas
+	Fee         Coins          `json:"fee"`          // Fee
+	Source      TxInput        `json:"source"`       // Source account
+	Collateral  Coins          `json:"collateral"`   // Collateral for the micropayment pool
+	ResourceIDs []common.Bytes `json:"resource_ids"` // List of resource ID
+	Duration    uint64         `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -313,13 +320,13 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Gas             uint64  `json:"gas"`              // Gas
-	Fee             Coins   `json:"fee"`              // Fee
-	Source          TxInput `json:"source"`           // source account
-	Target          TxInput `json:"target"`           // target account
-	PaymentSequence uint64  `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence uint64  `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceID      []byte  `json:"resource_id"`      // The corresponding resourceID
+	Gas             uint64       `json:"gas"`              // Gas
+	Fee             Coins        `json:"fee"`              // Fee
+	Source          TxInput      `json:"source"`           // source account
+	Target          TxInput      `json:"target"`           // target account
+	PaymentSequence uint64       `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence uint64       `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	ResourceID      common.Bytes `json:"resource_id"`      // The corresponding resourceID
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}

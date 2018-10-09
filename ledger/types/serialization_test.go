@@ -342,7 +342,7 @@ func TestTx(t *testing.T) {
 	tx1 = &SlashTx{
 		Proposer:        TxInput{Address: getTestAddress("123")},
 		SlashedAddress:  getTestAddress("456"),
-		SlashProof:      []byte("789"),
+		SlashProof:      common.Bytes("789"),
 		ReserveSequence: 1,
 	}
 	b, err = TxToBytes(tx1)
@@ -377,7 +377,7 @@ func TestTx(t *testing.T) {
 		Gas:         123,
 		Source:      TxInput{Address: getTestAddress("123")},
 		Collateral:  NewCoins(456, 0),
-		ResourceIDs: [][]byte{[]byte("789")},
+		ResourceIDs: []common.Bytes{common.Bytes("789")},
 		Duration:    1,
 	}
 	b, err = TxToBytes(tx1)

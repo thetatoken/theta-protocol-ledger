@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/common"
 )
 
 func makeAccount(secret string, balance Coins) Account {
@@ -14,9 +15,9 @@ func makeAccount(secret string, balance Coins) Account {
 	return acc
 }
 
-func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID []byte, endBlockHeight uint64, reserveSequence uint64) Account {
+func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID common.Bytes, endBlockHeight uint64, reserveSequence uint64) Account {
 	acc := makeAccount("srcAcc", initialBalance)
-	resourceIDs := [][]byte{resourceID}
+	resourceIDs := []common.Bytes{resourceID}
 	acc.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 
 	return acc
@@ -29,7 +30,6 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	resourceID := []byte("rid001")
 	endBlockHeight := uint64(199)
 	reserveSequence := uint64(1)
-
 	srcAcc := makeAccountAndReserveFund(srcAccInitialBalance,
 		srcAccCollateral, srcAccFund, resourceID, endBlockHeight, reserveSequence)
 

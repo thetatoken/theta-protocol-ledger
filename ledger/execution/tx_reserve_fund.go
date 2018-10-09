@@ -55,7 +55,8 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("invalid fee").
+			WithErrorCode(result.CodeInvalidFee)
 	}
 
 	fund := tx.Source.Coins
@@ -66,12 +67,13 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	minimalBalance := fund.Plus(collateral).Plus(tx.Fee)
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
-		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
+		return result.Error("Source balance is %v, but required minimal balance is %v",
+			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	err := sourceAccount.CheckReserveFund(collateral, fund, duration, reserveSequence)
 	if err != nil {
-		return result.Error(err.Error())
+		return result.Error(err.Error()).WithErrorCode(result.CodeReserveFundCheckFailed)
 	}
 
 	return result.OK

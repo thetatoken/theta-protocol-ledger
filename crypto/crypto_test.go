@@ -103,7 +103,7 @@ func TestToAndFromBytes(t *testing.T) {
 	t.Logf("SignatureBytes: %v", hex.EncodeToString(sigBytes))
 }
 
-func TestSignatureVerification(t *testing.T) {
+func TestSignatureVerification1(t *testing.T) {
 	assert := assert.New(t)
 
 	privKey, pubKey, err := TEST_GenerateKeyPairWithSeed("test_seed")
@@ -136,4 +136,34 @@ func TestSignatureVerification(t *testing.T) {
 	fakeLongMsgSig2 := &Signature{data: common.Bytes("iwk29fiwkw")}
 	assert.True(len(fakeLongMsgSig2.ToBytes()) != 65)
 	assert.False(pubKey.VerifySignature(longMsg, fakeLongMsgSig2))
+}
+
+func TestSignatureVerification2(t *testing.T) {
+	assert := assert.New(t)
+
+	privKeyA, pubKeyA, err := TEST_GenerateKeyPairWithSeed("test_seed_A")
+	assert.Nil(err)
+	privKeyB, pubKeyB, err := TEST_GenerateKeyPairWithSeed("test_seed_B")
+	assert.Nil(err)
+
+	msg1 := common.Bytes("ABCD has four letters")
+	msg2 := common.Bytes("USA has 50 states")
+
+	// Cross-Message Checks
+	sig1A, err := privKeyA.Sign(msg1)
+	assert.True(pubKeyA.VerifySignature(msg1, sig1A))
+	sig2A, err := privKeyA.Sign(msg2)
+	assert.True(pubKeyA.VerifySignature(msg2, sig2A))
+	assert.False(pubKeyA.VerifySignature(msg1, sig2A))
+	assert.False(pubKeyA.VerifySignature(msg2, sig1A))
+
+	// Cross-PublicKey Checks
+	sig1B, err := privKeyB.Sign(msg1)
+	assert.True(pubKeyB.VerifySignature(msg1, sig1B))
+	sig2B, err := privKeyB.Sign(msg2)
+	assert.True(pubKeyB.VerifySignature(msg2, sig2B))
+	assert.False(pubKeyA.VerifySignature(msg1, sig1B))
+	assert.False(pubKeyB.VerifySignature(msg1, sig1A))
+	assert.False(pubKeyA.VerifySignature(msg2, sig2B))
+	assert.False(pubKeyB.VerifySignature(msg2, sig2A))
 }
