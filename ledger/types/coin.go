@@ -28,6 +28,15 @@ func NewCoins(theta int, gamma int) Coins {
 	}
 }
 
+func (coins Coins) noNil() {
+	if coins.ThetaWei == nil {
+		coins.ThetaWei = big.NewInt(0)
+	}
+	if coins.GammaWei == nil {
+		coins.GammaWei = big.NewInt(0)
+	}
+}
+
 func (coins Coins) String() string {
 	return fmt.Sprintf("%v%v, %v%v", coins.ThetaWei, DenomThetaWei, coins.GammaWei, DenomGammaWei)
 }
@@ -38,6 +47,8 @@ func (coins Coins) IsValid() bool {
 
 // CalculatePercentage function calculates amount of coins for the given the percentage
 func (coins Coins) CalculatePercentage(percentage uint) Coins {
+	coins.noNil()
+
 	p := big.NewInt(int64(percentage))
 
 	theta := new(big.Int)
@@ -56,6 +67,9 @@ func (coins Coins) CalculatePercentage(percentage uint) Coins {
 
 // Currently appends an empty coin ...
 func (coinsA Coins) Plus(coinsB Coins) Coins {
+	coinsA.noNil()
+	coinsB.noNil()
+
 	theta := new(big.Int)
 	theta.Add(coinsA.ThetaWei, coinsB.ThetaWei)
 
@@ -69,6 +83,8 @@ func (coinsA Coins) Plus(coinsB Coins) Coins {
 }
 
 func (coins Coins) Negative() Coins {
+	coins.noNil()
+
 	theta := new(big.Int)
 	theta.Neg(coins.ThetaWei)
 
@@ -91,17 +107,22 @@ func (coinsA Coins) IsGTE(coinsB Coins) bool {
 }
 
 func (coins Coins) IsZero() bool {
+	coins.noNil()
 	return coins.ThetaWei.Cmp(Zero) == 0 && coins.GammaWei.Cmp(Zero) == 0
 }
 
 func (coinsA Coins) IsEqual(coinsB Coins) bool {
-	return coinsA.ThetaWei == coinsB.ThetaWei && coinsA.GammaWei == coinsB.GammaWei
+	coinsA.noNil()
+	coinsB.noNil()
+	return coinsA.ThetaWei.Cmp(coinsB.ThetaWei) == 0 && coinsA.GammaWei.Cmp(coinsB.GammaWei) == 0
 }
 
 func (coins Coins) IsPositive() bool {
+	coins.noNil()
 	return coins.ThetaWei.Cmp(Zero) > 0 && coins.GammaWei.Cmp(Zero) > 0
 }
 
 func (coins Coins) IsNonnegative() bool {
+	coins.noNil()
 	return coins.ThetaWei.Cmp(Zero) >= 0 && coins.GammaWei.Cmp(Zero) >= 0
 }

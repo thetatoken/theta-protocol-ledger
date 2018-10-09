@@ -12,7 +12,7 @@ func TestCoins(t *testing.T) {
 
 	//Define the coins to be used in tests
 	good := NewCoins(1, 2)
-	empty := Coins{}
+	empty := NewCoins(0, 0)
 	neg := good.Negative()
 
 	assert.True(good.IsValid(), "Coins are valid")
@@ -20,6 +20,10 @@ func TestCoins(t *testing.T) {
 	assert.True(good.IsGTE(empty), "Expected %v to be >= %v", good, empty)
 	assert.False(neg.IsPositive(), "Expected neg coins to not be positive: %v", neg)
 	assert.False(neg.IsValid(), "Expected coins to invalid: %v", neg)
+
+	a := NewCoins(3, 10)
+	b := NewCoins(5, 15)
+	assert.True(NewCoins(8, 25).IsEqual(a.Plus(b)))
 }
 
 //Test operations on invalid coins
@@ -27,7 +31,7 @@ func TestInvalidCoin(t *testing.T) {
 	assert := assert.New(t)
 
 	coinsA := NewCoins(123, 0)
-	coinsEmpty := Coins{}
+	coinsEmpty := NewCoins(0, 0)
 
 	ret1 := coinsA.Plus(coinsEmpty)
 	assert.True(coinsA.IsEqual(ret1), "Sum is correct")

@@ -33,9 +33,9 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	srcAcc := makeAccountAndReserveFund(srcAccInitialBalance,
 		srcAccCollateral, srcAccFund, resourceID, endBlockHeight, reserveSequence)
 
-	tgtAcc := makeAccount("tgtAcc", Coins{})
-	splitAcc1 := makeAccount("splitAcc1", Coins{})
-	splitAcc2 := makeAccount("splitAcc2", Coins{})
+	tgtAcc := makeAccount("tgtAcc", NewCoins(0, 0))
+	splitAcc1 := makeAccount("splitAcc1", NewCoins(0, 0))
+	splitAcc2 := makeAccount("splitAcc2", NewCoins(0, 0))
 
 	servicePaymentTx := ServicePaymentTx{
 		ResourceID: resourceID,
@@ -122,7 +122,7 @@ func TestTransferReservedFund1(t *testing.T) {
 
 	coinsMap := make(map[*Account]Coins)
 	coinsMap[&splitAcc1] = NewCoins(0, 234)
-	totalTransferAmount := Coins{}
+	totalTransferAmount := NewCoins(0, 0)
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}
@@ -142,7 +142,7 @@ func TestTransferReservedFund2(t *testing.T) {
 
 	coinsMap := make(map[*Account]Coins)
 	coinsMap[&splitAcc1] = NewCoins(0, 234)
-	totalTransferAmount := Coins{}
+	totalTransferAmount := NewCoins(0, 0)
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}
@@ -164,7 +164,7 @@ func TestTransferReservedFund3(t *testing.T) {
 	coinsMap := make(map[*Account]Coins)
 	coinsMap[&splitAcc1] = NewCoins(0, 234)
 	coinsMap[&splitAcc2] = NewCoins(0, 5945)
-	totalTransferAmount := Coins{}
+	totalTransferAmount := NewCoins(0, 0)
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}
@@ -188,7 +188,7 @@ func TestTransferReservedFund4(t *testing.T) {
 	coinsMap[&splitAcc1] = NewCoins(0, 234)
 	coinsMap[&splitAcc2] = NewCoins(0, 127)
 	coinsMap[&tgtAcc] = NewCoins(0, 100)
-	totalTransferAmount := Coins{}
+	totalTransferAmount := NewCoins(0, 0)
 	for _, coins := range coinsMap {
 		totalTransferAmount = totalTransferAmount.Plus(coins)
 	}

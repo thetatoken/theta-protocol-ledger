@@ -205,7 +205,11 @@ func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core
 		return
 	}
 	coinbaseTx.SetSignature(proposerAddress, signature)
-	coinbaseTxBytes := types.TxToBytes(coinbaseTx)
+	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
+	if err != nil {
+		log.Errorf("Failed to add coinbase transaction: %v", err)
+		return
+	}
 
 	*rawTxs = append(*rawTxs, coinbaseTxBytes)
 	log.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
@@ -235,7 +239,11 @@ func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.V
 			continue
 		}
 		slashTx.SetSignature(proposerAddress, signature)
-		slashTxBytes := types.TxToBytes(slashTx)
+		slashTxBytes, err := types.TxToBytes(slashTx)
+		if err != nil {
+			log.Errorf("Failed to add slash transaction: %v", err)
+			continue
+		}
 
 		*rawTxs = append(*rawTxs, slashTxBytes)
 		log.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))

@@ -1,8 +1,14 @@
 package types
 
-import "github.com/thetatoken/ukulele/common"
+import (
+	"testing"
 
-// FIXME
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/rlp"
+)
 
 // func TestPubkey(t *testing.T) {
 // 	assert := assert.New(t)
@@ -279,112 +285,165 @@ import "github.com/thetatoken/ukulele/common"
 // 	splitContract2 := SplitContractFromProto(msg)
 // 	assert.EqualValues(&splitContract1, splitContract2)
 // }
+func TestPubKey(t *testing.T) {
+	assert := assert.New(t)
 
-// func TestTx(t *testing.T) {
-// 	assert := assert.New(t)
+	_, pubKey, _ := crypto.GenerateKeyPair()
+	b, err := rlp.EncodeToBytes(pubKey)
+	assert.Nil(err)
 
-// 	txs := []Tx{
-// 		&CoinbaseTx{},
-// 		&CoinbaseTx{
-// 			Proposer:    TxInput{Address: getTestAddress("123")},
-// 			Outputs:     []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
-// 			BlockHeight: uint64(999),
-// 		},
+	ret := &crypto.PublicKey{}
+	err = rlp.DecodeBytes(b, ret)
+	assert.Nil(err)
+	assert.Equal(pubKey.ToBytes().String(), ret.ToBytes().String())
+}
 
-// 		&SlashTx{},
-// 		&SlashTx{
-// 			Proposer:        TxInput{Address: getTestAddress("123")},
-// 			SlashedAddress:  getTestAddress("456"),
-// 			SlashProof:      []byte("789"),
-// 			ReserveSequence: 1,
-// 		},
+func TestSignature(t *testing.T) {
+	assert := assert.New(t)
 
-// 		&SendTx{},
-// 		&SendTx{
-// 			Fee:     Coin{Denom: "ThetaWei", Amount: 123},
-// 			Gas:     123,
-// 			Inputs:  []TxInput{{Address: getTestAddress("123")}, {Address: getTestAddress("798")}},
-// 			Outputs: []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
-// 		},
+	sig, err := crypto.SignatureFromBytes([]byte("I am a signature"))
+	assert.Nil(err)
 
-// 		&ReserveFundTx{},
-// 		&ReserveFundTx{
-// 			Fee:         Coin{Denom: "ThetaWei", Amount: 123},
-// 			Gas:         123,
-// 			Source:      TxInput{Address: getTestAddress("123")},
-// 			Collateral:  Coins{{Denom: "ThetaWei", Amount: 456}},
-// 			ResourceIDs: [][]byte{[]byte("789")},
-// 			Duration:    1,
-// 		},
+	b, err := rlp.EncodeToBytes(sig)
+	assert.Nil(err)
 
-// 		&ReleaseFundTx{},
-// 		&ReleaseFundTx{
-// 			Fee:             Coin{Denom: "ThetaWei", Amount: 123},
-// 			Gas:             123,
-// 			Source:          TxInput{Address: getTestAddress("123")},
-// 			ReserveSequence: 1,
-// 		},
+	ret := &crypto.Signature{}
+	err = rlp.DecodeBytes(b, ret)
+	assert.Nil(err)
+	assert.Equal(sig.ToBytes().String(), ret.ToBytes().String())
+}
 
-// 		&ServicePaymentTx{},
-// 		&ServicePaymentTx{
-// 			Fee:             Coin{Denom: "ThetaWei", Amount: 123},
-// 			Gas:             123,
-// 			Source:          TxInput{Address: getTestAddress("123")},
-// 			Target:          TxInput{Address: getTestAddress("456")},
-// 			PaymentSequence: 1,
-// 			ReserveSequence: 2,
-// 		},
+func TestTx(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
 
-// 		&SplitContractTx{},
-// 		&SplitContractTx{
-// 			Fee:        Coin{Denom: "ThetaWei", Amount: 123},
-// 			Gas:        123,
-// 			ResourceID: []byte("rid789"),
-// 			Initiator:  TxInput{Address: getTestAddress("123")},
-// 			Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}, Split{Address: getTestAddress("777"), Percentage: 20}},
-// 			Duration:   1000,
-// 		},
+	var tx1 Tx
 
-// 		//&UpdateValidatorsTx{},
-// 	}
+	_, pubKey, _ := crypto.GenerateKeyPair()
+	sig, _ := crypto.SignatureFromBytes([]byte("i am signature"))
+	tx1 = &CoinbaseTx{
+		Proposer: TxInput{
+			Address:   getTestAddress("123"),
+			PubKey:    pubKey,
+			Signature: sig,
+		},
+		Outputs:     []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
+		BlockHeight: uint64(999),
+	}
+	b, err := TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err := TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*CoinbaseTx).Proposer.Address, tx2.(*CoinbaseTx).Proposer.Address)
+	assert.Equal(tx1.(*CoinbaseTx).Proposer.PubKey, tx2.(*CoinbaseTx).Proposer.PubKey)
+	assert.Equal(tx1.(*CoinbaseTx).Proposer.Signature, tx2.(*CoinbaseTx).Proposer.Signature)
+	assert.Equal(tx1.(*CoinbaseTx).BlockHeight, tx2.(*CoinbaseTx).BlockHeight)
 
-// 	for _, tx := range txs {
-// 		// Test conversion to/from bytes.
-// 		b := TxToBytes(tx)
-// 		tx2, err := TxFromBytes(b)
-// 		assert.Nil(err)
-// 		assert.EqualValues(tx, tx2)
+	tx1 = &SlashTx{
+		Proposer:        TxInput{Address: getTestAddress("123")},
+		SlashedAddress:  getTestAddress("456"),
+		SlashProof:      []byte("789"),
+		ReserveSequence: 1,
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*SlashTx).Proposer.Address, tx2.(*SlashTx).Proposer.Address)
+	assert.Equal(tx1.(*SlashTx).ReserveSequence, tx2.(*SlashTx).ReserveSequence)
+	assert.Equal(tx1.(*SlashTx).SlashedAddress, tx2.(*SlashTx).SlashedAddress)
+	assert.Equal(tx1.(*SlashTx).SlashProof, tx2.(*SlashTx).SlashProof)
 
-// 		// Verify bytes are deterministic.
-// 		b2 := TxToBytes(tx)
-// 		assert.EqualValues(b, b2)
-// 	}
+	tx1 = &SendTx{
+		Fee:     NewCoins(123, 0),
+		Gas:     123,
+		Inputs:  []TxInput{{Address: getTestAddress("123")}, {Address: getTestAddress("798")}},
+		Outputs: []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*SendTx).Inputs[0].Address, tx2.(*SendTx).Inputs[0].Address)
+	assert.Equal(tx1.(*SendTx).Inputs[1].Address, tx2.(*SendTx).Inputs[1].Address)
+	assert.Equal(tx1.(*SendTx).Outputs[0].Address, tx2.(*SendTx).Outputs[0].Address)
+	assert.Equal(tx1.(*SendTx).Outputs[1].Address, tx2.(*SendTx).Outputs[1].Address)
+	assert.Equal(tx1.(*SendTx).Outputs[2].Address, tx2.(*SendTx).Outputs[2].Address)
+	assert.Equal(tx1.(*SendTx).Fee, tx2.(*SendTx).Fee)
+	assert.Equal(tx1.(*SendTx).Gas, tx2.(*SendTx).Gas)
 
-// 	// Special test case for UpdateValidatosTx
-// 	_, pubkey1, err := crypto.GenerateKeyPair()
-// 	if err != nil {
-// 		panic(err)
-// 	}
+	tx1 = &ReserveFundTx{
+		Fee:         NewCoins(123, 0),
+		Gas:         123,
+		Source:      TxInput{Address: getTestAddress("123")},
+		Collateral:  NewCoins(456, 0),
+		ResourceIDs: [][]byte{[]byte("789")},
+		Duration:    1,
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*ReserveFundTx).Fee, tx2.(*ReserveFundTx).Fee)
+	assert.Equal(tx1.(*ReserveFundTx).Gas, tx2.(*ReserveFundTx).Gas)
+	assert.Equal(tx1.(*ReserveFundTx).Source.Address, tx2.(*ReserveFundTx).Source.Address)
+	assert.Equal(tx1.(*ReserveFundTx).Collateral, tx2.(*ReserveFundTx).Collateral)
+	assert.Equal(tx1.(*ReserveFundTx).ResourceIDs, tx2.(*ReserveFundTx).ResourceIDs)
+	assert.Equal(tx1.(*ReserveFundTx).Duration, tx2.(*ReserveFundTx).Duration)
 
-// 	vaStake := uint64(1)
-// 	va := core.NewValidator(pubkey1.ToBytes(), vaStake)
-// 	tx := &UpdateValidatorsTx{
-// 		Proposer:   TxInput{Address: getTestAddress("123")},
-// 		Validators: []*core.Validator{&va},
-// 	}
-// 	// Test conversion to/from bytes.
-// 	b := TxToBytes(tx)
-// 	tx2_, err := TxFromBytes(b)
-// 	tx2 := tx2_.(*UpdateValidatorsTx)
-// 	assert.Nil(err)
-// 	assert.EqualValues(tx.Proposer, tx2.Proposer)
-// 	assert.Equal(len(tx.Validators), len(tx2.Validators))
-// 	assert.EqualValues(*tx.Validators[0], *tx2.Validators[0])
+	tx1 = &ReleaseFundTx{
+		Fee:             NewCoins(123, 0),
+		Gas:             123,
+		Source:          TxInput{Address: getTestAddress("123")},
+		ReserveSequence: 1,
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*ReleaseFundTx).Fee, tx2.(*ReleaseFundTx).Fee)
+	assert.Equal(tx1.(*ReleaseFundTx).Gas, tx2.(*ReleaseFundTx).Gas)
+	assert.Equal(tx1.(*ReleaseFundTx).Source.Address, tx2.(*ReleaseFundTx).Source.Address)
+	assert.Equal(tx1.(*ReleaseFundTx).ReserveSequence, tx2.(*ReleaseFundTx).ReserveSequence)
 
-// 	// Verify bytes are deterministic.
-// 	b2 := TxToBytes(tx)
-// 	assert.EqualValues(b, b2)
-// }
+	tx1 = &ServicePaymentTx{
+		Fee:             NewCoins(123, 0),
+		Gas:             123,
+		Source:          TxInput{Address: getTestAddress("123")},
+		Target:          TxInput{Address: getTestAddress("456")},
+		PaymentSequence: 1,
+		ReserveSequence: 2,
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*ServicePaymentTx).Fee, tx2.(*ServicePaymentTx).Fee)
+	assert.Equal(tx1.(*ServicePaymentTx).Gas, tx2.(*ServicePaymentTx).Gas)
+	assert.Equal(tx1.(*ServicePaymentTx).Source.Address, tx2.(*ServicePaymentTx).Source.Address)
+	assert.Equal(tx1.(*ServicePaymentTx).Target.Address, tx2.(*ServicePaymentTx).Target.Address)
+	assert.Equal(tx1.(*ServicePaymentTx).PaymentSequence, tx2.(*ServicePaymentTx).PaymentSequence)
+	assert.Equal(tx1.(*ServicePaymentTx).ReserveSequence, tx2.(*ServicePaymentTx).ReserveSequence)
+
+	tx1 = &SplitContractTx{
+		Fee:        NewCoins(123, 0),
+		Gas:        123,
+		ResourceID: []byte("rid789"),
+		Initiator:  TxInput{Address: getTestAddress("123")},
+		Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}, Split{Address: getTestAddress("777"), Percentage: 20}},
+		Duration:   1000,
+	}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	require.Nil(err)
+	assert.Equal(tx1.(*SplitContractTx).Fee, tx2.(*SplitContractTx).Fee)
+	assert.Equal(tx1.(*SplitContractTx).Gas, tx2.(*SplitContractTx).Gas)
+	assert.Equal(tx1.(*SplitContractTx).ResourceID, tx2.(*SplitContractTx).ResourceID)
+	assert.Equal(tx1.(*SplitContractTx).Initiator.Address, tx2.(*SplitContractTx).Initiator.Address)
+	assert.Equal(tx1.(*SplitContractTx).Splits, tx2.(*SplitContractTx).Splits)
+	assert.Equal(tx1.(*SplitContractTx).Duration, tx2.(*SplitContractTx).Duration)
+}
 
 func getTestAddress(addr string) common.Address {
 	var address common.Address

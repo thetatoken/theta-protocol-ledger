@@ -74,7 +74,7 @@ func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs [][]by
 	newReservedFund := ReservedFund{
 		Collateral:      collateral,
 		InitialFund:     fund,
-		UsedFund:        Coins{},
+		UsedFund:        NewCoins(0, 0),
 		ResourceIDs:     resourceIDs,
 		EndBlockHeight:  endBlockHeight,
 		ReserveSequence: reserveSequence,
@@ -94,7 +94,7 @@ func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint64) {
 		}
 		remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 		if !remainingFund.IsNonnegative() {
-			remainingFund = Coins{} // Should NOT happen, just to be on the safe side
+			remainingFund = NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 		}
 		acc.Balance = acc.Balance.Plus(remainingFund).Plus(reservedFund.Collateral)
 	}
@@ -135,7 +135,7 @@ func (acc *Account) ReleaseFund(currentBlockHeight uint64, reserveSequence uint6
 
 		remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 		if !remainingFund.IsNonnegative() {
-			remainingFund = Coins{} // Should NOT happen, just to be on the safe side
+			remainingFund = NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 		}
 		acc.Balance = acc.Balance.Plus(remainingFund).Plus(reservedFund.Collateral)
 		acc.ReservedFunds = append(acc.ReservedFunds[:idx], acc.ReservedFunds[idx+1:]...)
@@ -178,7 +178,7 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 			continue
 		}
 
-		totalTransferAmount := Coins{}
+		totalTransferAmount := NewCoins(0, 0)
 		for _, coinsSplit := range splittedCoinsMap {
 			totalTransferAmount = totalTransferAmount.Plus(coinsSplit)
 		}

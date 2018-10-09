@@ -172,6 +172,7 @@ func validateInputsBasic(ins []types.TxInput) result.Result {
 
 // Validate inputs and compute total amount of coins
 func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte, ins []types.TxInput) (total types.Coins, res result.Result) {
+	total = types.NewCoins(0, 0)
 	for _, in := range ins {
 		acc := accounts[string(in.Address[:])]
 		if acc == nil {
@@ -225,7 +226,8 @@ func validateOutputsBasic(outs []types.TxOutput) result.Result {
 	return result.OK
 }
 
-func sumOutputs(outs []types.TxOutput) (total types.Coins) {
+func sumOutputs(outs []types.TxOutput) types.Coins {
+	total := types.NewCoins(0, 0)
 	for _, out := range outs {
 		total = total.Plus(out.Coins)
 	}

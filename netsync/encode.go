@@ -13,7 +13,7 @@ import (
 type MessageIDEnum uint8
 
 const (
-	MessageIDInvRequest = iota
+	MessageIDInvRequest MessageIDEnum = iota
 	MessageIDInvResponse
 	MessageIDDataRequest
 	MessageIDDataResponse

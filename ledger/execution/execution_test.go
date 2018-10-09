@@ -379,15 +379,15 @@ func TestCoinbaseTx(t *testing.T) {
 	et := newExecTest()
 
 	va1 := et.accProposer
-	va1.Balance = types.Coins{ThetaWei: big.NewInt(1e11)}
+	va1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), GammaWei: big.NewInt(0)}
 	et.acc2State(va1)
 
 	va2 := et.accVal2
-	va2.Balance = types.Coins{ThetaWei: big.NewInt(3e11)}
+	va2.Balance = types.Coins{ThetaWei: big.NewInt(3e11), GammaWei: big.NewInt(0)}
 	et.acc2State(va2)
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{ThetaWei: big.NewInt(1e11)}
+	user1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), GammaWei: big.NewInt(0)}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)

@@ -248,7 +248,10 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 		panic("Failed to set signature for the coinbase transaction")
 	}
 
-	coinbaseTxBytes := types.TxToBytes(coinbaseTx)
+	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
+	if err != nil {
+		panic(err)
+	}
 	return coinbaseTxBytes
 }
 
@@ -287,6 +290,9 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		}
 	}
 
-	sendTxBytes := types.TxToBytes(sendTx)
+	sendTxBytes, err := types.TxToBytes(sendTx)
+	if err != nil {
+		panic(err)
+	}
 	return sendTxBytes
 }

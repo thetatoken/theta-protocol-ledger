@@ -1,8 +1,10 @@
 package types
 
 import (
-	"github.com/gogo/protobuf/proto"
-	s "github.com/thetatoken/ukulele/ledger/types/serialization"
+	"bytes"
+	"fmt"
+
+	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
@@ -387,23 +389,95 @@ func FromBytes(in []byte, a interface{}) error {
 // 	}
 // }
 
-func TxFromBytes(in []byte) (Tx, error) {
-	msg := &s.Tx{}
-	if err := proto.Unmarshal(in, msg); err != nil {
+type TxType uint16
+
+const (
+	TxCoinbase TxType = iota
+	TxSlash
+	TxSend
+	TxReserveFund
+	TxReleaseFund
+	TxServicePayment
+	TxSplitContract
+	TxUpdateValidators
+)
+
+func TxFromBytes(raw []byte) (Tx, error) {
+	var txType TxType
+	buff := bytes.NewBuffer(raw)
+	err := rlp.Decode(buff, &txType)
+	if err != nil {
 		return nil, err
 	}
-	// return TxFromProto(msg), nil
-	return nil, nil
+	if txType == TxCoinbase {
+		data := &CoinbaseTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxSlash {
+		data := &SlashTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxSend {
+		data := &SendTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxReserveFund {
+		data := &ReserveFundTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxReleaseFund {
+		data := &ReleaseFundTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxServicePayment {
+		data := &ServicePaymentTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxSplitContract {
+		data := &SplitContractTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxUpdateValidators {
+		data := &UpdateValidatorsTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else {
+		return nil, fmt.Errorf("Unknown TX type: %v", txType)
+	}
 }
 
-func TxToBytes(tx Tx) []byte {
-	// msg := TxToProto(tx)
-	// b, err := proto.Marshal(msg)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// return b
-	return nil
+func TxToBytes(t Tx) ([]byte, error) {
+	var buf bytes.Buffer
+	var txType TxType
+	switch t.(type) {
+	case *CoinbaseTx:
+		txType = TxCoinbase
+	case *SlashTx:
+		txType = TxSlash
+	case *SendTx:
+		txType = TxSend
+	case *ReserveFundTx:
+		txType = TxReserveFund
+	case *ReleaseFundTx:
+		txType = TxReleaseFund
+	case *ServicePaymentTx:
+		txType = TxServicePayment
+	case *SplitContractTx:
+		txType = TxSplitContract
+	case *UpdateValidatorsTx:
+		txType = TxUpdateValidators
+	default:
+		return nil, errors.New("Unsupported message type")
+	}
+	err := rlp.Encode(&buf, txType)
+	if err != nil {
+		return nil, err
+	}
+	err = rlp.Encode(&buf, t)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // // ----------------- CoinbaseTx -------------------

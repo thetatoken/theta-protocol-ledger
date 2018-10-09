@@ -3,8 +3,10 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"io"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 //
@@ -66,6 +68,37 @@ func (sk *PrivateKey) Sign(msg common.Bytes) (*Signature, error) {
 //
 type PublicKey struct {
 	pubKey *ecdsa.PublicKey
+}
+
+var _ rlp.Encoder = (*PublicKey)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (pk *PublicKey) EncodeRLP(w io.Writer) error {
+	if pk == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := pk.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*PublicKey)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (pk *PublicKey) DecodeRLP(stream *rlp.Stream) error {
+	var b []byte
+	err := stream.Decode(&b)
+	if err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return nil
+	}
+	pubKey, err := unmarshalPubkey(b)
+	if err != nil {
+		return err
+	}
+	pk.pubKey = pubKey
+	return nil
 }
 
 // ToBytes returns the bytes representation of the public key
@@ -130,6 +163,30 @@ func (pk *PublicKey) VerifySignature(msg common.Bytes, sig *Signature) bool {
 //
 type Signature struct {
 	data common.Bytes
+}
+
+var _ rlp.Encoder = (*Signature)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (sig *Signature) EncodeRLP(w io.Writer) error {
+	if sig == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := sig.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*Signature)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (sig *Signature) DecodeRLP(stream *rlp.Stream) error {
+	var b []byte
+	err := stream.Decode(&b)
+	if err != nil {
+		return err
+	}
+	sig.data = b
+	return nil
 }
 
 // ToBytes returns the bytes representation of the signature

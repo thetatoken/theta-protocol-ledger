@@ -138,6 +138,6 @@ func calculateThetaReward(totalStakeInThetaWei *big.Int, isValidator bool) types
 		thetaRewardAmountInWei.Mul(totalStakeInThetaWei, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
 		thetaRewardAmountInWei.Div(thetaRewardAmountInWei, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
 	}
-	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei}
+	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei, GammaWei: big.NewInt(0)}
 	return thetaReward
 }

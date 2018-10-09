@@ -70,15 +70,6 @@ func RandAccounts(num int, minAmount int64, maxAmount int64) []PrivAccount {
 
 /////////////////////////////////////////////////////////////////
 
-//func MakeAccs(secrets ...string) (accs []PrivAccount) {
-//	for _, secret := range secrets {
-//		privAcc := PrivAccountFromSecret(secret)
-//		privAcc.Account.Balance = Coins{{"mycoin", 7}}
-//		accs = append(accs, privAcc)
-//	}
-//	return
-//}
-
 func MakeAcc(secret string) PrivAccount {
 	privAcc := MakeAccWithInitBalance(secret, NewCoins(7, 5))
 	return privAcc

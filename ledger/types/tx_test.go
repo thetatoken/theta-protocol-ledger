@@ -18,15 +18,15 @@ func TestCoinbaseTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 
 	coinbaseTx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
+		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: big.NewInt(333)},
+				Coins:   Coins{ThetaWei: big.NewInt(333), GammaWei: big.NewInt(0)},
 			},
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: big.NewInt(444)},
+				Coins:   Coins{ThetaWei: big.NewInt(444), GammaWei: big.NewInt(0)},
 			},
 		},
 		BlockHeight: 10,
@@ -48,18 +48,19 @@ func TestCoinbaseTxProto(t *testing.T) {
 
 	// Construct a CoinbaseTx signature
 	tx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
+		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{ThetaWei: big.NewInt(8)},
+				Coins:   Coins{ThetaWei: big.NewInt(8), GammaWei: big.NewInt(0)},
 			},
 		},
 		BlockHeight: 10,
 	}
 	tx.Proposer.Signature = va1PrivAcc.Sign(tx.SignBytes(chainID))
 
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*CoinbaseTx)
@@ -84,7 +85,8 @@ func TestCoinbaseTxProto(t *testing.T) {
 	tx2.SetSignature(va1PrivAcc.PrivKey.PublicKey().Address(), sig)
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*CoinbaseTx)
@@ -159,7 +161,7 @@ func TestCoinbaseTxRLP(t *testing.T) {
 func TestSlashTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 	slashTx := &SlashTx{
-		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
+		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
 		SlashedAddress:  getTestAddress("014FAB"),
 		ReserveSequence: 1,
 		SlashProof:      []byte("2345ABC"),
@@ -187,7 +189,8 @@ func TestSlashTxProto(t *testing.T) {
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*SlashTx)
@@ -205,7 +208,8 @@ func TestSlashTxProto(t *testing.T) {
 	tx2.SetSignature(va1PrivAcc.PrivKey.PublicKey().Address(), sig)
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*SlashTx)
@@ -218,7 +222,7 @@ func TestSlashTxProto(t *testing.T) {
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
 		Gas: 222,
-		Fee: Coins{ThetaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: big.NewInt(111), GammaWei: big.NewInt(0)},
 		Inputs: []TxInput{
 			TxInput{
 				Address:  getTestAddress("input1"),
@@ -227,18 +231,18 @@ func TestSendTxSignable(t *testing.T) {
 			},
 			TxInput{
 				Address:  getTestAddress("input2"),
-				Coins:    Coins{ThetaWei: big.NewInt(111)},
+				Coins:    Coins{ThetaWei: big.NewInt(111), GammaWei: big.NewInt(0)},
 				Sequence: 222,
 			},
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("output1"),
-				Coins:   Coins{ThetaWei: big.NewInt(333)},
+				Coins:   Coins{ThetaWei: big.NewInt(333), GammaWei: big.NewInt(0)},
 			},
 			TxOutput{
 				Address: getTestAddress("output2"),
-				Coins:   Coins{ThetaWei: big.NewInt(444)},
+				Coins:   Coins{ThetaWei: big.NewInt(444), GammaWei: big.NewInt(0)},
 			},
 		},
 	}
@@ -262,18 +266,19 @@ func TestSendTxProto(t *testing.T) {
 		Gas: 1,
 		Fee: Coins{GammaWei: big.NewInt(2)},
 		Inputs: []TxInput{
-			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
+			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(10)}, 1),
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: test2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{GammaWei: big.NewInt(8)},
+				Coins:   Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(8)},
 			},
 		},
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*SendTx)
@@ -291,7 +296,8 @@ func TestSendTxProto(t *testing.T) {
 	tx2.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*SendTx)
@@ -304,13 +310,13 @@ func TestSendTxProto(t *testing.T) {
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
-		Collateral:  Coins{GammaWei: big.NewInt(22897)},
+		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint64(999),
 	}
@@ -332,15 +338,16 @@ func TestReserveFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
 		Gas:         222,
-		Fee:         Coins{GammaWei: big.NewInt(111)},
-		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
-		Collateral:  Coins{GammaWei: big.NewInt(22897)},
+		Fee:         Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
 		ResourceIDs: [][]byte{[]byte("rid00123")},
 		Duration:    uint64(999),
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*ReserveFundTx)
@@ -359,7 +366,8 @@ func TestReserveFundTxProto(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*ReserveFundTx)
@@ -372,10 +380,10 @@ func TestReserveFundTxProto(t *testing.T) {
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		ReserveSequence: 12,
@@ -398,13 +406,14 @@ func TestReleaseFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
 		Gas:             222,
-		Fee:             Coins{GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
+		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		ReserveSequence: 1,
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*ReleaseFundTx)
@@ -423,7 +432,8 @@ func TestReleaseFundTxProto(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*ReleaseFundTx)
@@ -439,12 +449,12 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
 			Address:  getTestAddress("target"),
-			Coins:    Coins{},
+			Coins:    NewCoins(0, 0),
 			Sequence: 22341,
 		},
 		PaymentSequence: 3,
@@ -463,15 +473,15 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 func TestServicePaymentTxTargetSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
 		Gas: 222,
-		Fee: Coins{GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
 			Address:  getTestAddress("target"),
-			Coins:    Coins{},
+			Coins:    NewCoins(0, 0),
 			Sequence: 22341,
 		},
 		PaymentSequence: 3,
@@ -497,16 +507,17 @@ func TestServicePaymentTxProto(t *testing.T) {
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
 		Gas:             222,
-		Fee:             Coins{GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10000)}, 1),
-		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), Coins{}, 1),
+		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10000)}, 1),
+		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
 		ResourceID:      []byte("rid00123"),
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*ServicePaymentTx)
@@ -528,11 +539,11 @@ func TestSplitContractTxSignable(t *testing.T) {
 	}
 	splitContractTx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coins{GammaWei: big.NewInt(111)},
+		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Splits:   []Split{split},
@@ -560,15 +571,16 @@ func TestSplitContractTxProto(t *testing.T) {
 	}
 	tx := &SplitContractTx{
 		Gas:        222,
-		Fee:        Coins{GammaWei: big.NewInt(111)},
+		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
-		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
+		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*SplitContractTx)
@@ -587,7 +599,8 @@ func TestSplitContractTxProto(t *testing.T) {
 
 	assert.Equal(tx, tx2)
 
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*SplitContractTx)
@@ -602,7 +615,7 @@ func TestUpdateValidatorsTxSignable(t *testing.T) {
 		Validators: []*core.Validator{},
 		Proposer: TxInput{
 			Address:  getTestAddress("validator1"),
-			Coins:    Coins{GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 	}
@@ -633,11 +646,12 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// }
 
 	tx := &UpdateValidatorsTx{
-		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{GammaWei: big.NewInt(10)}, 1),
+		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 	}
 
 	// serialize this and back
-	b := TxToBytes(tx)
+	b, err := TxToBytes(tx)
+	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
 	tx2 := txs.(*UpdateValidatorsTx)
@@ -660,7 +674,8 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	assert.Equal(tx, tx2)
 
 	// let's marshal / unmarshal this with signature
-	b = TxToBytes(tx)
+	b, err = TxToBytes(tx)
+	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
 	tx2 = txs.(*UpdateValidatorsTx)

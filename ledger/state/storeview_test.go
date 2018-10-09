@@ -80,7 +80,7 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
 
-	initCoin := types.Coins{ThetaWei: big.NewInt(786)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
 	acc1 := &types.Account{
 		PubKey:   pubKey,
 		Sequence: 173,

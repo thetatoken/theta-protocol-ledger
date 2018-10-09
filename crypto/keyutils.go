@@ -218,3 +218,8 @@ func zeroBytes(bytes []byte) {
 func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
 	return hexToECDSA(hexkey)
 }
+
+var (
+	UnmarshalPubkey = unmarshalPubkey
+	FromECDSAPub    = fromECDSAPub
+)

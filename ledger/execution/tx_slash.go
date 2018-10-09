@@ -125,7 +125,7 @@ func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor
 	// Slash: transfer the collateral and remainding deposit to the validator that identified the overspending
 	remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 	if !remainingFund.IsNonnegative() {
-		remainingFund = types.Coins{} // Should NOT happen, just to be on the safe side
+		remainingFund = types.NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 	}
 	slashedAmount := reservedFund.Collateral.Plus(remainingFund)
 
@@ -156,7 +156,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 		}
 
 		settledPaymentLookup := make(map[string]bool)
-		fundIntendedToSpend := types.Coins{}
+		fundIntendedToSpend := types.NewCoins(0, 0)
 		for _, servicePaymentTx := range overspendingProof.ServicePayments {
 			if slashedAddress == servicePaymentTx.Source.Address {
 				return false // servicePaymentTx does not come from the slashed account

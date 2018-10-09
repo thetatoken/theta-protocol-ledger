@@ -65,6 +65,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
+			ThetaWei: big.NewInt(0),
 			GammaWei: big.NewInt(feeInGammaFlag),
 		},
 		Gas:     gasAmountFlag,
@@ -79,7 +80,12 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	}
 	sendTx.SetSignature(fromAddress, sig)
 
-	signedTx := hex.EncodeToString(types.TxToBytes(sendTx))
+	raw, err := types.TxToBytes(sendTx)
+	if err != nil {
+		fmt.Printf("Failed to encode transaction: %v\n", err)
+		return
+	}
+	signedTx := hex.EncodeToString(raw)
 
 	client := rpcc.NewRPCClient(viper.GetString(wallet.CfgRemoteRPCEndpoint))
 

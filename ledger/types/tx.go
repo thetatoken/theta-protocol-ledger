@@ -149,7 +149,8 @@ func (tx *CoinbaseTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Proposer.Signature
 	tx.Proposer.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -181,7 +182,8 @@ func (tx *SlashTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Proposer.Signature
 	tx.Proposer.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -218,7 +220,8 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 		sigz[i] = tx.Inputs[i].Signature
 		tx.Inputs[i].Signature = nil
 	}
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	for i := range tx.Inputs {
 		tx.Inputs[i].Signature = sigz[i]
 	}
@@ -256,7 +259,8 @@ func (tx *ReserveFundTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Source.Signature
 	tx.Source.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -288,7 +292,8 @@ func (tx *ReleaseFundTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Source.Signature
 	tx.Source.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -329,10 +334,11 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 
 	tx.Source = TxInput{Address: source.Address, Coins: source.Coins}
 	tx.Target = TxInput{Address: target.Address}
-	tx.Fee = Coins{}
+	tx.Fee = NewCoins(0, 0)
 	tx.Gas = uint64(0)
 
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 
 	tx.Source = source
 	tx.Target = target
@@ -349,7 +355,8 @@ func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 
 	tx.Target.Signature = nil
 
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 
 	tx.Target.Signature = targetSig
 
@@ -370,8 +377,7 @@ func (tx *ServicePaymentTx) String() string {
 // It should return an error if Sign was never called
 func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 	// TODO: verify it is signed
-	txBytes := TxToBytes(tx)
-	return txBytes, nil
+	return TxToBytes(tx)
 }
 
 //-----------------------------------------------------------------------------
@@ -391,7 +397,8 @@ func (tx *SplitContractTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Initiator.Signature
 	tx.Initiator.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Initiator.Signature = sig
 	return signBytes
 }
