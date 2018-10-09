@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"encoding/hex"
+	"fmt"
 
 	log "github.com/sirupsen/logrus"
 
@@ -115,6 +116,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	}
 
 	newStateRoot := ledger.state.Delivered().Hash()
+	fmt.Printf("<<<<<<< %X\n", newStateRoot)
 	if newStateRoot != expectedStateRoot {
 		ledger.ResetState(currHeight, currStateRoot)
 		return result.Error("State root mismatch! root: %v, exptected: %v",

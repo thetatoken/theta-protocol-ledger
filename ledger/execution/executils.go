@@ -264,7 +264,8 @@ func adjustByOutputs(view types.ViewDataSetter, accounts map[string]*types.Accou
 }
 
 func sanityCheckForFee(fee types.Coins) bool {
-	return fee.IsNonnegative()
+	fee = fee.NoNil()
+	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.GammaWei.Cmp(types.Zero) > 0
 }
 
 func chargeFee(account *types.Account, fee types.Coins) bool {

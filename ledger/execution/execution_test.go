@@ -602,7 +602,7 @@ func TestReserveFundTx(t *testing.T) {
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
-	assert.Equal(1, retrievedUserAcc.ReservedFunds[0].ReserveSequence)
+	assert.Equal(uint64(1), retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
 
 func TestReleaseFundTx(t *testing.T) {

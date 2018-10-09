@@ -51,8 +51,15 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	}
 
 	coins := tx.Source.Coins.NoNil()
+
+	if !coins.IsPositive() {
+		return result.Error("Amount of reserved fund not specified").
+			WithErrorCode(result.CodeReservedFundNotSpecified)
+	}
+
 	if coins.ThetaWei.Cmp(types.Zero) != 0 {
-		return result.Error("Cannot reserve Theta as service fund!")
+		return result.Error("Cannot reserve Theta as service fund!").
+			WithErrorCode(result.CodeInvalidFundToReserve)
 	}
 
 	if !sanityCheckForFee(tx.Fee) {

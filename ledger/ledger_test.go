@@ -106,7 +106,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("79d7136e705f0f77228fc04db28e5e583f60e1cd8166f59b65b2be8e70866594")
+	expectedStateRoot := common.HexToHash("aeeac605447eb4538ded663d2d5c3a3487c68a48a26656c179c3a030f936d535")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
 	assert.True(res.IsOK(), res.Message)

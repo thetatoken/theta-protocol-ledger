@@ -223,8 +223,8 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.ThetaWei)
-	assert.Equal(int64(189812000), acc.Balance.GammaWei)
+	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
+	assert.Equal(int64(189812000), acc.Balance.GammaWei.Int64())
 	assert.Equal(uint64(1000), acc.LastUpdatedBlockHeight)
 
 	// Underflow: Should not update account if reward is less than 1 Gamma
@@ -234,8 +234,8 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1000), acc.Balance.ThetaWei)
-	assert.Equal(int64(2000), acc.Balance.GammaWei)
+	assert.Equal(int64(1000), acc.Balance.ThetaWei.Int64())
+	assert.Equal(int64(2000), acc.Balance.GammaWei.Int64())
 	assert.Equal(uint64(1), acc.LastUpdatedBlockHeight)
 
 	// Should not overflow for large span * balance
@@ -246,8 +246,8 @@ func TestUpdateAccountGammaReward(t *testing.T) {
 	}
 
 	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.ThetaWei)
-	assert.Equal(int64(1899999812000), acc.Balance.GammaWei)
+	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
+	assert.Equal(int64(1899999812000), acc.Balance.GammaWei.Int64())
 	assert.Equal(uint64(1e7), acc.LastUpdatedBlockHeight)
 
 	// Should panic if the end balance oveflow
