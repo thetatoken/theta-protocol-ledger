@@ -50,3 +50,24 @@ func TestInvalidCoin(t *testing.T) {
 	assert.True(coinsA.ThetaWei.Cmp(big.NewInt(123)) == 0)
 	assert.True(ret2.ThetaWei.Cmp(big.NewInt(456)) == 0)
 }
+
+func TestNoNilException(t *testing.T) {
+	assert := assert.New(t)
+
+	coinsA := NewCoins(123, 456)
+	coinsB := Coins{}
+	coinsC := NewCoins(0, 0)
+
+	// Should not have nil pointer exception.
+	assert.True(coinsB.IsEqual(coinsC))
+	assert.True(coinsB.IsNonnegative())
+	assert.True(coinsB.IsValid())
+	assert.True(coinsB.IsZero())
+
+	assert.True(coinsA.Plus(coinsB).IsEqual(coinsB.Plus(coinsA)))
+	assert.True(coinsB.IsEqual(coinsB.Negative()))
+
+	coinsD := coinsB.NoNil()
+	assert.Equal(int64(0), coinsD.ThetaWei.Int64())
+	assert.Equal(int64(0), coinsD.GammaWei.Int64())
+}

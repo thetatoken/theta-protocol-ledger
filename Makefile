@@ -11,15 +11,6 @@ build:
 install:
 	go install ./cmd/...
 
-protoc:
-	#go get github.com/gogo/protobuf
-	#go get github.com/gogo/protobuf/proto
-	#go get github.com/gogo/protobuf/gogoproto
-	#go get github.com/gogo/protobuf/protoc-gen-gogo
-	#npm install -g protobufjs
-	protoc $(INCLUDE) --gogo_out=plugins=:. ledger/types/serialization/*.proto
-	pbjs -t static-module ledger/types/serialization/types.proto -o ledger/types/serialization/types.pb.js
-
 test: test_unit test_integration test_cluster_deployment
 
 test_unit:
