@@ -29,6 +29,8 @@ var (
 )
 
 // sendCmd represents the new command
+// Example:
+//		banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=2
 var sendCmd = &cobra.Command{
 	Use:   "send",
 	Short: "Send tokens",
@@ -98,7 +100,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf("Server returned error: %v\n", res.Error)
 		return
 	}
-	fmt.Printf("Successfully broadcasted transaction:\n%v\n", res.Result)
+	fmt.Printf("Successfully broadcasted transaction.\n")
 }
 
 func init() {
