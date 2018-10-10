@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 )
@@ -101,6 +103,28 @@ func TestToAndFromBytes(t *testing.T) {
 	assert.Nil(err)
 	assert.Equal(sig, recoveredSig)
 	t.Logf("SignatureBytes: %v", hex.EncodeToString(sigBytes))
+}
+
+func TestAddressRecovery(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, pubKey, err := TEST_GenerateKeyPairWithSeed("test_seed_xyz")
+	assert.Nil(err)
+
+	msg1 := common.Bytes("ABCD has four letters")
+	msg2 := common.Bytes("Hello World!")
+
+	sig, err := privKey.Sign(msg1)
+
+	address, err := sig.RecoverSignerAddress(msg1)
+	assert.Nil(err)
+	assert.True(address == pubKey.Address())
+
+	fakeAddr, err := sig.RecoverSignerAddress(msg2)
+	assert.True(address != fakeAddr) // privKey did not sign msg2
+
+	log.Infof("real address: %v", address)
+	log.Infof("fake address: %v", fakeAddr)
 }
 
 func TestSignatureVerification1(t *testing.T) {

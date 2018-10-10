@@ -199,6 +199,23 @@ func (sig *Signature) IsEmpty() bool {
 	return len(sig.data) == 0
 }
 
+// RecoverSignerAddress recovers the address of the signer for the given message
+func (sig *Signature) RecoverSignerAddress(msg common.Bytes) (common.Address, error) {
+	msgHash := keccak256(msg)
+	recoveredUncompressedPubKey, err := ecrecover(msgHash, sig.ToBytes())
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	pk, err := PublicKeyFromBytes(recoveredUncompressedPubKey)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	address := pk.Address()
+	return address, nil
+}
+
 // GenerateKeyPair generates a random private/public key pair
 func GenerateKeyPair() (*PrivateKey, *PublicKey, error) {
 	ske, err := generateKey()
