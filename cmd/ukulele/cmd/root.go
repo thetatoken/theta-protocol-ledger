@@ -16,7 +16,6 @@ var cfgPath string
 var rootCmd = &cobra.Command{
 	Use:   "ukulele",
 	Short: "Theta CLI",
-	Long:  `Theta CLI.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

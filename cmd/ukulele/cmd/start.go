@@ -21,7 +21,6 @@ import (
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Theta node.",
-	Long:  ``,
 	Run:   runStart,
 }
 

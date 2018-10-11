@@ -4,37 +4,22 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"path"
-	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rpc"
 	"github.com/thetatoken/ukulele/wallet"
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	chainIDFlag     string
-	fromFlag        string
-	toFlag          string
-	seqFlag         uint64
-	thetaAmountFlag int64
-	gammaAmountFlag int64
-	gasAmountFlag   uint64
-	feeInGammaFlag  int64
-)
-
-// sendCmd represents the new command
+// sendCmd represents the send command
 // Example:
 //		banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=2
 var sendCmd = &cobra.Command{
 	Use:   "send",
 	Short: "Send tokens",
-	Long:  `Send tokens.`,
 	Run:   doSendCmd,
 }
 
@@ -117,12 +102,4 @@ func init() {
 	sendCmd.MarkFlagRequired("from")
 	sendCmd.MarkFlagRequired("to")
 	sendCmd.MarkFlagRequired("seq")
-}
-
-func loadPrivateKey(cfgPath string, address string) (*crypto.PrivateKey, error) {
-	if strings.HasPrefix(address, "0x") {
-		address = address[2:]
-	}
-	filePath := path.Join(cfgPath, "keys", address)
-	return crypto.PrivateKeyFromFile(filePath)
 }
