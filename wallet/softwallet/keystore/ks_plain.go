@@ -18,7 +18,8 @@ type KeystorePlain struct {
 	keysDirPath string
 }
 
-func NewKeystorePlain(keysDirPath string) (KeystorePlain, error) {
+func NewKeystorePlain(keysDirRoot string) (KeystorePlain, error) {
+	keysDirPath := path.Join(keysDirRoot, "plain")
 	err := os.MkdirAll(keysDirPath, 0700)
 	if err != nil {
 		return KeystorePlain{}, err
@@ -87,6 +88,12 @@ func (ks KeystorePlain) StoreKey(key *Key, auth string) error {
 		return err
 	}
 	return writeKeyFile(filePath, content)
+}
+
+func (ks KeystorePlain) DeleteKey(address common.Address, auth string) error {
+	filePath := ks.getFilePath(address)
+	err := deleteKeyFile(filePath)
+	return err
 }
 
 func (ks KeystorePlain) getFilePath(address common.Address) string {

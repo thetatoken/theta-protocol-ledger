@@ -104,9 +104,9 @@ func (w *ledgerDriver) offline() bool {
 }
 
 // Open implements usbwallet.driver, attempting to initialize the connection to the
-// Ledger hardware wallet. The Ledger does not require a user passphrase, so that
+// Ledger hardware wallet. The Ledger does not require a user password, so that
 // parameter is silently discarded.
-func (w *ledgerDriver) Open(device io.ReadWriter, passphrase string) error {
+func (w *ledgerDriver) Open(device io.ReadWriter, password string) error {
 	w.device, w.failure = device, nil
 
 	_, err := w.ledgerDerive(types.DefaultBaseDerivationPath)

@@ -12,51 +12,19 @@ import (
 
 var _ types.Wallet = (*SoftWallet)(nil)
 
+type KeystoreType int
+
+const (
+	KeystoreTypeEncrypted KeystoreType = iota
+	KeystoreTypePlain
+)
+
 //
 // SoftWallet implements the Wallet interface
 //
 
 type SoftWallet struct {
-	keyMgr KeyManager
-}
-
-func (w *SoftWallet) Open(passphrase string) error {
-	return nil
-}
-
-func (w *SoftWallet) Close() error {
-	return nil
-}
-
-func (w *SoftWallet) NewKey(passphrase string) (common.Address, error) {
-	_, address, err := w.keyMgr.NewKey(passphrase)
-	return address, err
-}
-
-func (w *SoftWallet) UpdatePassphrase(address common.Address, oldPassphrase, newPassphrase string) error {
-	err := w.keyMgr.UpdatePassphrase(address, oldPassphrase, newPassphrase)
-	return err
-}
-
-func (w *SoftWallet) Derive(path types.DerivationPath, pin bool) (common.Address, error) {
-	return common.Address{}, fmt.Errorf("Not supported for software wallet")
-}
-
-func (w *SoftWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.Signature, error) {
-	key, err := w.keyMgr.GetUnlockedKey(address)
-	if err != nil {
-		return nil, err
-	}
-	signature, err := key.Sign(txrlp)
-	return signature, err
-}
-
-//
-// KeyManager manages the keys
-//
-
-type KeyManager struct {
-	mu             sync.RWMutex
+	mu             *sync.RWMutex
 	keystore       ks.Keystore
 	unlockedKeyMap map[common.Address]*UnlockedKey // Currently unlocked keys (decrypted private keys)
 }
@@ -66,52 +34,70 @@ type UnlockedKey struct {
 	abort chan struct{}
 }
 
-func NewKeyManager(keysDirPath string) (KeyManager, error) {
-	keystore, err := ks.NewKeystorePlain(keysDirPath)
+func NewSoftWallet(keysDirPath string, kstype KeystoreType) (*SoftWallet, error) {
+	var keystore ks.Keystore
+	var err error
+	if kstype == KeystoreTypeEncrypted {
+		keystore, err = ks.NewKeystoreEncrypted(keysDirPath, ks.StandardScryptN, ks.StandardScryptP)
+	} else {
+		keystore, err = ks.NewKeystorePlain(keysDirPath)
+	}
 	if err != nil {
-		return KeyManager{}, nil
+		return nil, nil
 	}
-	km := KeyManager{
-		keystore: keystore,
+
+	wallet := &SoftWallet{
+		mu:             &sync.RWMutex{},
+		keystore:       keystore,
+		unlockedKeyMap: make(map[common.Address]*UnlockedKey),
 	}
-	km.initialize()
-	return km, nil
+
+	return wallet, nil
 }
 
-func (km KeyManager) NewKey(passphrase string) (*ks.Key, common.Address, error) {
-	km.mu.Lock()
-	defer km.mu.Unlock()
+// List returns all the unlocked addresses
+func (w *SoftWallet) List() []common.Address {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	unlockedAddresses := make([]common.Address, 0, len(w.unlockedKeyMap))
+	for addr := range w.unlockedKeyMap {
+		unlockedAddresses = append(unlockedAddresses, addr)
+	}
+
+	return unlockedAddresses
+}
+
+// NewKey creates a new key
+func (w *SoftWallet) NewKey(password string) (common.Address, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
 	privKey, _, err := crypto.GenerateKeyPair()
 	if err != nil {
-		return nil, common.Address{}, err
+		return common.Address{}, err
 	}
 
 	key := ks.NewKey(privKey)
 	address := key.Address
 
-	km.keystore.StoreKey(key, passphrase)
+	w.keystore.StoreKey(key, password)
 
-	return key, address, nil
-}
-
-func (km KeyManager) GetUnlockedKey(address common.Address) (*ks.Key, error) {
-	km.mu.Lock()
-	defer km.mu.Unlock()
-
-	unlockedKey, found := km.unlockedKeyMap[address]
-	if !found {
-		return nil, fmt.Errorf("Key not unlocked yet for address: %v", address)
+	// newly created key is considerred unlocked
+	unlockedKey := &UnlockedKey{
+		Key: key,
 	}
+	w.unlockedKeyMap[address] = unlockedKey
 
-	return unlockedKey.Key, nil
+	return address, nil
 }
 
-func (km KeyManager) Unlock(address common.Address, passphrase string) error {
-	km.mu.Lock()
-	defer km.mu.Unlock()
+// Unlock unlocks a key if the password is correct
+func (w *SoftWallet) Unlock(address common.Address, password string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	key, err := km.keystore.GetKey(address, passphrase)
+	key, err := w.keystore.GetKey(address, password)
 	if err != nil {
 		return err
 	}
@@ -119,26 +105,64 @@ func (km KeyManager) Unlock(address common.Address, passphrase string) error {
 	unlockedKey := &UnlockedKey{
 		Key: key,
 	}
-	km.unlockedKeyMap[address] = unlockedKey
+	w.unlockedKeyMap[address] = unlockedKey
 
 	return nil
 }
 
-func (km KeyManager) UpdatePassphrase(address common.Address, oldPassphrase, newPassphrase string) error {
-	km.mu.Lock()
-	defer km.mu.Unlock()
+// Close closes an unlocked key
+func (w *SoftWallet) Close(address common.Address) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
-	key, err := km.keystore.GetKey(address, oldPassphrase)
+	_, exists := w.unlockedKeyMap[address]
+	if !exists {
+		return fmt.Errorf("Cannot close address %v, not unlocked yet", address)
+	}
+
+	delete(w.unlockedKeyMap, address)
+
+	return nil
+}
+
+// Delete deletes a key from disk permanently
+func (w *SoftWallet) Delete(address common.Address, password string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	err := w.keystore.DeleteKey(address, password)
+	return err
+}
+
+// UpdatePassword updates the password for a key
+func (w *SoftWallet) UpdatePassword(address common.Address, oldPassword, newPassword string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	key, err := w.keystore.GetKey(address, oldPassword)
 	if err != nil {
 		return err
 	}
 
-	err = km.keystore.StoreKey(key, newPassphrase)
+	err = w.keystore.StoreKey(key, newPassword)
 	return err
 }
 
-func (km KeyManager) initialize() {
-	km.mu.Lock()
-	defer km.mu.Unlock()
-	km.unlockedKeyMap = make(map[common.Address]*UnlockedKey)
+// Derive is not supported for SoftWallet
+func (w *SoftWallet) Derive(path types.DerivationPath, pin bool) (common.Address, error) {
+	return common.Address{}, fmt.Errorf("Not supported for software wallet")
+}
+
+// Sign signs the transaction bytes for an address if the address if alread unlocked
+func (w *SoftWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.Signature, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	unlockedKey, found := w.unlockedKeyMap[address]
+	if !found {
+		return nil, fmt.Errorf("Key not unlocked yet for address: %v", address)
+	}
+
+	signature, err := unlockedKey.Sign(txrlp)
+	return signature, err
 }

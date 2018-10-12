@@ -51,7 +51,7 @@ func Test_Scrypt_1(t *testing.T) {
 // 	testDecrypt(tests["30_byte_key"], t)
 // }
 
-func TestKeyStorePassphrase(t *testing.T) {
+func TestKeyStoreEncrypted(t *testing.T) {
 	dir, ks := tmpKeyStoreIface(t, true)
 	defer os.RemoveAll(dir)
 
@@ -72,7 +72,7 @@ func TestKeyStorePassphrase(t *testing.T) {
 	}
 }
 
-func TestKeyStorePassphraseDecryptionFail(t *testing.T) {
+func TestKeyStoreEncryptedDecryptionFail(t *testing.T) {
 	dir, ks := tmpKeyStoreIface(t, true)
 	defer os.RemoveAll(dir)
 
@@ -82,7 +82,7 @@ func TestKeyStorePassphraseDecryptionFail(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err = ks.GetKey(k1.Address, "bar"); err != ErrDecrypt {
-		t.Fatalf("wrong error for invalid passphrase\ngot %q\nwant %q", err, ErrDecrypt)
+		t.Fatalf("wrong error for invalid password\ngot %q\nwant %q", err, ErrDecrypt)
 	}
 }
 

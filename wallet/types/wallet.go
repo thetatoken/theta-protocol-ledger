@@ -5,11 +5,20 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 )
 
+type WalletType int
+
+const (
+	WalletTypeSoft WalletType = iota
+	WalletTypeCold
+)
+
 type Wallet interface {
-	Open(passphrase string) error
-	Close() error
-	NewKey(passphrase string) (common.Address, error)
-	UpdatePassphrase(address common.Address, oldPassphrase, newPassphrase string) error
+	List() []common.Address
+	NewKey(password string) (common.Address, error)
+	Unlock(address common.Address, password string) error
+	Close(address common.Address) error
+	Delete(address common.Address, password string) error
+	UpdatePassword(address common.Address, oldPassword, newPassword string) error
 	Derive(path DerivationPath, pin bool) (common.Address, error)
 	Sign(address common.Address, txrlp common.Bytes) (*crypto.Signature, error)
 }

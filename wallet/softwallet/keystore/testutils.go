@@ -40,9 +40,12 @@ func tmpKeyStoreIface(t *testing.T, encrypted bool) (dir string, ks Keystore) {
 		t.Fatal(err)
 	}
 	if encrypted {
-		ks = &KeystorePassphrase{d, veryLightScryptN, veryLightScryptP}
+		ks, err = NewKeystoreEncrypted(d, veryLightScryptN, veryLightScryptP)
 	} else {
-		ks = &KeystorePlain{d}
+		ks, err = NewKeystorePlain(d)
+	}
+	if err != nil {
+		t.Fatal(err)
 	}
 	return d, ks
 }

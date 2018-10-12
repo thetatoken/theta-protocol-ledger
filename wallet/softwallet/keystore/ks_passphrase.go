@@ -37,6 +37,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"path"
 
 	"github.com/pborman/uuid"
@@ -75,16 +76,40 @@ const (
 )
 
 var (
-	ErrDecrypt = fmt.Errorf("could not decrypt key with given passphrase")
+	ErrDecrypt = fmt.Errorf("could not decrypt key with given password")
 )
 
-type KeystorePassphrase struct {
+type KeystoreEncrypted struct {
 	keysDirPath string
 	scryptN     int
 	scryptP     int
 }
 
-func (ks KeystorePassphrase) GetKey(address common.Address, auth string) (*Key, error) {
+func NewKeystoreEncrypted(keysDirRoot string, scryptN, scryptP int) (KeystoreEncrypted, error) {
+	keysDirPath := path.Join(keysDirRoot, "encrypted")
+	err := os.MkdirAll(keysDirPath, 0700)
+	if err != nil {
+		return KeystoreEncrypted{}, err
+	}
+
+	fi, err := os.Lstat(keysDirPath)
+	if err != nil {
+		return KeystoreEncrypted{}, err
+	}
+	if fi.Mode().Perm() != 0700 {
+		return KeystoreEncrypted{}, fmt.Errorf("%s must have permission set to 0700", keysDirPath)
+	}
+
+	ks := KeystoreEncrypted{
+		keysDirPath: keysDirPath,
+		scryptN:     scryptN,
+		scryptP:     scryptP,
+	}
+
+	return ks, nil
+}
+
+func (ks KeystoreEncrypted) GetKey(address common.Address, auth string) (*Key, error) {
 	filePath := ks.getFilePath(address)
 	keyjson, err := ioutil.ReadFile(filePath)
 	if err != nil {
@@ -101,7 +126,7 @@ func (ks KeystorePassphrase) GetKey(address common.Address, auth string) (*Key, 
 	return key, nil
 }
 
-func (ks KeystorePassphrase) StoreKey(key *Key, auth string) error {
+func (ks KeystoreEncrypted) StoreKey(key *Key, auth string) error {
 	address := key.Address
 	filePath := ks.getFilePath(address)
 	keyjson, err := encryptKey(key, auth, ks.scryptN, ks.scryptP)
@@ -111,7 +136,18 @@ func (ks KeystorePassphrase) StoreKey(key *Key, auth string) error {
 	return writeKeyFile(filePath, keyjson)
 }
 
-func (ks KeystorePassphrase) getFilePath(address common.Address) string {
+func (ks KeystoreEncrypted) DeleteKey(address common.Address, auth string) error {
+	_, err := ks.GetKey(address, auth)
+	if err != nil {
+		return err
+	}
+
+	filePath := ks.getFilePath(address)
+	err = deleteKeyFile(filePath)
+	return err
+}
+
+func (ks KeystoreEncrypted) getFilePath(address common.Address) string {
 	filePath := path.Join(ks.keysDirPath, address.Hex()[2:])
 	return filePath
 }

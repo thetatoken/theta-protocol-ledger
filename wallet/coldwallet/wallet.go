@@ -21,19 +21,27 @@ type ColdWallet struct {
 
 // TODO: to be implemented
 
-func (w *ColdWallet) Open(passphrase string) error {
+func (w *ColdWallet) List() []common.Address {
 	return nil
 }
 
-func (w *ColdWallet) Close() error {
-	return nil
-}
-
-func (w *ColdWallet) NewKey(passphrase string) (common.Address, error) {
+func (w *ColdWallet) NewKey(password string) (common.Address, error) {
 	return common.Address{}, fmt.Errorf("Not supported for cold wallet")
 }
 
-func (w *ColdWallet) UpdatePassphrase(address common.Address, oldPassphrase, newPassphrase string) error {
+func (w *ColdWallet) Unlock(address common.Address, password string) error {
+	return fmt.Errorf("Not supported for cold wallet")
+}
+
+func (w *ColdWallet) Close(address common.Address) error {
+	return fmt.Errorf("Not supported for cold wallet")
+}
+
+func (w *ColdWallet) Delete(address common.Address, password string) error {
+	return fmt.Errorf("Not supported for cold wallet")
+}
+
+func (w *ColdWallet) UpdatePassword(address common.Address, oldPassword, newPassword string) error {
 	return fmt.Errorf("Not supported for cold wallet")
 }
 
