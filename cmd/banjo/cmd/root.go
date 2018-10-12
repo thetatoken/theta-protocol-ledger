@@ -8,8 +8,8 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/cmd/banjo/cmd/account"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/key"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/query"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/tx"
 )
 
@@ -38,7 +38,7 @@ func init() {
 
 	rootCmd.AddCommand(key.KeyCmd)
 	rootCmd.AddCommand(tx.TxCmd)
-	rootCmd.AddCommand(account.AccountCmd)
+	rootCmd.AddCommand(query.QueryCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

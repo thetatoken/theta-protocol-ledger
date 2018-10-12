@@ -1,4 +1,4 @@
-package account
+package query
 
 import (
 	"encoding/json"
@@ -15,17 +15,17 @@ var (
 	addressFlag string
 )
 
-// getCmd represents the get command.
+// accountCmd represents the account command.
 // Example:
-//		banjo account get --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab
-var getCmd = &cobra.Command{
-	Use:   "get",
+//		banjo query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab
+var accountCmd = &cobra.Command{
+	Use:   "account",
 	Short: "Get account status",
 	Long:  `Get account status.`,
-	Run:   doGetCmd,
+	Run:   doAccountCmd,
 }
 
-func doGetCmd(cmd *cobra.Command, args []string) {
+func doAccountCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(wallet.CfgRemoteRPCEndpoint))
 
 	res, err := client.Call("theta.GetAccount", rpc.GetAccountArgs{Address: addressFlag})
@@ -45,6 +45,6 @@ func doGetCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	getCmd.Flags().StringVar(&addressFlag, "address", "", "Address of the account")
-	getCmd.MarkFlagRequired("address")
+	accountCmd.Flags().StringVar(&addressFlag, "address", "", "Address of the account")
+	accountCmd.MarkFlagRequired("address")
 }
