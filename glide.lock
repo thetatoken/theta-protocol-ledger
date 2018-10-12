@@ -1,5 +1,5 @@
-hash: ad55a2aa33b33308bca20d982f7e621e29ccb11534ede5c3509246decd203f18
-updated: 2018-10-04T14:01:53.792860348-07:00
+hash: 730ae671e081b7b9e063feeffd09d45f009b1363ef2d839f1ca8f611a2b19f12
+updated: 2018-10-11T21:48:04.485963361-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
   version: 506514fe33c61d0efcab7f89dc589c6b55664cea
@@ -14,8 +14,6 @@ imports:
   - types/particle_type
   - types/rand
   - utils/buffer
-- name: github.com/buger/jsonparser
-  version: f4dd9f5a6b441265aefc1d44872a6f8c10f42b37
 - name: github.com/davecgh/go-spew
   version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
@@ -24,14 +22,10 @@ imports:
   version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
-- name: github.com/gogo/protobuf
-  version: 1adfc126b41513cc696b209667c8656ea7aac67c
-  subpackages:
-  - gogoproto
-  - proto
-  - protoc-gen-gogo/descriptor
 - name: github.com/golang/snappy
   version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
+- name: github.com/google/uuid
+  version: 9b3b1e0f5f99ae461456d768e7d301a7acdaa2d8
 - name: github.com/gorilla/context
   version: 08b5f424b9271eedf6f9f0ce86cb9396ed337a42
 - name: github.com/gorilla/handlers
@@ -78,11 +72,10 @@ imports:
 - name: github.com/mitchellh/mapstructure
   version: fa473d140ef3c6adf42d6b391fe76707f1f243c8
 - name: github.com/mongodb/mongo-go-driver
-  version: 71de844febff6ac5b6fc6ba165e24e9677d2ee05
+  version: 518f2246cd0d376a473b93baaee3942d99e44d0f
   subpackages:
   - bson
   - bson/bsoncodec
-  - bson/builder
   - bson/decimal
   - bson/elements
   - bson/internal/llbson
@@ -113,6 +106,7 @@ imports:
   - internal
   - mongo
   - mongo/aggregateopt
+  - mongo/bulkwriteopt
   - mongo/changestreamopt
   - mongo/clientopt
   - mongo/collectionopt
@@ -132,6 +126,8 @@ imports:
   - mongo/sessionopt
   - mongo/transactionopt
   - mongo/updateopt
+- name: github.com/pborman/uuid
+  version: adf5a7427709b9deb95d29d3fa8a2bf9cfd388f1
 - name: github.com/pelletier/go-toml
   version: c2dbbc24a97911339e01bda0b8cabdbd8f13b602
 - name: github.com/pkg/errors
@@ -141,7 +137,7 @@ imports:
   subpackages:
   - difflib
 - name: github.com/sirupsen/logrus
-  version: a67f783a3814b8729bd2dac5780b5f78f8dbd64d
+  version: ad15b42461921f1fb3529b058c6786c6a45d5162
 - name: github.com/spf13/afero
   version: 787d034dfe70e44075ccc060d346146ef53270ad
   subpackages:
@@ -194,6 +190,7 @@ imports:
   version: c3a3ad6d03f7a915c0f7e194b7152974bb73d287
   subpackages:
   - pbkdf2
+  - scrypt
   - ssh/terminal
 - name: golang.org/x/net
   version: 92b859f39abd2d91a854c9f9c4621b2f5054a92d

@@ -88,7 +88,7 @@ func (km KeyManager) NewKey(passphrase string) (*ks.Key, common.Address, error) 
 	}
 
 	key := ks.NewKey(privKey)
-	address := key.Address()
+	address := key.Address
 
 	km.keystore.StoreKey(key, passphrase)
 

@@ -30,3 +30,5 @@ import:
   version: ^1.0.1
 - package: github.com/gorilla/handlers
   version: v1.3.0
+- package: github.com/pborman/uuid
+  version: ^1.2.0

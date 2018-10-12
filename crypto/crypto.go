@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"io"
+	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/rlp"
@@ -39,6 +40,11 @@ type PrivateKey struct {
 func (sk *PrivateKey) ToBytes() common.Bytes {
 	skbytes := fromECDSA(sk.privKey)
 	return skbytes
+}
+
+// D returns the D parameter of the ECDSA private key
+func (sk *PrivateKey) D() *big.Int {
+	return sk.privKey.D
 }
 
 // PublicKey returns the public key corresponding to the private key

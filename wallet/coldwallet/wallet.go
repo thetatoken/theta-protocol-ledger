@@ -5,7 +5,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
-	dr "github.com/thetatoken/ukulele/wallet/coldwallet/driver"
+	ks "github.com/thetatoken/ukulele/wallet/coldwallet/keystore"
 	"github.com/thetatoken/ukulele/wallet/types"
 )
 
@@ -50,5 +50,5 @@ func (w *ColdWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.S
 //
 
 type DriverManager struct {
-	driver dr.Driver
+	driver ks.Driver
 }

@@ -5,27 +5,30 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/pborman/uuid"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
 
 type Key struct {
-	privateKey *crypto.PrivateKey
+	Id         uuid.UUID
+	Address    common.Address
+	PrivateKey *crypto.PrivateKey
 }
 
 func NewKey(privKey *crypto.PrivateKey) *Key {
+	Id := uuid.NewRandom()
 	return &Key{
-		privateKey: privKey,
+		Id:         Id,
+		Address:    privKey.PublicKey().Address(),
+		PrivateKey: privKey,
 	}
 }
 
 func (key *Key) Sign(data common.Bytes) (*crypto.Signature, error) {
-	sig, err := key.privateKey.Sign(data)
+	sig, err := key.PrivateKey.Sign(data)
 	return sig, err
-}
-
-func (key *Key) Address() common.Address {
-	return key.privateKey.PublicKey().Address()
 }
 
 func writeKeyFile(file string, content common.Bytes) error {
