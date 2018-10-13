@@ -130,6 +130,11 @@ func (w *SoftWallet) Delete(address common.Address, password string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	_, exists := w.unlockedKeyMap[address]
+	if exists {
+		delete(w.unlockedKeyMap, address)
+	}
+
 	err := w.keystore.DeleteKey(address, password)
 	return err
 }
