@@ -5,11 +5,7 @@ import (
 	"github.com/thetatoken/ukulele/wallet/types"
 )
 
-type WalletManager struct {
-	Wallet types.Wallet
-}
-
-func NewWalletManager(keysDirPath string, walletType types.WalletType) (*WalletManager, error) {
+func NewWallet(keysDirPath string, walletType types.WalletType) (types.Wallet, error) {
 	var wallet types.Wallet
 	var err error
 
@@ -22,9 +18,5 @@ func NewWalletManager(keysDirPath string, walletType types.WalletType) (*WalletM
 		return nil, err
 	}
 
-	walletManager := &WalletManager{
-		Wallet: wallet,
-	}
-
-	return walletManager, nil
+	return wallet, nil
 }
