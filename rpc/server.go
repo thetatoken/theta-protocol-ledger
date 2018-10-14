@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
+	"github.com/thetatoken/ukulele/ledger"
 	"github.com/thetatoken/ukulele/mempool"
 	"golang.org/x/net/netutil"
 )
@@ -26,6 +27,7 @@ func init() {
 // ThetaRPCServer is an instance of RPC service.
 type ThetaRPCServer struct {
 	mempool *mempool.Mempool
+	ledger  *ledger.Ledger
 
 	server   *http.Server
 	handler  *rpc.Server
@@ -40,12 +42,13 @@ type ThetaRPCServer struct {
 }
 
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
-func NewThetaRPCServer(mempool *mempool.Mempool) *ThetaRPCServer {
+func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger) *ThetaRPCServer {
 	t := &ThetaRPCServer{
 		wg: &sync.WaitGroup{},
 	}
 
 	t.mempool = mempool
+	t.ledger = ledger
 
 	t.handler = rpc.NewServer()
 	t.handler.RegisterCodec(json.NewCodec(), "application/json")

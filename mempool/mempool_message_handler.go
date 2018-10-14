@@ -62,5 +62,8 @@ func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 	}
 	mptx := message.Content.(MempoolTransaction)
 	err := mmh.mempool.InsertTransaction(&mptx)
+	if err == DuplicateTxError {
+		return nil
+	}
 	return err
 }
