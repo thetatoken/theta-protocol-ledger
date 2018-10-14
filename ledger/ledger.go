@@ -136,16 +136,11 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 // ResetState sets the ledger state with the designated root
 func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
-	success := ledger.state.ResetState(height, rootHash)
-	if !success {
+	res := ledger.state.ResetState(height, rootHash)
+	if res.IsError() {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
 	}
 	return result.OK
-}
-
-// Query returns the account query results
-func (ledger *Ledger) Query() {
-	// TODO: implementation..
 }
 
 // CheckTx() should skip all the transactions that can only be initiated by the validators

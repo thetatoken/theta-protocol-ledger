@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/store/database"
@@ -41,27 +42,27 @@ func NewLedgerState(chainID string, db database.Database) *LedgerState {
 }
 
 // ResetState resets the height and state root of its storeviews, and clear the in-memory states
-func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) bool {
+func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) result.Result {
 	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
-		panic(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
+		return result.Error(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
 	}
 	s.delivered = storeview
 
 	var err error
 	s.checked, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to copy to the checked view: %v", err))
+		return result.Error(fmt.Sprintf("Failed to copy to the checked view: %v", err))
 	}
 	s.screened, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to copy to the screened view: %v", err))
+		return result.Error(fmt.Sprintf("Failed to copy to the screened view: %v", err))
 	}
 
 	s.coinbaseTransactinProcessed = false
 	s.slashIntents = []types.SlashIntent{}
 	s.validatorsDiff = []*core.Validator{}
-	return true
+	return result.OK
 }
 
 // GetChainID gets chain ID.

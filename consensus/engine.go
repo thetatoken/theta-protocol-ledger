@@ -243,8 +243,15 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to find parent block")
 		return
 	}
-	e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
-	result := e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
+	result := e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":            result.Message,
+			"parent.StateHash": parent.StateHash,
+		}).Error("Failed to reset state to parent.StateHash")
+		return
+	}
+	result = e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":           result.String(),
@@ -454,7 +461,13 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 
 func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
-	e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
+	result := e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":         result.Message,
+			"tip.StateHash": tip.StateHash,
+		}).Panic("Failed to reset state to tip.StateHash")
+	}
 
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
