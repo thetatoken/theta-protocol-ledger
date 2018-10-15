@@ -27,7 +27,7 @@ func NewServicePaymentTxExecutor(state *st.LedgerState) *ServicePaymentTxExecuto
 	}
 }
 
-func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	res := tx.Source.ValidateBasic()
@@ -84,7 +84,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	}
 
 	transferAmount := tx.Source.Coins
-	currentBlockHeight := exec.state.Height()
+	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
 	paymentSequence := tx.PaymentSequence
 
@@ -99,7 +99,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	return result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	sourceAddress := tx.Source.Address
@@ -116,7 +116,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	}
 
 	resourceID := tx.ResourceID
-	splitContract := exec.state.GetSplitContract(resourceID)
+	splitContract := view.GetSplitContract(resourceID)
 
 	fullTransferAmount := tx.Source.Coins
 	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceID, targetAddress, targetAccount, fullTransferAmount)
@@ -124,11 +124,11 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
 
-	currentBlockHeight := exec.state.Height()
+	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
 	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
-		exec.state.AddSlashIntent(slashIntent)
+		view.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")
@@ -148,7 +148,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	return txHash, result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, splitContract *types.SplitContract, resourceID common.Bytes,
+func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitContract *types.SplitContract, resourceID common.Bytes,
 	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
 	coinsMap := map[*types.Account]types.Coins{}
 	accountAddressMap := map[*types.Account](common.Address){}
@@ -163,7 +163,7 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, 
 	// the splitContract has expired, full payment goes to the target account. also delete the splitContract
 	if exec.state.Height() > splitContract.EndBlockHeight {
 		coinsMap[targetAccount] = fullAmount
-		exec.state.DeleteSplitContract(resourceID)
+		view.DeleteSplitContract(resourceID)
 		accountAddressMap[targetAccount] = targetAddress
 		return true, coinsMap, accountAddressMap
 	}

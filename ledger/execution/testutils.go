@@ -119,8 +119,8 @@ func (et *execTest) state() *st.LedgerState {
 
 // returns the final balance and expected balance for input and output accounts
 func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
-	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	initBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	initBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 
 	if screenTx {
 		_, res = et.executor.ScreenTx(tx)
@@ -128,15 +128,15 @@ func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Resu
 		_, res = et.executor.ExecuteTx(tx)
 	}
 
-	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	endBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	endBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 	decrBalInExp := tx.Outputs[0].Coins.Plus(tx.Fee) //expected decrease in balance In
 	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
 }
 
 func (et *execTest) acc2State(accs ...types.PrivAccount) {
 	for _, acc := range accs {
-		et.executor.state.SetAccount(acc.Account.PubKey.Address(), &acc.Account)
+		et.executor.state.Delivered().SetAccount(acc.Account.PubKey.Address(), &acc.Account)
 	}
 	et.executor.state.Commit()
 }

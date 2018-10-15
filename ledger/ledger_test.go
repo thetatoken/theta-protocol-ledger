@@ -120,14 +120,14 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	for _, val := range validators {
 		valPk := val.PublicKey()
 		valAddr := (&valPk).Address()
-		valAcc := ledger.state.GetAccount(valAddr)
+		valAcc := ledger.state.Delivered().GetAccount(valAddr)
 		expectedValBal := types.NewCoins(100000000317, 20000)
 		assert.NotNil(valAcc)
 		assert.Equal(expectedValBal, valAcc.Balance)
 	}
 
 	// Output account balance
-	accOutAfter := ledger.state.GetAccount(accOut.PubKey.Address())
+	accOutAfter := ledger.state.Delivered().GetAccount(accOut.PubKey.Address())
 	expectedAccOutBal := types.NewCoins(700075, 3)
 	assert.Equal(expectedAccOutBal, accOutAfter.Balance)
 
@@ -135,7 +135,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	expectedAccInBal := types.NewCoins(899985, 49997)
 	for idx, _ := range accIns {
 		accInAddr := accIns[idx].Account.PubKey.Address()
-		accInAfter := ledger.state.GetAccount(accInAddr)
+		accInAfter := ledger.state.Delivered().GetAccount(accInAddr)
 		assert.Equal(expectedAccInBal, accInAfter.Balance)
 	}
 }
@@ -201,17 +201,17 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 			LastUpdatedBlockHeight: 1,
 			Balance:                types.NewCoins(100000000000, 1000),
 		}
-		ledger.state.SetAccount(valPubKey.Address(), valAccount)
+		ledger.state.Delivered().SetAccount(valPubKey.Address(), valAccount)
 	}
 
 	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
-	ledger.state.SetAccount(accOut.Account.PubKey.Address(), &accOut.Account)
+	ledger.state.Delivered().SetAccount(accOut.Account.PubKey.Address(), &accOut.Account)
 
 	for i := 0; i < numInAccs; i++ {
 		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
 		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000))
 		accIns = append(accIns, accIn)
-		ledger.state.SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
+		ledger.state.Delivered().SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
 	}
 
 	ledger.state.Commit()

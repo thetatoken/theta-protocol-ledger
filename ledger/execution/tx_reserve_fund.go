@@ -27,7 +27,7 @@ func NewReserveFundTxExecutor(state *st.LedgerState) *ReserveFundTxExecutor {
 	}
 }
 
-func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ReserveFundTx)
 
 	// Validate source, basic
@@ -87,7 +87,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	return result.OK
 }
 
-func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ReserveFundTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReserveFundTx)
 
 	sourceAddress := tx.Source.Address
