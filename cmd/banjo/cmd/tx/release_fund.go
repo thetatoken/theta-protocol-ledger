@@ -25,7 +25,7 @@ var releaseFundCmd = &cobra.Command{
 
 func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := utils.WalletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
 		return
 	}
