@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
+	"github.com/thetatoken/ukulele/rpc"
+
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/rpc"
-	"github.com/thetatoken/ukulele/wallet"
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
@@ -26,7 +27,7 @@ var accountCmd = &cobra.Command{
 }
 
 func doAccountCmd(cmd *cobra.Command, args []string) {
-	client := rpcc.NewRPCClient(viper.GetString(wallet.CfgRemoteRPCEndpoint))
+	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
 	res, err := client.Call("theta.GetAccount", rpc.GetAccountArgs{Address: addressFlag})
 	if err != nil {

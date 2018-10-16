@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/wallet"
 )
 
+// listCmd lists all the stored keys
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all keys",

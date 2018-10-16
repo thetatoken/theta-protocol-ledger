@@ -7,9 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/rpc"
-	"github.com/thetatoken/ukulele/wallet"
+
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
@@ -27,7 +28,7 @@ var splitContractCmd = &cobra.Command{
 }
 
 func doSplitContractCmd(cmd *cobra.Command, args []string) {
-	client := rpcc.NewRPCClient(viper.GetString(wallet.CfgRemoteRPCEndpoint))
+	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
 	resourceID := hex.EncodeToString(common.Bytes(resourceIDFlag))
 	res, err := client.Call("theta.GetSplitContract", rpc.GetSplitContractArgs{ResourceID: resourceID})

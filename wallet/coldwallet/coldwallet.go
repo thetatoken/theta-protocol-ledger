@@ -46,11 +46,15 @@ func (w *ColdWallet) UpdatePassword(address common.Address, oldPassword, newPass
 }
 
 func (w *ColdWallet) Derive(path types.DerivationPath, pin bool) (common.Address, error) {
-	return common.Address{}, nil
+	return common.Address{}, fmt.Errorf("Not supported for cold wallet")
+}
+
+func (w *ColdWallet) GetPublicKey(address common.Address) (*crypto.PublicKey, error) {
+	return nil, fmt.Errorf("Not supported for cold wallet")
 }
 
 func (w *ColdWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.Signature, error) {
-	return nil, nil
+	return nil, fmt.Errorf("Not supported for cold wallet")
 }
 
 //

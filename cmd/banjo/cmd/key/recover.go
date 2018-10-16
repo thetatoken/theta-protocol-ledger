@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// recoverCmd represents the new command
+// recoverCmd recovers the key from the given seed phrase
 var recoverCmd = &cobra.Command{
 	Use:   "recover",
 	Short: "Recover a key from seed phrase",

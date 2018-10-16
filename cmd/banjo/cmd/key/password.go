@@ -9,7 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/wallet"
 )
 
-// passwordCmd changes the password for a key
+// passwordCmd updates the password for the key corresponding to the given address
 var passwordCmd = &cobra.Command{
 	Use:   "password",
 	Short: "Change the password for a key",

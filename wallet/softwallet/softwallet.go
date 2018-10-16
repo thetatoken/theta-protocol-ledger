@@ -161,7 +161,21 @@ func (w *SoftWallet) Derive(path types.DerivationPath, pin bool) (common.Address
 	return common.Address{}, fmt.Errorf("Not supported for software wallet")
 }
 
-// Sign signs the transaction bytes for an address if the address if alread unlocked
+// GetPublicKey returns the public key of the address if the address has been unlocked
+func (w *SoftWallet) GetPublicKey(address common.Address) (*crypto.PublicKey, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	unlockedKey, found := w.unlockedKeyMap[address]
+	if !found {
+		return nil, fmt.Errorf("Key not unlocked yet for address: %v", address)
+	}
+
+	pubKey := unlockedKey.PrivateKey.PublicKey()
+	return pubKey, nil
+}
+
+// Sign signs the transaction bytes for an address if the address has been unlocked
 func (w *SoftWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.Signature, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

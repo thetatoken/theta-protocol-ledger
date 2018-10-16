@@ -49,7 +49,7 @@ func testSoftWalletBasics(t *testing.T, ksType KeystoreType) {
 	assert.Equal(1, len(addrs))
 	assert.Equal([]common.Address{addr}, addrs)
 
-	err = wallet.Close(addr)
+	err = wallet.Lock(addr)
 	assert.Nil(err)
 	addrs, err = wallet.List()
 	assert.Nil(err)
@@ -66,7 +66,7 @@ func testSoftWalletBasics(t *testing.T, ksType KeystoreType) {
 	}
 	err = wallet.Unlock(addr, password2)
 	assert.Nil(err)
-	err = wallet.Close(addr)
+	err = wallet.Lock(addr)
 	assert.Nil(err)
 
 	password3 := "Kdaw82892fDWO"
@@ -79,7 +79,7 @@ func testSoftWalletBasics(t *testing.T, ksType KeystoreType) {
 	assert.False(signature.IsEmpty())
 	assert.Nil(err)
 
-	err = wallet.Close(addr)
+	err = wallet.Lock(addr)
 	assert.Nil(err)
 
 	signature, err = wallet.Sign(addr, common.Bytes("hello world"))
@@ -146,7 +146,7 @@ func testSoftWalletMultipleKeys(t *testing.T, ksType KeystoreType) {
 	assert.Equal(4, len(addrs))
 	assert.Equal(sortAddresses([]common.Address{addr1, addr2, addr3, addr4}), sortAddresses(addrs))
 
-	err = wallet.Close(addr1)
+	err = wallet.Lock(addr1)
 	assert.Nil(err)
 	addrs, err = wallet.List()
 	assert.Nil(err)

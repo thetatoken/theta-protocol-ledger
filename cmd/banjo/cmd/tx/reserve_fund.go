@@ -7,10 +7,11 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rpc"
-	"github.com/thetatoken/ukulele/wallet"
+
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
@@ -25,13 +26,12 @@ var reserveFundCmd = &cobra.Command{
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
-	privKey, err := loadPrivateKey(cfgPath, fromFlag)
+	wallet, fromAddress, fromPubKey, err := utils.WalletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
-		fmt.Printf("Failed to load key for address %v: %v\n", fromFlag, err)
 		return
 	}
+	defer wallet.Lock(fromAddress)
 
-	fromAddress := privKey.PublicKey().Address()
 	input := types.TxInput{
 		Address: fromAddress,
 		Coins: types.Coins{
@@ -41,7 +41,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 		Sequence: uint64(seqFlag),
 	}
 	if seqFlag == 1 {
-		input.PubKey = privKey.PublicKey()
+		input.PubKey = fromPubKey
 	}
 	resourceIDs := []common.Bytes{}
 	for _, id := range resourceIDsFlag {
@@ -68,7 +68,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 		Duration:    durationFlag,
 	}
 
-	sig, err := privKey.Sign(reserveFundTx.SignBytes(chainIDFlag))
+	sig, err := wallet.Sign(fromAddress, reserveFundTx.SignBytes(chainIDFlag))
 	if err != nil {
 		fmt.Printf("Failed to sign transaction: %v\n", err)
 		return
@@ -82,7 +82,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	signedTx := hex.EncodeToString(raw)
 
-	client := rpcc.NewRPCClient(viper.GetString(wallet.CfgRemoteRPCEndpoint))
+	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {

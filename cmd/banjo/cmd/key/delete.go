@@ -9,7 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/wallet"
 )
 
-// deleteCmd represents the new command
+// deleteCmd deletes the key corresponding to the given address
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a key",

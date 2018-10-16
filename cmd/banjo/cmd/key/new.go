@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/ukulele/wallet"
 )
 
-// newCmd represents the new command
+// newCmd generates a new key
 var newCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Generates a new private key",

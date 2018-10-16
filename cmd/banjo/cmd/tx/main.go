@@ -1,11 +1,7 @@
 package tx
 
 import (
-	"path"
-	"strings"
-
 	"github.com/spf13/cobra"
-	"github.com/thetatoken/ukulele/crypto"
 )
 
 // Common flags used in Tx sub commands.
@@ -40,12 +36,4 @@ func init() {
 	TxCmd.AddCommand(reserveFundCmd)
 	TxCmd.AddCommand(releaseFundCmd)
 	TxCmd.AddCommand(splitContractCmd)
-}
-
-func loadPrivateKey(cfgPath string, address string) (*crypto.PrivateKey, error) {
-	if strings.HasPrefix(address, "0x") {
-		address = address[2:]
-	}
-	filePath := path.Join(cfgPath, "keys", address)
-	return crypto.PrivateKeyFromFile(filePath)
 }
