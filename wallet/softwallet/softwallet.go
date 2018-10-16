@@ -115,12 +115,16 @@ func (w *SoftWallet) Close(address common.Address) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	_, exists := w.unlockedKeyMap[address]
+	unlockedKey, exists := w.unlockedKeyMap[address]
 	if !exists {
 		return fmt.Errorf("Cannot close address %v, not unlocked yet", address)
 	}
 
 	delete(w.unlockedKeyMap, address)
+
+	if unlockedKey != nil {
+		w.zeroKey(unlockedKey)
+	}
 
 	return nil
 }
@@ -130,9 +134,12 @@ func (w *SoftWallet) Delete(address common.Address, password string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	_, exists := w.unlockedKeyMap[address]
+	unlockedKey, exists := w.unlockedKeyMap[address]
 	if exists {
 		delete(w.unlockedKeyMap, address)
+		if unlockedKey != nil {
+			w.zeroKey(unlockedKey)
+		}
 	}
 
 	err := w.keystore.DeleteKey(address, password)
@@ -170,4 +177,21 @@ func (w *SoftWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.S
 
 	signature, err := unlockedKey.Sign(txrlp)
 	return signature, err
+}
+
+// zeroKey zeroes a private key in memory
+func (w *SoftWallet) zeroKey(unlockedKey *UnlockedKey) {
+	if unlockedKey == nil {
+		return
+	}
+
+	privKey := unlockedKey.PrivateKey
+	if privKey == nil || privKey.D() == nil {
+		return
+	}
+
+	bits := privKey.D().Bits()
+	for i := range bits {
+		bits[i] = 0
+	}
 }

@@ -15,4 +15,5 @@ func init() {
 	KeyCmd.AddCommand(newCmd)
 	KeyCmd.AddCommand(listCmd)
 	KeyCmd.AddCommand(deleteCmd)
+	KeyCmd.AddCommand(passwordCmd)
 }

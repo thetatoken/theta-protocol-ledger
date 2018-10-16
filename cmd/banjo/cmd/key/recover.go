@@ -12,6 +12,6 @@ var recoverCmd = &cobra.Command{
 	Short: "Recover a key from seed phrase",
 	Long:  `Recover a key from seed phrase.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("key recover called")
+		fmt.Println("key recover not supported yet")
 	},
 }
