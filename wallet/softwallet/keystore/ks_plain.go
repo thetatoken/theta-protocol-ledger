@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/pborman/uuid"
 	"github.com/thetatoken/ukulele/common"
@@ -38,6 +39,22 @@ func NewKeystorePlain(keysDirRoot string) (KeystorePlain, error) {
 	}
 
 	return ks, nil
+}
+
+func (ks KeystorePlain) ListKeyAddresses() ([]common.Address, error) {
+	filenames, err := filepath.Glob(path.Join(ks.keysDirPath, "*"))
+	if err != nil {
+		return []common.Address{}, err
+	}
+
+	addresses := []common.Address{}
+	for _, filename := range filenames {
+		addrStr := filepath.Base(filename)
+		address := common.HexToAddress(addrStr)
+		addresses = append(addresses, address)
+	}
+
+	return addresses, nil
 }
 
 func (ks KeystorePlain) GetKey(address common.Address, auth string) (*Key, error) {

@@ -55,17 +55,13 @@ func NewSoftWallet(keysDirPath string, kstype KeystoreType) (*SoftWallet, error)
 	return wallet, nil
 }
 
-// List returns all the unlocked addresses
-func (w *SoftWallet) List() []common.Address {
+// List returns the addresses of all the keys
+func (w *SoftWallet) List() ([]common.Address, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	unlockedAddresses := make([]common.Address, 0, len(w.unlockedKeyMap))
-	for addr := range w.unlockedKeyMap {
-		unlockedAddresses = append(unlockedAddresses, addr)
-	}
-
-	return unlockedAddresses
+	addresses, err := w.keystore.ListKeyAddresses()
+	return addresses, err
 }
 
 // NewKey creates a new key

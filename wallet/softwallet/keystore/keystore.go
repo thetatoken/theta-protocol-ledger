@@ -10,6 +10,9 @@ import (
 
 type Keystore interface {
 
+	// List the addresses of all the stored keys
+	ListKeyAddresses() ([]common.Address, error)
+
 	// Loads and decrypts the key from disk.
 	GetKey(address common.Address, auth string) (*Key, error)
 

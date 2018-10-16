@@ -21,8 +21,8 @@ type ColdWallet struct {
 
 // TODO: to be implemented
 
-func (w *ColdWallet) List() []common.Address {
-	return nil
+func (w *ColdWallet) List() ([]common.Address, error) {
+	return nil, fmt.Errorf("Not supported for cold wallet")
 }
 
 func (w *ColdWallet) NewKey(password string) (common.Address, error) {

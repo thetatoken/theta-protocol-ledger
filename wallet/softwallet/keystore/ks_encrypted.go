@@ -39,6 +39,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/pborman/uuid"
 
@@ -107,6 +108,22 @@ func NewKeystoreEncrypted(keysDirRoot string, scryptN, scryptP int) (KeystoreEnc
 	}
 
 	return ks, nil
+}
+
+func (ks KeystoreEncrypted) ListKeyAddresses() ([]common.Address, error) {
+	filenames, err := filepath.Glob(path.Join(ks.keysDirPath, "*"))
+	if err != nil {
+		return []common.Address{}, err
+	}
+
+	addresses := []common.Address{}
+	for _, filename := range filenames {
+		addrStr := filepath.Base(filename)
+		address := common.HexToAddress(addrStr)
+		addresses = append(addresses, address)
+	}
+
+	return addresses, nil
 }
 
 func (ks KeystoreEncrypted) GetKey(address common.Address, auth string) (*Key, error) {
