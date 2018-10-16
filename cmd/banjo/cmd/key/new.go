@@ -2,11 +2,10 @@ package key
 
 import (
 	"fmt"
-	"os"
-	"path"
 
 	"github.com/spf13/cobra"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
+	"github.com/thetatoken/ukulele/wallet"
 )
 
 // newCmd represents the new command
@@ -16,31 +15,25 @@ var newCmd = &cobra.Command{
 	Long:  `Generates a new private key.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfgPath := cmd.Flag("config").Value.String()
-		if privKey, err := createNewKey(cfgPath); err != nil {
-			fmt.Printf("Failed to generate new key: %v\n", err)
-		} else {
-			fmt.Printf("Successfully created key: %v\n", privKey.PublicKey().Address())
+		wallet, err := wallet.OpenDefaultWallet(cfgPath)
+		if err != nil {
+			fmt.Printf("Failed to open wallet: %v\n", err)
+			return
 		}
+
+		prompt := fmt.Sprintf("Please enter password: ")
+		password, err := utils.GetPassword(prompt)
+		if err != nil {
+			fmt.Printf("Failed to get password: %v\n", err)
+			return
+		}
+
+		address, err := wallet.NewKey(password)
+		if err != nil {
+			fmt.Printf("Failed to generate new key: %v\n", err)
+			return
+		}
+
+		fmt.Printf("Successfully created key: %v\n", address.Hex())
 	},
-}
-
-func createNewKey(cfgPath string) (*crypto.PrivateKey, error) {
-	privKey, pubKey, err := crypto.GenerateKeyPair()
-	if err != nil {
-		return nil, err
-	}
-	dirPath := path.Join(cfgPath, "keys")
-	err = os.MkdirAll(dirPath, 0700)
-
-	fi, err := os.Lstat(dirPath)
-	if err != nil {
-		return nil, err
-	}
-	if fi.Mode().Perm() != 0700 {
-		return nil, fmt.Errorf("%s must have permission set to 0700", dirPath)
-	}
-
-	filePath := path.Join(dirPath, pubKey.Address().Hex()[2:])
-	err = privKey.SaveToFile(filePath)
-	return privKey, err
 }

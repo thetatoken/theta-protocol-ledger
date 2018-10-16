@@ -7,12 +7,12 @@ import (
 	"github.com/thetatoken/ukulele/wallet/types"
 )
 
-func NewDefaultWallet(cfgPath string) (types.Wallet, error) {
-	wallet, err := newWallet(cfgPath, types.WalletTypeSoft, true)
+func OpenDefaultWallet(cfgPath string) (types.Wallet, error) {
+	wallet, err := openWallet(cfgPath, types.WalletTypeSoft, true)
 	return wallet, err
 }
 
-func newWallet(cfgPath string, walletType types.WalletType, encrypted bool) (types.Wallet, error) {
+func openWallet(cfgPath string, walletType types.WalletType, encrypted bool) (types.Wallet, error) {
 	var wallet types.Wallet
 	var err error
 

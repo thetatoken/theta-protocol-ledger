@@ -16,7 +16,7 @@ type Wallet interface {
 	List() ([]common.Address, error)
 	NewKey(password string) (common.Address, error)
 	Unlock(address common.Address, password string) error
-	Close(address common.Address) error
+	Lock(address common.Address) error
 	Delete(address common.Address, password string) error
 	UpdatePassword(address common.Address, oldPassword, newPassword string) error
 	Derive(path DerivationPath, pin bool) (common.Address, error)

@@ -1,5 +1,5 @@
 hash: 730ae671e081b7b9e063feeffd09d45f009b1363ef2d839f1ca8f611a2b19f12
-updated: 2018-10-11T21:48:04.485963361-07:00
+updated: 2018-10-16T13:47:11.486446265-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
   version: 506514fe33c61d0efcab7f89dc589c6b55664cea
@@ -14,6 +14,8 @@ imports:
   - types/particle_type
   - types/rand
   - utils/buffer
+- name: github.com/bgentry/speakeasy
+  version: 4aabc24848ce5fd31929f7d1e4ea74d3709c14cd
 - name: github.com/davecgh/go-spew
   version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:

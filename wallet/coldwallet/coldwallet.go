@@ -33,7 +33,7 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	return fmt.Errorf("Not supported for cold wallet")
 }
 
-func (w *ColdWallet) Close(address common.Address) error {
+func (w *ColdWallet) Lock(address common.Address) error {
 	return fmt.Errorf("Not supported for cold wallet")
 }
 

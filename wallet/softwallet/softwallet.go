@@ -106,8 +106,8 @@ func (w *SoftWallet) Unlock(address common.Address, password string) error {
 	return nil
 }
 
-// Close closes an unlocked key
-func (w *SoftWallet) Close(address common.Address) error {
+// Lock locks an unlocked key
+func (w *SoftWallet) Lock(address common.Address) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
