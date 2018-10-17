@@ -21,5 +21,4 @@ type Ledger interface {
 	ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
 	ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result
 	ResetState(height uint64, rootHash common.Hash) result.Result
-	Query()
 }

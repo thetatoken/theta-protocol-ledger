@@ -12,8 +12,8 @@ import (
 // TxExecutor defines the interface of the transaction executors
 //
 type TxExecutor interface {
-	sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result
-	process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result)
+	sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result
+	process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result)
 }
 
 //
@@ -99,7 +99,7 @@ func (exec *Executor) processTx(tx types.Tx, viewSel core.ViewSelector) (common.
 	return txHash, processResult
 }
 
-func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx types.Tx) result.Result {
+func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.Tx) result.Result {
 	if exec.skipSanityCheck { // Skip checks, e.g. while replaying commmitted blocks.
 		return result.OK
 	}
@@ -115,7 +115,7 @@ func (exec *Executor) sanityCheck(chainID string, view types.ViewDataGetter, tx 
 	return sanityCheckResult
 }
 
-func (exec *Executor) process(chainID string, view types.ViewDataAccessor, tx types.Tx) (common.Hash, result.Result) {
+func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (common.Hash, result.Result) {
 	var processResult result.Result
 	var txHash common.Hash
 	txExecutor := exec.getTxExecutor(tx)

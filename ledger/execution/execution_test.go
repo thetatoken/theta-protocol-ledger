@@ -26,18 +26,18 @@ func TestGetInputs(t *testing.T) {
 	// test getInputs for registered, non-registered account
 	et.reset()
 	inputs := types.Accs2TxInputs(1, et.accIn)
-	acc, res = getInputs(et.state(), inputs)
+	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsError(), "getInputs: expected error when using getInput with non-registered Input")
 
 	et.acc2State(et.accIn)
-	acc, res = getInputs(et.state(), inputs)
+	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to getInput from registered Input")
 
 	// test sending duplicate accounts
 	et.reset()
 	et.acc2State(et.accIn, et.accIn, et.accIn)
 	inputs = types.Accs2TxInputs(1, et.accIn, et.accIn, et.accIn)
-	acc, res = getInputs(et.state(), inputs)
+	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsError(), "getInputs: expected error when sending duplicate accounts")
 
 	// test calculating reward
@@ -47,7 +47,7 @@ func TestGetInputs(t *testing.T) {
 	et.fastforwardBy(1000) // fastforward to reach a sufficient height for Gamma generation
 
 	inputs = types.Accs2TxInputs(1, et.accIn)
-	acc, res = getInputs(et.state(), inputs)
+	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
 	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
 		"getInputs: expected to update input account gamma balance")
@@ -65,7 +65,7 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	//test sending duplicate accounts
 	et.reset()
 	outputs := types.Accs2TxOutputs(et.accIn, et.accIn, et.accIn)
-	_, res = getOrMakeOutputs(et.state(), nil, outputs)
+	_, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs)
 	assert.True(res.IsError(), "getOrMakeOutputs: expected error when sending duplicate accounts")
 
 	//test sending to existing/new account
@@ -74,10 +74,10 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	outputs2 := types.Accs2TxOutputs(et.accOut)
 
 	et.acc2State(et.accIn)
-	_, res = getOrMakeOutputs(et.state(), nil, outputs1)
+	_, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
 
-	mapRes2, res := getOrMakeOutputs(et.state(), nil, outputs2)
+	mapRes2, res := getOrMakeOutputs(et.state().Delivered(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
 
 	//test the map results
@@ -92,12 +92,12 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	outputs2 = types.Accs2TxOutputs(et.accOut)
 
 	et.acc2State(et.accIn)
-	mapRes1, res := getOrMakeOutputs(et.state(), nil, outputs1)
+	mapRes1, res := getOrMakeOutputs(et.state().Delivered(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
 	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
 		"getOrMakeOutputs: expected to update existing output account gamma balance")
 
-	mapRes2, res = getOrMakeOutputs(et.state(), nil, outputs2)
+	mapRes2, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
 	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.GammaWei.Cmp(types.Zero) == 0,
 		"getOrMakeOutputs: expected to not update new output account gamma balance")
@@ -131,7 +131,7 @@ func TestValidateInputsAdvanced(t *testing.T) {
 	tx := types.MakeSendTx(1, et.accOut, accIn1, accIn2, accIn3)
 
 	et.acc2State(accIn1, accIn2, accIn3, et.accOut)
-	accMap, res := getInputs(et.state(), tx.Inputs)
+	accMap, res := getInputs(et.state().Delivered(), tx.Inputs)
 	assert.True(res.IsOK(), "validateInputsAdvanced: error retrieving accMap. Error: %v", res.Message)
 	signBytes := tx.SignBytes(et.chainID)
 
@@ -222,11 +222,11 @@ func TestAdjustBy(t *testing.T) {
 
 	txIn := types.Accs2TxInputs(1, et.accIn)
 	txOut := types.Accs2TxOutputs(et.accOut)
-	accMap, _ := getInputs(et.state(), txIn)
-	accMap, _ = getOrMakeOutputs(et.state(), accMap, txOut)
+	accMap, _ := getInputs(et.state().Delivered(), txIn)
+	accMap, _ = getOrMakeOutputs(et.state().Delivered(), accMap, txOut)
 
-	adjustByInputs(et.state(), accMap, txIn)
-	adjustByOutputs(et.state(), accMap, txOut)
+	adjustByInputs(et.state().Delivered(), accMap, txIn)
+	adjustByOutputs(et.state().Delivered(), accMap, txOut)
 
 	inAddr := et.accIn.Account.PubKey.Address()
 	outAddr := et.accOut.Account.PubKey.Address()
@@ -297,13 +297,13 @@ func TestNonEmptyPubKey(t *testing.T) {
 	_, userPubKey, err := crypto.TEST_GenerateKeyPairWithSeed("user")
 	assert.Nil(err)
 	userAddr := userPubKey.Address()
-	et.state().SetAccount(userAddr, &types.Account{
+	et.state().Delivered().SetAccount(userAddr, &types.Account{
 		LastUpdatedBlockHeight: 1,
 	})
 
 	// ----------- Test 1: Both acc.PubKey and txInput.PubKey are empty -----------
 
-	accInit, res := getAccount(et.state(), userAddr)
+	accInit, res := getAccount(et.state().Delivered(), userAddr)
 	assert.True(res.IsOK())
 	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
 
@@ -312,13 +312,13 @@ func TestNonEmptyPubKey(t *testing.T) {
 		Sequence: 1,
 	} // Empty PubKey
 
-	acc, res := getInput(et.state(), txInput1)
+	acc, res := getInput(et.state().Delivered(), txInput1)
 	assert.Equal(result.CodeEmptyPubKeyWithSequence1, res.Code)
 	assert.True(acc == nil)
 
 	// ----------- Test 2: acc.PubKey is empty, and txInput.PubKey is not empty -----------
 
-	accInit, res = getAccount(et.state(), userAddr)
+	accInit, res = getAccount(et.state().Delivered(), userAddr)
 	assert.True(res.IsOK())
 	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
 
@@ -328,19 +328,19 @@ func TestNonEmptyPubKey(t *testing.T) {
 		Sequence: 2,
 	}
 
-	acc, res = getInput(et.state(), txInput2)
+	acc, res = getInput(et.state().Delivered(), txInput2)
 	assert.True(res.IsOK())
 	assert.False(acc.PubKey.IsEmpty())
 	assert.Equal(acc.PubKey, userPubKey)
 
 	// ----------- Test 3: acc.PubKey is not empty, but txInput.PubKey is empty -----------
 
-	et.state().SetAccount(userAddr, &types.Account{
+	et.state().Delivered().SetAccount(userAddr, &types.Account{
 		PubKey:                 userPubKey,
 		LastUpdatedBlockHeight: 1,
 	})
 
-	accInit, res = getAccount(et.state(), userAddr)
+	accInit, res = getAccount(et.state().Delivered(), userAddr)
 	assert.True(res.IsOK())
 	assert.False(accInit.PubKey.IsEmpty())
 
@@ -349,7 +349,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 		Sequence: 3,
 	} // Empty PubKey
 
-	acc, res = getInput(et.state(), txInput3)
+	acc, res = getInput(et.state().Delivered(), txInput3)
 	assert.True(res.IsOK())
 	assert.False(acc.PubKey.IsEmpty())
 	assert.Equal(acc.PubKey, userPubKey)
@@ -359,7 +359,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 	_, userPubKey2, err := crypto.TEST_GenerateKeyPairWithSeed("lol")
 	assert.Nil(err)
 
-	accInit, res = getAccount(et.state(), userAddr)
+	accInit, res = getAccount(et.state().Delivered(), userAddr)
 	assert.True(res.IsOK())
 	assert.False(accInit.PubKey.IsEmpty())
 
@@ -369,7 +369,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 		PubKey:   userPubKey2,
 	}
 
-	acc, res = getInput(et.state(), txInput4)
+	acc, res = getInput(et.state().Delivered(), txInput4)
 	assert.True(res.IsOK())
 	assert.False(acc.PubKey.IsEmpty())
 	assert.Equal(userPubKey, acc.PubKey)     // acc.PukKey should not change
@@ -498,16 +498,16 @@ func TestCoinbaseTx(t *testing.T) {
 	_, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
-	va1balance := et.state().GetAccount(va1.Account.PubKey.Address()).Balance
+	va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
 	assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
 	// validator's Gamma is also updated.
 	assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
 
-	va2balance := et.state().GetAccount(va2.Account.PubKey.Address()).Balance
+	va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
 	assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
 	assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
 
-	user1balance := et.state().GetAccount(user1.Account.PubKey.Address()).Balance
+	user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
 	assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
 	// user's Gamma is not updated.
 	assert.Equal(int64(0), user1balance.GammaWei.Int64())
@@ -598,7 +598,7 @@ func TestReserveFundTx(t *testing.T) {
 	_, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
-	retrievedUserAcc := et.state().GetAccount(user1.PubKey.Address())
+	retrievedUserAcc := et.state().Delivered().GetAccount(user1.PubKey.Address())
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
@@ -708,7 +708,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	et.state().Commit()
 
-	retrievedAliceAcc0 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
@@ -724,13 +724,13 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 
 	et.state().Commit()
 
-	retrievedAliceAcc1 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
-	retrievedBobAcc1 := et.state().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.PubKey.Address())
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - 1: need to account for Gas
 
 	// Simulate micropayment #2 between Alice and Bob
@@ -742,13 +742,13 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx2).process(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 
 	et.state().Commit()
 
-	retrievedAliceAcc2 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
-	retrievedBobAcc2 := et.state().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2: need to account for Gas
 
 	// Simulate micropayment #3 between Alice and Carol
@@ -760,13 +760,13 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 	_, res = et.executor.getTxExecutor(servicePaymentTx3).process(et.chainID, et.state().Delivered(), servicePaymentTx3)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 
 	et.state().Commit()
 
-	retrievedAliceAcc3 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
-	retrievedCarolAcc3 := et.state().GetAccount(carol.PubKey.Address())
+	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.PubKey.Address())
 	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - 1)}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
@@ -777,10 +777,10 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	res = et.executor.getTxExecutor(servicePaymentTx4).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx4)
 	assert.True(res.IsOK(), res.Message) // the following process() call will create an SlashIntent
 
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 	_, res = et.executor.getTxExecutor(servicePaymentTx4).process(et.chainID, et.state().Delivered(), servicePaymentTx4)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(1, len(et.state().GetSlashIntents()))
+	assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
 }
 
 func TestServicePaymentTxExpiration(t *testing.T) {
@@ -788,7 +788,7 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	et, resourceID, alice, bob, _, _, bobInitBalance, _ := setupForServicePayment(assert)
 	et.state().Commit()
 
-	retrievedAliceAcc1 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
@@ -807,9 +807,9 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAcc2 := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
-	retrievedBobAcc2 := et.state().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1)}), retrievedBobAcc2.Balance) // payAmount1 - 1: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
@@ -837,7 +837,7 @@ func TestSlashTx(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAccount := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
 	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
 	aliceReservedFund := retrievedAliceAccount.ReservedFunds[0].InitialFund
@@ -852,12 +852,12 @@ func TestSlashTx(t *testing.T) {
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
 
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(1, len(et.state().GetSlashIntents()))
+	assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
 
-	slashIntent := et.state().GetSlashIntents()[0]
+	slashIntent := et.state().Delivered().GetSlashIntents()[0]
 
 	et.state().Commit()
 
@@ -880,10 +880,10 @@ func TestSlashTx(t *testing.T) {
 	_, res = et.executor.getTxExecutor(slashTx).process(et.chainID, et.state().Delivered(), slashTx)
 	assert.True(res.IsOK(), res.Message)
 
-	retrievedProposerAccount := et.state().GetAccount(proposer.PubKey.Address())
+	retrievedProposerAccount := et.state().Delivered().GetAccount(proposer.PubKey.Address())
 	assert.Equal(proposerInitBalance.Plus(expectedAliceSlashedAmount), retrievedProposerAccount.Balance) // slashed tokens transferred to the proposer
 
-	retrievedAliceAccountAfterSlash := et.state().GetAccount(alice.PubKey.Address())
+	retrievedAliceAccountAfterSlash := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(0, len(retrievedAliceAccountAfterSlash.ReservedFunds)) // Alice is slashed
 
 	log.Infof("Proposer initial balance: %v", proposerInitBalance)
@@ -934,14 +934,14 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
 
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
 
 	et.state().Commit()
 
-	bobFinalBalance := et.state().GetAccount(bob.PubKey.Address()).Balance
-	carolFinalBalance := et.state().GetAccount(carol.PubKey.Address()).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.PubKey.Address()).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.PubKey.Address()).Balance
 	log.Infof("Bob's final balance:   %v", bobFinalBalance)
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
@@ -997,14 +997,14 @@ func TestSplitContractTxExpiration(t *testing.T) {
 	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
 
-	assert.Equal(0, len(et.state().GetSlashIntents()))
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
 
 	et.state().Commit()
 
-	bobFinalBalance := et.state().GetAccount(bob.PubKey.Address()).Balance
-	carolFinalBalance := et.state().GetAccount(carol.PubKey.Address()).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.PubKey.Address()).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.PubKey.Address()).Balance
 	log.Infof("Bob's final balance:   %v", bobFinalBalance)
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
@@ -1051,7 +1051,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract := et.executor.state.GetSplitContract(resourceID)
+	splitContract := et.executor.state.Delivered().GetSplitContract(resourceID)
 	assert.NotNil(splitContract)
 	originalEndHeight := splitContract.EndBlockHeight
 	log.Infof("originalEndHeight = %v", originalEndHeight)
@@ -1078,7 +1078,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 	assert.False(res.IsOK(), res.Message)
 	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
 
-	splitContract1 := et.executor.state.GetSplitContract(resourceID)
+	splitContract1 := et.executor.state.Delivered().GetSplitContract(resourceID)
 	assert.NotNil(splitContract1)
 	endHeight1 := splitContract1.EndBlockHeight
 	assert.Equal(originalEndHeight, endHeight1)
@@ -1104,7 +1104,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 	_, res = et.executor.getTxExecutor(splitContractUpdateTx).process(et.chainID, et.state().Delivered(), splitContractUpdateTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract2 := et.executor.state.GetSplitContract(resourceID)
+	splitContract2 := et.executor.state.Delivered().GetSplitContract(resourceID)
 	assert.NotNil(splitContract2)
 	currHeight := et.executor.state.Height()
 	endHeight2 := splitContract2.EndBlockHeight

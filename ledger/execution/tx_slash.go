@@ -6,6 +6,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
+	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -26,7 +27,7 @@ func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorMan
 	}
 }
 
-func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
 	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
@@ -91,7 +92,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGett
 	return result.OK
 }
 
-func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SlashTx)
 
 	slashedAddress := tx.SlashedAddress

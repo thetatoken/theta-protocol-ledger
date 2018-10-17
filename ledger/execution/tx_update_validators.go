@@ -23,7 +23,7 @@ func NewUpdateValidatorsTxExecutor(state *st.LedgerState) *UpdateValidatorsTxExe
 	}
 }
 
-func (exec *UpdateValidatorsTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *UpdateValidatorsTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	// tx := transaction.(*types.UpdateValidatorsTx)
 
 	// res := tx.Proposer.ValidateBasic()
@@ -68,7 +68,7 @@ func (exec *UpdateValidatorsTxExecutor) sanityCheck(chainID string, view types.V
 	return result.OK
 }
 
-func (exec *UpdateValidatorsTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *UpdateValidatorsTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.UpdateValidatorsTx)
 
 	// account, res := getInput(view, tx.Proposer)
