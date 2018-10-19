@@ -19,7 +19,7 @@ type TestConsensusEngine struct {
 func (tce *TestConsensusEngine) ID() string                        { return tce.privKey.PublicKey().Address().Hex() }
 func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey    { return tce.privKey }
 func (tce *TestConsensusEngine) GetTip() *core.ExtendedBlock       { return nil }
-func (tce *TestConsensusEngine) GetEpoch() uint32                  { return 100 }
+func (tce *TestConsensusEngine) GetEpoch() uint64                  { return 100 }
 func (tce *TestConsensusEngine) AddMessage(msg interface{})        {}
 func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block { return nil }
 
@@ -33,8 +33,8 @@ type TestValidatorManager struct {
 	valSet   *core.ValidatorSet
 }
 
-func (tvm *TestValidatorManager) GetProposerForEpoch(epoch uint32) core.Validator { return tvm.proposer }
-func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint32) *core.ValidatorSet {
+func (tvm *TestValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator { return tvm.proposer }
+func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint64) *core.ValidatorSet {
 	return tvm.valSet
 }
 
@@ -65,13 +65,13 @@ func newExecTest() *execTest {
 
 //reset everything. state is empty
 func (et *execTest) reset() {
-	et.accIn = types.MakeAccWithInitBalance("foo", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
-	et.accOut = types.MakeAccWithInitBalance("bar", types.Coins{types.Coin{"GammaWei", 5}, types.Coin{"ThetaWei", 700000}})
+	et.accIn = types.MakeAccWithInitBalance("foo", types.NewCoins(700000, 5))
+	et.accOut = types.MakeAccWithInitBalance("bar", types.NewCoins(700000, 5))
 	et.accProposer = types.MakeAcc("proposer")
 	et.accVal2 = types.MakeAcc("val2")
 
 	chainID := "test_chain_id"
-	initHeight := uint32(1)
+	initHeight := uint64(1)
 	initRootHash := common.Hash{}
 	db := backend.NewMemDatabase()
 	ledgerState := st.NewLedgerState(chainID, db)
@@ -92,14 +92,14 @@ func (et *execTest) reset() {
 	et.executor = executor
 }
 
-func (et *execTest) fastforwardBy(heightIncrement uint32) bool {
+func (et *execTest) fastforwardBy(heightIncrement uint64) bool {
 	height := et.executor.state.Height()
 	rootHash := et.executor.state.Commit()
 	et.executor.state.ResetState(height+heightIncrement-1, rootHash)
 	return true
 }
 
-func (et *execTest) fastforwardTo(targetHeight uint32) bool {
+func (et *execTest) fastforwardTo(targetHeight uint64) bool {
 	height := et.executor.state.Height()
 	rootHash := et.executor.state.Commit()
 	if targetHeight < height+1 {
@@ -119,8 +119,8 @@ func (et *execTest) state() *st.LedgerState {
 
 // returns the final balance and expected balance for input and output accounts
 func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
-	initBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	initBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	initBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	initBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
 
 	if screenTx {
 		_, res = et.executor.ScreenTx(tx)
@@ -128,15 +128,15 @@ func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Resu
 		_, res = et.executor.ExecuteTx(tx)
 	}
 
-	endBalIn := et.state().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	endBalOut := et.state().GetAccount(et.accOut.Account.PubKey.Address()).Balance
-	decrBalInExp := tx.Outputs[0].Coins.Plus(types.Coins{tx.Fee}) //expected decrease in balance In
+	endBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
+	endBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	decrBalInExp := tx.Outputs[0].Coins.Plus(tx.Fee) //expected decrease in balance In
 	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
 }
 
 func (et *execTest) acc2State(accs ...types.PrivAccount) {
 	for _, acc := range accs {
-		et.executor.state.SetAccount(acc.Account.PubKey.Address(), &acc.Account)
+		et.executor.state.Delivered().SetAccount(acc.Account.PubKey.Address(), &acc.Account)
 	}
 	et.executor.state.Commit()
 }

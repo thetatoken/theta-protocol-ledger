@@ -7,18 +7,11 @@ all: get_vendor_deps install test
 
 build:
 	go build ./cmd/...
+	go build ./integration/...
 
 install:
 	go install ./cmd/...
-
-protoc:
-	#go get github.com/gogo/protobuf
-	#go get github.com/gogo/protobuf/proto
-	#go get github.com/gogo/protobuf/gogoproto
-	#go get github.com/gogo/protobuf/protoc-gen-gogo
-	#npm install -g protobufjs
-	protoc $(INCLUDE) --gogo_out=plugins=:. ledger/types/serialization/*.proto
-	pbjs -t static-module ledger/types/serialization/types.proto -o ledger/types/serialization/types.pb.js
+	go install ./integration/...
 
 test: test_unit test_integration test_cluster_deployment
 

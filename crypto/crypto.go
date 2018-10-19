@@ -3,8 +3,11 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"io"
+	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 //
@@ -39,6 +42,11 @@ func (sk *PrivateKey) ToBytes() common.Bytes {
 	return skbytes
 }
 
+// D returns the D parameter of the ECDSA private key
+func (sk *PrivateKey) D() *big.Int {
+	return sk.privKey.D
+}
+
 // PublicKey returns the public key corresponding to the private key
 func (sk *PrivateKey) PublicKey() *PublicKey {
 	pke := &sk.privKey.PublicKey
@@ -66,6 +74,37 @@ func (sk *PrivateKey) Sign(msg common.Bytes) (*Signature, error) {
 //
 type PublicKey struct {
 	pubKey *ecdsa.PublicKey
+}
+
+var _ rlp.Encoder = (*PublicKey)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (pk *PublicKey) EncodeRLP(w io.Writer) error {
+	if pk == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := pk.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*PublicKey)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (pk *PublicKey) DecodeRLP(stream *rlp.Stream) error {
+	var b []byte
+	err := stream.Decode(&b)
+	if err != nil {
+		return err
+	}
+	if len(b) == 0 {
+		return nil
+	}
+	pubKey, err := unmarshalPubkey(b)
+	if err != nil {
+		return err
+	}
+	pk.pubKey = pubKey
+	return nil
 }
 
 // ToBytes returns the bytes representation of the public key
@@ -132,6 +171,30 @@ type Signature struct {
 	data common.Bytes
 }
 
+var _ rlp.Encoder = (*Signature)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (sig *Signature) EncodeRLP(w io.Writer) error {
+	if sig == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := sig.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*Signature)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (sig *Signature) DecodeRLP(stream *rlp.Stream) error {
+	var b []byte
+	err := stream.Decode(&b)
+	if err != nil {
+		return err
+	}
+	sig.data = b
+	return nil
+}
+
 // ToBytes returns the bytes representation of the signature
 func (sig *Signature) ToBytes() common.Bytes {
 	return sig.data
@@ -140,6 +203,23 @@ func (sig *Signature) ToBytes() common.Bytes {
 // IsEmpty indicates whether the signature is empty
 func (sig *Signature) IsEmpty() bool {
 	return len(sig.data) == 0
+}
+
+// RecoverSignerAddress recovers the address of the signer for the given message
+func (sig *Signature) RecoverSignerAddress(msg common.Bytes) (common.Address, error) {
+	msgHash := keccak256(msg)
+	recoveredUncompressedPubKey, err := ecrecover(msgHash, sig.ToBytes())
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	pk, err := PublicKeyFromBytes(recoveredUncompressedPubKey)
+	if err != nil {
+		return common.Address{}, err
+	}
+
+	address := pk.Address()
+	return address, nil
 }
 
 // GenerateKeyPair generates a random private/public key pair

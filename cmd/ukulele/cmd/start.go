@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"path"
 	"strings"
@@ -12,7 +11,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
-	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
@@ -23,7 +21,6 @@ import (
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start Theta node.",
-	Long:  ``,
 	Run:   runStart,
 }
 
@@ -43,28 +40,20 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	network := newMessenger(privKey, peerSeeds, port)
 
-	checkpoint, err := consensus.LoadCheckpoint(path.Join(cfgPath, "checkpoint.json"))
+	checkpoint, err := consensus.LoadCheckpoint(path.Join(cfgPath, "genesis"))
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load checkpoint")
 	}
 	validators := checkpoint.Validators
-	chainID := checkpoint.ChainID
-	rootEpoch := checkpoint.Epoch
-	rootHash, err := hex.DecodeString(checkpoint.Hash)
-	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to parse checkpoint hash")
-	}
-
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-	root := core.NewBlock()
-	root.ChainID = chainID
-	root.Epoch = rootEpoch
-	root.Hash = rootHash
+	root := checkpoint.FirstBlock
+
+	consensus.LoadCheckpointLedgerState(checkpoint, db)
 
 	params := &node.Params{
-		ChainID:    chainID,
+		ChainID:    root.ChainID,
 		PrivateKey: privKey,
 		Root:       root,
 		Validators: consensus.NewTestValidatorSet(validators),
@@ -98,7 +87,7 @@ func loadOrCreateKey() *crypto.PrivateKey {
 func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *messenger.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
-		"address": fmt.Sprintf("%X", privKey.PublicKey().Address()),
+		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))

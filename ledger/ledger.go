@@ -44,6 +44,11 @@ func NewLedger(chainID string, db database.Database, consensus core.ConsensusEng
 	return ledger
 }
 
+// GetStateSnapshot returns a snapshot of current ledger state to query about accounts, etc.
+func (ledger *Ledger) GetStateSnapshot() (*st.StoreView, error) {
+	return ledger.state.Delivered().Copy()
+}
+
 // ScreenTx screens the given transaction
 func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
 	var tx types.Tx
@@ -64,10 +69,11 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	view := ledger.state.Checked()
 
 	// Add special transactions
 	rawTxCandidates := []common.Bytes{}
-	ledger.addSpecialTransactions(&rawTxCandidates)
+	ledger.addSpecialTransactions(view, &rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
 	regularRawTxs := ledger.mempool.Reap(core.MaxNumRegularTxsPerBlock)
@@ -89,7 +95,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
-	stateRootHash = ledger.state.Checked().Hash()
+	stateRootHash = view.Hash()
 	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
 	return stateRootHash, blockRawTxs, result.OK
@@ -99,8 +105,11 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
-	currHeight := ledger.state.Height()
-	currStateRoot := ledger.state.Delivered().Hash()
+	view := ledger.state.Delivered()
+
+	currHeight := view.Height()
+	currStateRoot := view.Hash()
+
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
@@ -114,7 +123,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 		}
 	}
 
-	newStateRoot := ledger.state.Delivered().Hash()
+	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
 		ledger.ResetState(currHeight, currStateRoot)
 		return result.Error("State root mismatch! root: %v, exptected: %v",
@@ -130,17 +139,12 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 }
 
 // ResetState sets the ledger state with the designated root
-func (ledger *Ledger) ResetState(height uint32, rootHash common.Hash) result.Result {
-	success := ledger.state.ResetState(height, rootHash)
-	if !success {
+func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
+	res := ledger.state.ResetState(height, rootHash)
+	if res.IsError() {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
 	}
 	return result.OK
-}
-
-// Query returns the account query results
-func (ledger *Ledger) Query() {
-	// TODO: implementation..
 }
 
 // CheckTx() should skip all the transactions that can only be initiated by the validators
@@ -158,17 +162,17 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
-func (ledger *Ledger) addSpecialTransactions(rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]common.Bytes) {
 	epoch := ledger.consensus.GetEpoch()
 	proposer := ledger.valMgr.GetProposerForEpoch(epoch)
 	validators := ledger.valMgr.GetValidatorSetForEpoch(epoch).Validators()
 
-	ledger.addCoinbaseTx(&proposer, &validators, rawTxs)
-	ledger.addSlashTxs(&proposer, &validators, rawTxs)
+	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
+	ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
 }
 
 // addCoinbaseTx adds a Coinbase transaction
-func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address()
 	proposerPubKey := proposer.PublicKey()
 	proposerTxIn := types.TxInput{
@@ -181,7 +185,7 @@ func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core
 		validatorAddress := validator.Address()
 		validatorAddresses[idx] = validatorAddress
 	}
-	accountRewardMap := exec.CalculateReward(ledger.state, validatorAddresses)
+	accountRewardMap := exec.CalculateReward(view, validatorAddresses)
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {
@@ -205,14 +209,18 @@ func (ledger *Ledger) addCoinbaseTx(proposer *core.Validator, validators *[]core
 		return
 	}
 	coinbaseTx.SetSignature(proposerAddress, signature)
-	coinbaseTxBytes := types.TxToBytes(coinbaseTx)
+	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
+	if err != nil {
+		log.Errorf("Failed to add coinbase transaction: %v", err)
+		return
+	}
 
 	*rawTxs = append(*rawTxs, coinbaseTxBytes)
 	log.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
 }
 
 // addsSlashTx adds Slash transactions
-func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address()
 	proposerPubKey := proposer.PublicKey()
 	proposerTxIn := types.TxInput{
@@ -220,7 +228,7 @@ func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.V
 		PubKey:  &proposerPubKey,
 	}
 
-	slashIntents := ledger.state.GetSlashIntents()
+	slashIntents := view.GetSlashIntents()
 	for _, slashIntent := range slashIntents {
 		slashTx := &types.SlashTx{
 			Proposer:        proposerTxIn,
@@ -235,12 +243,16 @@ func (ledger *Ledger) addSlashTxs(proposer *core.Validator, validators *[]core.V
 			continue
 		}
 		slashTx.SetSignature(proposerAddress, signature)
-		slashTxBytes := types.TxToBytes(slashTx)
+		slashTxBytes, err := types.TxToBytes(slashTx)
+		if err != nil {
+			log.Errorf("Failed to add slash transaction: %v", err)
+			continue
+		}
 
 		*rawTxs = append(*rawTxs, slashTxBytes)
 		log.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))
 	}
-	ledger.state.ClearSlashIntents()
+	view.ClearSlashIntents()
 }
 
 // signTransaction signs the given transaction

@@ -24,6 +24,12 @@ import (
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
+var logger *log.Entry
+
+func init() {
+	logger = util.GetLoggerForModule("consensus")
+}
+
 var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
 // ConsensusEngine is the default implementation of the Engine interface.
@@ -42,7 +48,6 @@ type ConsensusEngine struct {
 
 	// Life cycle
 	wg      *sync.WaitGroup
-	quit    chan struct{}
 	ctx     context.Context
 	cancel  context.CancelFunc
 	stopped bool
@@ -66,8 +71,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 
-		wg:   &sync.WaitGroup{},
-		quit: make(chan struct{}),
+		wg: &sync.WaitGroup{},
 
 		mu:    &sync.Mutex{},
 		state: NewState(db, chain),
@@ -75,7 +79,6 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		validatorManager: validatorManager,
 	}
 
-	logger := util.GetLoggerForModule("consensus")
 	if viper.GetBool(common.CfgLogPrintSelfID) {
 		logger = logger.WithFields(log.Fields{"id": network.ID()})
 	}
@@ -113,7 +116,7 @@ func (e *ConsensusEngine) Network() p2p.Network {
 }
 
 // GetEpoch returns the current epoch
-func (e *ConsensusEngine) GetEpoch() uint32 {
+func (e *ConsensusEngine) GetEpoch() uint64 {
 	return e.state.GetEpoch()
 }
 
@@ -240,8 +243,15 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to find parent block")
 		return
 	}
-	e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
-	result := e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
+	result := e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":            result.Message,
+			"parent.StateHash": parent.StateHash,
+		}).Error("Failed to reset state to parent.StateHash")
+		return
+	}
+	result = e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":           result.String(),
@@ -444,14 +454,20 @@ func (e *ConsensusEngine) randHex() []byte {
 	return bytes
 }
 
-func (e *ConsensusEngine) shouldPropose(epoch uint32) bool {
+func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
 	return proposer.ID() == e.ID()
 }
 
 func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
-	e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
+	result := e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":         result.Message,
+			"tip.StateHash": tip.StateHash,
+		}).Panic("Failed to reset state to tip.StateHash")
+	}
 
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID

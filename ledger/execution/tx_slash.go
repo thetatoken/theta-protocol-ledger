@@ -1,11 +1,12 @@
 package execution
 
 import (
-	"fmt"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
+	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -22,10 +23,11 @@ type SlashTxExecutor struct {
 func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorManager) *SlashTxExecutor {
 	return &SlashTxExecutor{
 		consensus: consensus,
+		valMgr:    valMgr,
 	}
 }
 
-func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
 	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
@@ -81,8 +83,6 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGett
 		return result.Error("Validator %v does not exist!", validatorAddress)
 	}
 
-	// TODO: Add a check that validatorAccount is indeed a validator (check against the current validator list)
-
 	overspendingProofBytes := tx.SlashProof
 	slashProofVerified := exec.verifySlashProof(chainID, slashedAccount, overspendingProofBytes)
 	if !slashProofVerified {
@@ -92,7 +92,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view types.ViewDataGett
 	return result.OK
 }
 
-func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SlashTx)
 
 	slashedAddress := tx.SlashedAddress
@@ -119,13 +119,13 @@ func (exec *SlashTxExecutor) process(chainID string, view types.ViewDataAccessor
 	}
 
 	// TODO: We should transfer the collateral to a special address, e.g. 0x0 instead of
-	//       transfering to the validator, so the validator gain no extra benefit if it colludes with
+	//       transfering to the proposer, so the proposer gain no extra benefit if it colludes with
 	//       the address that overspent
 
 	// Slash: transfer the collateral and remainding deposit to the validator that identified the overspending
 	remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 	if !remainingFund.IsNonnegative() {
-		remainingFund = types.Coins{} // Should NOT happen, just to be on the safe side
+		remainingFund = types.NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 	}
 	slashedAmount := reservedFund.Collateral.Plus(remainingFund)
 
@@ -145,7 +145,9 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 	err := types.FromBytes(overspendingProofBytes, &overspendingProof)
 	if err != nil {
 		// TODO: need proper logging and error handling here.
-		panic(fmt.Sprintf("Failed to parse overspending proof: %v\n", err))
+		//panic(fmt.Sprintf("Failed to parse overspending proof: %v\n", err))
+		log.Errorf("Failed to parse overspending proof: %v", err)
+		return false
 	}
 
 	slashedAddress := slashedAccount.PubKey.Address()
@@ -156,9 +158,9 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 		}
 
 		settledPaymentLookup := make(map[string]bool)
-		fundIntendedToSpend := types.Coins{}
+		fundIntendedToSpend := types.NewCoins(0, 0)
 		for _, servicePaymentTx := range overspendingProof.ServicePayments {
-			if slashedAddress == servicePaymentTx.Source.Address {
+			if slashedAddress != servicePaymentTx.Source.Address {
 				return false // servicePaymentTx does not come from the slashed account
 			}
 

@@ -50,7 +50,7 @@ func (cc *CommitCertificate) IsValid() bool {
 type Vote struct {
 	Block *BlockHeader `rlp:"nil"`
 	ID    string
-	Epoch uint32
+	Epoch uint64
 }
 
 func (v Vote) String() string {

@@ -2,7 +2,6 @@ package execution
 
 import (
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -28,7 +27,7 @@ func NewReserveFundTxExecutor(state *st.LedgerState) *ReserveFundTxExecutor {
 	}
 }
 
-func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ReserveFundTx)
 
 	// Validate source, basic
@@ -51,14 +50,21 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 		return res
 	}
 
-	for _, coin := range tx.Source.Coins {
-		if strings.Compare(coin.Denom, types.DenomGammaWei) != 0 {
-			return result.Error("Cannot reserve %s as service fund!", coin.Denom)
-		}
+	coins := tx.Source.Coins.NoNil()
+
+	if !coins.IsPositive() {
+		return result.Error("Amount of reserved fund not specified").
+			WithErrorCode(result.CodeReservedFundNotSpecified)
+	}
+
+	if coins.ThetaWei.Cmp(types.Zero) != 0 {
+		return result.Error("Cannot reserve Theta as service fund!").
+			WithErrorCode(result.CodeInvalidFundToReserve)
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("invalid fee").
+			WithErrorCode(result.CodeInvalidFee)
 	}
 
 	fund := tx.Source.Coins
@@ -66,21 +72,22 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	duration := tx.Duration
 	reserveSequence := tx.Source.Sequence
 
-	minimalBalance := fund.Plus(collateral).Plus(types.Coins{tx.Fee})
+	minimalBalance := fund.Plus(collateral).Plus(tx.Fee)
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
-		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
+		return result.Error("Source balance is %v, but required minimal balance is %v",
+			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	err := sourceAccount.CheckReserveFund(collateral, fund, duration, reserveSequence)
 	if err != nil {
-		return result.Error(err.Error())
+		return result.Error(err.Error()).WithErrorCode(result.CodeReserveFundCheckFailed)
 	}
 
 	return result.OK
 }
 
-func (exec *ReserveFundTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ReserveFundTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReserveFundTx)
 
 	sourceAddress := tx.Source.Address

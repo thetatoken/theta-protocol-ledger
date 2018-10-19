@@ -27,7 +27,7 @@ func NewReleaseFundTxExecutor(state *st.LedgerState) *ReleaseFundTxExecutor {
 	}
 }
 
-func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ReleaseFundTx)
 
 	// Validate source, basic
@@ -51,26 +51,28 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view types.ViewDa
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("invalid fee").
+			WithErrorCode(result.CodeInvalidFee)
 	}
 
-	minimalBalance := types.Coins{tx.Fee}
+	minimalBalance := tx.Fee
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
 		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
-		return result.Error("Source balance is %v, but required minimal balance is %v", sourceAccount.Balance, minimalBalance)
+		return result.Error("Source balance is %v, but required minimal balance is %v",
+			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	currentBlockHeight := exec.state.Height()
 	reserveSequence := tx.ReserveSequence
 	err := sourceAccount.CheckReleaseFund(currentBlockHeight, reserveSequence)
 	if err != nil {
-		return result.Error(err.Error())
+		return result.Error(err.Error()).WithErrorCode(result.CodeReleaseFundCheckFailed)
 	}
 
 	return result.OK
 }
 
-func (exec *ReleaseFundTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReleaseFundTx)
 
 	sourceInputs := []types.TxInput{tx.Source}

@@ -2,9 +2,9 @@ package execution
 
 import (
 	"fmt"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	st "github.com/thetatoken/ukulele/ledger/state"
@@ -27,7 +27,7 @@ func NewServicePaymentTxExecutor(state *st.LedgerState) *ServicePaymentTxExecuto
 	}
 }
 
-func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	res := tx.Source.ValidateBasic()
@@ -54,16 +54,14 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 		return res
 	}
 
-	for _, transferAmount := range tx.Source.Coins {
-		if strings.Compare(transferAmount.Denom, types.DenomGammaWei) != 0 {
-			return result.Error("Cannot send %s as service payment!", transferAmount.Denom)
-		}
+	if tx.Source.Coins.ThetaWei.Cmp(types.Zero) != 0 {
+		return result.Error("Cannot send ThetaWei as service payment!")
 	}
 
 	// Verify source
 	sourceSignBytes := tx.SourceSignBytes(chainID)
 	if !sourceAccount.PubKey.VerifySignature(sourceSignBytes, tx.Source.Signature) {
-		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature %X", sourceAddress)
+		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
 	}
@@ -76,7 +74,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
 	if !targetAccount.PubKey.VerifySignature(targetSignBytes, tx.Target.Signature) {
-		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature %X", targetAddress)
+		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
 	}
@@ -86,22 +84,22 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view types.Vie
 	}
 
 	transferAmount := tx.Source.Coins
-	currentBlockHeight := exec.state.Height()
+	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
 	paymentSequence := tx.PaymentSequence
 
 	// Note: No need to check whether the source account has enough reserved fund to cover the
 	//       transaction. If the source account does not have sufficient reserved fund,
-	//       the source account will be slashed by the processServicePaymentTx() function
+	//       the source account will be slashed by the process() function
 	err := sourceAccount.CheckTransferReservedFund(targetAccount, transferAmount, paymentSequence, currentBlockHeight, reserveSequence)
 	if err != nil {
-		return result.Error(err.Error())
+		return result.Error(err.Error()).WithErrorCode(result.CodeCheckTransferReservedFundFailed)
 	}
 
 	return result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	sourceAddress := tx.Source.Address
@@ -118,7 +116,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	}
 
 	resourceID := tx.ResourceID
-	splitContract := exec.state.GetSplitContract(resourceID)
+	splitContract := view.GetSplitContract(resourceID)
 
 	fullTransferAmount := tx.Source.Coins
 	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceID, targetAddress, targetAccount, fullTransferAmount)
@@ -126,11 +124,11 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
 
-	currentBlockHeight := exec.state.Height()
+	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
 	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
-		exec.state.AddSlashIntent(slashIntent)
+		view.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")
@@ -150,7 +148,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view types.ViewDat
 	return txHash, result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, splitContract *types.SplitContract, resourceID common.Bytes,
+func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitContract *types.SplitContract, resourceID common.Bytes,
 	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
 	coinsMap := map[*types.Account]types.Coins{}
 	accountAddressMap := map[*types.Account](common.Address){}
@@ -165,7 +163,7 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view types.ViewDataAccessor, 
 	// the splitContract has expired, full payment goes to the target account. also delete the splitContract
 	if exec.state.Height() > splitContract.EndBlockHeight {
 		coinsMap[targetAccount] = fullAmount
-		exec.state.DeleteSplitContract(resourceID)
+		view.DeleteSplitContract(resourceID)
 		accountAddressMap[targetAccount] = targetAddress
 		return true, coinsMap, accountAddressMap
 	}

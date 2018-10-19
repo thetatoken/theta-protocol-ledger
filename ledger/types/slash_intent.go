@@ -11,7 +11,7 @@ import (
 // be slashed, and the proof why the account should be slashed
 type SlashIntent struct {
 	Address         common.Address
-	ReserveSequence int
+	ReserveSequence uint64
 	Proof           common.Bytes
 }
 
@@ -25,6 +25,6 @@ func (si *SlashIntent) String() string {
 
 // OverspendingProof contains the proof that the ReservedFund has been overly spent
 type OverspendingProof struct {
-	ReserveSequence int
+	ReserveSequence uint64
 	ServicePayments []ServicePaymentTx
 }

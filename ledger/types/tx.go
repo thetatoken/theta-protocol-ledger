@@ -34,7 +34,14 @@ type Tx interface {
 //-----------------------------------------------------------------------------
 
 func TxID(chainID string, tx Tx) common.Hash {
-	signBytes := tx.SignBytes(chainID)
+	var signBytes []byte
+	switch tx.(type) {
+	default:
+		signBytes = tx.SignBytes(chainID)
+	case *ServicePaymentTx:
+		spTx := tx.(*ServicePaymentTx)
+		signBytes = spTx.TargetSignBytes(chainID)
+	}
 	return crypto.Keccak256Hash(signBytes)
 }
 
@@ -62,7 +69,7 @@ func encodeToBytes(str string) []byte {
 type TxInput struct {
 	Address   common.Address    `json:"address"`   // Hash of the PubKey
 	Coins     Coins             `json:"coins"`     //
-	Sequence  int               `json:"sequence"`  // Must be 1 greater than the last committed TxInput
+	Sequence  uint64            `json:"sequence"`  // Must be 1 greater than the last committed TxInput
 	Signature *crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
 	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
 }
@@ -102,7 +109,7 @@ func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
 	input := TxInput{
 		Address:  pubKey.Address(),
 		Coins:    coins,
-		Sequence: sequence,
+		Sequence: uint64(sequence),
 	}
 	if sequence == 1 {
 		input.PubKey = pubKey
@@ -140,7 +147,7 @@ func (txOut TxOutput) String() string {
 type CoinbaseTx struct {
 	Proposer    TxInput    `json:"proposer"`
 	Outputs     []TxOutput `json:"outputs"`
-	BlockHeight uint32     `json:"block_height"`
+	BlockHeight uint64     `json:"block_height"`
 }
 
 func (_ *CoinbaseTx) AssertIsTx() {}
@@ -149,7 +156,8 @@ func (tx *CoinbaseTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Proposer.Signature
 	tx.Proposer.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -171,8 +179,8 @@ func (tx *CoinbaseTx) String() string {
 type SlashTx struct {
 	Proposer        TxInput        `json:"proposer"`
 	SlashedAddress  common.Address `json:"slashed_address"`
-	ReserveSequence int            `json:"reserved_sequence"`
-	SlashProof      []byte         `json:"slash_proof"`
+	ReserveSequence uint64         `json:"reserved_sequence"`
+	SlashProof      common.Bytes   `json:"slash_proof"`
 }
 
 func (_ *SlashTx) AssertIsTx() {}
@@ -181,7 +189,8 @@ func (tx *SlashTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Proposer.Signature
 	tx.Proposer.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -203,8 +212,8 @@ func (tx *SlashTx) String() string {
 //-----------------------------------------------------------------------------
 
 type SendTx struct {
-	Gas     int64      `json:"gas"` // Gas
-	Fee     Coin       `json:"fee"` // Fee
+	Gas     uint64     `json:"gas"` // Gas
+	Fee     Coins      `json:"fee"` // Fee
 	Inputs  []TxInput  `json:"inputs"`
 	Outputs []TxOutput `json:"outputs"`
 }
@@ -218,7 +227,8 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 		sigz[i] = tx.Inputs[i].Signature
 		tx.Inputs[i].Signature = nil
 	}
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	for i := range tx.Inputs {
 		tx.Inputs[i].Signature = sigz[i]
 	}
@@ -242,12 +252,12 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Gas         int64    `json:"gas"`          // Gas
-	Fee         Coin     `json:"fee"`          // Fee
-	Source      TxInput  `json:"source"`       // Source account
-	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
-	ResourceIDs [][]byte `json:"resource_ids"` // List of resource ID
-	Duration    uint32   `json:"duration"`
+	Gas         uint64         `json:"gas"`          // Gas
+	Fee         Coins          `json:"fee"`          // Fee
+	Source      TxInput        `json:"source"`       // Source account
+	Collateral  Coins          `json:"collateral"`   // Collateral for the micropayment pool
+	ResourceIDs []common.Bytes `json:"resource_ids"` // List of resource ID
+	Duration    uint64         `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -256,7 +266,8 @@ func (tx *ReserveFundTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Source.Signature
 	tx.Source.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -276,10 +287,10 @@ func (tx *ReserveFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReleaseFundTx struct {
-	Gas             int64   `json:"gas"`    // Gas
-	Fee             Coin    `json:"fee"`    // Fee
+	Gas             uint64  `json:"gas"`    // Gas
+	Fee             Coins   `json:"fee"`    // Fee
 	Source          TxInput `json:"source"` // source account
-	ReserveSequence int     `json:"reserve_sequence"`
+	ReserveSequence uint64  `json:"reserve_sequence"`
 }
 
 func (_ *ReleaseFundTx) AssertIsTx() {}
@@ -288,7 +299,8 @@ func (tx *ReleaseFundTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Source.Signature
 	tx.Source.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -308,13 +320,13 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Gas             int64   `json:"gas"`              // Gas
-	Fee             Coin    `json:"fee"`              // Fee
-	Source          TxInput `json:"source"`           // source account
-	Target          TxInput `json:"target"`           // target account
-	PaymentSequence int     `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence int     `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceID      []byte  `json:"resource_id"`      // The corresponding resourceID
+	Gas             uint64       `json:"gas"`              // Gas
+	Fee             Coins        `json:"fee"`              // Fee
+	Source          TxInput      `json:"source"`           // source account
+	Target          TxInput      `json:"target"`           // target account
+	PaymentSequence uint64       `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence uint64       `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	ResourceID      common.Bytes `json:"resource_id"`      // The corresponding resourceID
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}
@@ -329,10 +341,11 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 
 	tx.Source = TxInput{Address: source.Address, Coins: source.Coins}
 	tx.Target = TxInput{Address: target.Address}
-	tx.Fee = Coin{}
-	tx.Gas = int64(0)
+	tx.Fee = NewCoins(0, 0)
+	tx.Gas = uint64(0)
 
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 
 	tx.Source = source
 	tx.Target = target
@@ -342,6 +355,10 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	return signBytes
 }
 
+func (tx *ServicePaymentTx) SetSourceSignature(sig *crypto.Signature) {
+	tx.Source.Signature = sig
+}
+
 func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 	// TODO: remove chainID from all Tx sign bytes.
 	signBytes := encodeToBytes(chainID)
@@ -349,11 +366,16 @@ func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 
 	tx.Target.Signature = nil
 
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 
 	tx.Target.Signature = targetSig
 
 	return signBytes
+}
+
+func (tx *ServicePaymentTx) SetTargetSignature(sig *crypto.Signature) {
+	tx.Target.Signature = sig
 }
 
 // SignBytes this method only exists to satisfy the interface and should never be called.
@@ -370,19 +392,18 @@ func (tx *ServicePaymentTx) String() string {
 // It should return an error if Sign was never called
 func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 	// TODO: verify it is signed
-	txBytes := TxToBytes(tx)
-	return txBytes, nil
+	return TxToBytes(tx)
 }
 
 //-----------------------------------------------------------------------------
 
 type SplitContractTx struct {
-	Gas        int64        `json:"gas"`         // Gas
-	Fee        Coin         `json:"fee"`         // Fee
+	Gas        uint64       `json:"gas"`         // Gas
+	Fee        Coins        `json:"fee"`         // Fee
 	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
 	Splits     []Split      `json:"splits"`      // Agreed splits
-	Duration   uint32       `json:"duration"`    // Duration of the payment split in terms of blocks
+	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
 func (_ *SplitContractTx) AssertIsTx() {}
@@ -391,7 +412,8 @@ func (tx *SplitContractTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Initiator.Signature
 	tx.Initiator.Signature = nil
-	signBytes = append(signBytes, TxToBytes(tx)...)
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
 	tx.Initiator.Signature = sig
 	return signBytes
 }
@@ -405,14 +427,14 @@ func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *SplitContractTx) String() string {
-	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
+	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------
 
 type UpdateValidatorsTx struct {
-	Gas        int64             `json:"gas"`        // Gas
-	Fee        Coin              `json:"fee"`        // Fee
+	Gas        uint64            `json:"gas"`        // Gas
+	Fee        Coins             `json:"fee"`        // Fee
 	Validators []*core.Validator `json:"validators"` // validators diff
 	Proposer   TxInput           `json:"source"`     // source account
 }

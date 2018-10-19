@@ -13,6 +13,14 @@ import (
 	dp "github.com/thetatoken/ukulele/dispatcher"
 )
 
+type MempoolError string
+
+func (m MempoolError) Error() string {
+	return string(m)
+}
+
+const DuplicateTxError = MempoolError("Transaction already seen")
+
 type MempoolTransaction struct {
 	rawTransaction common.Bytes
 }
@@ -59,7 +67,7 @@ func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 
 	if mp.txBookeepper.hasSeen(mptx) {
 		log.Infof("Transaction already seen: %v", mptx)
-		return nil
+		return DuplicateTxError
 	}
 
 	mp.txBookeepper.record(mptx)

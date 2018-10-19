@@ -1,6 +1,7 @@
 package state
 
 import (
+	"math/big"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -19,7 +20,7 @@ func TestLedgerStateBasics(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 
@@ -37,19 +38,19 @@ func TestLedgerStateBasics(t *testing.T) {
 		ReserveSequence: 187,
 		Proof:           common.Bytes("hereistheproof"),
 	}
-	assert.Equal(0, len(ls.GetSlashIntents()))
-	ls.AddSlashIntent(si)
-	ls.AddSlashIntent(si)
-	ls.AddSlashIntent(si)
-	assert.Equal(3, len(ls.GetSlashIntents()))
-	ls.ClearSlashIntents()
-	assert.Equal(0, len(ls.GetSlashIntents()))
+	assert.Equal(0, len(ls.Delivered().GetSlashIntents()))
+	ls.Delivered().AddSlashIntent(si)
+	ls.Delivered().AddSlashIntent(si)
+	ls.Delivered().AddSlashIntent(si)
+	assert.Equal(3, len(ls.Delivered().GetSlashIntents()))
+	ls.Delivered().ClearSlashIntents()
+	assert.Equal(0, len(ls.Delivered().GetSlashIntents()))
 
 	// CoinbaseTransactionProcessed
-	ls.SetCoinbaseTransactionProcessed(true)
-	assert.True(ls.CoinbaseTransactinProcessed())
-	ls.SetCoinbaseTransactionProcessed(false)
-	assert.False(ls.CoinbaseTransactinProcessed())
+	ls.Delivered().SetCoinbaseTransactionProcessed(true)
+	assert.True(ls.Delivered().CoinbaseTransactinProcessed())
+	ls.Delivered().SetCoinbaseTransactionProcessed(false)
+	assert.False(ls.Delivered().CoinbaseTransactinProcessed())
 
 	// ValidatorDiff
 	_, va1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("va1")
@@ -59,9 +60,9 @@ func TestLedgerStateBasics(t *testing.T) {
 	va1 := core.NewValidator(va1PubKey.ToBytes(), uint64(100))
 	va2 := core.NewValidator(va2PubKey.ToBytes(), uint64(999))
 	vaDiff := []*core.Validator{&va1, &va2}
-	ls.SetValidatorDiff(vaDiff)
-	assert.Equal(2, len(ls.GetAndClearValidatorDiff()))
-	assert.Equal(0, len(ls.GetAndClearValidatorDiff()))
+	ls.Delivered().SetValidatorDiff(vaDiff)
+	assert.Equal(2, len(ls.Delivered().GetAndClearValidatorDiff()))
+	assert.Equal(0, len(ls.Delivered().GetAndClearValidatorDiff()))
 }
 
 func TestLedgerStateAccountCommit(t *testing.T) {
@@ -71,21 +72,21 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 
 	// Account and Commit
 	_, acc1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
-	initCoin := types.Coin{"CoolToken", int64(956)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(956), GammaWei: big.NewInt(0)}
 	acc1 := &types.Account{
 		PubKey:   acc1PubKey,
 		Sequence: 657,
-		Balance:  types.Coins{initCoin},
+		Balance:  initCoin,
 	}
 	acc1Addr := acc1.PubKey.Address()
-	ls.SetAccount(acc1Addr, acc1)
+	ls.Delivered().SetAccount(acc1Addr, acc1)
 	log.Infof("Account added\n")
 
 	rootHashChecked1 := ls.Checked().Hash()
@@ -102,7 +103,7 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	assert.Equal(initHeight+1, ls.Checked().Height())
 	assert.Equal(initHeight+1, ls.Delivered().Height())
 
-	retrivedAcc1 := ls.GetAccount(acc1Addr)
+	retrivedAcc1 := ls.Delivered().GetAccount(acc1Addr)
 	assert.Equal(acc1.String(), retrivedAcc1.String())
 	retrievedAcc1CheckedView := ls.Checked().GetAccount(acc1Addr)
 	assert.Equal(acc1.String(), retrievedAcc1CheckedView.String())
@@ -128,7 +129,7 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 	db := backend.NewMemDatabase()
 	ls := NewLedgerState(chainID, db)
 
-	initHeight := uint32(127)
+	initHeight := uint64(127)
 	initRootHash := common.Hash{}
 	ls.ResetState(initHeight, initRootHash)
 
@@ -149,8 +150,8 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 		ResourceID:       rid2,
 		EndBlockHeight:   56,
 	}
-	ls.AddSplitContract(sc1)
-	ls.AddSplitContract(sc2)
+	ls.Delivered().AddSplitContract(sc1)
+	ls.Delivered().AddSplitContract(sc2)
 	log.Infof("Split contracts added\n")
 
 	rootHashChecked1 := ls.Checked().Hash()
@@ -175,33 +176,33 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 	log.Infof("After commit #1, rootHashChecked    : %v\n", rootHashChecked2.Hex())
 	log.Infof("After commit #1, rootHashDelivered  : %v\n", rootHashDelivered2.Hex())
 
-	assert.True(ls.SplitContractExists(rid1))
-	assert.True(ls.SplitContractExists(rid2))
-	assert.NotNil(ls.GetSplitContract(rid1))
-	assert.NotNil(ls.GetSplitContract(rid2))
+	assert.True(ls.Delivered().SplitContractExists(rid1))
+	assert.True(ls.Delivered().SplitContractExists(rid2))
+	assert.NotNil(ls.Delivered().GetSplitContract(rid1))
+	assert.NotNil(ls.Delivered().GetSplitContract(rid2))
 
-	ls.DeleteExpiredSplitContracts(123)
+	ls.Delivered().DeleteExpiredSplitContracts(123)
 
-	assert.True(ls.SplitContractExists(rid1))
-	assert.False(ls.SplitContractExists(rid2))
-	assert.NotNil(ls.GetSplitContract(rid1))
-	assert.Nil(ls.GetSplitContract(rid2))
+	assert.True(ls.Delivered().SplitContractExists(rid1))
+	assert.False(ls.Delivered().SplitContractExists(rid2))
+	assert.NotNil(ls.Delivered().GetSplitContract(rid1))
+	assert.Nil(ls.Delivered().GetSplitContract(rid2))
 
-	log.Infof("Before updating sc1, retrieved sc1: %v\n", ls.GetSplitContract(rid1))
+	log.Infof("Before updating sc1, retrieved sc1: %v\n", ls.Delivered().GetSplitContract(rid1))
 	sc1.EndBlockHeight = 567
-	assert.True(ls.UpdateSplitContract(sc1))
+	assert.True(ls.Delivered().UpdateSplitContract(sc1))
 	sc2.EndBlockHeight = 423
-	assert.False(ls.UpdateSplitContract(sc2)) // sc2 not exists anymore
+	assert.False(ls.Delivered().UpdateSplitContract(sc2)) // sc2 not exists anymore
 	log.Infof("Split contract sc1 updated")
-	log.Infof("After updating sc1, retrieved sc1 : %v\n", ls.GetSplitContract(rid1))
+	log.Infof("After updating sc1, retrieved sc1 : %v\n", ls.Delivered().GetSplitContract(rid1))
 
-	ls.DeleteExpiredSplitContracts(500)
-	assert.True(ls.SplitContractExists(rid1)) // sc1.EndBlockHeight should have increased
-	assert.False(ls.SplitContractExists(rid2))
+	ls.Delivered().DeleteExpiredSplitContracts(500)
+	assert.True(ls.Delivered().SplitContractExists(rid1)) // sc1.EndBlockHeight should have increased
+	assert.False(ls.Delivered().SplitContractExists(rid2))
 
-	ls.DeleteExpiredSplitContracts(900)
-	assert.False(ls.SplitContractExists(rid1))
-	assert.False(ls.SplitContractExists(rid2))
+	ls.Delivered().DeleteExpiredSplitContracts(900)
+	assert.False(ls.Delivered().SplitContractExists(rid1))
+	assert.False(ls.Delivered().SplitContractExists(rid2))
 	log.Infof("Expired split contracts deleted")
 
 	rootHashChecked3 := ls.Checked().Hash()

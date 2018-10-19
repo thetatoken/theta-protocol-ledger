@@ -1,8 +1,10 @@
 package consensus
 
 import (
+	"bytes"
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
@@ -10,10 +12,11 @@ import (
 )
 
 type StateStub struct {
+	Root               common.Bytes
 	HighestCCBlock     common.Bytes
 	LastFinalizedBlock common.Bytes
-	LastVoteHeight     uint32
-	Epoch              uint32
+	LastVoteHeight     uint64
+	Epoch              uint64
 }
 
 const (
@@ -30,8 +33,8 @@ type State struct {
 	highestCCBlock     *core.ExtendedBlock
 	lastFinalizedBlock *core.ExtendedBlock
 	tip                *core.ExtendedBlock
-	lastVoteHeight     uint32
-	epoch              uint32
+	lastVoteHeight     uint64
+	epoch              uint64
 }
 
 func NewState(db store.Store, chain *blockchain.Chain) *State {
@@ -41,6 +44,7 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		highestCCBlock:     chain.Root,
 		lastFinalizedBlock: chain.Root,
 		tip:                chain.Root,
+		epoch:              chain.Root.Epoch,
 	}
 	err := s.Load()
 	if err != nil {
@@ -72,6 +76,7 @@ func (s *State) commit() error {
 	stub := &StateStub{
 		LastVoteHeight: s.lastVoteHeight,
 		Epoch:          s.epoch,
+		Root:           s.chain.Root.Hash,
 	}
 	if s.highestCCBlock != nil {
 		stub.HighestCCBlock = s.highestCCBlock.Hash
@@ -88,6 +93,15 @@ func (s *State) Load() (err error) {
 	key := []byte(DBStateStubKey)
 	stub := &StateStub{}
 	s.db.Get(key, stub)
+
+	if bytes.Compare(stub.Root, s.chain.Root.Hash) != 0 {
+		logger.WithFields(log.Fields{
+			"stub.Root":  stub.Root,
+			"chain.Root": s.chain.Root.Hash,
+		}).Warn("Ignoring previous consensus state since it is on a different root")
+		s.SetTip()
+		return
+	}
 
 	s.lastVoteHeight = stub.LastVoteHeight
 	s.epoch = stub.Epoch
@@ -107,20 +121,20 @@ func (s *State) Load() (err error) {
 	return
 }
 
-func (s *State) GetEpoch() uint32 {
+func (s *State) GetEpoch() uint64 {
 	return s.epoch
 }
 
-func (s *State) SetEpoch(epoch uint32) error {
+func (s *State) SetEpoch(epoch uint64) error {
 	s.epoch = epoch
 	return s.commit()
 }
 
-func (s *State) GetLastVoteHeight() uint32 {
+func (s *State) GetLastVoteHeight() uint64 {
 	return s.lastVoteHeight
 }
 
-func (s *State) SetLastVoteHeight(height uint32) error {
+func (s *State) SetLastVoteHeight(height uint64) error {
 	s.lastVoteHeight = height
 	return s.commit()
 }
@@ -169,7 +183,7 @@ func (s *State) AddVote(vote *core.Vote) error {
 	return nil
 }
 
-func (s *State) GetVoteSetByHeight(height uint32) (*core.VoteSet, error) {
+func (s *State) GetVoteSetByHeight(height uint64) (*core.VoteSet, error) {
 	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
 	ret := core.NewVoteSet()
 	err := s.db.Get(key, ret)

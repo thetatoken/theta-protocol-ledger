@@ -11,10 +11,10 @@ import (
 
 type Account struct {
 	PubKey                 *crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
-	Sequence               int               `json:"sequence"`
+	Sequence               uint64            `json:"sequence"`
 	Balance                Coins             `json:"coins"`
 	ReservedFunds          []ReservedFund    `json:"reserved_funds"` // TODO: replace the slice with map
-	LastUpdatedBlockHeight uint32            `json:"last_updated_block_height"`
+	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
 }
 
 func (acc *Account) Copy() *Account {
@@ -38,7 +38,7 @@ func (acc *Account) String() string {
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.
-func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint32, reserveSequence int) error {
+func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint64, reserveSequence uint64) error {
 	if duration < MinimumFundReserveDuration || duration > MaximumFundReserveDuration {
 		return errors.New("Duration is out of permitted range")
 	}
@@ -70,11 +70,11 @@ func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint
 }
 
 // ReserveFund reserves the given amount of fund for subsequence service payments
-func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs [][]byte, endBlockHeight uint32, reserveSequence int) {
+func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs []common.Bytes, endBlockHeight uint64, reserveSequence uint64) {
 	newReservedFund := ReservedFund{
 		Collateral:      collateral,
 		InitialFund:     fund,
-		UsedFund:        Coins{},
+		UsedFund:        NewCoins(0, 0),
 		ResourceIDs:     resourceIDs,
 		EndBlockHeight:  endBlockHeight,
 		ReserveSequence: reserveSequence,
@@ -84,7 +84,7 @@ func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs [][]by
 }
 
 // ReleaseExpiredFunds releases all expired funds
-func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint32) {
+func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint64) {
 	newReservedFunds := []ReservedFund{}
 	for _, reservedFund := range acc.ReservedFunds {
 		minimumReleaseBlockHeight := calcMinimumReleaseBlockHeight(&reservedFund)
@@ -94,7 +94,7 @@ func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint32) {
 		}
 		remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 		if !remainingFund.IsNonnegative() {
-			remainingFund = Coins{} // Should NOT happen, just to be on the safe side
+			remainingFund = NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 		}
 		acc.Balance = acc.Balance.Plus(remainingFund).Plus(reservedFund.Collateral)
 	}
@@ -102,7 +102,7 @@ func (acc *Account) ReleaseExpiredFunds(currentBlockHeight uint32) {
 }
 
 // CheckReleaseFund verifies inputs for ReleaseFund
-func (acc *Account) CheckReleaseFund(currentBlockHeight uint32, reserveSequence int) error {
+func (acc *Account) CheckReleaseFund(currentBlockHeight uint64, reserveSequence uint64) error {
 	for _, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -118,7 +118,7 @@ func (acc *Account) CheckReleaseFund(currentBlockHeight uint32, reserveSequence 
 	return errors.Errorf("No matching ReserveSequence")
 }
 
-func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint32 {
+func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint64 {
 	// The "Freeze Period" is to ensure that in the event of overspending, the slashTx and the
 	// releaseFundTx are NOT included in the same block. Otherwise the releaseFundTx may be
 	// executed before the slashTx, and the overspender can escape from the punishment
@@ -127,7 +127,7 @@ func calcMinimumReleaseBlockHeight(reservedFund *ReservedFund) uint32 {
 }
 
 // ReleaseFund releases the fund reserved for service payment
-func (acc *Account) ReleaseFund(currentBlockHeight uint32, reserveSequence int) {
+func (acc *Account) ReleaseFund(currentBlockHeight uint64, reserveSequence uint64) {
 	for idx, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -135,7 +135,7 @@ func (acc *Account) ReleaseFund(currentBlockHeight uint32, reserveSequence int) 
 
 		remainingFund := reservedFund.InitialFund.Minus(reservedFund.UsedFund)
 		if !remainingFund.IsNonnegative() {
-			remainingFund = Coins{} // Should NOT happen, just to be on the safe side
+			remainingFund = NewCoins(0, 0) // Should NOT happen, just to be on the safe side
 		}
 		acc.Balance = acc.Balance.Plus(remainingFund).Plus(reservedFund.Collateral)
 		acc.ReservedFunds = append(acc.ReservedFunds[:idx], acc.ReservedFunds[idx+1:]...)
@@ -143,7 +143,7 @@ func (acc *Account) ReleaseFund(currentBlockHeight uint32, reserveSequence int) 
 }
 
 // CheckTransferReservedFund verifies inputs for SplitReservedFund
-func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Coins, paymentSequence int, currentBlockHeight uint32, reserveSequence int) error {
+func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Coins, paymentSequence uint64, currentBlockHeight uint64, reserveSequence uint64) error {
 	for _, reservedFund := range acc.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
 			continue
@@ -165,8 +165,8 @@ func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Co
 }
 
 // TransferReservedFund transfers the specified amount of reserved fund to the accounts participated in the payment split, and send remainder back to the source account (i.e. the acount itself)
-func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, currentBlockHeight uint32,
-	reserveSequence int, servicePaymentTx *ServicePaymentTx) (shouldSlash bool, slashIntent SlashIntent) {
+func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, currentBlockHeight uint64,
+	reserveSequence uint64, servicePaymentTx *ServicePaymentTx) (shouldSlash bool, slashIntent SlashIntent) {
 	for idx := range acc.ReservedFunds {
 		reservedFund := &acc.ReservedFunds[idx]
 		if reservedFund.ReserveSequence != reserveSequence {
@@ -178,7 +178,7 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 			continue
 		}
 
-		totalTransferAmount := Coins{}
+		totalTransferAmount := NewCoins(0, 0)
 		for _, coinsSplit := range splittedCoinsMap {
 			totalTransferAmount = totalTransferAmount.Plus(coinsSplit)
 		}
@@ -218,21 +218,24 @@ func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServi
 	return slashIntent
 }
 
-func (acc *Account) UpdateToHeight(height uint32) {
+func (acc *Account) UpdateToHeight(height uint64) {
 	acc.UpdateAccountGammaReward(height)
 	acc.ReleaseExpiredFunds(height)
 }
 
-func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
+func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint64) {
 	if acc.LastUpdatedBlockHeight < 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
 	}
 
-	totalThetaWei := acc.Balance.GetThetaWei().Amount
+	totalThetaWei := acc.Balance.ThetaWei
+	if totalThetaWei == nil {
+		totalThetaWei = big.NewInt(0)
+	}
 	span := currentBlockHeight - acc.LastUpdatedBlockHeight
 
 	newGammaBalance := big.NewInt(int64(span))
-	newGammaBalance.Mul(newGammaBalance, big.NewInt(totalThetaWei))
+	newGammaBalance.Mul(newGammaBalance, totalThetaWei)
 	newGammaBalance.Mul(newGammaBalance, big.NewInt(RegularGammaGenerationRateNumerator))
 	newGammaBalance.Div(newGammaBalance, big.NewInt(RegularGammaGenerationRateDenominator))
 
@@ -241,19 +244,16 @@ func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint32) {
 		return
 	}
 
-	newGammaBalance.Add(newGammaBalance, big.NewInt(acc.Balance.GetGammaWei().Amount))
+	newGammaBalance.Add(newGammaBalance, acc.Balance.GammaWei)
 
 	if !newGammaBalance.IsInt64() {
 		panic("Account Gamma balance will overflow")
 	}
 
-	newBalance := Coins{{
-		Denom:  DenomThetaWei,
-		Amount: acc.Balance.GetThetaWei().Amount,
-	}, {
-		Denom:  DenomGammaWei,
-		Amount: newGammaBalance.Int64(),
-	}}
+	newBalance := Coins{
+		ThetaWei: acc.Balance.ThetaWei,
+		GammaWei: newGammaBalance,
+	}
 	acc.Balance = newBalance
 	acc.LastUpdatedBlockHeight = currentBlockHeight
 }

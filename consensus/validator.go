@@ -24,7 +24,7 @@ func NewFixedValidatorManager(validators *core.ValidatorSet) *FixedValidatorMana
 }
 
 // GetProposerForEpoch implements ValidatorManager interface.
-func (m *FixedValidatorManager) GetProposerForEpoch(epoch uint32) core.Validator {
+func (m *FixedValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator {
 	if m.validators.Size() == 0 {
 		panic("No validators have been added")
 	}
@@ -32,7 +32,7 @@ func (m *FixedValidatorManager) GetProposerForEpoch(epoch uint32) core.Validator
 }
 
 // GetValidatorSetForEpoch returns the validator set for given epoch.
-func (m *FixedValidatorManager) GetValidatorSetForEpoch(_ uint32) *core.ValidatorSet {
+func (m *FixedValidatorManager) GetValidatorSetForEpoch(_ uint64) *core.ValidatorSet {
 	return m.validators
 }
 
@@ -69,7 +69,7 @@ func randUint64(rnd *rand.Rand, max uint64) uint64 {
 }
 
 // GetProposerForEpoch implements ValidatorManager interface.
-func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint32) core.Validator {
+func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator {
 	if m.validators.Size() == 0 {
 		panic("No validators have been added")
 	}
@@ -90,6 +90,6 @@ func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint32) core.Valida
 }
 
 // GetValidatorSetForEpoch returns the validator set for given epoch.
-func (m *RotatingValidatorManager) GetValidatorSetForEpoch(_ uint32) *core.ValidatorSet {
+func (m *RotatingValidatorManager) GetValidatorSetForEpoch(_ uint64) *core.ValidatorSet {
 	return m.validators
 }

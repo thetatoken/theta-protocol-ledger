@@ -3,10 +3,11 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/common"
 )
 
 var cfgPath string
@@ -15,7 +16,6 @@ var cfgPath string
 var rootCmd = &cobra.Command{
 	Use:   "ukulele",
 	Short: "Theta CLI",
-	Long:  `Theta CLI.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -30,14 +30,11 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", "config path (default is $HOME/.ukulele/)")
+	rootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 }
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
-	if cfgPath == "" {
-		cfgPath = common.GetDefaultConfigPath()
-	}
 	viper.AddConfigPath(cfgPath)
 
 	// Search config (without extension).
@@ -49,4 +46,14 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+}
+
+// getDefaultConfigPath returns the default config path.
+func getDefaultConfigPath() string {
+	home, err := homedir.Dir()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return path.Join(home, ".ukulele")
 }

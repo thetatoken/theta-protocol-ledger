@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -66,7 +67,7 @@ func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address)
 // The accounts from the TxInputs must either already have
 // crypto.PubKey.(type) != nil, (it must be known),
 // or it must be specified in the TxInput.
-func getInputs(view types.ViewDataGetter, ins []types.TxInput) (map[string]*types.Account, result.Result) {
+func getInputs(view *state.StoreView, ins []types.TxInput) (map[string]*types.Account, result.Result) {
 	accounts := map[string]*types.Account{}
 	for _, in := range ins {
 		// Account shouldn't be duplicated
@@ -87,16 +88,16 @@ func getInputs(view types.ViewDataGetter, ins []types.TxInput) (map[string]*type
 	return accounts, result.OK
 }
 
-func getInput(view types.ViewDataGetter, in types.TxInput) (*types.Account, result.Result) {
+func getInput(view *state.StoreView, in types.TxInput) (*types.Account, result.Result) {
 	return getOrMakeInputImpl(view, in, false)
 }
 
-func getOrMakeInput(view types.ViewDataGetter, in types.TxInput) (*types.Account, result.Result) {
+func getOrMakeInput(view *state.StoreView, in types.TxInput) (*types.Account, result.Result) {
 	return getOrMakeInputImpl(view, in, true)
 }
 
 // This function guarantees the public key of the retrieved account is not empty
-func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAccount bool) (*types.Account, result.Result) {
+func getOrMakeInputImpl(view *state.StoreView, in types.TxInput, makeNewAccount bool) (*types.Account, result.Result) {
 	acc, success := getOrMakeAccountImpl(view, in.Address, makeNewAccount)
 	if success.IsError() {
 		return nil, result.Error("getOrMakeInputImpl - Unknown address: %v", in.Address)
@@ -117,23 +118,24 @@ func getOrMakeInputImpl(view types.ViewDataGetter, in types.TxInput, makeNewAcco
 	return acc, result.OK
 }
 
-func getAccount(view types.ViewDataGetter, address common.Address) (*types.Account, result.Result) {
+func getAccount(view *state.StoreView, address common.Address) (*types.Account, result.Result) {
 	return getOrMakeAccountImpl(view, address, false)
 }
 
-func getOrMakeAccount(view types.ViewDataGetter, address common.Address) *types.Account {
+func getOrMakeAccount(view *state.StoreView, address common.Address) *types.Account {
 	acc, _ := getOrMakeAccountImpl(view, address, true)
 	// Impossible to have error.
 	return acc
 }
 
-func getOrMakeAccountImpl(view types.ViewDataGetter, address common.Address, makeNewAccount bool) (*types.Account, result.Result) {
+func getOrMakeAccountImpl(view *state.StoreView, address common.Address, makeNewAccount bool) (*types.Account, result.Result) {
 	acc := view.GetAccount(address)
 	if acc == nil {
 		if !makeNewAccount {
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
 		acc = &types.Account{
+			Balance:                types.NewCoins(0, 0),
 			LastUpdatedBlockHeight: view.Height(),
 		}
 	}
@@ -142,7 +144,7 @@ func getOrMakeAccountImpl(view types.ViewDataGetter, address common.Address, mak
 	return acc, result.OK
 }
 
-func getOrMakeOutputs(view types.ViewDataGetter, accounts map[string]*types.Account, outs []types.TxOutput) (map[string]*types.Account, result.Result) {
+func getOrMakeOutputs(view *state.StoreView, accounts map[string]*types.Account, outs []types.TxOutput) (map[string]*types.Account, result.Result) {
 	if accounts == nil {
 		accounts = make(map[string]*types.Account)
 	}
@@ -172,6 +174,7 @@ func validateInputsBasic(ins []types.TxInput) result.Result {
 
 // Validate inputs and compute total amount of coins
 func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte, ins []types.TxInput) (total types.Coins, res result.Result) {
+	total = types.NewCoins(0, 0)
 	for _, in := range ins {
 		acc := accounts[string(in.Address[:])]
 		if acc == nil {
@@ -208,7 +211,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check signatures
 	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
-		return result.Error("SignBytes: %v",
+		return result.Error("Signature verification failed, SignBytes: %v",
 			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}
 
@@ -225,7 +228,8 @@ func validateOutputsBasic(outs []types.TxOutput) result.Result {
 	return result.OK
 }
 
-func sumOutputs(outs []types.TxOutput) (total types.Coins) {
+func sumOutputs(outs []types.TxOutput) types.Coins {
+	total := types.NewCoins(0, 0)
 	for _, out := range outs {
 		total = total.Plus(out.Coins)
 	}
@@ -234,7 +238,7 @@ func sumOutputs(outs []types.TxOutput) (total types.Coins) {
 
 // Note: Since totalInput == totalOutput + fee, the transaction fee is charged implicitly
 //       by the following adjustByInputs() function. No special handling needed
-func adjustByInputs(view types.ViewDataSetter, accounts map[string]*types.Account, ins []types.TxInput) {
+func adjustByInputs(view *state.StoreView, accounts map[string]*types.Account, ins []types.TxInput) {
 	for _, in := range ins {
 		acc := accounts[string(in.Address[:])]
 		if acc == nil {
@@ -249,7 +253,7 @@ func adjustByInputs(view types.ViewDataSetter, accounts map[string]*types.Accoun
 	}
 }
 
-func adjustByOutputs(view types.ViewDataSetter, accounts map[string]*types.Account, outs []types.TxOutput) {
+func adjustByOutputs(view *state.StoreView, accounts map[string]*types.Account, outs []types.TxOutput) {
 	for _, out := range outs {
 		acc := accounts[string(out.Address[:])]
 		if acc == nil {
@@ -260,19 +264,16 @@ func adjustByOutputs(view types.ViewDataSetter, accounts map[string]*types.Accou
 	}
 }
 
-func sanityCheckForFee(fee types.Coin) bool {
-	success := true
-	success = success && (fee.Denom == types.DenomGammaWei)
-	success = success && (types.Coins{fee}.IsNonnegative())
-	return success
+func sanityCheckForFee(fee types.Coins) bool {
+	fee = fee.NoNil()
+	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.GammaWei.Cmp(types.Zero) > 0
 }
 
-func chargeFee(account *types.Account, fee types.Coin) bool {
-	feeCoins := types.Coins{fee}
-	if !account.Balance.IsGTE(feeCoins) {
+func chargeFee(account *types.Account, fee types.Coins) bool {
+	if !account.Balance.IsGTE(fee) {
 		return false
 	}
 
-	account.Balance = account.Balance.Minus(feeCoins)
+	account.Balance = account.Balance.Minus(fee)
 	return true
 }

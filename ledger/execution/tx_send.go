@@ -3,6 +3,7 @@ package execution
 import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
+	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -19,7 +20,7 @@ func NewSendTxExecutor() *SendTxExecutor {
 	return &SendTxExecutor{}
 }
 
-func (exec *SendTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SendTx)
 
 	// Validate inputs and outputs, basic
@@ -57,8 +58,7 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view types.ViewDataGette
 
 	outTotal := sumOutputs(tx.Outputs)
 	outPlusFees := outTotal
-	fees := types.Coins{tx.Fee}
-	outPlusFees = outTotal.Plus(fees)
+	outPlusFees = outTotal.Plus(tx.Fee)
 	if !inTotal.IsEqual(outPlusFees) {
 		return result.Error("Input total (%v) != output total + fees (%v)", inTotal, outPlusFees)
 	}
@@ -66,7 +66,7 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view types.ViewDataGette
 	return result.OK
 }
 
-func (exec *SendTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SendTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SendTx)
 
 	accounts, res := getInputs(view, tx.Inputs)

@@ -106,7 +106,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("79d7136e705f0f77228fc04db28e5e583f60e1cd8166f59b65b2be8e70866594")
+	expectedStateRoot := common.HexToHash("aeeac605447eb4538ded663d2d5c3a3487c68a48a26656c179c3a030f936d535")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
 	assert.True(res.IsOK(), res.Message)
@@ -120,22 +120,22 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	for _, val := range validators {
 		valPk := val.PublicKey()
 		valAddr := (&valPk).Address()
-		valAcc := ledger.state.GetAccount(valAddr)
-		expectedValBal := types.Coins{types.Coin{"GammaWei", 20000}, types.Coin{"ThetaWei", 100000000317}}
+		valAcc := ledger.state.Delivered().GetAccount(valAddr)
+		expectedValBal := types.NewCoins(100000000317, 20000)
 		assert.NotNil(valAcc)
 		assert.Equal(expectedValBal, valAcc.Balance)
 	}
 
 	// Output account balance
-	accOutAfter := ledger.state.GetAccount(accOut.PubKey.Address())
-	expectedAccOutBal := types.Coins{types.Coin{"GammaWei", 3}, types.Coin{"ThetaWei", 700075}}
+	accOutAfter := ledger.state.Delivered().GetAccount(accOut.PubKey.Address())
+	expectedAccOutBal := types.NewCoins(700075, 3)
 	assert.Equal(expectedAccOutBal, accOutAfter.Balance)
 
 	// Input account balance
-	expectedAccInBal := types.Coins{types.Coin{"GammaWei", 49997}, types.Coin{"ThetaWei", 899985}}
+	expectedAccInBal := types.NewCoins(899985, 49997)
 	for idx, _ := range accIns {
 		accInAddr := accIns[idx].Account.PubKey.Address()
-		accInAfter := ledger.state.GetAccount(accInAddr)
+		accInAfter := ledger.state.Delivered().GetAccount(accInAddr)
 		assert.Equal(expectedAccInBal, accInAfter.Balance)
 	}
 }
@@ -159,7 +159,7 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 	messenger.Start()
 	mempool.Start()
 
-	initHeight := uint32(1)
+	initHeight := uint64(1)
 	initRootHash := common.Hash{}
 	ledger.ResetState(initHeight, initRootHash)
 
@@ -199,19 +199,19 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 		valAccount := &types.Account{
 			PubKey:                 &valPubKey,
 			LastUpdatedBlockHeight: 1,
-			Balance:                types.Coins{types.Coin{"GammaWei", 1000}, types.Coin{"ThetaWei", 100000000000}},
+			Balance:                types.NewCoins(100000000000, 1000),
 		}
-		ledger.state.SetAccount(valPubKey.Address(), valAccount)
+		ledger.state.Delivered().SetAccount(valPubKey.Address(), valAccount)
 	}
 
-	accOut = types.MakeAccWithInitBalance("accOut", types.Coins{types.Coin{"GammaWei", 3}, types.Coin{"ThetaWei", 700000}})
-	ledger.state.SetAccount(accOut.Account.PubKey.Address(), &accOut.Account)
+	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
+	ledger.state.Delivered().SetAccount(accOut.Account.PubKey.Address(), &accOut.Account)
 
 	for i := 0; i < numInAccs; i++ {
 		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
-		accIn := types.MakeAccWithInitBalance(secret, types.Coins{types.Coin{"GammaWei", 50000}, types.Coin{"ThetaWei", 900000}})
+		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000))
 		accIns = append(accIns, accIn)
-		ledger.state.SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
+		ledger.state.Delivered().SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
 	}
 
 	ledger.state.Commit()
@@ -227,14 +227,14 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	outputs := []types.TxOutput{}
 	for _, val := range vaList {
 		valPk := val.PublicKey()
-		output := types.TxOutput{(&valPk).Address(), types.Coins{{"ThetaWei", 317}}}
+		output := types.TxOutput{(&valPk).Address(), types.NewCoins(317, 0)}
 		outputs = append(outputs, output)
 	}
 
 	proposerSk := ledger.consensus.PrivateKey()
 	proposerPk := proposerSk.PublicKey()
 	coinbaseTx := &types.CoinbaseTx{
-		Proposer:    types.TxInput{Address: proposerPk.Address(), PubKey: proposerPk, Sequence: sequence},
+		Proposer:    types.TxInput{Address: proposerPk.Address(), PubKey: proposerPk, Sequence: uint64(sequence)},
 		Outputs:     outputs,
 		BlockHeight: 2,
 	}
@@ -248,18 +248,31 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 		panic("Failed to set signature for the coinbase transaction")
 	}
 
-	coinbaseTxBytes := types.TxToBytes(coinbaseTx)
+	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
+	if err != nil {
+		panic(err)
+	}
 	return coinbaseTxBytes
 }
 
 func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount) common.Bytes {
 	sendTx := &types.SendTx{
 		Gas: 0,
-		Fee: types.Coin{"GammaWei", 3},
+		Fee: types.NewCoins(0, 3),
 		Inputs: []types.TxInput{
-			{Sequence: sequence, PubKey: accIn.PubKey, Address: accIn.PubKey.Address(), Coins: types.Coins{types.Coin{"GammaWei", 3}, types.Coin{"ThetaWei", 15}}},
+			{
+				Sequence: uint64(sequence),
+				PubKey:   accIn.PubKey,
+				Address:  accIn.PubKey.Address(),
+				Coins:    types.NewCoins(15, 3),
+			},
 		},
-		Outputs: []types.TxOutput{{Address: accOut.PubKey.Address(), Coins: types.Coins{{"ThetaWei", 15}}}},
+		Outputs: []types.TxOutput{
+			{
+				Address: accOut.PubKey.Address(),
+				Coins:   types.NewCoins(15, 0),
+			},
+		},
 	}
 
 	signBytes := sendTx.SignBytes(chainID)
@@ -277,6 +290,9 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		}
 	}
 
-	sendTxBytes := types.TxToBytes(sendTx)
+	sendTxBytes, err := types.TxToBytes(sendTx)
+	if err != nil {
+		panic(err)
+	}
 	return sendTxBytes
 }

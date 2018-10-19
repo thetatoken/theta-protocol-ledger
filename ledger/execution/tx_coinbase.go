@@ -30,7 +30,7 @@ func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine
 	}
 }
 
-func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataGetter, transaction types.Tx) result.Result {
+func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.CoinbaseTx)
 	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
 
@@ -41,7 +41,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataG
 	}
 
 	// verify that at most one coinbase transaction is processed for each block
-	if exec.state.CoinbaseTransactinProcessed() {
+	if view.CoinbaseTransactinProcessed() {
 		return result.Error("Another coinbase transaction has been processed for the current block")
 	}
 
@@ -88,10 +88,10 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view types.ViewDataG
 	return result.OK
 }
 
-func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAccessor, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.CoinbaseTx)
 
-	if exec.state.CoinbaseTransactinProcessed() {
+	if view.CoinbaseTransactinProcessed() {
 		return common.Hash{}, result.Error("Another coinbase transaction has been processed for the current block")
 	}
 
@@ -109,14 +109,14 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view types.ViewDataAcces
 		}
 	}
 
-	exec.state.SetCoinbaseTransactionProcessed(true)
+	view.SetCoinbaseTransactionProcessed(true)
 
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
 }
 
 // CalculateReward calculates the block reward for each account
-func CalculateReward(view types.ViewDataGetter, validatorAddresses []common.Address) map[string]types.Coins {
+func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
 
 	for _, validatorAddress := range validatorAddresses {
@@ -124,28 +124,20 @@ func CalculateReward(view types.ViewDataGetter, validatorAddresses []common.Addr
 
 		// FIXME: for now count the validator Theta balance as their Stake. Should implement
 		//        stake binding and slashing later!!!!
-		totalStakeInThetaWei := validatorAccount.Balance.GetThetaWei().Amount
+		totalStakeInThetaWei := validatorAccount.Balance.ThetaWei
 		thetaReward := calculateThetaReward(totalStakeInThetaWei, true)
-
-		reward := types.Coins{thetaReward}
-		reward.Sort()
-		accountReward[string(validatorAddress[:])] = reward
+		accountReward[string(validatorAddress[:])] = thetaReward
 	}
 
 	return accountReward
 }
 
-func calculateThetaReward(totalStakeInThetaWei int64, isValidator bool) types.Coin {
-	thetaRewardAmountInWei := int64(0)
+func calculateThetaReward(totalStakeInThetaWei *big.Int, isValidator bool) types.Coins {
+	thetaRewardAmountInWei := big.NewInt(0)
 	if isValidator {
-		tmp := big.NewInt(totalStakeInThetaWei)
-		tmp = tmp.Mul(tmp, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
-		tmp = tmp.Div(tmp, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
-		if !tmp.IsInt64() {
-			panic("Theta balance will overflow")
-		}
-		thetaRewardAmountInWei = tmp.Int64()
+		thetaRewardAmountInWei.Mul(totalStakeInThetaWei, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
+		thetaRewardAmountInWei.Div(thetaRewardAmountInWei, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
 	}
-	thetaReward := types.Coin{Denom: types.DenomThetaWei, Amount: thetaRewardAmountInWei}
+	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei, GammaWei: big.NewInt(0)}
 	return thetaReward
 }

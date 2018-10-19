@@ -2,270 +2,135 @@ package types
 
 import (
 	"fmt"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-
-	"github.com/pkg/errors"
+	"math/big"
 )
 
-type Coin struct {
-	Denom  string `json:"denom"`
-	Amount int64  `json:"amount"`
+var (
+	Zero    *big.Int
+	Hundred *big.Int
+)
+
+func init() {
+	Zero = big.NewInt(0)
+	Hundred = big.NewInt(100)
 }
 
-func (coin Coin) String() string {
-	return fmt.Sprintf("%v%v", coin.Amount, coin.Denom)
+type Coins struct {
+	ThetaWei *big.Int `json:"thetawei"`
+	GammaWei *big.Int `json:"gammawei"`
 }
 
-//regex codes for extracting coins from string
-var reDenom = regexp.MustCompile("")
-var reAmt = regexp.MustCompile("(\\d+)")
-
-var reCoin = regexp.MustCompile("^([[:digit:]]+)[[:space:]]*([[:alpha:]]+)$")
-
-func ParseCoin(str string) (Coin, error) {
-	var coin Coin
-
-	matches := reCoin.FindStringSubmatch(strings.TrimSpace(str))
-	if matches == nil {
-		return coin, errors.Errorf("%s is invalid coin definition", str)
+// NewCoins is a convenient method for creating small amount of coins.
+func NewCoins(theta int, gamma int) Coins {
+	return Coins{
+		ThetaWei: big.NewInt(int64(theta)),
+		GammaWei: big.NewInt(int64(gamma)),
 	}
-
-	// parse the amount (should always parse properly)
-	amt, err := strconv.Atoi(matches[1])
-	if err != nil {
-		return coin, err
-	}
-
-	coin = Coin{matches[2], int64(amt)}
-	return coin, nil
 }
-
-//----------------------------------------
-
-type Coins []Coin
 
 func (coins Coins) String() string {
-	if len(coins) == 0 {
-		return ""
-	}
-
-	out := ""
-	for _, coin := range coins {
-		out += fmt.Sprintf("%v,", coin.String())
-	}
-	return out[:len(out)-1]
+	return fmt.Sprintf("%v%v, %v%v", coins.ThetaWei, DenomThetaWei, coins.GammaWei, DenomGammaWei)
 }
 
-func (coins *Coins) getDenom(denom string) *Coin {
-	var coin Coin
-	for _, coin := range *coins {
-		if coin.Denom == denom {
-			return &coin
-		}
-	}
-	coin = Coin{Denom: denom, Amount: 0}
-	*coins = append(*coins, coin)
-	return &coin
-}
-
-func (coins Coins) GetThetaWei() *Coin {
-	return coins.getDenom(DenomThetaWei)
-}
-
-func (coins Coins) GetGammaWei() *Coin {
-	return coins.getDenom(DenomGammaWei)
-}
-
-func ParseCoins(str string) (Coins, error) {
-	// empty string is empty list...
-	if len(str) == 0 {
-		return nil, nil
-	}
-
-	split := strings.Split(str, ",")
-	var coins Coins
-
-	for _, el := range split {
-		coin, err := ParseCoin(el)
-		if err != nil {
-			return coins, err
-		}
-		coins = append(coins, coin)
-	}
-
-	// ensure they are in proper order, to avoid random failures later
-	coins.Sort()
-	if !coins.IsValid() {
-		return nil, errors.Errorf("ParseCoins invalid: %#v", coins)
-	}
-
-	return coins, nil
-}
-
-// Must be sorted, and not have 0 amounts
 func (coins Coins) IsValid() bool {
-	switch len(coins) {
-	case 0:
-		return true
-	case 1:
-		return coins[0].Amount != 0
-	default:
-		lowDenom := coins[0].Denom
-		for _, coin := range coins[1:] {
-			if coin.Denom <= lowDenom {
-				return false
-			}
-			if coin.Amount == 0 {
-				return false
-			}
-			// we compare each coin against the last denom
-			lowDenom = coin.Denom
-		}
-		return true
+	return coins.IsNonnegative()
+}
+
+func (coins Coins) NoNil() Coins {
+	theta := coins.ThetaWei
+	if theta == nil {
+		theta = big.NewInt(0)
+	}
+	gamma := coins.GammaWei
+	if gamma == nil {
+		gamma = big.NewInt(0)
+	}
+
+	return Coins{
+		ThetaWei: theta,
+		GammaWei: gamma,
 	}
 }
 
 // CalculatePercentage function calculates amount of coins for the given the percentage
-func (coinsA Coins) CalculatePercentage(percentage uint) Coins {
-	result := []Coin{}
-	for _, coin := range coinsA {
-		multipliedCoin := Coin{
-			Denom:  coin.Denom,
-			Amount: int64(coin.Amount * int64(percentage) / 100), // FIXME: potential overflow
-		}
-		result = append(result, multipliedCoin)
+func (coins Coins) CalculatePercentage(percentage uint) Coins {
+	c := coins.NoNil()
+
+	p := big.NewInt(int64(percentage))
+
+	theta := new(big.Int)
+	theta.Mul(c.ThetaWei, p)
+	theta.Div(theta, Hundred)
+
+	gamma := new(big.Int)
+	gamma.Mul(c.GammaWei, p)
+	gamma.Div(gamma, Hundred)
+
+	return Coins{
+		ThetaWei: theta,
+		GammaWei: gamma,
 	}
-	return result
 }
 
-// TODO: handle empty coins!
 // Currently appends an empty coin ...
 func (coinsA Coins) Plus(coinsB Coins) Coins {
-	coinsA.Sort()
-	coinsB.Sort()
+	cA := coinsA.NoNil()
+	cB := coinsB.NoNil()
 
-	if !coinsA.IsValid() {
-		ret := make([]Coin, len(coinsB))
-		copy(ret, coinsB)
-		return ret
-	}
-	if !coinsB.IsValid() {
-		ret := make([]Coin, len(coinsA))
-		copy(ret, coinsA)
-		return ret
-	}
+	theta := new(big.Int)
+	theta.Add(cA.ThetaWei, cB.ThetaWei)
 
-	sum := []Coin{}
-	indexA, indexB := 0, 0
-	lenA, lenB := len(coinsA), len(coinsB)
-	for {
-		if indexA == lenA {
-			if indexB == lenB {
-				return sum
-			} else {
-				return append(sum, coinsB[indexB:]...)
-			}
-		} else if indexB == lenB {
-			return append(sum, coinsA[indexA:]...)
-		}
-		coinA, coinB := coinsA[indexA], coinsB[indexB]
-		switch strings.Compare(coinA.Denom, coinB.Denom) {
-		case -1:
-			sum = append(sum, coinA)
-			indexA += 1
-		case 0:
-			if coinA.Amount+coinB.Amount == 0 {
-				// ignore 0 sum coin type
-			} else {
-				sum = append(sum, Coin{
-					Denom:  coinA.Denom,
-					Amount: coinA.Amount + coinB.Amount,
-				})
-			}
-			indexA += 1
-			indexB += 1
-		case 1:
-			sum = append(sum, coinB)
-			indexB += 1
-		}
+	gamma := new(big.Int)
+	gamma.Add(cA.GammaWei, cB.GammaWei)
+
+	return Coins{
+		ThetaWei: theta,
+		GammaWei: gamma,
 	}
-	return sum
 }
 
 func (coins Coins) Negative() Coins {
-	res := make([]Coin, 0, len(coins))
-	for _, coin := range coins {
-		res = append(res, Coin{
-			Denom:  coin.Denom,
-			Amount: -coin.Amount,
-		})
+	c := coins.NoNil()
+
+	theta := new(big.Int)
+	theta.Neg(c.ThetaWei)
+
+	gamma := new(big.Int)
+	gamma.Neg(c.GammaWei)
+
+	return Coins{
+		ThetaWei: theta,
+		GammaWei: gamma,
 	}
-	return res
 }
 
 func (coinsA Coins) Minus(coinsB Coins) Coins {
-	if !coinsB.IsValid() {
-		ret := make([]Coin, len(coinsA))
-		copy(ret, coinsA)
-		return ret
-	}
 	return coinsA.Plus(coinsB.Negative())
 }
 
 func (coinsA Coins) IsGTE(coinsB Coins) bool {
 	diff := coinsA.Minus(coinsB)
-	if len(diff) == 0 {
-		return true
-	}
 	return diff.IsNonnegative()
 }
 
 func (coins Coins) IsZero() bool {
-	return len(coins) == 0
+	c := coins.NoNil()
+	return c.ThetaWei.Cmp(Zero) == 0 && c.GammaWei.Cmp(Zero) == 0
 }
 
 func (coinsA Coins) IsEqual(coinsB Coins) bool {
-	if len(coinsA) != len(coinsB) {
-		return false
-	}
-	for i := 0; i < len(coinsA); i++ {
-		if coinsA[i] != coinsB[i] {
-			return false
-		}
-	}
-	return true
+	cA := coinsA.NoNil()
+	cB := coinsB.NoNil()
+	return cA.ThetaWei.Cmp(cB.ThetaWei) == 0 && cA.GammaWei.Cmp(cB.GammaWei) == 0
 }
 
 func (coins Coins) IsPositive() bool {
-	if len(coins) == 0 {
-		return false
-	}
-	for _, coinAmount := range coins {
-		if coinAmount.Amount <= 0 {
-			return false
-		}
-	}
-	return true
+	c := coins.NoNil()
+	return (c.ThetaWei.Cmp(Zero) > 0 && c.GammaWei.Cmp(Zero) >= 0) ||
+		(c.ThetaWei.Cmp(Zero) >= 0 && c.GammaWei.Cmp(Zero) > 0)
 }
 
 func (coins Coins) IsNonnegative() bool {
-	if len(coins) == 0 {
-		return true
-	}
-	for _, coinAmount := range coins {
-		if coinAmount.Amount < 0 {
-			return false
-		}
-	}
-	return true
+	c := coins.NoNil()
+	return c.ThetaWei.Cmp(Zero) >= 0 && c.GammaWei.Cmp(Zero) >= 0
 }
-
-/*** Implement Sort interface ***/
-
-func (c Coins) Len() int           { return len(c) }
-func (c Coins) Less(i, j int) bool { return c[i].Denom < c[j].Denom }
-func (c Coins) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
-func (c Coins) Sort()              { sort.Sort(c) }

@@ -6,6 +6,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/treestore"
@@ -16,17 +17,26 @@ import (
 //
 
 type StoreView struct {
-	height uint32 // block height
+	height uint64 // block height
 	store  *treestore.TreeStore
+
+	coinbaseTransactinProcessed bool
+	slashIntents                []types.SlashIntent
+	validatorsDiff              []*core.Validator
 }
 
 // NewStoreView creates an instance of the StoreView
-func NewStoreView(height uint32, root common.Hash, db database.Database) *StoreView {
+func NewStoreView(height uint64, root common.Hash, db database.Database) *StoreView {
 	store := treestore.NewTreeStore(root, db)
 	if store == nil {
 		return nil
 	}
-	sv := &StoreView{height, store}
+	sv := &StoreView{
+		height:         height,
+		store:          store,
+		slashIntents:   []types.SlashIntent{},
+		validatorsDiff: []*core.Validator{},
+	}
 	return sv
 }
 
@@ -37,8 +47,10 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 		return nil, err
 	}
 	copiedStoreView := &StoreView{
-		sv.height,
-		copiedStore,
+		height:         sv.height,
+		store:          copiedStore,
+		slashIntents:   []types.SlashIntent{},
+		validatorsDiff: []*core.Validator{},
 	}
 	return copiedStoreView, nil
 }
@@ -49,7 +61,7 @@ func (sv *StoreView) Hash() common.Hash {
 }
 
 // Height returns the block height corresponding to the stored state
-func (sv *StoreView) Height() uint32 {
+func (sv *StoreView) Height() uint64 {
 	return sv.height
 }
 
@@ -79,7 +91,44 @@ func (sv *StoreView) Set(key common.Bytes, value common.Bytes) {
 	sv.store.Set(key, value)
 }
 
-// GetAccount implements the ViewDataAccessor GetAccount() method.
+// AddSlashIntent adds slashIntent
+func (sv *StoreView) AddSlashIntent(slashIntent types.SlashIntent) {
+	sv.slashIntents = append(sv.slashIntents, slashIntent)
+}
+
+// GetSlashIntents retrieves all the slashIntents
+func (sv *StoreView) GetSlashIntents() []types.SlashIntent {
+	return sv.slashIntents
+}
+
+// ClearSlashIntents clears all the slashIntents
+func (sv *StoreView) ClearSlashIntents() {
+	sv.slashIntents = []types.SlashIntent{}
+}
+
+// CoinbaseTransactinProcessed returns whether the coinbase transaction for the current block has been processed
+func (sv *StoreView) CoinbaseTransactinProcessed() bool {
+	return sv.coinbaseTransactinProcessed
+}
+
+// SetCoinbaseTransactionProcessed sets whether the coinbase transaction for the current block has been processed
+func (sv *StoreView) SetCoinbaseTransactionProcessed(processed bool) {
+	sv.coinbaseTransactinProcessed = processed
+}
+
+// GetAndClearValidatorDiff retrives and clear validator diff
+func (sv *StoreView) GetAndClearValidatorDiff() []*core.Validator {
+	res := sv.validatorsDiff
+	sv.validatorsDiff = nil
+	return res
+}
+
+// SetValidatorDiff set validator diff
+func (sv *StoreView) SetValidatorDiff(diff []*core.Validator) {
+	sv.validatorsDiff = diff
+}
+
+// GetAccount returns an account.
 func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	data := sv.Get(AccountKey(addr))
 	if data == nil || len(data) == 0 {
@@ -94,7 +143,7 @@ func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	return acc
 }
 
-// SetAccount implements the ViewDataAccessor SetAccount() method.
+// SetAccount sets an account.
 func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 	accBytes, err := types.ToBytes(acc)
 	if err != nil {
@@ -104,7 +153,32 @@ func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 	sv.Set(AccountKey(addr), accBytes)
 }
 
-// GetSplitContract implements the ViewDataAccessor GetSplitContract() method
+// SplitContractExists checks if a split contract associated with the given resourceID already exists
+func (sv *StoreView) SplitContractExists(resourceID common.Bytes) bool {
+	return sv.GetSplitContract(resourceID) != nil
+}
+
+// AddSplitContract adds a split contract
+func (sv *StoreView) AddSplitContract(splitContract *types.SplitContract) bool {
+	if sv.SplitContractExists(splitContract.ResourceID) {
+		return false // Each resourceID can have at most one corresponding split contract
+	}
+
+	sv.SetSplitContract(splitContract.ResourceID, splitContract)
+	return true
+}
+
+// UpdateSplitContract updates a split contract
+func (sv *StoreView) UpdateSplitContract(splitContract *types.SplitContract) bool {
+	if !sv.SplitContractExists(splitContract.ResourceID) {
+		return false
+	}
+
+	sv.SetSplitContract(splitContract.ResourceID, splitContract)
+	return true
+}
+
+// GetSplitContract gets split contract.
 func (sv *StoreView) GetSplitContract(resourceID common.Bytes) *types.SplitContract {
 	data := sv.Get(SplitContractKey(resourceID))
 	if data == nil || len(data) == 0 {
@@ -119,7 +193,7 @@ func (sv *StoreView) GetSplitContract(resourceID common.Bytes) *types.SplitContr
 	return splitContract
 }
 
-// SetSplitContract implements the ViewDataAccessor SetSplitContract() method
+// SetSplitContract sets split contract.
 func (sv *StoreView) SetSplitContract(resourceID common.Bytes, splitContract *types.SplitContract) {
 	splitContractBytes, err := types.ToBytes(splitContract)
 	if err != nil {
@@ -129,15 +203,15 @@ func (sv *StoreView) SetSplitContract(resourceID common.Bytes, splitContract *ty
 	sv.Set(SplitContractKey(resourceID), splitContractBytes)
 }
 
-// DeleteSplitContract implements the ViewDataAccessor DeleteSplitContract() method
+// DeleteSplitContract deletes a split contract.
 func (sv *StoreView) DeleteSplitContract(resourceID common.Bytes) bool {
 	key := SplitContractKey(resourceID)
 	deleted := sv.store.Delete(key)
 	return deleted
 }
 
-// DeleteExpiredSplitContracts implements the ViewDataAccessor DeleteExpiredSplitContracts() method
-func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint32) bool {
+// DeleteExpiredSplitContracts deletes a split contract.
+func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
 	prefix := SplitContractKeyPrefix()
 
 	expiredKeys := []common.Bytes{}

@@ -24,7 +24,7 @@ type SplitContract struct {
 	InitiatorAddress common.Address `json:"initiator_address"` // Address of the initiator
 	ResourceID       common.Bytes   `json:"resource_id"`       // ResourceID of the payment to be split
 	Splits           []Split        `json:"splits"`            // Splits of the payments
-	EndBlockHeight   uint32         `json:"end_block_height"`  // The block height when the split contract expires
+	EndBlockHeight   uint64         `json:"end_block_height"`  // The block height when the split contract expires
 }
 
 func (sc *SplitContract) String() string {

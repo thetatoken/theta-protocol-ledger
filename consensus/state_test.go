@@ -30,8 +30,8 @@ func TestConsensusStateBasic(t *testing.T) {
 
 	state2 := NewState(db, chain)
 	state2.Load()
-	assert.Equal(uint32(3), state2.GetEpoch())
-	assert.Equal(uint32(10), state2.GetLastVoteHeight())
+	assert.Equal(uint64(3), state2.GetEpoch())
+	assert.Equal(uint64(10), state2.GetLastVoteHeight())
 	assert.NotNil(state2.GetHighestCCBlock())
 	assert.Equal(0, bytes.Compare(blockchain.ParseHex("A1"), state2.GetHighestCCBlock().Hash))
 	assert.NotNil(state2.GetTip())
@@ -77,5 +77,5 @@ func TestConsensusStateVoteSet(t *testing.T) {
 	votes := vs1.Votes()
 	assert.Equal(2, len(votes))
 	assert.Equal("Alice", votes[0].ID)
-	assert.Equal(uint32(20), votes[0].Epoch)
+	assert.Equal(uint64(20), votes[0].Epoch)
 }
