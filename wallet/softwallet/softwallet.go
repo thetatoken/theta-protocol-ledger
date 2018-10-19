@@ -43,7 +43,7 @@ func NewSoftWallet(keysDirPath string, kstype KeystoreType) (*SoftWallet, error)
 		keystore, err = ks.NewKeystorePlain(keysDirPath)
 	}
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	wallet := &SoftWallet{
