@@ -355,6 +355,10 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	return signBytes
 }
 
+func (tx *ServicePaymentTx) SetSourceSignature(sig *crypto.Signature) {
+	tx.Source.Signature = sig
+}
+
 func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 	// TODO: remove chainID from all Tx sign bytes.
 	signBytes := encodeToBytes(chainID)
@@ -368,6 +372,10 @@ func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 	tx.Target.Signature = targetSig
 
 	return signBytes
+}
+
+func (tx *ServicePaymentTx) SetTargetSignature(sig *crypto.Signature) {
+	tx.Target.Signature = sig
 }
 
 // SignBytes this method only exists to satisfy the interface and should never be called.
