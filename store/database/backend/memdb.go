@@ -89,6 +89,7 @@ func (db *MemDatabase) Delete(key []byte) error {
 	db.lock.Lock()
 	defer db.lock.Unlock()
 
+	delete(db.refdb, string(key))
 	delete(db.db, string(key))
 	return nil
 }
@@ -123,7 +124,13 @@ func (db *MemDatabase) CountReference(key []byte) (int, error) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
-	return db.refdb[string(key)], nil
+	// check if k/v exists
+	if _, ok := db.db[string(key)]; ok {
+		if ref, ok := db.refdb[string(key)]; ok {
+			return ref, nil
+		}
+	}
+	return 0, store.ErrKeyNotFound
 }
 
 func (db *MemDatabase) Close() {}
@@ -153,6 +160,7 @@ func (b *memBatch) Put(key, value []byte) error {
 }
 
 func (b *memBatch) Delete(key []byte) error {
+	delete(b.references, string(key))
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
 	b.size += 1
 	return nil
@@ -198,6 +206,8 @@ func (b *memBatch) Write() error {
 		}
 	}
 
+	b.Reset()
+
 	return nil
 }
 
@@ -207,5 +217,6 @@ func (b *memBatch) ValueSize() int {
 
 func (b *memBatch) Reset() {
 	b.writes = b.writes[:0]
+	b.references = make(map[string]int)
 	b.size = 0
 }

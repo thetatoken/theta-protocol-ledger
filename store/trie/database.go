@@ -82,8 +82,6 @@ type Database struct {
 	nodesSize     common.StorageSize // Storage size of the nodes cache (exc. flushlist)
 	preimagesSize common.StorageSize // Storage size of the preimages cache
 
-	nonpersistent bool
-
 	lock sync.RWMutex
 }
 
@@ -260,17 +258,6 @@ func expandNode(hash hashNode, n node, cachegen uint16) node {
 
 	default:
 		panic(fmt.Sprintf("unknown node type: %T", n))
-	}
-}
-
-// NewNonpersistentDatabase creates a new trie database to store ephemeral trie content.
-// It doesn't write content out to disk.
-func NewNonpersistentDatabase(diskdb database.Database) *Database {
-	return &Database{
-		diskdb:        diskdb,
-		nodes:         map[common.Hash]*cachedNode{{}: {}},
-		preimages:     make(map[common.Hash][]byte),
-		nonpersistent: true,
 	}
 }
 
@@ -511,9 +498,6 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 // Cap iteratively flushes old but still referenced trie nodes until the total
 // memory usage goes below the given threshold.
 func (db *Database) Cap(limit common.StorageSize) error {
-	if db.nonpersistent {
-		return nil
-	}
 	// Create a database batch to flush persistent data out. It is important that
 	// outside code doesn't see an inconsistent state (referenced data removed from
 	// memory cache during commit but not yet in persistent storage). This is ensured
@@ -617,10 +601,6 @@ func (db *Database) Cap(limit common.StorageSize) error {
 //
 // As a side effect, all pre-images accumulated up to this point are also written.
 func (db *Database) Commit(node common.Hash, report bool) error {
-	if db.nonpersistent {
-		return nil
-	}
-
 	// Create a database batch to flush persistent data out. It is important that
 	// outside code doesn't see an inconsistent state (referenced data removed from
 	// memory cache during commit but not yet in persistent storage). This is ensured

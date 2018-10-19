@@ -26,6 +26,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/thetatoken/ukulele/store"
 	"github.com/thetatoken/ukulele/store/database"
 )
 
@@ -42,7 +43,7 @@ func newTestLDB() (*LDBDatabase, func()) {
 
 	db, err := NewLDBDatabase(dirname, refname, 0, 0)
 	if err != nil {
-		panic("failed to create test reference database: " + err.Error())
+		panic("failed to create test database: " + err.Error())
 	}
 
 	return db, func() {
@@ -52,7 +53,7 @@ func newTestLDB() (*LDBDatabase, func()) {
 	}
 }
 
-var testValues = []string{"", "a", "1251", "\x00123\x00"}
+var testValues = []string{"a", "1251", "\x00123\x00"}
 
 func TestLDB_PutGet(t *testing.T) {
 	db, remove := newTestLDB()
@@ -113,6 +114,36 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 		if !bytes.Equal(data, []byte(v)) {
 			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+	}
+
+	err = db.Reference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("reference non existent key didn't fail")
+	}
+
+	err = db.Dereference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("dereference non existent key didn't fail")
+	}
+
+	_, err = db.CountReference([]byte("non-exist-key"))
+	if err == nil || err != store.ErrKeyNotFound {
+		t.Fatalf("count reference non existent key didn't fail")
+	}
+
+	// test dereference on nil refs first
+	for _, k := range testValues {
+		err := db.Dereference([]byte(k))
+		if err != nil {
+			t.Fatalf("dereference failed: %v", err)
+		}
+	}
+
+	for _, k := range testValues {
+		ref, _ := db.CountReference([]byte(k))
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 0)
 		}
 	}
 
@@ -237,7 +268,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 
 	for _, v := range testValues {
 		_, err := db.Get([]byte(v))
-		if err == nil {
+		if err == nil || err != store.ErrKeyNotFound {
 			t.Fatalf("got deleted value %q", v)
 		}
 	}
@@ -251,7 +282,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch write failed")
+		t.Fatalf("batch write failed: %v", err)
 	}
 
 	for _, v := range testValues {
@@ -279,10 +310,22 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		if err != nil {
 			t.Fatalf("batch put %q failed: %v", v, err)
 		}
+		err = batch.Reference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch reference %q failed: %v", v, err)
+		}
+		err = batch.Dereference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch dereference %q failed: %v", v, err)
+		}
+		err = batch.Reference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch reference %q failed: %v", v, err)
+		}
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch write failed")
+		t.Fatalf("batch write failed: %v", err)
 	}
 
 	for _, v := range testValues {
@@ -292,6 +335,35 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 		if !bytes.Equal(data, []byte(v)) {
 			t.Fatalf("get returned wrong result, got %q expected %q", string(data), v)
+		}
+
+		ref, err := db.CountReference([]byte(v))
+		if err != nil {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != 1 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 1)
+		}
+	}
+
+	for _, v := range testValues {
+		err := batch.Dereference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch dereference %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatalf("batch write failed: %v", err)
+	}
+
+	for _, v := range testValues {
+		ref, err := db.CountReference([]byte(v))
+		if err != nil {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 0)
 		}
 	}
 
@@ -303,7 +375,7 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 	}
 	err = batch.Write()
 	if err != nil {
-		t.Fatal("batch delete failed")
+		t.Fatalf("batch write failed: %v", err)
 	}
 
 	for _, v := range testValues {
@@ -313,6 +385,31 @@ func testPutGet(db database.Database, batch database.Batch, t *testing.T) {
 		}
 		if has {
 			t.Fatalf("find deleted %v", v)
+		}
+	}
+
+	for _, v := range testValues {
+		err = batch.Dereference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch dereference %q failed: %v", v, err)
+		}
+		err = batch.Reference([]byte(v))
+		if err != nil {
+			t.Fatalf("batch reference %q failed: %v", v, err)
+		}
+	}
+	err = batch.Write()
+	if err != nil {
+		t.Fatalf("batch write failed: %v", err)
+	}
+
+	for _, v := range testValues {
+		ref, err := db.CountReference([]byte(v))
+		if err == nil || err != store.ErrKeyNotFound {
+			t.Fatalf("count reference failed: %v", err)
+		}
+		if ref != 0 {
+			t.Fatalf("count reference returned wrong result, got %d expected %d", ref, 0)
 		}
 	}
 }

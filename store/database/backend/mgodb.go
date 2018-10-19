@@ -62,27 +62,58 @@ func (db *MgoDatabase) Get(key []byte) ([]byte, error) {
 	if err == mgo.ErrNotFound {
 		return nil, store.ErrKeyNotFound
 	}
-	return []byte(result.Value), nil
+	return result.Value, nil
 }
 
 // Delete deletes the key from the database
 func (db *MgoDatabase) Delete(key []byte) error {
 	err := db.collection.Remove(bson.M{Id: key})
+	if err != nil && err == mgo.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
 	return err
 }
 
 func (db *MgoDatabase) Reference(key []byte) error {
-	// TODO
-	return nil
+	selector := bson.M{Id: key}
+	incr := bson.M{"$inc": bson.M{Reference: 1}}
+	err := db.collection.Update(selector, incr)
+	if err != nil && err == mgo.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
+	return err
 }
 
 func (db *MgoDatabase) Dereference(key []byte) error {
-	// TODO
+	selector := bson.M{Id: key}
+	result := new(Document)
+	err := db.collection.Find(selector).One(&result)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
+		return err
+	}
+
+	if result.Reference > 0 {
+		decr := bson.M{"$inc": bson.M{Reference: -1}}
+		err := db.collection.Update(selector, decr)
+		return err
+	}
+
 	return nil
 }
 
 func (db *MgoDatabase) CountReference(key []byte) (int, error) {
-	return 0, nil
+	result := new(Document)
+	err := db.collection.Find(bson.M{Id: key}).One(&result)
+	if err != nil {
+		if err == mgo.ErrNotFound {
+			return 0, store.ErrKeyNotFound
+		}
+		return 0, err
+	}
+	return result.Reference, nil
 }
 
 func (db *MgoDatabase) Close() {
@@ -90,7 +121,7 @@ func (db *MgoDatabase) Close() {
 }
 
 func (db *MgoDatabase) NewBatch() database.Batch {
-	batch := &mgodbBatch{collection: db.collection, b: db.collection.Bulk()}
+	batch := &mgodbBatch{collection: db.collection, b: db.collection.Bulk(), references: make(map[string]int)}
 	batch.b.Unordered()
 	return batch
 }
@@ -98,6 +129,7 @@ func (db *MgoDatabase) NewBatch() database.Batch {
 type mgodbBatch struct {
 	collection *mgo.Collection
 	b          *mgo.Bulk
+	references map[string]int
 	size       int
 }
 
@@ -117,17 +149,59 @@ func (b *mgodbBatch) Delete(key []byte) error {
 }
 
 func (b *mgodbBatch) Reference(key []byte) error {
-	// TODO
+	// selector := bson.M{Id: key}
+	// incr := bson.M{"$inc": bson.M{Reference: 1}}
+	// b.b.Upsert(selector, incr)
+	b.references[string(key)]++
+	b.size++
 	return nil
 }
 
 func (b *mgodbBatch) Dereference(key []byte) error {
-	// TODO
+	// selector := bson.M{Id: key}
+	// decr := bson.M{"$inc": bson.M{Reference: -1}}
+	// b.b.Upsert(selector, decr)
+	b.references[string(key)]--
+	b.size++
 	return nil
 }
 
 func (b *mgodbBatch) Write() error {
 	_, err := b.b.Run()
+
+	for k, v := range b.references {
+		if v == 0 {
+			// refs and derefs canceled out
+			delete(b.references, k)
+		}
+	}
+
+	if len(b.references) > 0 {
+		b.b = b.collection.Bulk()
+		b.b.Unordered()
+
+		for k, v := range b.references {
+			selector := bson.M{Id: []byte(k)}
+			result := new(Document)
+			err := b.collection.Find(selector).One(&result)
+			if err != nil {
+				if err == mgo.ErrNotFound {
+					continue
+				}
+				return err
+			}
+
+			ref := result.Reference + v
+			if ref < 0 {
+				ref = 0
+			}
+
+			update := bson.M{"$set": bson.M{Reference: ref}}
+			b.b.Upsert(selector, update)
+		}
+		_, err = b.b.Run()
+	}
+
 	b.Reset()
 	return err
 }
@@ -139,5 +213,6 @@ func (b *mgodbBatch) ValueSize() int {
 func (b *mgodbBatch) Reset() {
 	b.b = b.collection.Bulk()
 	b.b.Unordered()
+	b.references = make(map[string]int)
 	b.size = 0
 }

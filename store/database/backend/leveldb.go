@@ -125,6 +125,9 @@ func (db *LDBDatabase) Has(key []byte) (bool, error) {
 func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 	dat, err := db.db.Get(key, nil)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return nil, store.ErrKeyNotFound
+		}
 		return nil, err
 	}
 	return dat, nil
@@ -132,13 +135,21 @@ func (db *LDBDatabase) Get(key []byte) ([]byte, error) {
 
 // Delete deletes the key from the queue and database
 func (db *LDBDatabase) Delete(key []byte) error {
-	return db.db.Delete(key, nil)
+	db.refdb.Delete(key, nil)
+	err := db.db.Delete(key, nil)
+	if err != nil && err == leveldb.ErrNotFound {
+		return store.ErrKeyNotFound
+	}
+	return err
 }
 
 func (db *LDBDatabase) Reference(key []byte) error {
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
 		return err
 	}
 	if value == nil {
@@ -166,6 +177,9 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 	// check if k/v exists
 	value, err := db.Get(key)
 	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return store.ErrKeyNotFound
+		}
 		return err
 	}
 	if value == nil {
@@ -191,23 +205,33 @@ func (db *LDBDatabase) Dereference(key []byte) error {
 }
 
 func (db *LDBDatabase) CountReference(key []byte) (int, error) {
+	// check if k/v exists
+	value, err := db.Get(key)
+	if err != nil {
+		if err == leveldb.ErrNotFound {
+			return 0, store.ErrKeyNotFound
+		}
+		return 0, err
+	}
+	if value == nil {
+		return 0, store.ErrKeyNotFound
+	}
+
 	dat, err := db.refdb.Get(key, nil)
 	if err != nil {
-		if err != leveldb.ErrNotFound {
-			return 0, err
-		} else {
-			return 0, nil
+		if err == leveldb.ErrNotFound {
+			return 0, store.ErrKeyNotFound
 		}
+		return 0, err
 	}
 	if dat == nil {
 		return 0, nil
-	} else {
-		ref, err := strconv.Atoi(string(dat))
-		if err != nil {
-			return 0, err
-		}
-		return ref, nil
 	}
+	ref, err := strconv.Atoi(string(dat))
+	if err != nil {
+		return 0, err
+	}
+	return ref, nil
 }
 
 func (db *LDBDatabase) NewIterator() iterator.Iterator {
@@ -460,6 +484,7 @@ func (b *ldbBatch) Put(key, value []byte) error {
 }
 
 func (b *ldbBatch) Delete(key []byte) error {
+	delete(b.references, string(key))
 	b.b.Delete(key)
 	b.size += 1
 	return nil
@@ -479,6 +504,9 @@ func (b *ldbBatch) Dereference(key []byte) error {
 
 func (b *ldbBatch) Write() error {
 	err := b.db.Write(b.b, nil)
+	if err != nil {
+		return err
+	}
 
 	for k, v := range b.references {
 		if v == 0 {
@@ -489,32 +517,46 @@ func (b *ldbBatch) Write() error {
 
 	for k, v := range b.references {
 		// check if k/v exists
-		value, err := b.db.Get([]byte(k), nil)
-		if err != nil || value == nil {
+		has, err := b.db.Has([]byte(k), nil)
+		if err != nil {
+			return err
+		}
+		if !has {
 			continue
 		}
 
 		var ref int
 		dat, err := b.refdb.Get([]byte(k), nil)
 		if err != nil {
-			continue
-		}
-		if dat == nil {
+			if err != leveldb.ErrNotFound {
+				return err
+			}
+			if v < 0 {
+				continue
+			}
 			ref = v
 		} else {
 			ref, err = strconv.Atoi(string(dat))
 			if err != nil {
+				return err
+			}
+			if ref <= 0 && v < 0 {
 				continue
 			}
 			ref = ref + v
+			if ref < 0 {
+				ref = 0
+			}
 		}
-		if ref < 0 {
-			ref = 0
+		err = b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
+		if err != nil {
+			return err
 		}
-		b.refdb.Put([]byte(k), []byte(strconv.Itoa(ref)), nil)
 	}
 
-	return err
+	b.Reset()
+
+	return nil
 }
 
 func (b *ldbBatch) ValueSize() int {
@@ -523,6 +565,7 @@ func (b *ldbBatch) ValueSize() int {
 
 func (b *ldbBatch) Reset() {
 	b.b.Reset()
+	b.references = make(map[string]int)
 	b.size = 0
 }
 
