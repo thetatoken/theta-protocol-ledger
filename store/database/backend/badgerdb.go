@@ -67,8 +67,8 @@ func (db *BadgerDatabase) Get(key []byte) ([]byte, error) {
 			return err
 		}
 
-		return unmarshal.Value(func(val []byte) {
-			json.Unmarshal(val, &document)
+		return unmarshal.Value(func(val []byte) error {
+			return json.Unmarshal(val, &document)
 		})
 	})
 	return document.Value, err
@@ -98,8 +98,8 @@ func (db *BadgerDatabase) Reference(key []byte) error {
 		}
 
 		var document Document
-		err = unmarshal.Value(func(val []byte) {
-			json.Unmarshal(val, &document)
+		err = unmarshal.Value(func(val []byte) error {
+			return json.Unmarshal(val, &document)
 		})
 		if err != nil {
 			return err
@@ -125,8 +125,8 @@ func (db *BadgerDatabase) Dereference(key []byte) error {
 		}
 
 		var document Document
-		err = unmarshal.Value(func(val []byte) {
-			json.Unmarshal(val, &document)
+		err = unmarshal.Value(func(val []byte) error {
+			return json.Unmarshal(val, &document)
 		})
 		if err != nil {
 			return err
@@ -154,8 +154,8 @@ func (db *BadgerDatabase) CountReference(key []byte) (int, error) {
 			}
 			return err
 		}
-		return unmarshal.Value(func(val []byte) {
-			json.Unmarshal(val, &document)
+		return unmarshal.Value(func(val []byte) error {
+			return json.Unmarshal(val, &document)
 		})
 	})
 	if err != nil {
@@ -217,7 +217,7 @@ func (b *badgerdbBatch) Write() error {
 		err = txn.Set(doc.Key, marshal)
 		if err != nil {
 			if err == badger.ErrTxnTooBig {
-				if err := txn.Commit(nil); err != nil {
+				if err := txn.Commit(); err != nil {
 					return err
 				}
 				txn = b.db.NewTransaction(true)
@@ -235,7 +235,7 @@ func (b *badgerdbBatch) Write() error {
 		err := txn.Delete(doc.Key)
 		if err != nil {
 			if err == badger.ErrTxnTooBig {
-				if err := txn.Commit(nil); err != nil {
+				if err := txn.Commit(); err != nil {
 					return err
 				}
 				txn = b.db.NewTransaction(true)
@@ -265,8 +265,8 @@ func (b *badgerdbBatch) Write() error {
 		}
 
 		var document Document
-		err = unmarshal.Value(func(val []byte) {
-			json.Unmarshal(val, &document)
+		err = unmarshal.Value(func(val []byte) error {
+			return json.Unmarshal(val, &document)
 		})
 		if err != nil {
 			return err
@@ -287,7 +287,7 @@ func (b *badgerdbBatch) Write() error {
 		err = txn.Set([]byte(k), marshal)
 		if err != nil {
 			if err == badger.ErrTxnTooBig {
-				if err := txn.Commit(nil); err != nil {
+				if err := txn.Commit(); err != nil {
 					return err
 				}
 				txn = b.db.NewTransaction(true)
@@ -300,7 +300,7 @@ func (b *badgerdbBatch) Write() error {
 		}
 	}
 
-	if err := txn.Commit(nil); err != nil {
+	if err := txn.Commit(); err != nil {
 		return err
 	}
 

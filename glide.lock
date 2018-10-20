@@ -1,5 +1,5 @@
 hash: 730ae671e081b7b9e063feeffd09d45f009b1363ef2d839f1ca8f611a2b19f12
-updated: 2018-10-16T13:47:11.486446265-07:00
+updated: 2018-10-19T16:42:17.579910544-07:00
 imports:
 - name: github.com/aerospike/aerospike-client-go
   version: 506514fe33c61d0efcab7f89dc589c6b55664cea
@@ -14,16 +14,32 @@ imports:
   - types/particle_type
   - types/rand
   - utils/buffer
+- name: github.com/AndreasBriese/bbloom
+  version: 343706a395b76e5ca5c7dca46a5d937b48febc74
 - name: github.com/bgentry/speakeasy
   version: 4aabc24848ce5fd31929f7d1e4ea74d3709c14cd
 - name: github.com/davecgh/go-spew
   version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
   subpackages:
   - spew
+- name: github.com/dgraph-io/badger
+  version: 42bf5956793c51d2476520fe707cb584d58b2311
+  subpackages:
+  - options
+  - protos
+  - skl
+  - table
+  - "y"
+- name: github.com/dgryski/go-farm
+  version: 2de33835d10275975374b37b2dcfd22c9020a1f5
 - name: github.com/fsnotify/fsnotify
   version: ccc981bf80385c528a65fbfdd49bf2d8da22aa23
 - name: github.com/go-stack/stack
   version: 2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a
+- name: github.com/golang/protobuf
+  version: 925541529c1fa6821df4e44ce2723319eb2be768
+  subpackages:
+  - proto
 - name: github.com/golang/snappy
   version: d9eb7a3d35ec988b8585d4a0068e462c27d28380
 - name: github.com/google/uuid
@@ -54,7 +70,7 @@ imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/influxdata/influxdb
-  version: 389de31c961831de0a9f4172173337d4a6193909
+  version: c75cdfdfa6f71a08473fefcec71f6cbcbdef1ff4
   subpackages:
   - client
   - models
@@ -198,7 +214,9 @@ imports:
   version: 92b859f39abd2d91a854c9f9c4621b2f5054a92d
   subpackages:
   - context
+  - internal/timeseries
   - netutil
+  - trace
 - name: golang.org/x/sync
   version: 1d60e4601c6fd243af51cc01ddf169918a5407ca
   subpackages:
