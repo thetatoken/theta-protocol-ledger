@@ -42,7 +42,7 @@ cd $UKULELE_HOME
 cp -r ./integration/testnet ../testnet
 ukulele start --config=../testnet/node2 | tee ../node2.log
 ```
-Send Theta token between addresses. When the prompt asks for password, simply enter `qwertyuiop`
+Send Theta token between addresses by executing the following commands in another terminal. When the prompt asks for password, simply enter `qwertyuiop`
 ```
 banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1
 ```
