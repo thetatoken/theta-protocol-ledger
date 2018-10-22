@@ -22,6 +22,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/thetatoken/ukulele/store"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/metrics"
@@ -497,11 +499,13 @@ func (t *Trie) pruneNode(n node) error {
 	hash, _ := n.cache()
 	ref, err := t.db.diskdb.CountReference(hash[:])
 	if err != nil {
+		if err == store.ErrKeyNotFound {
+			return nil
+		}
 		return err
 	}
 	if ref > 1 {
-		t.db.diskdb.Dereference(hash[:])
-		return nil
+		return t.db.diskdb.Dereference(hash[:])
 	}
 
 	err = t.pruneChildren(n)
@@ -509,7 +513,10 @@ func (t *Trie) pruneNode(n node) error {
 		return err
 	}
 	err = t.db.diskdb.Delete(hash[:])
-	return err
+	if err != nil && err != store.ErrKeyNotFound {
+		return err
+	}
+	return nil
 }
 
 func (t *Trie) pruneChildren(nd node) error {
@@ -518,11 +525,18 @@ func (t *Trie) pruneChildren(nd node) error {
 	switch n := nd.(type) {
 	case *shortNode:
 		if _, ok := n.Val.(valueNode); !ok {
-			hashNode := n.Val.(hashNode)
-			childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
-			err = t.pruneNode(childNode)
-			if err != nil {
-				return err
+			switch m := n.Val.(type) {
+			case hashNode:
+				childNode := t.db.node(common.BytesToHash(m[:]), 0)
+				err = t.pruneNode(childNode)
+				if err != nil {
+					return err
+				}
+			case *shortNode:
+				t.pruneNode(m)
+			case *fullNode:
+				t.pruneNode(m)
+			default:
 			}
 		}
 	case *fullNode:

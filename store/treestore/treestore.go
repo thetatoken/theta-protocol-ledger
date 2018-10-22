@@ -11,14 +11,10 @@ import (
 )
 
 // NewTreeStore create a new instance of TreeStore.
-func NewTreeStore(root common.Hash, db database.Database, nonpersistent bool) *TreeStore {
+func NewTreeStore(root common.Hash, db database.Database) *TreeStore {
 	var tr *trie.Trie
 	var err error
-	if nonpersistent {
-		tr, err = trie.New(root, trie.NewNonpersistentDatabase(db))
-	} else {
-		tr, err = trie.New(root, trie.NewDatabase(db))
-	}
+	tr, err = trie.New(root, trie.NewDatabase(db))
 	if err != nil {
 		log.Errorf("Failed to create tree store for: %v: %v", root, err)
 		return nil
