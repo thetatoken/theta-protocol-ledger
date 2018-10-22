@@ -56,7 +56,7 @@ type execTest struct {
 	accOut types.PrivAccount
 }
 
-func newExecTest() *execTest {
+func NewExecTest() *execTest {
 	et := &execTest{}
 	et.reset()
 
@@ -139,4 +139,19 @@ func (et *execTest) acc2State(accs ...types.PrivAccount) {
 		et.executor.state.Delivered().SetAccount(acc.Account.PubKey.Address(), &acc.Account)
 	}
 	et.executor.state.Commit()
+}
+
+// Executor returns the executor instance.
+func (et *execTest) Executor() *Executor {
+	return et.executor
+}
+
+// State returns the state instance.
+func (et *execTest) State() *st.LedgerState {
+	return et.state()
+}
+
+// SetAcc saves accounts into state.
+func (et *execTest) SetAcc(accs ...types.PrivAccount) {
+	et.acc2State(accs...)
 }

@@ -20,10 +20,6 @@ import (
 
 var logger *log.Entry
 
-func init() {
-	logger = util.GetLoggerForModule("rpc")
-}
-
 // ThetaRPCServer is an instance of RPC service.
 type ThetaRPCServer struct {
 	mempool *mempool.Mempool
@@ -61,6 +57,8 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger) *ThetaRP
 	t.server = &http.Server{
 		Handler: t.router,
 	}
+
+	logger = util.GetLoggerForModule("rpc")
 
 	return t
 }

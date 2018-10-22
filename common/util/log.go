@@ -21,10 +21,6 @@ const (
 )
 const defaultLevel = warnLevel
 
-func init() {
-	logLevels = parseLogLevelConfig(viper.GetString(common.CfgLogLevels))
-}
-
 func parseLogLevelConfig(config string) map[string]string {
 	levels := make(map[string]string)
 
@@ -45,6 +41,10 @@ func parseLogLevelConfig(config string) map[string]string {
 
 // GetLoggerForModule returns the logger for given module.
 func GetLoggerForModule(module string) *log.Entry {
+	if logLevels == nil {
+		logLevels = parseLogLevelConfig(viper.GetString(common.CfgLogLevels))
+		log.Infof("Log settings: %v, %v", logLevels, viper.GetString(common.CfgLogLevels))
+	}
 	customFormatter := new(TextFormatter)
 	customFormatter.TimestampFormat = "2006-01-02 15:04:05"
 	log.SetFormatter(customFormatter)

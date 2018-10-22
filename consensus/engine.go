@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store"
@@ -17,7 +18,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/p2p"
@@ -25,10 +25,6 @@ import (
 )
 
 var logger *log.Entry
-
-func init() {
-	logger = util.GetLoggerForModule("consensus")
-}
 
 var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
@@ -79,6 +75,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		validatorManager: validatorManager,
 	}
 
+	logger = util.GetLoggerForModule("consensus")
 	if viper.GetBool(common.CfgLogPrintSelfID) {
 		logger = logger.WithFields(log.Fields{"id": network.ID()})
 	}

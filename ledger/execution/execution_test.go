@@ -7,7 +7,6 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
@@ -16,7 +15,7 @@ import (
 
 func TestGetInputs(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	// nil submissions
 	acc, res := getInputs(nil, nil)
@@ -55,7 +54,7 @@ func TestGetInputs(t *testing.T) {
 
 func TestGetOrMakeOutputs(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//nil submissions
 	acc, res := getOrMakeOutputs(nil, nil, nil)
@@ -105,7 +104,7 @@ func TestGetOrMakeOutputs(t *testing.T) {
 
 func TestValidateInputsBasic(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//validate input basic
 	inputs := types.Accs2TxInputs(1, et.accIn)
@@ -120,7 +119,7 @@ func TestValidateInputsBasic(t *testing.T) {
 
 func TestValidateInputsAdvanced(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//create three temp accounts for the test
 	accIn1 := types.MakeAcc("foox")
@@ -154,7 +153,7 @@ func TestValidateInputsAdvanced(t *testing.T) {
 
 func TestValidateInputAdvanced(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//validate input advanced
 	tx := types.MakeSendTx(1, et.accOut, et.accIn)
@@ -188,7 +187,7 @@ func TestValidateInputAdvanced(t *testing.T) {
 
 func TestValidateOutputsBasic(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//validateOutputsBasic
 	tx := types.Accs2TxOutputs(et.accIn)
@@ -202,7 +201,7 @@ func TestValidateOutputsBasic(t *testing.T) {
 
 func TestSumOutput(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//SumOutput
 	tx := types.Accs2TxOutputs(et.accIn, et.accOut)
@@ -212,7 +211,7 @@ func TestSumOutput(t *testing.T) {
 
 func TestAdjustBy(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//adjustByInputs/adjustByOutputs
 	//sending transaction from accIn to accOut
@@ -243,7 +242,7 @@ func TestAdjustBy(t *testing.T) {
 
 func TestSendTx(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	//ExecTx
 	tx := types.MakeSendTx(1, et.accOut, et.accIn)
@@ -292,7 +291,7 @@ func TestCalculateThetaReward(t *testing.T) {
 
 func TestNonEmptyPubKey(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	_, userPubKey, err := crypto.TEST_GenerateKeyPairWithSeed("user")
 	assert.Nil(err)
@@ -378,7 +377,7 @@ func TestNonEmptyPubKey(t *testing.T) {
 
 func TestCoinbaseTx(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	va1 := et.accProposer
 	va1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), GammaWei: big.NewInt(0)}
@@ -515,7 +514,7 @@ func TestCoinbaseTx(t *testing.T) {
 
 func TestReserveFundTx(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	user1 := types.MakeAcc("user 1")
 	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
@@ -607,7 +606,7 @@ func TestReserveFundTx(t *testing.T) {
 
 func TestReleaseFundTx(t *testing.T) {
 	assert := assert.New(t)
-	et := newExecTest()
+	et := NewExecTest()
 
 	user1 := types.MakeAcc("user 1")
 	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
@@ -1157,7 +1156,7 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 
 func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID common.Bytes,
 	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
-	et = newExecTest()
+	et = NewExecTest()
 
 	alice = types.MakeAcc("User Alice")
 	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
