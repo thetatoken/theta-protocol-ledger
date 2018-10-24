@@ -94,7 +94,7 @@ func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
 	var bytes []byte
 	var isEOF byte
 	if len(sb.workspace) <= maxPayloadSize {
-		bytes = sb.workspace[:len(sb.workspace)]
+		bytes = sb.workspace[:]
 		isEOF = byte(0x01) // EOF
 		sb.workspace = nil
 		atomic.AddInt32(&sb.queueSize, -1) // decrement queueSize
