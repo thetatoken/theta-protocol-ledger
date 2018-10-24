@@ -95,6 +95,7 @@ func (cg *ChannelGroup) deleteChannel(channelID common.ChannelIDEnum) {
 	for idx, ch := range cg.channels {
 		if ch.id == channelID {
 			cg.channels = append(cg.channels[:idx], cg.channels[idx+1:]...)
+			break
 		}
 	}
 }

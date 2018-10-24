@@ -58,10 +58,10 @@ type ConnectionConfig struct {
 	PingTimeout        time.Duration
 }
 
-// MessageParser parse the raw message bytes to type p2ptypes.Message
+// MessageParser parses the raw message bytes to type p2ptypes.Message
 type MessageParser func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error)
 
-// MessageEncoder encode the raw message bytes to type p2ptypes.Message
+// MessageEncoder encodes type p2ptypes.Message to raw message bytes
 type MessageEncoder func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error)
 
 var defaultMessageEncoder MessageEncoder = func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
