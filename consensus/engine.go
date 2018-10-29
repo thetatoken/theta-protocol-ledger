@@ -24,7 +24,7 @@ import (
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
-var logger *log.Entry
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "consensus"})
 
 var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
