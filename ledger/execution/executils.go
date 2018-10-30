@@ -134,10 +134,8 @@ func getOrMakeAccountImpl(view *state.StoreView, address common.Address, makeNew
 		if !makeNewAccount {
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
-		acc = &types.Account{
-			Balance:                types.NewCoins(0, 0),
-			LastUpdatedBlockHeight: view.Height(),
-		}
+		acc = types.NewAccount()
+		acc.LastUpdatedBlockHeight = view.Height()
 	}
 	acc.UpdateToHeight(view.Height())
 

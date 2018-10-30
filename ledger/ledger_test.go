@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -90,6 +91,7 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 
 func TestLedgerApplyBlockTxs(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
 	chainID, ledger, _ := newTestLedger()
 	numInAccs := 5
@@ -106,10 +108,10 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("aeeac605447eb4538ded663d2d5c3a3487c68a48a26656c179c3a030f936d535")
+	expectedStateRoot := common.HexToHash("9302a4403b3da80d1a7e509c090b07a78bdcbc788fe5c341f7ad73d999ce6026")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
-	assert.True(res.IsOK(), res.Message)
+	require.True(res.IsOK(), res.Message)
 
 	//
 	// Account balance sanity checks

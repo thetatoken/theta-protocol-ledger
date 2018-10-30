@@ -19,11 +19,29 @@ func NewTreeStore(root common.Hash, db database.Database) *TreeStore {
 		log.Errorf("Failed to create tree store for: %v: %v", root, err)
 		return nil
 	}
-	return &TreeStore{tr}
+	return &TreeStore{tr, db}
 }
 
 type TreeStore struct {
 	*trie.Trie
+	db database.Database
+}
+
+// GetDB returns the underlying database.
+func (store *TreeStore) GetDB() database.Database {
+	return store.db
+}
+
+func (store *TreeStore) Commit() (common.Hash, error) {
+	h, err := store.Trie.Commit(nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	err = store.Trie.GetDB().Commit(h, true)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return h, nil
 }
 
 // Copy returns a copy of the TreeStore
@@ -33,7 +51,7 @@ func (store *TreeStore) Copy() (*TreeStore, error) {
 		return nil, err
 	}
 
-	copiedStore := &TreeStore{copiedTrie}
+	copiedStore := &TreeStore{copiedTrie, store.db}
 	return copiedStore, nil
 }
 

@@ -9,12 +9,26 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 )
 
+var EmptyCodeHash = crypto.Keccak256(nil)
+
 type Account struct {
 	PubKey                 *crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
 	Sequence               uint64            `json:"sequence"`
 	Balance                Coins             `json:"coins"`
 	ReservedFunds          []ReservedFund    `json:"reserved_funds"` // TODO: replace the slice with map
 	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
+
+	// Smart contract
+	Root     common.Hash // merkle root of the storage trie
+	CodeHash []byte
+}
+
+func NewAccount() *Account {
+	return &Account{
+		Root:     common.Hash{},
+		CodeHash: EmptyCodeHash,
+		Balance:  NewCoins(0, 0),
+	}
 }
 
 func (acc *Account) Copy() *Account {

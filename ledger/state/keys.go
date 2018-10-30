@@ -25,3 +25,8 @@ func SplitContractKeyPrefix() common.Bytes {
 func SplitContractKey(resourceID common.Bytes) common.Bytes {
 	return append(SplitContractKeyPrefix(), resourceID...)
 }
+
+// CodeKey construct the state key for the given code hash
+func CodeKey(codeHash common.Bytes) common.Bytes {
+	return append(common.Bytes("ls/ch/"), codeHash...)
+}
