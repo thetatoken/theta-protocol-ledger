@@ -30,6 +30,7 @@ func TestDefaultSendBuffer(t *testing.T) {
 	assert.False(packet.isEmpty())
 	assert.Equal(msgBytes, packet.Bytes)
 	assert.Equal(byte(0x1), packet.IsEOF)
+	assert.True(dsb.canInsert())
 }
 
 func TestSendLongMessage(t *testing.T) {
@@ -55,18 +56,21 @@ func TestSendLongMessage(t *testing.T) {
 	assert.Equal(1, dsb.getSize())
 	assert.False(packet1.isEmpty())
 	assert.Equal(byte(0x0), packet1.IsEOF)
+	assert.False(dsb.canInsert())
 
 	packet2 := dsb.emitPacket(common.ChannelIDTransaction)
 	assert.False(dsb.isEmpty())
 	assert.Equal(1, dsb.getSize())
 	assert.False(packet2.isEmpty())
 	assert.Equal(byte(0x0), packet2.IsEOF)
+	assert.False(dsb.canInsert())
 
 	packet3 := dsb.emitPacket(common.ChannelIDTransaction)
 	assert.True(dsb.isEmpty())
 	assert.Equal(0, dsb.getSize())
 	assert.False(packet3.isEmpty())
 	assert.Equal(byte(0x1), packet3.IsEOF)
+	assert.True(dsb.canInsert())
 
 	assembledMsgStr := string(packet1.Bytes) + string(packet2.Bytes) + string(packet3.Bytes)
 	assert.Equal(msgStr, assembledMsgStr)
