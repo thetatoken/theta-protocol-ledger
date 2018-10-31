@@ -41,8 +41,8 @@ type (
 
 // TODO1: handle intrinsic gas?
 // TODO2: refund gas for execution error?
-func Execute(tx types.SmartContractTx, storeView *state.StoreView,
-	static bool) (ret common.Bytes, contractAddr common.Address, gasUsed uint64, err error) {
+func Execute(tx *types.SmartContractTx, storeView *state.StoreView, static bool) (ret common.Bytes,
+	contractAddr common.Address, gasUsed uint64, err error) {
 	context := Context{}
 	config := Config{}
 	evm := NewEVM(context, storeView, nil, config)
@@ -57,9 +57,6 @@ func Execute(tx types.SmartContractTx, storeView *state.StoreView,
 		code := tx.Data
 		value := tx.From.Coins.GammaWei
 		ret, contractAddr, leftOverGas, err = evm.Create(AccountRef(fromAddr), code, gasLimit, value)
-		if err != nil {
-			return ret, contractAddr, gasLimit, err
-		}
 	} else {
 		contractAddr = toAddr
 		contractAccount := storeView.GetAccount(contractAddr)
@@ -78,9 +75,6 @@ func Execute(tx types.SmartContractTx, storeView *state.StoreView,
 		}
 		input := tx.Data
 		ret, err = evm.interpreter.Run(contract, input, static)
-		if err != nil {
-			return ret, contractAddr, gasLimit, err
-		}
 		leftOverGas = contract.Gas
 	}
 
@@ -89,6 +83,9 @@ func Execute(tx types.SmartContractTx, storeView *state.StoreView,
 		return ret, contractAddr, gasLimit, err
 	}
 	gasUsed = gasLimit - leftOverGas
+	if err != nil {
+		return ret, contractAddr, gasUsed, err
+	}
 
 	return ret, contractAddr, gasUsed, nil
 }
