@@ -29,7 +29,8 @@ const (
 	CodeUnauthorizedToUpdateSplitContract ErrorCode = 104001
 
 	// SmartContract Errors
-	CodeInvalidValueToTransfer ErrorCode = 105001
-	CodeInvalidGasPrice        ErrorCode = 105002
-	CodeFeeLimitTooHigh        ErrorCode = 105003
+	CodeEVMError               ErrorCode = 105001
+	CodeInvalidValueToTransfer ErrorCode = 105002
+	CodeInvalidGasPrice        ErrorCode = 105003
+	CodeFeeLimitTooHigh        ErrorCode = 105004
 )
