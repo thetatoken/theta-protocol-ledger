@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/math"
 )
 
 type SendBuffer struct {
@@ -54,7 +53,7 @@ func (sb *SendBuffer) canInsert() bool {
 	return sb.getSize() < sb.config.queueCapacity
 }
 
-// Insert insert the bytes to queue, and times out after after
+// Insert insert the bytes to queue, and times out after
 // the configured timeout. It is goroutine safe
 func (sb *SendBuffer) insert(bytes []byte) bool {
 	select {
@@ -92,15 +91,17 @@ func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
 		}
 	}
 
-	bytes := sb.workspace[:math.MinInt(maxPayloadSize, len(sb.workspace))]
-	isEOF := byte(0x00)
+	var bytes []byte
+	var isEOF byte
 	if len(sb.workspace) <= maxPayloadSize {
+		bytes = sb.workspace[:]
 		isEOF = byte(0x01) // EOF
 		sb.workspace = nil
 		atomic.AddInt32(&sb.queueSize, -1) // decrement queueSize
 	} else {
+		bytes = sb.workspace[:maxPayloadSize]
 		isEOF = byte(0x00)
-		sb.workspace = sb.workspace[math.MinInt(maxPayloadSize, len(sb.workspace)):]
+		sb.workspace = sb.workspace[maxPayloadSize:]
 	}
 
 	packet := Packet{
