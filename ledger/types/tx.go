@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
@@ -462,4 +463,39 @@ func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig *crypto.Sign
 
 func (tx *UpdateValidatorsTx) String() string {
 	return fmt.Sprintf("UpdateValidatorsTx{%v}", tx.Validators)
+}
+
+//-----------------------------------------------------------------------------
+
+type SmartContractTx struct {
+	From     TxInput      `json:"from"`
+	To       TxOutput     `json:"to"`
+	GasLimit uint64       `json:"gas_limit"`
+	GasPrice *big.Int     `json:"gas_price"`
+	Data     common.Bytes `json:"data"`
+}
+
+func (_ *SmartContractTx) AssertIsTx() {}
+
+func (tx *SmartContractTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	sig := tx.From.Signature
+	tx.From.Signature = nil
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
+	tx.From.Signature = sig
+	return signBytes
+}
+
+func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.From.Address == addr {
+		tx.From.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *SmartContractTx) String() string {
+	return fmt.Sprintf("SmartContractTx{%v -> %v, gas_limit: %v, gas_price: %v, data: %v}",
+		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.GasLimit, tx.GasPrice, tx.Data)
 }

@@ -43,7 +43,7 @@ func TestVMBasic(t *testing.T) {
 	assert.Equal([]byte{0x3}, ret)
 }
 
-func TestVMSstore(t *testing.T) {
+func TestVMStore(t *testing.T) {
 	assert := assert.New(t)
 
 	// ASM:
