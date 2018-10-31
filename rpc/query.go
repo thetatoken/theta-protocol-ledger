@@ -35,17 +35,17 @@ func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, resul
 	return nil
 }
 
-// ------------------------------- GetSplitContract -----------------------------------
+// ------------------------------- GetSplitRule -----------------------------------
 
-type GetSplitContractArgs struct {
+type GetSplitRuleArgs struct {
 	ResourceID string `json:"resource_id"`
 }
 
-type GetSplitContractResult struct {
-	*types.SplitContract
+type GetSplitRuleResult struct {
+	*types.SplitRule
 }
 
-func (t *ThetaRPCServer) GetSplitContract(r *http.Request, args *GetSplitContractArgs, result *GetSplitContractResult) (err error) {
+func (t *ThetaRPCServer) GetSplitRule(r *http.Request, args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
@@ -57,6 +57,6 @@ func (t *ThetaRPCServer) GetSplitContract(r *http.Request, args *GetSplitContrac
 	if err != nil {
 		return err
 	}
-	result.SplitContract = ledgerState.GetSplitContract(resourceID)
+	result.SplitRule = ledgerState.GetSplitRule(resourceID)
 	return nil
 }

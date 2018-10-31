@@ -122,7 +122,7 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	log.Infof("Retrieved account: %v\n", retrivedAcc1)
 }
 
-func TestLedgerStateSplitContractCommit(t *testing.T) {
+func TestLedgerStateSplitRuleCommit(t *testing.T) {
 	assert := assert.New(t)
 
 	chainID := "testchain"
@@ -137,26 +137,26 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 	assert.Nil(err)
 	acc1Addr := acc1PubKey.Address()
 
-	// SplitContract and Commit
+	// SplitRule and Commit
 	rid1 := common.Bytes("rid1")
-	sc1 := &types.SplitContract{
+	sc1 := &types.SplitRule{
 		InitiatorAddress: acc1Addr,
 		ResourceID:       rid1,
 		EndBlockHeight:   342,
 	}
 	rid2 := common.Bytes("rid2")
-	sc2 := &types.SplitContract{
+	sc2 := &types.SplitRule{
 		InitiatorAddress: acc1Addr,
 		ResourceID:       rid2,
 		EndBlockHeight:   56,
 	}
-	ls.Delivered().AddSplitContract(sc1)
-	ls.Delivered().AddSplitContract(sc2)
-	log.Infof("Split contracts added\n")
+	ls.Delivered().AddSplitRule(sc1)
+	ls.Delivered().AddSplitRule(sc2)
+	log.Infof("Split rules added\n")
 
 	rootHashChecked1 := ls.Checked().Hash()
 	rootHashDelivered1 := ls.Delivered().Hash()
-	assert.NotEqual(rootHashChecked1, rootHashDelivered1) // root hash of the Delivered tree should have changed due to AddSplitContract()
+	assert.NotEqual(rootHashChecked1, rootHashDelivered1) // root hash of the Delivered tree should have changed due to AddSplitRule()
 
 	log.Infof("Before any commit, rootHashChecked  : %v\n", rootHashChecked1.Hex())
 	log.Infof("Before any commit, rootHashDelivered: %v\n", rootHashDelivered1.Hex())
@@ -176,34 +176,34 @@ func TestLedgerStateSplitContractCommit(t *testing.T) {
 	log.Infof("After commit #1, rootHashChecked    : %v\n", rootHashChecked2.Hex())
 	log.Infof("After commit #1, rootHashDelivered  : %v\n", rootHashDelivered2.Hex())
 
-	assert.True(ls.Delivered().SplitContractExists(rid1))
-	assert.True(ls.Delivered().SplitContractExists(rid2))
-	assert.NotNil(ls.Delivered().GetSplitContract(rid1))
-	assert.NotNil(ls.Delivered().GetSplitContract(rid2))
+	assert.True(ls.Delivered().SplitRuleExists(rid1))
+	assert.True(ls.Delivered().SplitRuleExists(rid2))
+	assert.NotNil(ls.Delivered().GetSplitRule(rid1))
+	assert.NotNil(ls.Delivered().GetSplitRule(rid2))
 
-	ls.Delivered().DeleteExpiredSplitContracts(123)
+	ls.Delivered().DeleteExpiredSplitRules(123)
 
-	assert.True(ls.Delivered().SplitContractExists(rid1))
-	assert.False(ls.Delivered().SplitContractExists(rid2))
-	assert.NotNil(ls.Delivered().GetSplitContract(rid1))
-	assert.Nil(ls.Delivered().GetSplitContract(rid2))
+	assert.True(ls.Delivered().SplitRuleExists(rid1))
+	assert.False(ls.Delivered().SplitRuleExists(rid2))
+	assert.NotNil(ls.Delivered().GetSplitRule(rid1))
+	assert.Nil(ls.Delivered().GetSplitRule(rid2))
 
-	log.Infof("Before updating sc1, retrieved sc1: %v\n", ls.Delivered().GetSplitContract(rid1))
+	log.Infof("Before updating sc1, retrieved sc1: %v\n", ls.Delivered().GetSplitRule(rid1))
 	sc1.EndBlockHeight = 567
-	assert.True(ls.Delivered().UpdateSplitContract(sc1))
+	assert.True(ls.Delivered().UpdateSplitRule(sc1))
 	sc2.EndBlockHeight = 423
-	assert.False(ls.Delivered().UpdateSplitContract(sc2)) // sc2 not exists anymore
-	log.Infof("Split contract sc1 updated")
-	log.Infof("After updating sc1, retrieved sc1 : %v\n", ls.Delivered().GetSplitContract(rid1))
+	assert.False(ls.Delivered().UpdateSplitRule(sc2)) // sc2 not exists anymore
+	log.Infof("Split rule sc1 updated")
+	log.Infof("After updating sc1, retrieved sc1 : %v\n", ls.Delivered().GetSplitRule(rid1))
 
-	ls.Delivered().DeleteExpiredSplitContracts(500)
-	assert.True(ls.Delivered().SplitContractExists(rid1)) // sc1.EndBlockHeight should have increased
-	assert.False(ls.Delivered().SplitContractExists(rid2))
+	ls.Delivered().DeleteExpiredSplitRules(500)
+	assert.True(ls.Delivered().SplitRuleExists(rid1)) // sc1.EndBlockHeight should have increased
+	assert.False(ls.Delivered().SplitRuleExists(rid2))
 
-	ls.Delivered().DeleteExpiredSplitContracts(900)
-	assert.False(ls.Delivered().SplitContractExists(rid1))
-	assert.False(ls.Delivered().SplitContractExists(rid2))
-	log.Infof("Expired split contracts deleted")
+	ls.Delivered().DeleteExpiredSplitRules(900)
+	assert.False(ls.Delivered().SplitRuleExists(rid1))
+	assert.False(ls.Delivered().SplitRuleExists(rid2))
+	log.Infof("Expired split rules deleted")
 
 	rootHashChecked3 := ls.Checked().Hash()
 	rootHashDelivered3 := ls.Delivered().Hash()

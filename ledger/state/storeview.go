@@ -169,76 +169,76 @@ func (sv *StoreView) DeleteAccount(addr common.Address) {
 	sv.Delete(AccountKey(addr))
 }
 
-// SplitContractExists checks if a split contract associated with the given resourceID already exists
-func (sv *StoreView) SplitContractExists(resourceID common.Bytes) bool {
-	return sv.GetSplitContract(resourceID) != nil
+// SplitRuleExists checks if a split rule associated with the given resourceID already exists
+func (sv *StoreView) SplitRuleExists(resourceID common.Bytes) bool {
+	return sv.GetSplitRule(resourceID) != nil
 }
 
-// AddSplitContract adds a split contract
-func (sv *StoreView) AddSplitContract(splitContract *types.SplitContract) bool {
-	if sv.SplitContractExists(splitContract.ResourceID) {
-		return false // Each resourceID can have at most one corresponding split contract
+// AddSplitRule adds a split rule
+func (sv *StoreView) AddSplitRule(splitRule *types.SplitRule) bool {
+	if sv.SplitRuleExists(splitRule.ResourceID) {
+		return false // Each resourceID can have at most one corresponding split rule
 	}
 
-	sv.SetSplitContract(splitContract.ResourceID, splitContract)
+	sv.SetSplitRule(splitRule.ResourceID, splitRule)
 	return true
 }
 
-// UpdateSplitContract updates a split contract
-func (sv *StoreView) UpdateSplitContract(splitContract *types.SplitContract) bool {
-	if !sv.SplitContractExists(splitContract.ResourceID) {
+// UpdateSplitRule updates a split rule
+func (sv *StoreView) UpdateSplitRule(splitRule *types.SplitRule) bool {
+	if !sv.SplitRuleExists(splitRule.ResourceID) {
 		return false
 	}
 
-	sv.SetSplitContract(splitContract.ResourceID, splitContract)
+	sv.SetSplitRule(splitRule.ResourceID, splitRule)
 	return true
 }
 
-// GetSplitContract gets split contract.
-func (sv *StoreView) GetSplitContract(resourceID common.Bytes) *types.SplitContract {
-	data := sv.Get(SplitContractKey(resourceID))
+// GetSplitRule gets split rule.
+func (sv *StoreView) GetSplitRule(resourceID common.Bytes) *types.SplitRule {
+	data := sv.Get(SplitRuleKey(resourceID))
 	if data == nil || len(data) == 0 {
 		return nil
 	}
-	splitContract := &types.SplitContract{}
-	err := types.FromBytes(data, splitContract)
+	splitRule := &types.SplitRule{}
+	err := types.FromBytes(data, splitRule)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading splitContract %X error: %v",
+		panic(fmt.Sprintf("Error reading splitRule %X error: %v",
 			data, err.Error()))
 	}
-	return splitContract
+	return splitRule
 }
 
-// SetSplitContract sets split contract.
-func (sv *StoreView) SetSplitContract(resourceID common.Bytes, splitContract *types.SplitContract) {
-	splitContractBytes, err := types.ToBytes(splitContract)
+// SetSplitRule sets split rule.
+func (sv *StoreView) SetSplitRule(resourceID common.Bytes, splitRule *types.SplitRule) {
+	splitRuleBytes, err := types.ToBytes(splitRule)
 	if err != nil {
-		panic(fmt.Sprintf("Error writing splitContract %v error: %v",
-			splitContract, err.Error()))
+		panic(fmt.Sprintf("Error writing splitRule %v error: %v",
+			splitRule, err.Error()))
 	}
-	sv.Set(SplitContractKey(resourceID), splitContractBytes)
+	sv.Set(SplitRuleKey(resourceID), splitRuleBytes)
 }
 
-// DeleteSplitContract deletes a split contract.
-func (sv *StoreView) DeleteSplitContract(resourceID common.Bytes) bool {
-	key := SplitContractKey(resourceID)
+// DeleteSplitRule deletes a split rule.
+func (sv *StoreView) DeleteSplitRule(resourceID common.Bytes) bool {
+	key := SplitRuleKey(resourceID)
 	deleted := sv.store.Delete(key)
 	return deleted
 }
 
-// DeleteExpiredSplitContracts deletes a split contract.
-func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool {
-	prefix := SplitContractKeyPrefix()
+// DeleteExpiredSplitRules deletes a split rule.
+func (sv *StoreView) DeleteExpiredSplitRules(currentBlockHeight uint64) bool {
+	prefix := SplitRuleKeyPrefix()
 
 	expiredKeys := []common.Bytes{}
 	sv.store.Traverse(prefix, func(key, value common.Bytes) bool {
-		var splitContract types.SplitContract
-		err := types.FromBytes(value, &splitContract)
+		var splitRule types.SplitRule
+		err := types.FromBytes(value, &splitRule)
 		if err != nil {
-			panic(fmt.Sprintf("Error reading splitContract %X error: %v", value, err.Error()))
+			panic(fmt.Sprintf("Error reading splitRule %X error: %v", value, err.Error()))
 		}
 
-		expired := (splitContract.EndBlockHeight < currentBlockHeight)
+		expired := (splitRule.EndBlockHeight < currentBlockHeight)
 		if expired {
 			expiredKeys = append(expiredKeys, key)
 		}
@@ -248,7 +248,7 @@ func (sv *StoreView) DeleteExpiredSplitContracts(currentBlockHeight uint64) bool
 	for _, key := range expiredKeys {
 		deleted := sv.store.Delete(key)
 		if !deleted {
-			log.Errorf("Failed to delete expired split contracts")
+			log.Errorf("Failed to delete expired split rules")
 			return false
 		}
 	}

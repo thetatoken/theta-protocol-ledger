@@ -111,7 +111,7 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	log.Infof("Balance: %v\n", accRetrieved.Balance)
 }
 
-func TestStoreViewSplitContractAccess(t *testing.T) {
+func TestStoreViewSplitRuleAccess(t *testing.T) {
 	assert := assert.New(t)
 
 	db := backend.NewMemDatabase()
@@ -122,61 +122,61 @@ func TestStoreViewSplitContractAccess(t *testing.T) {
 	initiatorAddr := initiatorPubKey.Address()
 
 	rid1 := common.Bytes("rid1")
-	sc1 := &types.SplitContract{
+	sc1 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid1,
 		EndBlockHeight:   100,
 	}
 
 	rid2 := common.Bytes("rid2")
-	sc2 := &types.SplitContract{
+	sc2 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid2,
 		EndBlockHeight:   17,
 	}
 
 	rid3 := common.Bytes("rid3")
-	sc3 := &types.SplitContract{
+	sc3 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid3,
 		EndBlockHeight:   28,
 	}
 
-	sv.SetSplitContract(rid1, sc1)
-	sv.SetSplitContract(rid2, sc2)
-	sv.SetSplitContract(rid3, sc3)
+	sv.SetSplitRule(rid1, sc1)
+	sv.SetSplitRule(rid2, sc2)
+	sv.SetSplitRule(rid3, sc3)
 
-	retrievedSc1 := sv.GetSplitContract(rid1)
-	retrievedSc2 := sv.GetSplitContract(rid2)
-	retrievedSc3 := sv.GetSplitContract(rid3)
+	retrievedSc1 := sv.GetSplitRule(rid1)
+	retrievedSc2 := sv.GetSplitRule(rid2)
+	retrievedSc3 := sv.GetSplitRule(rid3)
 
-	log.Infof("Original SplitContract  #1: %v\n", sc1)
-	log.Infof("Retrieved SplitContract #1: %v\n\n", retrievedSc1)
+	log.Infof("Original SplitRule  #1: %v\n", sc1)
+	log.Infof("Retrieved SplitRule #1: %v\n\n", retrievedSc1)
 	assert.Equal(sc1.String(), retrievedSc1.String())
 
-	log.Infof("Original SplitContract  #2: %v\n", sc2)
-	log.Infof("Retrieved SplitContract #2: %v\n\n", retrievedSc2)
+	log.Infof("Original SplitRule  #2: %v\n", sc2)
+	log.Infof("Retrieved SplitRule #2: %v\n\n", retrievedSc2)
 	assert.Equal(sc2.String(), retrievedSc2.String())
 
-	log.Infof("Original SplitContract  #3: %v\n", sc3)
-	log.Infof("Retrieved SplitContract #3: %v\n\n", retrievedSc3)
+	log.Infof("Original SplitRule  #3: %v\n", sc3)
+	log.Infof("Retrieved SplitRule #3: %v\n\n", retrievedSc3)
 	assert.Equal(sc3.String(), retrievedSc3.String())
 
-	sv.DeleteSplitContract(rid1)
-	assert.Nil(sv.GetSplitContract(rid1))
-	assert.NotNil(sv.GetSplitContract(rid2))
-	assert.NotNil(sv.GetSplitContract(rid3))
+	sv.DeleteSplitRule(rid1)
+	assert.Nil(sv.GetSplitRule(rid1))
+	assert.NotNil(sv.GetSplitRule(rid2))
+	assert.NotNil(sv.GetSplitRule(rid3))
 
-	sv.DeleteExpiredSplitContracts(29)
-	assert.Nil(sv.GetSplitContract(rid1))
-	assert.Nil(sv.GetSplitContract(rid2))
-	assert.Nil(sv.GetSplitContract(rid3))
+	sv.DeleteExpiredSplitRules(29)
+	assert.Nil(sv.GetSplitRule(rid1))
+	assert.Nil(sv.GetSplitRule(rid2))
+	assert.Nil(sv.GetSplitRule(rid3))
 
-	sv.SetSplitContract(rid1, sc1)
-	sv.SetSplitContract(rid2, sc2)
-	sv.SetSplitContract(rid3, sc3)
-	sv.DeleteExpiredSplitContracts(19)
-	assert.NotNil(sv.GetSplitContract(rid1))
-	assert.Nil(sv.GetSplitContract(rid2))
-	assert.NotNil(sv.GetSplitContract(rid3))
+	sv.SetSplitRule(rid1, sc1)
+	sv.SetSplitRule(rid2, sc2)
+	sv.SetSplitRule(rid3, sc3)
+	sv.DeleteExpiredSplitRules(19)
+	assert.NotNil(sv.GetSplitRule(rid1))
+	assert.Nil(sv.GetSplitRule(rid2))
+	assert.NotNil(sv.GetSplitRule(rid3))
 }

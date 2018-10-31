@@ -891,7 +891,7 @@ func TestSlashTx(t *testing.T) {
 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
-func TestSplitContractTxNormalExecution(t *testing.T) {
+func TestSplitRuleTxNormalExecution(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -905,7 +905,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -916,12 +916,12 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(99999),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
@@ -952,7 +952,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
 
-func TestSplitContractTxExpiration(t *testing.T) {
+func TestSplitRuleTxExpiration(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -966,7 +966,7 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -977,15 +977,15 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	et.fastforwardBy(105) // The split contract should expire after the fastforward
+	et.fastforwardBy(105) // The split rule should expire after the fastforward
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should NOT get a cut
 	payAmount := int64(10000)
@@ -1011,10 +1011,10 @@ func TestSplitContractTxExpiration(t *testing.T) {
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
 	servicePaymentTxFee := types.NewCoins(0, 1)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
-	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
+	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split rule has expired
 }
 
-func TestSplitContractTxUpdate(t *testing.T) {
+func TestSplitRuleTxUpdate(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, _, _, carol, _, _, _ := setupForServicePayment(assert)
 	et.fastforwardBy(1000)
@@ -1031,7 +1031,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1042,21 +1042,21 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract)
-	originalEndHeight := splitContract.EndBlockHeight
+	splitRule := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule)
+	originalEndHeight := splitRule.EndBlockHeight
 	log.Infof("originalEndHeight = %v", originalEndHeight)
 
-	// Another user tries to update the split contract, should fail
-	fakeSplitContractUpdateTx := &types.SplitContractTx{
+	// Another user tries to update the split rule, should fail
+	fakeSplitRuleUpdateTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1067,25 +1067,25 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(1000),
 	}
-	signBytes = fakeSplitContractUpdateTx.SignBytes(et.chainID)
-	fakeSplitContractUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
+	signBytes = fakeSplitRuleUpdateTx.SignBytes(et.chainID)
+	fakeSplitRuleUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
-	_, res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
+	_, res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
 
-	splitContract1 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract1)
-	endHeight1 := splitContract1.EndBlockHeight
+	splitRule1 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule1)
+	endHeight1 := splitRule1.EndBlockHeight
 	assert.Equal(originalEndHeight, endHeight1)
 	log.Infof("endHeight1 = %v", endHeight1)
 
-	// The original initiator tries to update the split contract, should succeed
+	// The original initiator tries to update the split rule, should succeed
 	extendedDuration := uint64(1000)
-	splitContractUpdateTx := &types.SplitContractTx{
+	splitRuleUpdateTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1095,18 +1095,18 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: extendedDuration,
 	}
-	signBytes = splitContractUpdateTx.SignBytes(et.chainID)
-	splitContractUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes = splitRuleUpdateTx.SignBytes(et.chainID)
+	splitRuleUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(splitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	res = et.executor.getTxExecutor(splitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractUpdateTx).process(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	_, res = et.executor.getTxExecutor(splitRuleUpdateTx).process(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract2 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract2)
+	splitRule2 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule2)
 	currHeight := et.executor.state.Height()
-	endHeight2 := splitContract2.EndBlockHeight
+	endHeight2 := splitRule2.EndBlockHeight
 	assert.Equal(currHeight+extendedDuration, endHeight2)
 	log.Infof("currHeight = %v", currHeight)
 	log.Infof("endHeight2 = %v", endHeight2)

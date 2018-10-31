@@ -31,7 +31,7 @@ type Executor struct {
 	reserveFundTxExec     *ReserveFundTxExecutor
 	releaseFundTxExec     *ReleaseFundTxExecutor
 	servicePaymentTxExec  *ServicePaymentTxExecutor
-	splitContractTxExec   *SplitContractTxExecutor
+	splitRuleTxExec       *SplitRuleTxExecutor
 	smartContractTxExec   *SmartContractTxExecutor
 
 	skipSanityCheck bool
@@ -50,7 +50,7 @@ func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr c
 		reserveFundTxExec:     NewReserveFundTxExecutor(state),
 		releaseFundTxExec:     NewReleaseFundTxExecutor(state),
 		servicePaymentTxExec:  NewServicePaymentTxExecutor(state),
-		splitContractTxExec:   NewSplitContractTxExecutor(state),
+		splitRuleTxExec:       NewSplitRuleTxExecutor(state),
 		smartContractTxExec:   NewSmartContractTxExecutor(),
 		skipSanityCheck:       false,
 	}
@@ -145,8 +145,8 @@ func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
 		txExecutor = exec.releaseFundTxExec
 	case *types.ServicePaymentTx:
 		txExecutor = exec.servicePaymentTxExec
-	case *types.SplitContractTx:
-		txExecutor = exec.splitContractTxExec
+	case *types.SplitRuleTx:
+		txExecutor = exec.splitRuleTxExec
 	case *types.UpdateValidatorsTx:
 		txExecutor = exec.updateValidatorTxExec
 	case *types.SmartContractTx:

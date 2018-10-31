@@ -523,12 +523,12 @@ func TestServicePaymentTxProto(t *testing.T) {
 	assert.Equal(targetSignBytes, targetSignBytes2)
 }
 
-func TestSplitContractTxSignable(t *testing.T) {
+func TestSplitRuleTxSignable(t *testing.T) {
 	split := Split{
 		Address:    getTestAddress("splitaddr1"),
 		Percentage: 30,
 	}
-	splitContractTx := &SplitContractTx{
+	splitRuleTx := &SplitRuleTx{
 		Gas:        222,
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
@@ -541,26 +541,26 @@ func TestSplitContractTxSignable(t *testing.T) {
 		Duration: 99,
 	}
 
-	signBytes := splitContractTx.SignBytes(chainID)
+	signBytes := splitRuleTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
 	expected := "8A746573745F636861696E06F84881DEC2806F887269643030313233E094736F757263650000000000000000000000000000C480823039830109328080D7D69473706C69746164647231000000000000000000001E63"
 
 	assert.Equal(t, expected, signBytesHex,
-		"Got unexpected sign string for SplitContractTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
+		"Got unexpected sign string for SplitRuleTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
 }
 
-func TestSplitContractTxProto(t *testing.T) {
+func TestSplitRuleTxProto(t *testing.T) {
 	assert, require := assert.New(t), require.New(t)
 
 	chainID := "test_chain_id"
-	test1PrivAcc := PrivAccountFromSecret("splitcontracttx")
+	test1PrivAcc := PrivAccountFromSecret("splitruletx")
 
-	// Construct a SplitContractTx signature
+	// Construct a SplitRuleTx signature
 	split := Split{
 		Address:    getTestAddress("splitaddr1"),
 		Percentage: 30,
 	}
-	tx := &SplitContractTx{
+	tx := &SplitRuleTx{
 		Gas:        222,
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
@@ -574,7 +574,7 @@ func TestSplitContractTxProto(t *testing.T) {
 	require.Nil(err)
 	txs, err := TxFromBytes(b)
 	require.Nil(err)
-	tx2 := txs.(*SplitContractTx)
+	tx2 := txs.(*SplitRuleTx)
 
 	// make sure they are the same!
 	signBytes := tx.SignBytes(chainID)
@@ -591,7 +591,7 @@ func TestSplitContractTxProto(t *testing.T) {
 	require.Nil(err)
 	txs, err = TxFromBytes(b)
 	require.Nil(err)
-	tx2 = txs.(*SplitContractTx)
+	tx2 = txs.(*SplitRuleTx)
 
 	// and make sure the sig is preserved
 	assert.Equal(tx.Initiator.Signature, tx2.Initiator.Signature)

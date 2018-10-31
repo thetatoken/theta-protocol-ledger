@@ -29,7 +29,7 @@ const (
 	TxReserveFund
 	TxReleaseFund
 	TxServicePayment
-	TxSplitContract
+	TxSplitRule
 	TxUpdateValidators
 )
 
@@ -64,8 +64,8 @@ func TxFromBytes(raw []byte) (Tx, error) {
 		data := &ServicePaymentTx{}
 		err = rlp.Decode(buff, data)
 		return data, err
-	} else if txType == TxSplitContract {
-		data := &SplitContractTx{}
+	} else if txType == TxSplitRule {
+		data := &SplitRuleTx{}
 		err = rlp.Decode(buff, data)
 		return data, err
 	} else if txType == TxUpdateValidators {
@@ -93,8 +93,8 @@ func TxToBytes(t Tx) ([]byte, error) {
 		txType = TxReleaseFund
 	case *ServicePaymentTx:
 		txType = TxServicePayment
-	case *SplitContractTx:
-		txType = TxSplitContract
+	case *SplitRuleTx:
+		txType = TxSplitRule
 	case *UpdateValidatorsTx:
 		txType = TxUpdateValidators
 	default:

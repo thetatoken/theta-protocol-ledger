@@ -43,7 +43,7 @@ func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
 	TxCmd.AddCommand(releaseFundCmd)
-	TxCmd.AddCommand(splitContractCmd)
+	TxCmd.AddCommand(splitRuleCmd)
 }
 
 func walletUnlockAddress(cfgPath, addressStr string) (wtypes.Wallet, common.Address, *crypto.PublicKey, error) {

@@ -23,7 +23,7 @@ Transaction Types:
  - ReserveFundTx        Reserve fund for subsequence service payments
  - ReleaseFundTx        Release fund reserved for service payments
  - ServicePaymentTx     Payments for service
- - SplitContractTx      Payment split contract
+ - SplitRuleTx      Payment split rule
  - UpdateValidatorsTx   Update validator set
 */
 
@@ -398,18 +398,18 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 
 //-----------------------------------------------------------------------------
 
-type SplitContractTx struct {
+type SplitRuleTx struct {
 	Gas        uint64       `json:"gas"`         // Gas
 	Fee        Coins        `json:"fee"`         // Fee
 	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
-	Initiator  TxInput      `json:"initiator"`   // Initiator of the split contract
+	Initiator  TxInput      `json:"initiator"`   // Initiator of the split rule
 	Splits     []Split      `json:"splits"`      // Agreed splits
 	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
-func (_ *SplitContractTx) AssertIsTx() {}
+func (_ *SplitRuleTx) AssertIsTx() {}
 
-func (tx *SplitContractTx) SignBytes(chainID string) []byte {
+func (tx *SplitRuleTx) SignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 	sig := tx.Initiator.Signature
 	tx.Initiator.Signature = nil
@@ -419,7 +419,7 @@ func (tx *SplitContractTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
-func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+func (tx *SplitRuleTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.Initiator.Address == addr {
 		tx.Initiator.Signature = sig
 		return true
@@ -427,8 +427,8 @@ func (tx *SplitContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 	return false
 }
 
-func (tx *SplitContractTx) String() string {
-	return fmt.Sprintf("SplitContractTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
+func (tx *SplitRuleTx) String() string {
+	return fmt.Sprintf("SplitRuleTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------
