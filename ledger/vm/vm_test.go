@@ -5,14 +5,16 @@ import (
 	"encoding/hex"
 	"math"
 	"math/big"
+	"strconv"
 	"testing"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/store/database/backend"
-
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
 func TestVMBasic(t *testing.T) {
@@ -156,4 +158,86 @@ func TestContractDeployment(t *testing.T) {
 	assert.Nil(err)
 	assert.True(leftOverGas < math.MaxUint64)
 	assert.Equal([]byte{0x3}, ret)
+}
+
+func TestVMExecute(t *testing.T) {
+	assert := assert.New(t)
+
+	storeView := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
+	privAccounts := prepareInitState(storeView, 2)
+	deployerAcc := privAccounts[0].Account
+	callerAcc := privAccounts[1].Account
+
+	// ASM:
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	code, _ := hex.DecodeString("600360135360016013f3")
+
+	// ASM:
+	// push 0xa
+	// push 0xc
+	// push 0x0
+	// codecopy
+	// push 0xa
+	// push 0x0
+	// return
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	deployCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
+
+	// First deploy a smart contract
+	deploySCTx := &types.SmartContractTx{
+		From: types.TxInput{
+			Address: deployerAcc.PubKey.Address(),
+			Coins:   types.NewCoins(0, 10000),
+		},
+		GasLimit: 60000,
+		GasPrice: big.NewInt(5000),
+		Data:     deployCode,
+	}
+	vmRet, contractAddr, gasUsed, vmErr := Execute(deploySCTx, storeView)
+	assert.Nil(vmErr)
+	retrievedCode := storeView.GetCode(contractAddr)
+	assert.True(bytes.Equal(code, retrievedCode))
+	storeView.Save()
+
+	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v, vmRet: %v", contractAddr.Hex(), gasUsed, hex.EncodeToString(vmRet))
+
+	// Call the smart contract
+	callSCTX := &types.SmartContractTx{
+		From:     types.TxInput{Address: callerAcc.PubKey.Address()},
+		To:       types.TxOutput{Address: contractAddr},
+		GasLimit: 60000,
+		GasPrice: big.NewInt(5000),
+		Data:     nil,
+	}
+	vmRet, _, gasUsed, vmErr = Execute(callSCTX, storeView)
+	assert.Nil(vmErr)
+	assert.Equal(common.Bytes{0x3}, vmRet)
+
+	log.Infof("Call   Contract -- contractAddr: %v, gasUsed: %v, vmRet: %v, ", contractAddr.Hex(), gasUsed, hex.EncodeToString(vmRet))
+}
+
+// ----------- Utilities ----------- //
+
+func prepareInitState(storeView *state.StoreView, numAccounts int) (privAccounts []types.PrivAccount) {
+	for i := 0; i < numAccounts; i++ {
+		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
+		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(90000000, 50000000000))
+		privAccounts = append(privAccounts, privAccount)
+		storeView.SetAccount(privAccount.Account.PubKey.Address(), &privAccount.Account)
+	}
+
+	storeView.IncrementHeight()
+	storeView.Save()
+
+	return privAccounts
 }

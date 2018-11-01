@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
@@ -41,42 +40,28 @@ type (
 
 // TODO1: handle intrinsic gas?
 // TODO2: refund gas for execution error?
-func Execute(tx *types.SmartContractTx, storeView *state.StoreView, static bool) (ret common.Bytes,
-	contractAddr common.Address, gasUsed uint64, res result.Result) {
+func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
+	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{}
 	config := Config{}
 	evm := NewEVM(context, storeView, nil, config)
 
 	var leftOverGas uint64
-	var evmErr error
 
+	value := tx.From.Coins.GammaWei
+	if value == nil {
+		value = big.NewInt(0)
+	}
 	gasLimit := tx.GasLimit
 	fromAddr := tx.From.Address
-	toAddr := tx.To.Address
-	createContract := (toAddr == common.Address{})
+	contractAddr = tx.To.Address
+	createContract := (contractAddr == common.Address{})
 	if createContract {
 		code := tx.Data
-		value := tx.From.Coins.GammaWei
-		ret, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, gasLimit, value)
+		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, gasLimit, value)
 	} else {
-		contractAddr = toAddr
-		contractAccount := storeView.GetAccount(contractAddr)
-		codeHash := contractAccount.CodeHash
-		code := storeView.Get(codeHash)
-		if code == nil {
-			res = result.Error("Cannot find code for address: %v, codeHash: %v", toAddr, codeHash)
-			return ret, contractAddr, uint64(0), res
-		}
-
-		storeView.SetNonce(fromAddr, storeView.GetNonce(fromAddr)+1)
-
-		contract := &Contract{
-			Code: code,
-			Gas:  gasLimit,
-		}
 		input := tx.Data
-		ret, evmErr = evm.interpreter.Run(contract, input, static)
-		leftOverGas = contract.Gas
+		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, gasLimit, value)
 	}
 
 	if leftOverGas > gasLimit { // should not happen
@@ -85,12 +70,7 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView, static bool)
 		gasUsed = gasLimit - leftOverGas
 	}
 
-	if evmErr != nil {
-		evmErrMsg := evmErr.Error()
-		return ret, contractAddr, gasUsed, result.Error(evmErrMsg).WithErrorCode(result.CodeEVMError)
-	}
-
-	return ret, contractAddr, gasUsed, result.OK
+	return evmRet, contractAddr, gasUsed, evmErr
 }
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.

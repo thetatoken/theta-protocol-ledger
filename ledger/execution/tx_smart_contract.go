@@ -92,11 +92,7 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 		return common.Hash{}, result.Error("Failed to get the from account")
 	}
 
-	_, _, gasUsed, res := vm.Execute(tx, view, false)
-	if res.IsError() && (res.Code != result.CodeEVMError) {
-		// transactions with EVM error can be included in the blockchain
-		return common.Hash{}, res
-	}
+	_, _, gasUsed, _ := vm.Execute(tx, view)
 
 	feeAmount := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(gasUsed))
 	fee := types.Coins{

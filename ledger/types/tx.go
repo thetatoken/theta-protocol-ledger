@@ -496,6 +496,6 @@ func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *SmartContractTx) String() string {
-	return fmt.Sprintf("SmartContractTx{%v -> %v, gas_limit: %v, gas_price: %v, data: %v}",
-		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.GasLimit, tx.GasPrice, tx.Data)
+	return fmt.Sprintf("SmartContractTx{%v -> %v, value: %v, gas_limit: %v, gas_price: %v, data: %v}",
+		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.From.Coins.GammaWei, tx.GasLimit, tx.GasPrice, tx.Data)
 }

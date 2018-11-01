@@ -110,5 +110,5 @@ func init() {
 	smartContractCmd.MarkFlagRequired("from")
 	smartContractCmd.MarkFlagRequired("gas_price")
 	smartContractCmd.MarkFlagRequired("gas_limit")
-	splitRuleCmd.MarkFlagRequired("seq")
+	smartContractCmd.MarkFlagRequired("seq")
 }

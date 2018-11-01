@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/vm"
 )
@@ -21,7 +20,7 @@ type CallSmartContractResult struct {
 	vmReturn        common.Bytes   `json:"vm_return"`
 	contractAddress common.Address `json:"contract_address"`
 	gasUsed         uint64         `json:"gas_used"`
-	vmResult        result.Result  `json:"vm_result"`
+	vmError         error          `json:"vm_error"`
 }
 
 // CallSmartContract calls the smart contract. However, calling a smart contract does NOT modify
@@ -47,12 +46,12 @@ func (t *ThetaRPCServer) CallSmartContract(r *http.Request, args *CallSmartContr
 	if err != nil {
 		return err
 	}
-	vmRet, contractAddr, gasUsed, res := vm.Execute(sctx, stateCopy, true)
+	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, stateCopy)
 
 	result.vmReturn = vmRet
 	result.contractAddress = contractAddr
 	result.gasUsed = gasUsed
-	result.vmResult = res
+	result.vmError = vmErr
 
 	return nil
 }
