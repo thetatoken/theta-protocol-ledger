@@ -73,7 +73,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		log.Panic(err)
 	}
 
-	ch.addTxsToIndex(extendedBlock)
+	ch.AddTxsToIndex(extendedBlock, false)
 
 	return extendedBlock, nil
 }

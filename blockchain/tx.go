@@ -21,8 +21,8 @@ type TxIndexEntry struct {
 	Index       uint64
 }
 
-// addTxsToIndex adds transactions in given block to index.
-func (ch *Chain) addTxsToIndex(block *core.ExtendedBlock) {
+// AddTxsToIndex adds transactions in given block to index.
+func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 	for idx, tx := range block.Txs {
 		txIndexEntry := TxIndexEntry{
 			BlockHash:   common.BytesToHash(block.Hash),
@@ -31,6 +31,15 @@ func (ch *Chain) addTxsToIndex(block *core.ExtendedBlock) {
 		}
 		txHash := crypto.Keccak256Hash(tx)
 		key := txIndexKey(txHash)
+
+		if !force {
+			// Check if TX with given hash exists in DB.
+			err := ch.store.Get(key, &TxIndexEntry{})
+			if err != store.ErrKeyNotFound {
+				continue
+			}
+		}
+
 		err := ch.store.Put(key, txIndexEntry)
 		if err != nil {
 			log.Panic(err)

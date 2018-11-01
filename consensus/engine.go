@@ -439,6 +439,10 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 
 	e.state.SetLastFinalizedBlock(block)
 
+	// Force update TX index on block finalization so that the index doesn't point to
+	// duplicate TX in fork.
+	e.chain.AddTxsToIndex(block, true)
+
 	select {
 	case e.finalizedBlocks <- block.Block:
 	default:
