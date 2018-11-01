@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
@@ -66,7 +67,13 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
-	ch.SaveBlock(extendedBlock)
+
+	err = ch.SaveBlock(extendedBlock)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	ch.addTxsToIndex(extendedBlock)
 
 	return extendedBlock, nil
 }
