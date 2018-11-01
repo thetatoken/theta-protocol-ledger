@@ -20,7 +20,7 @@ var (
 
 // splitRuleCmd represents the split_rule command.
 // Example:
-//		banjo query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab
+//		banjo query split_rule --resource_id=0x3FACC98BCCAD124
 var splitRuleCmd = &cobra.Command{
 	Use:   "split_rule",
 	Short: "Get split rule status",
