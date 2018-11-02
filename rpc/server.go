@@ -11,6 +11,7 @@ import (
 	json "github.com/gorilla/rpc/v2/json2"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/ledger"
@@ -24,6 +25,7 @@ var logger *log.Entry
 type ThetaRPCServer struct {
 	mempool *mempool.Mempool
 	ledger  *ledger.Ledger
+	chain   *blockchain.Chain
 
 	server   *http.Server
 	handler  *rpc.Server
@@ -38,13 +40,14 @@ type ThetaRPCServer struct {
 }
 
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
-func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger) *ThetaRPCServer {
+func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *blockchain.Chain) *ThetaRPCServer {
 	t := &ThetaRPCServer{
 		wg: &sync.WaitGroup{},
 	}
 
 	t.mempool = mempool
 	t.ledger = ledger
+	t.chain = chain
 
 	t.handler = rpc.NewServer()
 	t.handler.RegisterCodec(json.NewCodec(), "application/json")

@@ -61,7 +61,7 @@ func NewNode(params *Params) *Node {
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
-	rpcServer := rpc.NewThetaRPCServer(mempool, ledger)
+	rpcServer := rpc.NewThetaRPCServer(mempool, ledger, chain)
 
 	return &Node{
 		Store:            store,
