@@ -2,6 +2,7 @@ package tx
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -85,7 +86,18 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 		fmt.Printf("Server returned error: %v\n", res.Error)
 		return
 	}
-	fmt.Printf("Successfully broadcasted transaction.\n")
+	result := &rpc.BroadcastRawTransactionResult{}
+	err = res.GetObject(result)
+	if err != nil {
+		fmt.Printf("Failed to parse server response: %v\n", err)
+		return
+	}
+	formatted, err := json.MarshalIndent(result, "", "    ")
+	if err != nil {
+		fmt.Printf("Failed to parse server response: %v\n", err)
+		return
+	}
+	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }
 
 func init() {
