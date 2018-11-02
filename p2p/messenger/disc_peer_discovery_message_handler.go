@@ -137,7 +137,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 	}
 }
 
-// maintainConnecmaintainSufficientConnectivitytivity tries to maintain sufficient number
+// maintainSufficientConnectivity tries to maintain sufficient number
 // of connections by dialing peers when the number of connected peers are lower than the
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {

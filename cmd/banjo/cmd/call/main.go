@@ -8,6 +8,7 @@ import (
 var (
 	fromFlag     string
 	toFlag       string
+	seqFlag      uint64
 	valueFlag    uint64
 	gasPriceFlag uint64
 	gasLimitFlag uint64

@@ -31,6 +31,7 @@ const (
 	TxServicePayment
 	TxSplitRule
 	TxUpdateValidators
+	TxSmartContract
 )
 
 func TxFromBytes(raw []byte) (Tx, error) {
@@ -72,6 +73,10 @@ func TxFromBytes(raw []byte) (Tx, error) {
 		data := &UpdateValidatorsTx{}
 		err = rlp.Decode(buff, data)
 		return data, err
+	} else if txType == TxSmartContract {
+		data := &SmartContractTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
 	} else {
 		return nil, fmt.Errorf("Unknown TX type: %v", txType)
 	}
@@ -97,6 +102,8 @@ func TxToBytes(t Tx) ([]byte, error) {
 		txType = TxSplitRule
 	case *UpdateValidatorsTx:
 		txType = TxUpdateValidators
+	case *SmartContractTx:
+		txType = TxSmartContract
 	default:
 		return nil, errors.New("Unsupported message type")
 	}

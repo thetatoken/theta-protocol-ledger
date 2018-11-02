@@ -6,15 +6,14 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+	rpcc "github.com/ybbus/jsonrpc"
+
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rpc"
-
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
-
-	rpcc "github.com/ybbus/jsonrpc"
 )
 
 // smartContractCmd represents the smart_contract command, which can be used to calls the specified smart contract.
@@ -22,9 +21,9 @@ import (
 // for retrieving info from smart contracts without actually spending gas.
 // Examples:
 //   * Deploy a smart contract (local only)
-//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=1000 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3
+//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3
 //   * Call an API of a smart contract (local only)
-//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=B941Db9d564f9ECD82FEA5887C17325389b282bF --value=68000000000 --gas_price=10000000000 --gas_limit=50000 --data=78FADDC641DEF878
+//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --data=1234
 
 var smartContractCmd = &cobra.Command{
 	Use:   "smart_contract",
@@ -39,12 +38,14 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: new(big.Int).SetUint64(0),
 			GammaWei: new(big.Int).SetUint64(valueFlag),
 		},
+		Sequence: seqFlag,
 	}
 	to := types.TxOutput{
 		Address: common.HexToAddress(toFlag),
 	}
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
+		fmt.Printf("Failed to decode data: %v\n", dataFlag)
 		return
 	}
 
@@ -58,7 +59,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	sctxBytes, err := types.TxToBytes(sctx)
 	if err != nil {
-		fmt.Printf("Failed to encode smart contract transaction: %v", sctx)
+		fmt.Printf("Failed to encode smart contract transaction: %v\n", sctx)
 		return
 	}
 
@@ -74,7 +75,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to call smart contraact: %v\n", res.Error)
+		fmt.Printf("Failed to execute smart contract: %v\n", res.Error)
 		return
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
@@ -91,6 +92,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", 0, "The gas price")
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
+	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 
 	smartContractCmd.MarkFlagRequired("from")
 	smartContractCmd.MarkFlagRequired("gas_price")

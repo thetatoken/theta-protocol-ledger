@@ -17,10 +17,10 @@ type CallSmartContractArgs struct {
 }
 
 type CallSmartContractResult struct {
-	vmReturn        common.Bytes   `json:"vm_return"`
-	contractAddress common.Address `json:"contract_address"`
-	gasUsed         uint64         `json:"gas_used"`
-	vmError         error          `json:"vm_error"`
+	VmReturn        string         `json:"vm_return"`
+	ContractAddress common.Address `json:"contract_address"`
+	GasUsed         uint64         `json:"gas_used"`
+	VmError         error          `json:"vm_error"`
 }
 
 // CallSmartContract calls the smart contract. However, calling a smart contract does NOT modify
@@ -42,16 +42,13 @@ func (t *ThetaRPCServer) CallSmartContract(r *http.Request, args *CallSmartContr
 	if err != nil {
 		return err
 	}
-	stateCopy, err := ledgerState.Copy()
-	if err != nil {
-		return err
-	}
-	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, stateCopy)
+	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, ledgerState)
+	ledgerState.Save()
 
-	result.vmReturn = vmRet
-	result.contractAddress = contractAddr
-	result.gasUsed = gasUsed
-	result.vmError = vmErr
+	result.VmReturn = hex.EncodeToString(vmRet)
+	result.ContractAddress = contractAddr
+	result.GasUsed = gasUsed
+	result.VmError = vmErr
 
 	return nil
 }

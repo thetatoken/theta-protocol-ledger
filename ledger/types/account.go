@@ -20,7 +20,7 @@ type Account struct {
 
 	// Smart contract
 	Root     common.Hash // merkle root of the storage trie
-	CodeHash []byte
+	CodeHash common.Bytes
 }
 
 func NewAccount() *Account {

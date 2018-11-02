@@ -43,8 +43,9 @@ type (
 func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{}
+	chainConfig := &params.ChainConfig{}
 	config := Config{}
-	evm := NewEVM(context, storeView, nil, config)
+	evm := NewEVM(context, storeView, chainConfig, config)
 
 	var leftOverGas uint64
 
