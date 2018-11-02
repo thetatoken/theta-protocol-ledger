@@ -21,9 +21,9 @@ import (
 // to the blockchain, which will modify the global consensus state when it is included in the blockchain
 // Examples:
 //   * Deploy a smart contract
-//		banjo tx smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3 --seq=1
+//		banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3 --seq=1
 //   * Call an API of a smart contract
-//		banjo tx smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2
+//		banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2
 
 var smartContractCmd = &cobra.Command{
 	Use:   "smart_contract",
@@ -85,21 +85,29 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to call smart contract: %v\n", err)
+		fmt.Printf("Failed to broadcast transaction: %v\n", err)
 		return
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to execute smart contraact: %v\n", res.Error)
+		fmt.Printf("Server returned error: %v\n", res.Error)
 		return
 	}
-	json, err := json.MarshalIndent(res.Result, "", "    ")
+	result := &rpc.BroadcastRawTransactionResult{}
+	err = res.GetObject(result)
 	if err != nil {
 		fmt.Printf("Failed to parse server response: %v\n", err)
+		return
 	}
-	fmt.Println(string(json))
+	formatted, err := json.MarshalIndent(result, "", "    ")
+	if err != nil {
+		fmt.Printf("Failed to parse server response: %v\n", err)
+		return
+	}
+	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }
 
 func init() {
+	smartContractCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")
 	smartContractCmd.Flags().Uint64Var(&valueFlag, "value", 0, "Value to be transferred")
@@ -108,6 +116,7 @@ func init() {
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 
+	smartContractCmd.MarkFlagRequired("chain")
 	smartContractCmd.MarkFlagRequired("from")
 	smartContractCmd.MarkFlagRequired("gas_price")
 	smartContractCmd.MarkFlagRequired("gas_limit")
