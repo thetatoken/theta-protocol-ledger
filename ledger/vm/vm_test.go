@@ -194,10 +194,12 @@ func TestVMExecute(t *testing.T) {
 	deployCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
 
 	// First deploy a smart contract
+	deployerAddr := deployerAcc.PubKey.Address()
+	valueAmount := 9723
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
-			Address: deployerAcc.PubKey.Address(),
-			Coins:   types.NewCoins(0, 10000),
+			Address: deployerAddr,
+			Coins:   types.NewCoins(0, valueAmount),
 		},
 		GasLimit: 60000,
 		GasPrice: big.NewInt(5000),
@@ -207,13 +209,21 @@ func TestVMExecute(t *testing.T) {
 	assert.Nil(vmErr)
 	retrievedCode := storeView.GetCode(contractAddr)
 	assert.True(bytes.Equal(code, retrievedCode))
+
 	storeView.Save()
+	retrievedDeployerAcc := storeView.GetAccount(deployerAddr)
+	deployerTransferredValue := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
+	assert.True(types.NewCoins(0, valueAmount).IsEqual(deployerTransferredValue))
+
+	contractBalance := storeView.GetBalance(contractAddr)
+	assert.True(big.NewInt(int64(valueAmount)).Cmp(contractBalance) == 0)
 
 	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v, vmRet: %v", contractAddr.Hex(), gasUsed, hex.EncodeToString(vmRet))
 
 	// Call the smart contract
+	callerAddr := callerAcc.PubKey.Address()
 	callSCTX := &types.SmartContractTx{
-		From:     types.TxInput{Address: callerAcc.PubKey.Address()},
+		From:     types.TxInput{Address: callerAddr},
 		To:       types.TxOutput{Address: contractAddr},
 		GasLimit: 60000,
 		GasPrice: big.NewInt(5000),
@@ -224,6 +234,11 @@ func TestVMExecute(t *testing.T) {
 	assert.Equal(common.Bytes{0x3}, vmRet)
 
 	log.Infof("Call   Contract -- contractAddr: %v, gasUsed: %v, vmRet: %v, ", contractAddr.Hex(), gasUsed, hex.EncodeToString(vmRet))
+
+	storeView.Save()
+	retrievedCallerAcc := storeView.GetAccount(callerAddr)
+	callerTransferredValue := callerAcc.Balance.Minus(retrievedCallerAcc.Balance)
+	assert.True(types.NewCoins(0, 0).IsEqual(callerTransferredValue)) // Caller transferred no value, also Gas fee should NOT be deducted
 }
 
 // ----------- Utilities ----------- //

@@ -22,9 +22,9 @@ import (
 // for retrieving info from smart contracts without actually spending gas.
 // Examples:
 //   * Deploy a smart contract (local only)
-//		banjo call smart_contract --from=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=68000000000 --gas_price=10000000000 --gas_limit=50000 --data=0x600160020160135360016013f3
+//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=1000 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3
 //   * Call an API of a smart contract (local only)
-//		banjo call smart_contract --from=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x3883f5e181fccaf8410fa61e12b59bad963fb645 --value=68000000000 --gas_price=10000000000 --gas_limit=50000 --data=0x78FADDC641DEF878
+//		banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=B941Db9d564f9ECD82FEA5887C17325389b282bF --value=68000000000 --gas_price=10000000000 --gas_limit=50000 --data=78FADDC641DEF878
 
 var smartContractCmd = &cobra.Command{
 	Use:   "smart_contract",
