@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
@@ -219,6 +218,10 @@ func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 }
 
 func (tl *TestLedger) ResetState(height uint64, rootHash common.Hash) result.Result {
+	return result.OK
+}
+
+func (tl *TestLedger) FinalizeState(height uint64, rootHash common.Hash) result.Result {
 	return result.OK
 }
 

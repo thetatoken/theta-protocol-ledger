@@ -16,6 +16,7 @@ type LedgerState struct {
 	chainID string
 	db      database.Database
 
+	finalized *StoreView // for checking the latest finalized state
 	delivered *StoreView // for actually applying the transactions
 	checked   *StoreView // for block proposal check
 	screened  *StoreView // for mempool screening
@@ -30,6 +31,7 @@ func NewLedgerState(chainID string, db database.Database) *LedgerState {
 		db:      db,
 	}
 	s.ResetState(uint64(0), common.Hash{})
+	s.Finalize(uint64(0), common.Hash{})
 	return s
 }
 
@@ -51,6 +53,16 @@ func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) resul
 		return result.Error(fmt.Sprintf("Failed to copy to the screened view: %v", err))
 	}
 
+	return result.OK
+}
+
+// Finalize updates the finalized view.
+func (s *LedgerState) Finalize(height uint64, stateRootHash common.Hash) result.Result {
+	storeview := NewStoreView(height, stateRootHash, s.db)
+	if storeview == nil {
+		return result.Error(fmt.Sprintf("Failed to finalize ledger state with state root hash: %v", stateRootHash))
+	}
+	s.finalized = storeview
 	return result.OK
 }
 
@@ -82,6 +94,11 @@ func (s *LedgerState) Checked() *StoreView {
 // Screened creates a fresh clone of delivered view to be used for checking transcations.
 func (s *LedgerState) Screened() *StoreView {
 	return s.screened
+}
+
+// Finalized creates a fresh clone of delivered view to be used for checking transcations.
+func (s *LedgerState) Finalized() *StoreView {
+	return s.finalized
 }
 
 // Commit stores the current delivered view as committed, starts new delivered/checked state and

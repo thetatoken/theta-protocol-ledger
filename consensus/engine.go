@@ -9,19 +9,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/common/util"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/ukulele/store"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "consensus"})
@@ -438,6 +437,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Done Finalized block")
 
 	e.state.SetLastFinalizedBlock(block)
+	e.ledger.FinalizeState(block.Height, common.BytesToHash(block.StateHash))
 
 	// Mark block and its ancestors as finalized.
 	e.chain.FinalizePreviousBlocks(block)
