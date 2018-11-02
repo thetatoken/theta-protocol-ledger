@@ -86,13 +86,16 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SmartContractTx)
 
+	// Note: for contract deployment, vm.Execute() might transfer coins from the fromAccount to the
+	//       deployed smart contract. Thus, we should call vm.Execute() before calling getInput().
+	//       Otherwise, the fromAccount returned by getInput() will have incorrect balance.
+	_, _, gasUsed, _ := vm.Execute(tx, view)
+
 	fromAddress := tx.From.Address
 	fromAccount, success := getInput(view, tx.From)
 	if success.IsError() {
 		return common.Hash{}, result.Error("Failed to get the from account")
 	}
-
-	_, _, gasUsed, _ := vm.Execute(tx, view)
 
 	feeAmount := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(gasUsed))
 	fee := types.Coins{

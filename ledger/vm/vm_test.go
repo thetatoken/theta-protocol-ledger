@@ -211,6 +211,8 @@ func TestVMExecute(t *testing.T) {
 	assert.True(bytes.Equal(code, retrievedCode))
 
 	storeView.Save()
+
+	// Note: the gas fee deduction is handled by the ledger executor, so NO gas deduction here
 	retrievedDeployerAcc := storeView.GetAccount(deployerAddr)
 	deployerTransferredValue := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
 	assert.True(types.NewCoins(0, valueAmount).IsEqual(deployerTransferredValue))
