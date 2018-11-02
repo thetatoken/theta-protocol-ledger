@@ -1,8 +1,10 @@
 package execution
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
+	"strconv"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -11,6 +13,7 @@ import (
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/ledger/vm"
 )
 
 func TestGetInputs(t *testing.T) {
@@ -891,7 +894,7 @@ func TestSlashTx(t *testing.T) {
 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
-func TestSplitContractTxNormalExecution(t *testing.T) {
+func TestSplitRuleTxNormalExecution(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -905,7 +908,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -916,12 +919,12 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(99999),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
@@ -952,7 +955,7 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
 
-func TestSplitContractTxExpiration(t *testing.T) {
+func TestSplitRuleTxExpiration(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
@@ -966,7 +969,7 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -977,15 +980,15 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	et.fastforwardBy(105) // The split contract should expire after the fastforward
+	et.fastforwardBy(105) // The split rule should expire after the fastforward
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should NOT get a cut
 	payAmount := int64(10000)
@@ -1011,10 +1014,10 @@ func TestSplitContractTxExpiration(t *testing.T) {
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
 	servicePaymentTxFee := types.NewCoins(0, 1)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
-	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
+	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split rule has expired
 }
 
-func TestSplitContractTxUpdate(t *testing.T) {
+func TestSplitRuleTxUpdate(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, _, _, carol, _, _, _ := setupForServicePayment(assert)
 	et.fastforwardBy(1000)
@@ -1031,7 +1034,7 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1042,21 +1045,21 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract)
-	originalEndHeight := splitContract.EndBlockHeight
+	splitRule := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule)
+	originalEndHeight := splitRule.EndBlockHeight
 	log.Infof("originalEndHeight = %v", originalEndHeight)
 
-	// Another user tries to update the split contract, should fail
-	fakeSplitContractUpdateTx := &types.SplitContractTx{
+	// Another user tries to update the split rule, should fail
+	fakeSplitRuleUpdateTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1067,25 +1070,25 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(1000),
 	}
-	signBytes = fakeSplitContractUpdateTx.SignBytes(et.chainID)
-	fakeSplitContractUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
+	signBytes = fakeSplitRuleUpdateTx.SignBytes(et.chainID)
+	fakeSplitRuleUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
-	_, res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
+	_, res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
 
-	splitContract1 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract1)
-	endHeight1 := splitContract1.EndBlockHeight
+	splitRule1 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule1)
+	endHeight1 := splitRule1.EndBlockHeight
 	assert.Equal(originalEndHeight, endHeight1)
 	log.Infof("endHeight1 = %v", endHeight1)
 
-	// The original initiator tries to update the split contract, should succeed
+	// The original initiator tries to update the split rule, should succeed
 	extendedDuration := uint64(1000)
-	splitContractUpdateTx := &types.SplitContractTx{
+	splitRuleUpdateTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, 10),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
@@ -1095,21 +1098,158 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: extendedDuration,
 	}
-	signBytes = splitContractUpdateTx.SignBytes(et.chainID)
-	splitContractUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes = splitRuleUpdateTx.SignBytes(et.chainID)
+	splitRuleUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(splitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	res = et.executor.getTxExecutor(splitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractUpdateTx).process(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	_, res = et.executor.getTxExecutor(splitRuleUpdateTx).process(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract2 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract2)
+	splitRule2 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule2)
 	currHeight := et.executor.state.Height()
-	endHeight2 := splitContract2.EndBlockHeight
+	endHeight2 := splitRule2.EndBlockHeight
 	assert.Equal(currHeight+extendedDuration, endHeight2)
 	log.Infof("currHeight = %v", currHeight)
 	log.Infof("endHeight2 = %v", endHeight2)
+}
+
+func TestSmartContractDeploymentAndExecution(t *testing.T) {
+	assert := assert.New(t)
+	et, privAccounts := setupForSmartContract(assert, 2)
+	et.fastforwardBy(1000)
+
+	deployerPrivAcc := privAccounts[0]
+	callerPrivAcc := privAccounts[1]
+
+	// ASM:
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	smartContractCode, _ := hex.DecodeString("600360135360016013f3")
+
+	// ASM:
+	// push 0xa
+	// push 0xc
+	// push 0x0
+	// codecopy
+	// push 0xa
+	// push 0x0
+	// return
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	deploymentCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
+
+	//
+	// Step 1. Deploy a smart contract
+	//
+
+	deployerAcc := deployerPrivAcc.Account
+	deployerAddr := deployerAcc.PubKey.Address()
+	valueAmount := 9723
+	gasPrice := int64(234)
+	deploySCTx := &types.SmartContractTx{
+		From: types.TxInput{
+			Address:  deployerAddr,
+			PubKey:   deployerAcc.PubKey,
+			Coins:    types.NewCoins(0, valueAmount),
+			Sequence: 1,
+		},
+		GasLimit: 60000,
+		GasPrice: big.NewInt(gasPrice),
+		Data:     deploymentCode,
+	}
+	signBytes := deploySCTx.SignBytes(et.chainID)
+	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
+
+	// Dry run to get the smart contract address when it is actually deployed
+	stateCopy, err := et.state().Delivered().Copy()
+	assert.Nil(err)
+	_, contractAddr, gasUsed, vmErr := vm.Execute(deploySCTx, stateCopy)
+	assert.Nil(vmErr)
+	log.Infof("[Deployment] gas used: %v", gasUsed)
+
+	// The actual on-chain deplpoyment
+	res := et.executor.getTxExecutor(deploySCTx).sanityCheck(et.chainID, et.state().Delivered(), deploySCTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(deploySCTx).process(et.chainID, et.state().Delivered(), deploySCTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	// Check if the smart contract code has actually been deployed on-chain
+	retrievedCode := et.state().Delivered().GetCode(contractAddr)
+	assert.True(bytes.Equal(smartContractCode, retrievedCode))
+
+	// Check the amount of coins transferred to the smart contract
+	retrievedSmartContractAccount := et.state().Delivered().GetAccount(contractAddr)
+	assert.NotNil(retrievedSmartContractAccount)
+	expectedTransferredValue := types.NewCoins(0, valueAmount)
+	assert.True(expectedTransferredValue.IsEqual(retrievedSmartContractAccount.Balance))
+	log.Infof("[Deployment] expected transferred value: %v, actual transferred value: %v",
+		expectedTransferredValue, retrievedSmartContractAccount.Balance)
+
+	// Check the deployment gas fee
+	retrievedDeployerAcc := et.state().Delivered().GetAccount(deployerAddr)
+	deploymentFee := types.NewCoins(0, int(gasUsed)*int(gasPrice))
+	expectedTotalDeploymentCost := expectedTransferredValue.Plus(deploymentFee)
+	deploymentAccBalanceReduction := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
+	assert.Equal(expectedTotalDeploymentCost, deploymentAccBalanceReduction)
+	log.Infof("[Deployment] expected gas cost: %v, actual gas cost: %v",
+		expectedTotalDeploymentCost, deploymentAccBalanceReduction)
+
+	//
+	// Step 2. Execute the smart contact
+	//
+
+	callerAcc := callerPrivAcc.Account
+	callerAddr := callerAcc.PubKey.Address()
+	callSCTX := &types.SmartContractTx{
+		From: types.TxInput{
+			Address:  callerAddr,
+			PubKey:   callerAcc.PubKey,
+			Sequence: 1,
+		},
+		To:       types.TxOutput{Address: contractAddr},
+		GasLimit: 60000,
+		GasPrice: big.NewInt(gasPrice),
+		Data:     nil,
+	}
+	signBytes = callSCTX.SignBytes(et.chainID)
+	callSCTX.From.Signature = callerPrivAcc.Sign(signBytes)
+
+	// Dry run to call the contract
+	stateCopy, err = et.state().Delivered().Copy()
+	assert.Nil(err)
+	vmRet, execContractAddr, gasUsed, vmErr := vm.Execute(callSCTX, stateCopy)
+	assert.Nil(vmErr)
+	assert.Equal(common.Bytes{0x3}, vmRet)
+	assert.Equal(contractAddr, execContractAddr)
+	log.Infof("[Execution ] gas used: %v", gasUsed)
+
+	// The actually on-chain contract execution
+	res = et.executor.getTxExecutor(callSCTX).sanityCheck(et.chainID, et.state().Delivered(), callSCTX)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(callSCTX).process(et.chainID, et.state().Delivered(), callSCTX)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	// Check the smart contract execution gas fee
+	retrievedCallerAcc := et.state().Delivered().GetAccount(callerAddr)
+	expectedSCExecGasFee := types.NewCoins(0, int(gasUsed)*int(gasPrice))
+	callerAccBalanceReduction := callerAcc.Balance.Minus(retrievedCallerAcc.Balance)
+	assert.Equal(expectedSCExecGasFee, callerAccBalanceReduction)
+	log.Infof("[Execution ] expected gas cost: %v, actual gas cost: %v",
+		expectedSCExecGasFee, callerAccBalanceReduction)
 }
 
 // ------------------------------ Test Utils ------------------------------ //
@@ -1201,4 +1341,18 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 	ast.True(res.IsOK(), res.String())
 
 	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance
+}
+
+func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTest, privAccounts []types.PrivAccount) {
+	et = NewExecTest()
+
+	for i := 0; i < numAccounts; i++ {
+		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
+		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, 50000000000))
+		privAccounts = append(privAccounts, privAccount)
+		et.acc2State(privAccount)
+	}
+	et.fastforwardTo(1e2)
+
+	return et, privAccounts
 }

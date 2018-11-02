@@ -150,7 +150,7 @@ func TestTx(t *testing.T) {
 	assert.Equal(tx1.(*ServicePaymentTx).PaymentSequence, tx2.(*ServicePaymentTx).PaymentSequence)
 	assert.Equal(tx1.(*ServicePaymentTx).ReserveSequence, tx2.(*ServicePaymentTx).ReserveSequence)
 
-	tx1 = &SplitContractTx{
+	tx1 = &SplitRuleTx{
 		Fee:        NewCoins(123, 0),
 		Gas:        123,
 		ResourceID: []byte("rid789"),
@@ -162,12 +162,12 @@ func TestTx(t *testing.T) {
 	require.Nil(err)
 	tx2, err = TxFromBytes(b)
 	require.Nil(err)
-	assert.Equal(tx1.(*SplitContractTx).Fee, tx2.(*SplitContractTx).Fee)
-	assert.Equal(tx1.(*SplitContractTx).Gas, tx2.(*SplitContractTx).Gas)
-	assert.Equal(tx1.(*SplitContractTx).ResourceID, tx2.(*SplitContractTx).ResourceID)
-	assert.Equal(tx1.(*SplitContractTx).Initiator.Address, tx2.(*SplitContractTx).Initiator.Address)
-	assert.Equal(tx1.(*SplitContractTx).Splits, tx2.(*SplitContractTx).Splits)
-	assert.Equal(tx1.(*SplitContractTx).Duration, tx2.(*SplitContractTx).Duration)
+	assert.Equal(tx1.(*SplitRuleTx).Fee, tx2.(*SplitRuleTx).Fee)
+	assert.Equal(tx1.(*SplitRuleTx).Gas, tx2.(*SplitRuleTx).Gas)
+	assert.Equal(tx1.(*SplitRuleTx).ResourceID, tx2.(*SplitRuleTx).ResourceID)
+	assert.Equal(tx1.(*SplitRuleTx).Initiator.Address, tx2.(*SplitRuleTx).Initiator.Address)
+	assert.Equal(tx1.(*SplitRuleTx).Splits, tx2.(*SplitRuleTx).Splits)
+	assert.Equal(tx1.(*SplitRuleTx).Duration, tx2.(*SplitRuleTx).Duration)
 }
 
 func getTestAddress(addr string) common.Address {

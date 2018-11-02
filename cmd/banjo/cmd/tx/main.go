@@ -30,6 +30,10 @@ var (
 	reserveSeqFlag               uint64
 	addressesFlag                []string
 	percentagesFlag              []string
+	valueFlag                    uint64
+	gasPriceFlag                 uint64
+	gasLimitFlag                 uint64
+	dataFlag                     string
 )
 
 // TxCmd represents the Tx command
@@ -43,7 +47,8 @@ func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
 	TxCmd.AddCommand(releaseFundCmd)
-	TxCmd.AddCommand(splitContractCmd)
+	TxCmd.AddCommand(splitRuleCmd)
+	TxCmd.AddCommand(smartContractCmd)
 }
 
 func walletUnlockAddress(cfgPath, addressStr string) (wtypes.Wallet, common.Address, *crypto.PublicKey, error) {

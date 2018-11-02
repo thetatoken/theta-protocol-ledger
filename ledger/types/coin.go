@@ -29,7 +29,7 @@ func NewCoins(theta int, gamma int) Coins {
 }
 
 func (coins Coins) String() string {
-	return fmt.Sprintf("%v%v, %v%v", coins.ThetaWei, DenomThetaWei, coins.GammaWei, DenomGammaWei)
+	return fmt.Sprintf("%v %v, %v %v", coins.ThetaWei, DenomThetaWei, coins.GammaWei, DenomGammaWei)
 }
 
 func (coins Coins) IsValid() bool {
