@@ -1,5 +1,3 @@
-// +build unit
-
 package blockchain
 
 import (
@@ -7,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestBlockchain(t *testing.T) {
@@ -51,4 +50,50 @@ func TestBlockchainDeepestDescendant(t *testing.T) {
 	ret, depth := ch.FindDeepestDescendant(ch.Root.Hash)
 	assert.True(bytes.Equal(ParseHex("b3"), ret.Hash), "Expected deepest block: %v, actual: %v", ParseHex("b3"), ret.Hash)
 	assert.Equal(3, depth)
+}
+
+func TestFinalizePreviousBlocks(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	ch := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"a3", "a2",
+		"a4", "a3",
+		"a5", "a4",
+		"b2", "a1",
+		"b3", "b2",
+		"c1", "a0",
+	})
+	block, err := ch.FindBlock(ParseHex("a3"))
+	require.Nil(err)
+
+	ch.FinalizePreviousBlocks(block)
+
+	for _, hash := range []string{"a0", "a1", "a2", "a3"} {
+		block, err = ch.FindBlock(ParseHex(hash))
+		assert.Nil(err)
+		assert.True(block.Finalized)
+	}
+
+	for _, hash := range []string{"b2", "b3", "c1", "a4", "a5"} {
+		block, err = ch.FindBlock(ParseHex(hash))
+		assert.False(block.Finalized)
+	}
+
+	block, err = ch.FindBlock(ParseHex("a5"))
+	require.Nil(err)
+	ch.FinalizePreviousBlocks(block)
+
+	for _, hash := range []string{"a0", "a1", "a2", "a3", "a4", "a5"} {
+		block, err = ch.FindBlock(ParseHex(hash))
+		assert.True(block.Finalized)
+	}
+
+	for _, hash := range []string{"b2", "b3", "c1"} {
+		block, err = ch.FindBlock(ParseHex(hash))
+		assert.False(block.Finalized)
+	}
+
 }

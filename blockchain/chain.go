@@ -31,6 +31,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 		mu:      &sync.Mutex{},
 	}
 	rootBlock, _ := chain.AddBlock(root)
+	chain.FinalizePreviousBlocks(rootBlock)
 	chain.Root = rootBlock
 	return chain
 }
@@ -78,6 +79,21 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 	return extendedBlock, nil
 }
 
+func (ch *Chain) FinalizePreviousBlocks(block *core.ExtendedBlock) {
+	var err error
+	for block != nil && !block.Finalized {
+		block.Finalized = true
+		err = ch.SaveBlock(block)
+		if err != nil {
+			log.Panic(err)
+		}
+		block, err = ch.FindBlock(block.Parent)
+		if err != nil {
+			return
+		}
+	}
+}
+
 // FindDeepestDescendant finds the deepest descendant of given block.
 func (ch *Chain) FindDeepestDescendant(hash common.Bytes) (n *core.ExtendedBlock, depth int) {
 	// TODO: replace recursive implementation with stack-based implementation.
@@ -117,15 +133,7 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*core.ExtendedBlock, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Returns a copy of the block.
-	ret := &core.ExtendedBlock{
-		Block:             block.Block,
-		Children:          make([]common.Bytes, len(block.Children)),
-		CommitCertificate: block.CommitCertificate,
-	}
-	copy(ret.Children, block.Children)
-	return ret, nil
+	return &block, nil
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
