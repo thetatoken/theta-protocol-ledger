@@ -63,6 +63,7 @@ type ExtendedBlock struct {
 	*Block
 	Children          []common.Bytes
 	CommitCertificate *CommitCertificate `rlp:"nil"`
+	Finalized         bool
 }
 
 func (eb *ExtendedBlock) String() string {
