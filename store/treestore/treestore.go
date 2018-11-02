@@ -4,7 +4,6 @@ import (
 	"bytes"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/trie"
@@ -46,6 +45,7 @@ func (store *TreeStore) Commit() (common.Hash, error) {
 
 // Copy returns a copy of the TreeStore
 func (store *TreeStore) Copy() (*TreeStore, error) {
+	store.Trie.Commit(nil)
 	copiedTrie, err := store.Trie.Copy()
 	if err != nil {
 		return nil, err
