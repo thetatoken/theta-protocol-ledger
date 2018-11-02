@@ -26,7 +26,7 @@ func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, resul
 		return errors.New("Address must be specified")
 	}
 	address := common.HexToAddress(args.Address)
-	ledgerState, err := t.ledger.GetStateSnapshot()
+	ledgerState, err := t.ledger.GetScreenedSnapshot()
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (t *ThetaRPCServer) GetSplitContract(r *http.Request, args *GetSplitContrac
 	if err != nil {
 		return err
 	}
-	ledgerState, err := t.ledger.GetStateSnapshot()
+	ledgerState, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
 	}
