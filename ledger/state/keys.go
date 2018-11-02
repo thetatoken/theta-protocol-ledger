@@ -16,14 +16,14 @@ func AccountKey(addr common.Address) common.Bytes {
 	return append(common.Bytes("ls/a/"), addr[:]...)
 }
 
-// SplitContractKeyPrefix returns the prefix for the split contract key
-func SplitContractKeyPrefix() common.Bytes {
-	return common.Bytes("ls/ssc/split/") // special smart contract / split contract
+// SplitRuleKeyPrefix returns the prefix for the split rule key
+func SplitRuleKeyPrefix() common.Bytes {
+	return common.Bytes("ls/ssc/split/") // special smart contract / split rule
 }
 
-// SplitContractKey construct the state key for the given resourceID
-func SplitContractKey(resourceID common.Bytes) common.Bytes {
-	return append(SplitContractKeyPrefix(), resourceID...)
+// SplitRuleKey construct the state key for the given resourceID
+func SplitRuleKey(resourceID common.Bytes) common.Bytes {
+	return append(SplitRuleKeyPrefix(), resourceID...)
 }
 
 // CodeKey construct the state key for the given code hash

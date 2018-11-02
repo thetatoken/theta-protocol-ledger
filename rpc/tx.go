@@ -18,7 +18,7 @@ type BroadcastRawTransactionResult struct{}
 func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request, args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
 	txBytes, err := hex.DecodeString(args.TxBytes)
 	if err != nil {
-		return
+		return err
 	}
 	return t.mempool.InsertTransaction(mempool.CreateMempoolTransaction(txBytes))
 }

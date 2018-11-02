@@ -116,10 +116,10 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 	}
 
 	resourceID := tx.ResourceID
-	splitContract := view.GetSplitContract(resourceID)
+	splitRule := view.GetSplitRule(resourceID)
 
 	fullTransferAmount := tx.Source.Coins
-	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitContract, resourceID, targetAddress, targetAccount, fullTransferAmount)
+	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitRule, resourceID, targetAddress, targetAccount, fullTransferAmount)
 	if !splitSuccess {
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
@@ -148,29 +148,29 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 	return txHash, result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitContract *types.SplitContract, resourceID common.Bytes,
+func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule *types.SplitRule, resourceID common.Bytes,
 	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
 	coinsMap := map[*types.Account]types.Coins{}
 	accountAddressMap := map[*types.Account](common.Address){}
 
-	// no splitContract associated with the resourceID, full payment goes to the target account
-	if splitContract == nil {
+	// no splitRule associated with the resourceID, full payment goes to the target account
+	if splitRule == nil {
 		coinsMap[targetAccount] = fullAmount
 		accountAddressMap[targetAccount] = targetAddress
 		return true, coinsMap, accountAddressMap
 	}
 
-	// the splitContract has expired, full payment goes to the target account. also delete the splitContract
-	if exec.state.Height() > splitContract.EndBlockHeight {
+	// the splitRule has expired, full payment goes to the target account. also delete the splitRule
+	if exec.state.Height() > splitRule.EndBlockHeight {
 		coinsMap[targetAccount] = fullAmount
-		view.DeleteSplitContract(resourceID)
+		view.DeleteSplitRule(resourceID)
 		accountAddressMap[targetAccount] = targetAddress
 		return true, coinsMap, accountAddressMap
 	}
 
-	// the splitContract is valid, split the payment among the participated addresses
+	// the splitRule is valid, split the payment among the participated addresses
 	remainingAmount := fullAmount
-	for _, split := range splitContract.Splits {
+	for _, split := range splitRule.Splits {
 		splitAddress := split.Address
 		splitAccount := getOrMakeAccount(view, splitAddress)
 		percentage := split.Percentage

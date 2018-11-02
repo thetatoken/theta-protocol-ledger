@@ -29,6 +29,12 @@ func (res Result) WithErrorCode(code ErrorCode) Result {
 	return res
 }
 
+// WithMessage appends the result's message with the given message
+func (res Result) WithMessage(message string) Result {
+	res.Message += message
+	return res
+}
+
 // -------------- Constructors -------------- //
 
 // OK represents the success result

@@ -18,26 +18,26 @@ var (
 	resourceIDFlag string
 )
 
-// splitContractCmd represents the split_contract command.
+// splitRuleCmd represents the split_rule command.
 // Example:
-//		banjo query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab
-var splitContractCmd = &cobra.Command{
-	Use:   "split_contract",
-	Short: "Get split contract status",
-	Run:   doSplitContractCmd,
+//		banjo query split_rule --resource_id=0x3FACC98BCCAD124
+var splitRuleCmd = &cobra.Command{
+	Use:   "split_rule",
+	Short: "Get split rule status",
+	Run:   doSplitRuleCmd,
 }
 
-func doSplitContractCmd(cmd *cobra.Command, args []string) {
+func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
 	resourceID := hex.EncodeToString(common.Bytes(resourceIDFlag))
-	res, err := client.Call("theta.GetSplitContract", rpc.GetSplitContractArgs{ResourceID: resourceID})
+	res, err := client.Call("theta.GetSplitRule", rpc.GetSplitRuleArgs{ResourceID: resourceID})
 	if err != nil {
-		fmt.Printf("Failed to get split contract details: %v\n", err)
+		fmt.Printf("Failed to get split rule details: %v\n", err)
 		return
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to get split contract details: %v\n", res.Error)
+		fmt.Printf("Failed to get split rule details: %v\n", res.Error)
 		return
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
@@ -48,6 +48,6 @@ func doSplitContractCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	splitContractCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "Resource ID of the contract")
-	splitContractCmd.MarkFlagRequired("resource_id")
+	splitRuleCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "Resource ID of the contract")
+	splitRuleCmd.MarkFlagRequired("resource_id")
 }
