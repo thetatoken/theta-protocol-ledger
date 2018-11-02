@@ -26,7 +26,7 @@ This should build the binaries and copy them into your `$GOPATH/bin`:
 make build install
 ```
 
-## Run unit tests
+## Run Unit Tests
 Make sure `jq` is installed:
 ```
 brew install jq
@@ -35,7 +35,7 @@ Run unit tests:
 ```
 make test_unit
 ```
-## Run a local private net
+## Run a Local Private Net
 Use the following commands to launch a private net with a single validator node.
 ```
 cd $UKULELE_HOME
@@ -50,7 +50,7 @@ The balance of an address can be queried with the following command
 ```
 banjo query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 ```
-## Deploy and execute smart contracts
+## Deploy and Execute Smart Contracts
 Similar to Ethereum, the Theta blockchain supports Turing-complete smart contract. The examples below demonstrate how to deploy the bytecode of a smart contract, and then execute the smart contract. For each step, we always perform a __dry run__ first with the `banjo call` command, which simulates the smart contract execution locally. For the actually deployment and execution, we use the `banjo tx` command instead.
 
 First, let us udo a dry run for the smart contract deployment. The `data` parameter carries the compiled bytecode of the smart contract to be deployed.
