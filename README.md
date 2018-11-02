@@ -9,7 +9,7 @@ Install Go and set environment variables `GOPATH` and `PATH`.
 Clone this repo into your GOPATH. The path should look like this: `$GOPATH/src/github.com/thetatoken/ukulele`
 
 ```
-git clone git@github.com:thetatoken/theta-protocol-ledger-2.git $GOPATH/src/github.com/thetatoken/ukulele
+git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/ukulele
 ```
 
 Install [glide](https://github.com/Masterminds/glide). Then in code base, do this to download all dependencies:
