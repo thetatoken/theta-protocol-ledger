@@ -449,10 +449,15 @@ func (sv *StoreView) Empty(addr common.Address) bool {
 }
 
 func (sv *StoreView) RevertToSnapshot(root common.Hash) {
-	sv.store = treestore.NewTreeStore(root, sv.store.GetDB())
+	var err error
+	sv.store, err = sv.store.Revert(root) // revert to one of the previous roots
+	if err != nil {
+		panic(err)
+	}
 }
 
 func (sv *StoreView) Snapshot() common.Hash {
+	sv.store.Trie.Commit(nil) // Needs to commit to the in-memory trie DB
 	return sv.store.Hash()
 }
 
