@@ -38,7 +38,7 @@ func (t *ThetaRPCServer) CallSmartContract(r *http.Request, args *CallSmartContr
 		return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
 	}
 
-	ledgerState, err := t.ledger.GetStateSnapshot()
+	ledgerState, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
 	}
