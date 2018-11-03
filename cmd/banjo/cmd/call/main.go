@@ -6,6 +6,7 @@ import (
 
 // Common flags used in Call sub commands.
 var (
+	chainIDFlag  string
 	fromFlag     string
 	toFlag       string
 	seqFlag      uint64

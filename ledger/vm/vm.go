@@ -42,7 +42,13 @@ type (
 // TODO2: refund gas for execution error?
 func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
-	context := Context{}
+	context := Context{
+		GasPrice:    tx.GasPrice,
+		GasLimit:    tx.GasLimit,
+		BlockNumber: big.NewInt(0), // TODO: set to the actual height?
+		Time:        big.NewInt(time.Now().Unix()),
+		Difficulty:  big.NewInt(0),
+	}
 	chainConfig := &params.ChainConfig{}
 	config := Config{}
 	evm := NewEVM(context, storeView, chainConfig, config)
