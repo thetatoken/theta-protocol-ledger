@@ -97,15 +97,15 @@ Wait for 5 to 10 seconds for the transaction to be included in the blockchain. T
 ```
 banjo query account --address=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337
 ```
-Now, let us call the `SetValue()` function of the deployed smart contract with the following `banjo tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` paramter is the concatenation of 0xed8b0706, the signature of the function `SetValue()`, and an integer 0x4797 which we want to calculate its square.  
+Now, let us call the `SetValue()` function of the deployed smart contract with the following `banjo tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` paramter is the concatenation of 0xed8b0706, the signature of the function `SetValue()`, and an integer 0x3 for which we want to calculate its square.  
 ```
-banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000004797 --seq=4
+banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000000003 --seq=4
 ```
 Again, wait for a couple seconds for the transaction to be included in the blockchain, and then we can query the square result with the following command, where `b5a0241a` is the signature of the CalculateSquare() function.
 ```
 banjo call smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=b5a0241a
 ```
-The `vm_return` field in the returned json should be `0000000000000000000000000000000000000000000000000000000014051b11`, which is the square of 0x4797, the value we set previously.
+The `vm_return` field in the returned json should be `0000000000000000000000000000000000000000000000000000000000000009`, which is simply the square of 0x3, the value we set previously.
 
 You might have noticed that both the smart contract deployment and execution use the `banjo tx smart_contract` command with similar parameters. The only difference is that the deployment command does not have the `to` parameter, while in the execution command, the `to` parameter is set to the smart contract address.
 
