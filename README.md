@@ -74,9 +74,9 @@ Using any [Solidity](https://solidity.readthedocs.io/) compiler, such as [Remix]
 ```
 608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029
 ```
-Now let us deploy it and then use it to calculate squares. Note that for each of steps below, we may perform a __dry run__ first with the `banjo call` command, which simulates the smart contract execution locally. For the actually deployment and execution, we use the `banjo tx` command instead.
+Now let us deploy the bytecode on the Theta Ledger, and then use it to calculate squares. Note that for each of steps below, we may perform a __dry run__ first with the `banjo call` command, which simulates the smart contract execution locally. For the actually deployment and execution, we use the `banjo tx` command instead.
 
-First, let us do a dry run for the smart contract deployment. The `data` parameter carries the deployment bytecode of the smart contract provided above.
+First, let us do a dry run for the smart contract deployment. The `data` parameter carries the deployment bytecode of the smart contract as provided above.
 ```
 banjo call smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=3 --gas_limit=100000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029
 ```
@@ -89,32 +89,19 @@ This call should return a json similar to the one shown below. The `contract_add
     "vm_return": "608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029"
 }
 ```
-Now, let us deploy the contract with the  `banjo tx` command. Again, when the prompt asks for password, simply enter `qwertyuiop`
+Now, let us deploy the contract with the `banjo tx` command. Again, when the prompt asks for password, simply enter `qwertyuiop`
 ```
 banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=3 --gas_limit=100000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029 --seq=2
 ```
-Wait 5 to 10 seconds for the transaction to be included in the blockchain. Then we can use the following query command to confirmed that the smart contract has been deployed, where the account address is the `contract_address` returned by the deployment dry run.
+Wait for 5 to 10 seconds for the transaction to be included in the blockchain. Then we can use the following query command to confirmed that the smart contract has been deployed, where the account address is the `contract_address` returned by the deployment dry run.
 ```
 banjo query account --address=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337
 ```
-Now, we can do another dry run with `banjo call` to check the gas usage if we were to call the smart contract. Note that the smart contract address is passed to the command with the `to` parameter. The `data` paramter is the concatenation of 0xed8b0706, the signature of the function `SetValue()`, and an integer 0x4797 which we want to calculate its square.  
+Now, let us call the `SetValue()` function of the deployed smart contract with the following `banjo tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` paramter is the concatenation of 0xed8b0706, the signature of the function `SetValue()`, and an integer 0x4797 which we want to calculate its square.  
 ```
-banjo call smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000004797
+banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000004797 --seq=4
 ```
-The call should return something like this
-```
-{
-    "contract_address": "0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337",
-    "gas_used": 20249,
-    "vm_error": null,
-    "vm_return": ""
-}
-```
-Now let us call the `SetValue` function of the deployed smart contract with the following `banjo tx` command
-```
-banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000004797 --seq=3
-```
-Again, wait a couple seconds for the transaction to be included in the blockchain, and then we can query the square result with the following command, where `b5a0241a` is the signature of the CalculateSquare() function.
+Again, wait for a couple seconds for the transaction to be included in the blockchain, and then we can query the square result with the following command, where `b5a0241a` is the signature of the CalculateSquare() function.
 ```
 banjo call smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=3 --gas_limit=50000 --data=b5a0241a
 ```
