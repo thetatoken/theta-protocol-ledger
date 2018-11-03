@@ -3,7 +3,10 @@ package messenger
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"time"
+
+	"github.com/thetatoken/ukulele/rlp"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
@@ -21,9 +24,10 @@ const (
 )
 
 const (
-	connectivityPulsePeriod     = 30 * time.Second
-	minNumOutboundPeers         = 10
-	maxPeerDiscoveryMessageSize = 1048576 // 1MB
+	connectivityPulsePeriod      = 30 * time.Second
+	minNumOutboundPeers          = 10
+	maxPeerDiscoveryMessageSize  = 1048576 // 1MB
+	requestPeersAddressesPercent = 25
 )
 
 // PeerDiscoveryMessage defines the structure of the peer discovery message
@@ -125,6 +129,32 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
 		}
 	}
+	pdmh.connectToOutboundPeers(message.Addresses)
+}
+
+func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
+	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	numNeeded := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers - numPeers
+	if numNeeded > 0 {
+		numToAdd := uint(len(addresses))
+		if numToAdd > numNeeded {
+			numToAdd = numNeeded
+		}
+		perm := rand.Perm(len(addresses))
+		for i := uint(0); i < numToAdd; i++ {
+			go func(i uint) {
+				time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
+				j := perm[i]
+				peerNetAddress := addresses[j]
+				_, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
+				if err != nil {
+					log.Errorf("[p2p] Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
+				} else {
+					log.Infof("[p2p] Successfully connected to seed peer %v", peerNetAddress.String())
+				}
+			}(i)
+		}
+	}
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine() {
@@ -137,11 +167,25 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 	}
 }
 
-// maintainConnecmaintainSufficientConnectivitytivity tries to maintain sufficient number
+// maintainSufficientConnectivity tries to maintain sufficient number
 // of connections by dialing peers when the number of connected peers are lower than the
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
-	// TODO: implementation
+	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	if numPeers > 0 {
+		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
+			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
+			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
+			if numPeersToSendRequest < 1 {
+				numPeersToSendRequest = 1
+			}
+			perm := rand.Perm(int(numPeers))
+			for i := uint(0); i < numPeersToSendRequest; i++ {
+				peer := peers[perm[i]]
+				pdmh.requestAddresses(peer)
+			}
+		}
+	}
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) requestAddresses(peer *pr.Peer) {
@@ -160,6 +204,6 @@ func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, addresses 
 }
 
 func decodePeerDiscoveryMessage(msgBytes common.Bytes) (message PeerDiscoveryMessage, err error) {
-	// TODO: implementation
-	return PeerDiscoveryMessage{}, nil
+	err = rlp.DecodeBytes(msgBytes, &message)
+	return
 }
