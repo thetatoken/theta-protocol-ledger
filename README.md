@@ -51,9 +51,9 @@ The balance of an address can be queried with the following command
 banjo query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 ```
 ## Deploy and Execute Smart Contracts
-The Theta blockchain support the Turing-Complete [Ethereum Virtual Machine (EVM)](https://github.com/ethereum/wiki/wiki/Ethereum-Virtual-Machine-(EVM)-Awesome-List). The examples below demonstrate how to deploy the bytecode of a smart contract, and then execute the smart contract. For each step, we always perform a __dry run__ first with the `banjo call` command, which simulates the smart contract execution locally. For the actually deployment and execution, we use the `banjo tx` command instead.
+The Theta blockchain supports the Turing-Complete [Ethereum Virtual Machine (EVM)](https://github.com/ethereum/wiki/wiki/Ethereum-Virtual-Machine-(EVM)-Awesome-List). The example below demonstrates how to deploy and then execute an smart contract on the Theta blockchain. For each step, we always perform a __dry run__ first with the `banjo call` command, which simulates the smart contract execution locally. For the actually deployment and execution, we use the `banjo tx` command instead.
 
-First, let us udo a dry run for the smart contract deployment. The `data` parameter carries the bytecode of the smart contract to be deployed. The bytecode can be generated from [Solidity source code](https://solidity.readthedocs.io/en/v0.4.25/) using any EVM compatible compiler.
+First, let us do a dry run for the smart contract deployment. The `data` parameter carries the bytecode of the smart contract to be deployed. The bytecode can be generated from [Solidity source code](https://solidity.readthedocs.io/en/v0.4.25/) using any EVM compatible compiler.
 ```
 banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3
 ```
