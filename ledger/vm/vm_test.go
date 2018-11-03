@@ -246,6 +246,91 @@ func TestVMExecute(t *testing.T) {
 	assert.True(types.NewCoins(0, 0).IsEqual(callerTransferredValue)) // Caller transferred no value, also Gas fee should NOT be deducted
 }
 
+// This test case deploy the bytecode of the following Solidity contract on the
+// blockchain and interfact with it
+//
+// pragma solidity ^0.4.18;
+// contract SquareCalculator {
+//     uint public value;
+//
+//     function SetValue(uint val) public {
+//         value = val;
+//     }
+//
+//     function CalculateSquare() constant public returns (uint) {
+//         uint sqr = value * value;
+//         assert(sqr / value == value); // overflow protection
+//         return sqr;
+//     }
+// }
+func TestVMInteractWithContract(t *testing.T) {
+	assert := assert.New(t)
+
+	storeView := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
+	privAccounts := prepareInitState(storeView, 2)
+	deployerAcc := privAccounts[0].Account
+	callerAcc := privAccounts[1].Account
+
+	var cbc contractByteCode
+	err := loadJSONTest("testdata/square_calculator.json", &cbc)
+	assert.Nil(err)
+
+	deploymentCode, err := hex.DecodeString(cbc.DeploymentCode)
+	assert.Nil(err)
+	code, err := hex.DecodeString(cbc.Code)
+	assert.Nil(err)
+
+	// First deploy a smart contract
+	deployerAddr := deployerAcc.PubKey.Address()
+	valueAmount := 0 // NOTE: For this contract, the value NEEDS to be ZERO
+	deploySCTx := &types.SmartContractTx{
+		From: types.TxInput{
+			Address: deployerAddr,
+			Coins:   types.NewCoins(0, valueAmount),
+		},
+		GasLimit: 1000000,
+		GasPrice: big.NewInt(50),
+		Data:     deploymentCode,
+	}
+	vmRet, contractAddr, gasUsed, vmErr := Execute(deploySCTx, storeView)
+	assert.Nil(vmErr)
+	assert.True(bytes.Equal(code, vmRet))
+
+	retrievedCode := storeView.GetCode(contractAddr)
+	assert.True(bytes.Equal(code, retrievedCode))
+
+	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v", contractAddr.Hex(), gasUsed)
+
+	// Call the smart contract
+	callerAddr := callerAcc.PubKey.Address()
+	callSCTXTmpl := &types.SmartContractTx{
+		From:     types.TxInput{Address: callerAddr},
+		To:       types.TxOutput{Address: contractAddr},
+		GasLimit: 50000,
+		GasPrice: big.NewInt(50),
+		Data:     nil,
+	}
+
+	// Set the value and then calculate its square
+	value := uint64(18327)
+	setValueCallTx := callSCTXTmpl
+	setValueCallData, _ := hex.DecodeString("ed8b07060000000000000000000000000000000000000000000000000000000000004797") // "ed8b0706" is signature of the SetValue() interface, and 0x4797 is the hex of the value 18327
+	setValueCallTx.Data = setValueCallData
+	_, _, gasUsed, vmErr = Execute(setValueCallTx, storeView)
+	assert.Nil(vmErr)
+	log.Infof("Call   Contract -- SetValue: %v, gasUsed: %v", value, gasUsed)
+
+	expectedSquare := new(big.Int).SetUint64(value * value)
+	calculateSquareCallTx := callSCTXTmpl
+	calculateSquareCallData, _ := hex.DecodeString("b5a0241a") // signature of the CalculateSquare() interface
+	calculateSquareCallTx.Data = calculateSquareCallData
+	vmRet, _, gasUsed, vmErr = Execute(setValueCallTx, storeView)
+	calculatedSquare, success := new(big.Int).SetString(hex.EncodeToString(vmRet), 16)
+	assert.True(success)
+	assert.Equal(expectedSquare, calculatedSquare)
+	log.Infof("Call   Contract -- calculatedSquare: %v, gasUsed: %v", calculatedSquare, gasUsed)
+}
+
 // The test case below is based on a production TimeLockedSafe Ethereum smart contract
 // https://etherscan.io/tx/0xaf55bd233997065737195ee88e871d8bc282c44a5c11144f40865d699d8b8244
 // The deplyment_code hex string in testdata/time_locked_safe.json is the "Input Data" of the above transaction
@@ -257,13 +342,13 @@ func TestVMDeployComplexContract(t *testing.T) {
 	deployerAcc := privAccounts[0].Account
 	callerAcc := privAccounts[1].Account
 
-	var dbc deploymentByteCode
-	err := loadJSONTest("testdata/time_locked_safe.json", &dbc)
+	var cbc contractByteCode
+	err := loadJSONTest("testdata/time_locked_safe.json", &cbc)
 	assert.Nil(err)
 
-	code, err := hex.DecodeString(dbc.Code)
+	deploymentCode, err := hex.DecodeString(cbc.DeploymentCode)
 	assert.Nil(err)
-	deploymentCode, err := hex.DecodeString(dbc.DeploymentCode)
+	code, err := hex.DecodeString(cbc.Code)
 	assert.Nil(err)
 
 	// First deploy a smart contract
@@ -342,13 +427,13 @@ func TestVMDeployERC20TokenContract(t *testing.T) {
 	deployerAcc := privAccounts[0].Account
 	callerAcc := privAccounts[1].Account
 
-	var dbc deploymentByteCode
-	err := loadJSONTest("testdata/erc20_token.json", &dbc)
+	var cbc contractByteCode
+	err := loadJSONTest("testdata/erc20_token.json", &cbc)
 	assert.Nil(err)
 
-	code, err := hex.DecodeString(dbc.Code)
+	deploymentCode, err := hex.DecodeString(cbc.DeploymentCode)
 	assert.Nil(err)
-	deploymentCode, err := hex.DecodeString(dbc.DeploymentCode)
+	code, err := hex.DecodeString(cbc.Code)
 	assert.Nil(err)
 
 	// First deploy a smart contract
@@ -417,9 +502,9 @@ func prepareInitState(storeView *state.StoreView, numAccounts int) (privAccounts
 	return privAccounts
 }
 
-type deploymentByteCode struct {
-	Code           string `json:"code"`
+type contractByteCode struct {
 	DeploymentCode string `json:"deployment_code"`
+	Code           string `json:"code"`
 }
 
 func loadJSONTest(file string, val interface{}) error {
