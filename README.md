@@ -51,7 +51,7 @@ The balance of an address can be queried with the following command
 banjo query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 ```
 ## Deploy and Execute Smart Contracts
-The Theta blockchain integrates the [Ethereum Virtual Machine (EVM)](https://github.com/ethereum/wiki/wiki/Ethereum-Virtual-Machine-(EVM)-Awesome-List) which supports Turing-Complete smart contracts. The example below demonstrates how to deploy and execute an example smart contract `SquareCalculator` on the Theta blockchain.
+The Theta Ledger provides a Turing-Complete smart contract runtime environment compatible with the [Ethereum Virtual Machine](https://github.com/ethereum/wiki/wiki/Ethereum-Virtual-Machine-(EVM)-Awesome-List) (EVM). [Solidity](https://solidity.readthedocs.io/) based Ethereum smart contracts can be ported to the Theta Ledger with little effort. The example below demonstrates how to deploy and execute an example smart contract `SquareCalculator` on the Theta Ledger.
 
 ```
 pragma solidity ^0.4.18;
@@ -70,7 +70,7 @@ contract SquareCalculator {
     }
 }
 ```
-Using any [Solidity](https://solidity.readthedocs.io/) compiler, such as [Remix](remix.ethereum.org), we can generate the __deployment bytecode__ of the smart contract as shown below.
+Using any Solidity compiler, such as [Remix](https://remix.ethereum.org), we can generate the __deployment bytecode__ of the smart contract as shown below.
 ```
 608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029
 ```
