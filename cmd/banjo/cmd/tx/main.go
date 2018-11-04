@@ -46,7 +46,7 @@ var TxCmd = &cobra.Command{
 func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
-	TxCmd.AddCommand(releaseFundCmd)
+	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
 	TxCmd.AddCommand(splitRuleCmd)
 	TxCmd.AddCommand(smartContractCmd)
 }
