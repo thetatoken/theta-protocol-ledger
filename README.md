@@ -20,14 +20,8 @@ cd $UKULELE_HOME
 make get_vendor_deps
 ```
 
-## Build
-This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `ukulele` and `banjo` are generated. `ukulele` can be regarded as the launcher of the Theta Ledger node, and `banjo` is a wallet with command line tools to interact with the ledger. 
-```
-make build install
-```
-
 ## Run Unit Tests
-Make sure `jq` is installed. On Mac OS X, run the following command
+Before running the unit tests, make sure `jq` is installed. On Mac OS X, install `jq` with the following command
 ```
 brew install jq
 ```
@@ -35,9 +29,15 @@ Or on Ubuntu Linux, install `jq` with
 ```
 sudo apt-get install jq
 ```
-Run unit tests:
+Run unit tests
 ```
 make test_unit
+```
+
+## Build
+This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `ukulele` and `banjo` are generated. `ukulele` can be regarded as the launcher of the Theta Ledger node, and `banjo` is a wallet with command line tools to interact with the ledger. 
+```
+make build install
 ```
 
 ## Run a Local Private Net
