@@ -3,7 +3,6 @@
 The Theta Ledger is a Proof-of-Stake decentralized ledger designed for the video streaming industry. It powers the Theta token economy which incentives end users to share their redundant bandwidth and storage resources, and encourage them to engage more actively with video platforms and content creators. The ledger employs a novel [multi-level BFT consensus engine](docs/multi-level-bft-tech-report.pdf), which supports high transaction throughput, fast block confirmation, and allows mass participation in the consensus process. Off-chain payment support is built directly into the ledger through the resource-oriented micropayment pool, which is designed specifically to achieve the “pay-per-byte” granularity for streaming use cases. Moreover, the ledger storage system leverages the microservice architecture and reference counting based history pruning techniques, and is thus able to adapt to different computing environments, ranging from high-end data center server clusters to commodity PCs and laptops. The ledger also supports Turing-Complete smart contracts, which enables rich user experiences for DApps built on top of the Theta Ledger. For more technical details, please refer to our [technical whitepaper](docs/theta-technical-whitepaper.pdf) and the [multi-level BFT technical report](docs/multi-level-bft-tech-report.pdf).
 
 ## Setup
-
 Install Go and set environment variables `GOPATH` and `PATH` following the [offcial instructions](https://golang.org/doc/install)
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/ukulele`
@@ -19,39 +18,40 @@ export UKULELE_HOME=$GOPATH/src/github.com/thetatoken/ukulele
 cd $UKULELE_HOME
 make get_vendor_deps
 ```
+Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the following command
+```
+brew install jq
+```
+On Ubuntu Linux, install `jq` with
+```
+sudo apt-get install jq
+```
 
-## Build
+## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `ukulele` and `banjo` are generated. `ukulele` can be regarded as the launcher of the Theta Ledger node, and `banjo` is a wallet with command line tools to interact with the ledger. 
 ```
 make build install
 ```
 
 ## Run Unit Tests
-Make sure `jq` is installed. On Mac OS X, run the following command
-```
-brew install jq
-```
-Or on Ubuntu Linux, install `jq` with
-```
-sudo apt-get install jq
-```
-Run unit tests:
+
+Run unit tests with the command below
 ```
 make test_unit
 ```
 
-## Run a Local Private Net
-Use the following commands to launch a private net with a single validator node.
+## Launch a Local Private Net
+Open a terminal, and use the following commands to launch a private net with a single validator node.
 ```
 cd $UKULELE_HOME
 cp -r ./integration/testnet ../testnet
 ukulele start --config=../testnet/node2
 ```
-Send Theta token between addresses by executing the following commands in another terminal. When the prompt asks for password, simply enter `qwertyuiop`
+In another terminal, we can use the `banjo` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
 ```
 banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=20 --seq=1
 ```
-The balance of an address can be queried with the following command
+The balance of an address can be retrieved with the following query command
 ```
 banjo query account --address=9F1233798E905E173560071255140b4A8aBd3Ec6
 ```
@@ -115,4 +115,50 @@ The `vm_return` field in the returned json should be `00000000000000000000000000
 
 You might have noticed that both the smart contract deployment and execution use the `banjo tx smart_contract` command with similar parameters. The only difference is that the deployment command does not have the `to` parameter, while in the execution command, the `to` parameter is set to the smart contract address.
 
+## Off-Chain Micropayment Support
+In order to handle the sheer amount of micropayments for the bandwidth sharing reward, the Theta Ledger provides native support for off-chain payment through the [resource oriented micropayment pool](https://medium.com/theta-network/building-the-theta-protocol-part-iv-d7cce583aad1)" concept. Here Alice pulls video stream data from relay node Bob and then Carol. The micropayment pool allows a sender to pay to multiple receipients with off-chain transactions without Alice being able to double spend.
 
+Below is an example. To get started, the sender creates a resource oriented micropayment pool for a live video stream with resource_id `rid1000001` by reserving some Gamma tokens for 1002 blocktimes. She can use this micropayment pool to pay multiple relay nodes that provides the desired video stream.
+```
+banjo tx reserve --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=100000 --collateral=100001 --duration=1002 --resource_ids=rid1000001 --seq=6
+```
+After this transaction has been processed. We can query the `from` account to confirm the creation of the micropayment pool.
+```
+banjo query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
+```
+The return should look like the json below. As we can see, 100000 GammaWei were reserved for the off-chain payment with 10001 GammaWei collateral. If the sender overspends the reserved fund, her collateral will be entirely slashed.
+```
+{
+    ...
+    "address": "2E833968E5bB786Ae419c4d13189fB081Cc43bab",
+    "coins": {
+        "gammawei": 95970332,
+        "thetawei": 100001609399
+    },
+    ...
+    "reserved_funds": [
+        {
+            "collateral": {
+                "gammawei": 100001,
+                "thetawei": 0
+            },
+            "end_block_height": 6066,
+            "initial_fund": {
+                "gammawei": 100000,
+                "thetawei": 0
+            },
+            "reserve_sequence": 6,
+            "resource_ids": [
+                "cmlkMTAwMDAwMQ=="
+            ],
+            "transfer_records": [],
+            "used_fund": {
+                "gammawei": 0,
+                "thetawei": 0
+            }
+        }
+    ],
+    ...
+}
+```
+With the reserved fund, the sender can send tokens to multiple parties with a special off-chain [Service Payment Transaction](https://github.com/thetatoken/theta-protocol-ledger/blob/ed3d616eca7e3de2c19f63351716aba7547a1e4c/ledger/types/tx.go#L321). Before the reserved fund expires (1002 blocktimes), whenever a recipient wants to receive the tokens, he simply signs the last received service payment transaction, and [submits the signed raw transaction to the Ledger node](https://github.com/thetatoken/theta-protocol-ledger/blob/ed3d616eca7e3de2c19f63351716aba7547a1e4c/rpc/tx.go#L11). A sender might send the recipient multiple off-chain transactions before the recipient signs and submits the last transaction to receive the full amount. This mechanism achieves the "pay-per-byte" granularity, and yet could reduce the amount of on-chain transactions by several orders of magnitude. For more details, please refer to the "Off-Chain Micropayment Support" section of our [technical whitepaper](docs/theta-technical-whitepaper.pdf).
