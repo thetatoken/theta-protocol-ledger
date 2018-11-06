@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	"bytes"
 	"fmt"
 	"sync"
 
@@ -30,7 +29,10 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 		store:   store,
 		mu:      &sync.Mutex{},
 	}
-	rootBlock, _ := chain.AddBlock(root)
+	rootBlock, err := chain.AddBlock(root)
+	if err != nil {
+		log.Panic(err)
+	}
 	chain.FinalizePreviousBlocks(rootBlock)
 	chain.Root = rootBlock
 	return chain
@@ -46,15 +48,15 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 	}
 
 	val := &core.ExtendedBlock{}
-	err := ch.store.Get(block.Hash, val)
+	hash := block.Hash()
+	err := ch.store.Get(hash[:], val)
 	if err == nil {
 		// Block has already been added.
 		return val, errors.New("Block has already been added")
 	}
 
-	if len(block.Parent) != 0 {
-		var parentBlock core.ExtendedBlock
-		err = ch.store.Get(block.Parent, &parentBlock)
+	if !block.Parent.IsEmpty() {
+		parentBlock, err := ch.findBlock(block.Parent)
 		if err == store.ErrKeyNotFound {
 			// Parent block is not known yet, abandon block.
 			return nil, errors.Errorf("Unknown parent block: %s", block.Parent)
@@ -63,8 +65,8 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 			return nil, errors.Wrap(err, "Failed to find parent block")
 		}
 
-		parentBlock.Children = append(parentBlock.Children, block.Hash)
-		ch.SaveBlock(&parentBlock)
+		parentBlock.Children = append(parentBlock.Children, hash)
+		ch.SaveBlock(parentBlock)
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
@@ -95,7 +97,7 @@ func (ch *Chain) FinalizePreviousBlocks(block *core.ExtendedBlock) {
 }
 
 // FindDeepestDescendant finds the deepest descendant of given block.
-func (ch *Chain) FindDeepestDescendant(hash common.Bytes) (n *core.ExtendedBlock, depth int) {
+func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
 	// TODO: replace recursive implementation with stack-based implementation.
 	n, err := ch.FindBlock(hash)
 	if err != nil {
@@ -113,23 +115,27 @@ func (ch *Chain) FindDeepestDescendant(hash common.Bytes) (n *core.ExtendedBlock
 }
 
 func (ch *Chain) IsOrphan(block *core.Block) bool {
-	var val core.ExtendedBlock
-	err := ch.store.Get(block.Parent, &val)
+	_, err := ch.FindBlock(block.Parent)
 	return err != nil
 }
 
 // SaveBlock updates a previously stored block.
 func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {
-	return ch.store.Put(block.Hash, *block)
+	hash := block.Hash()
+	return ch.store.Put(hash[:], *block)
 }
 
 // FindBlock tries to retrieve a block by hash.
-func (ch *Chain) FindBlock(hash common.Bytes) (*core.ExtendedBlock, error) {
+func (ch *Chain) FindBlock(hash common.Hash) (*core.ExtendedBlock, error) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
+	return ch.findBlock(hash)
+}
 
+// findBlock is the non-locking version of FindBlock.
+func (ch *Chain) findBlock(hash common.Hash) (*core.ExtendedBlock, error) {
 	var block core.ExtendedBlock
-	err := ch.store.Get(hash, &block)
+	err := ch.store.Get(hash[:], &block)
 	if err != nil {
 		return nil, err
 	}
@@ -137,14 +143,13 @@ func (ch *Chain) FindBlock(hash common.Bytes) (*core.ExtendedBlock, error) {
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
-func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.Bytes, maxDistance int) bool {
+func (ch *Chain) IsDescendant(ascendantHash common.Hash, descendantHash common.Hash, maxDistance int) bool {
 	hash := descendantHash
 	for i := 0; i < maxDistance; i++ {
-		if bytes.Compare(hash, ascendantHash) == 0 {
+		if hash == ascendantHash {
 			return true
 		}
-		var currBlock core.ExtendedBlock
-		err := ch.store.Get(hash, &currBlock)
+		currBlock, err := ch.FindBlock(hash)
 		if err != nil {
 			return false
 		}
@@ -154,11 +159,11 @@ func (ch *Chain) IsDescendant(ascendantHash common.Bytes, descendantHash common.
 }
 
 // PrintBranch return the string describing path from root to given leaf.
-func (ch *Chain) PrintBranch(hash common.Bytes) string {
+func (ch *Chain) PrintBranch(hash common.Hash) string {
 	ret := []string{}
 	for {
 		var currBlock core.ExtendedBlock
-		err := ch.store.Get(hash, &currBlock)
+		err := ch.store.Get(hash[:], &currBlock)
 		if err != nil {
 			break
 		}

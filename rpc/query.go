@@ -94,7 +94,7 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 		return nil
 	}
 	result.TxHash = hash
-	result.BlockHash = common.BytesToHash(block.Hash)
+	result.BlockHash = block.Hash()
 	result.BlockHeight = block.Height
 
 	if block.Finalized {

@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -239,7 +238,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to find parent block")
 		return
 	}
-	result := e.ledger.ResetState(parent.Height, common.BytesToHash(parent.StateHash))
+	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":            result.Message,
@@ -247,7 +246,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to reset state to parent.StateHash")
 		return
 	}
-	result = e.ledger.ApplyBlockTxs(block.Txs, common.BytesToHash(block.StateHash))
+	result = e.ledger.ApplyBlockTxs(block.Txs, block.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":           result.String(),
@@ -266,7 +265,7 @@ func (e *ConsensusEngine) vote() {
 	tip := e.state.SetTip()
 
 	var header *core.BlockHeader
-	if bytes.Compare(previousTip.Hash, tip.Hash) == 0 || e.state.GetLastVoteHeight() >= tip.Height {
+	if previousTip.Hash() == tip.Hash() || e.state.GetLastVoteHeight() >= tip.Height {
 		e.logger.WithFields(log.Fields{
 			"lastVoteHeight": e.state.GetLastVoteHeight(),
 			"tip.Hash":       tip.Hash,
@@ -362,17 +361,17 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Empty vote received")
 		return
 	}
-	block, err := e.Chain().FindBlock(vote.Block.Hash)
+	block, err := e.Chain().FindBlock(vote.Block.Hash())
 	if err != nil {
 		e.logger.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
 		return
 	}
-	votes, err := e.state.GetVoteSetByBlock(vote.Block.Hash)
+	votes, err := e.state.GetVoteSetByBlock(vote.Block.Hash())
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
 	}
 	if validators.HasMajority(votes) {
-		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash}
+		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash()}
 		block.CommitCertificate = cc
 
 		e.chain.SaveBlock(block)
@@ -429,7 +428,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	}
 
 	// Skip blocks that have already published.
-	if bytes.Compare(block.Hash, e.state.GetLastFinalizedBlock().Hash) == 0 {
+	if block.Hash() == e.state.GetLastFinalizedBlock().Hash() {
 		return
 	}
 
@@ -437,7 +436,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Done Finalized block")
 
 	e.state.SetLastFinalizedBlock(block)
-	e.ledger.FinalizeState(block.Height, common.BytesToHash(block.StateHash))
+	e.ledger.FinalizeState(block.Height, block.StateHash)
 
 	// Mark block and its ancestors as finalized.
 	e.chain.FinalizePreviousBlocks(block)
@@ -465,7 +464,7 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 
 func (e *ConsensusEngine) propose() {
 	tip := e.GetTip()
-	result := e.ledger.ResetState(tip.Height, common.BytesToHash(tip.StateHash))
+	result := e.ledger.ResetState(tip.Height, tip.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":         result.Message,
@@ -476,7 +475,7 @@ func (e *ConsensusEngine) propose() {
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
 	block.Epoch = e.GetEpoch()
-	block.Parent = tip.Hash
+	block.Parent = tip.Hash()
 	block.Height = tip.Height + 1
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
@@ -487,8 +486,7 @@ func (e *ConsensusEngine) propose() {
 		return
 	}
 	block.Txs = txs
-	block.StateHash = newRoot[:]
-	block.BlockHeader.UpdateHash()
+	block.StateHash = newRoot
 
 	lastCC := e.state.GetHighestCCBlock()
 	proposal := core.Proposal{Block: block, ProposerID: e.ID()}

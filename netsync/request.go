@@ -1,7 +1,6 @@
 package netsync
 
 import (
-	"bytes"
 	"container/list"
 	"context"
 	"math/rand"
@@ -35,14 +34,14 @@ const (
 )
 
 type PendingBlock struct {
-	hash       common.Bytes
+	hash       common.Hash
 	block      *core.Block
 	peers      []string
 	lastUpdate time.Time
 	status     RequestState
 }
 
-func NewPendingBlock(x common.Bytes, peerIds []string) *PendingBlock {
+func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
 	return &PendingBlock{
 		hash:       x,
 		lastUpdate: time.Now(),
@@ -201,7 +200,7 @@ func (rm *RequestManager) tryToDownload() {
 		if pendingBlock.status == RequestToSendInvReq ||
 			(pendingBlock.status == RequestWaitingInvResp && pendingBlock.HasTimedOut()) {
 			tip := rm.syncMgr.consensus.GetTip()
-			req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash.String()}
+			req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash().String()}
 			rm.logger.WithFields(log.Fields{
 				"channelID": req.ChannelID,
 				"startHash": req.Start,
@@ -232,15 +231,15 @@ func (rm *RequestManager) tryToDownload() {
 	}
 }
 
-func (rm *RequestManager) AddHash(x common.Bytes, peerIDs []string) {
+func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
 	rm.processHash(x, nil, peerIDs)
 }
 
 func (rm *RequestManager) AddBlock(b *core.Block) {
-	rm.processHash(b.Hash, b, []string{})
+	rm.processHash(b.Hash(), b, []string{})
 }
 
-func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs []string) (isAdded bool) {
+func (rm *RequestManager) processHash(x common.Hash, block *core.Block, peerIDs []string) (isAdded bool) {
 	if _, err := rm.chain.FindBlock(x); err == nil {
 		return true
 	}
@@ -299,7 +298,7 @@ func (rm *RequestManager) processHash(x common.Bytes, block *core.Block, peerIDs
 		}
 		found := false
 		for _, child := range byParents {
-			if 0 == bytes.Compare(child.Value.(*PendingBlock).hash, pendingBlock.hash) {
+			if child.Value.(*PendingBlock).hash == pendingBlock.hash {
 				found = true
 				break
 			}

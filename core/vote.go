@@ -23,7 +23,7 @@ func (p Proposal) String() string {
 // CommitCertificate represents a commit made a majority of validators.
 type CommitCertificate struct {
 	Votes     *VoteSet `rlp:"nil"`
-	BlockHash common.Bytes
+	BlockHash common.Hash
 }
 
 // Copy creates a copy of this commit certificate.
@@ -55,7 +55,7 @@ type Vote struct {
 
 func (v Vote) String() string {
 	if v.Block != nil {
-		return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash, v.ID, v.Epoch)
+		return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash().Hex(), v.ID, v.Epoch)
 	}
 	return fmt.Sprintf("Vote{block: nil, ID: %s, Epoch: %v}", v.ID, v.Epoch)
 }

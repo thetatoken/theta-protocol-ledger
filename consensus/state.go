@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"bytes"
 	"fmt"
 
 	log "github.com/sirupsen/logrus"
@@ -12,9 +11,9 @@ import (
 )
 
 type StateStub struct {
-	Root               common.Bytes
-	HighestCCBlock     common.Bytes
-	LastFinalizedBlock common.Bytes
+	Root               common.Hash
+	HighestCCBlock     common.Hash
+	LastFinalizedBlock common.Hash
 	LastVoteHeight     uint64
 	Epoch              uint64
 }
@@ -56,17 +55,17 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 func (s *State) String() string {
 	highestCCBlockStr := "nil"
 	if s.highestCCBlock != nil {
-		highestCCBlockStr = s.highestCCBlock.Hash.String()
+		highestCCBlockStr = s.highestCCBlock.Hash().Hex()
 	}
 
 	lastFinalizedBlockStr := "nil"
 	if s.lastFinalizedBlock != nil {
-		lastFinalizedBlockStr = s.lastFinalizedBlock.Hash.String()
+		lastFinalizedBlockStr = s.lastFinalizedBlock.Hash().Hex()
 	}
 
 	tipStr := "nil"
 	if s.tip != nil {
-		tipStr = s.tip.Hash.String()
+		tipStr = s.tip.Hash().Hex()
 	}
 	return fmt.Sprintf("State{highestCCBlock: %v, lastFinalizedBlock: %v, tip: %v, lastVoteHeight: %d, epoch: %d}",
 		highestCCBlockStr, lastFinalizedBlockStr, tipStr, s.lastVoteHeight, s.epoch)
@@ -76,13 +75,13 @@ func (s *State) commit() error {
 	stub := &StateStub{
 		LastVoteHeight: s.lastVoteHeight,
 		Epoch:          s.epoch,
-		Root:           s.chain.Root.Hash,
+		Root:           s.chain.Root.Hash(),
 	}
 	if s.highestCCBlock != nil {
-		stub.HighestCCBlock = s.highestCCBlock.Hash
+		stub.HighestCCBlock = s.highestCCBlock.Hash()
 	}
 	if s.lastFinalizedBlock != nil {
-		stub.LastFinalizedBlock = s.lastFinalizedBlock.Hash
+		stub.LastFinalizedBlock = s.lastFinalizedBlock.Hash()
 	}
 	key := []byte(DBStateStubKey)
 
@@ -94,7 +93,7 @@ func (s *State) Load() (err error) {
 	stub := &StateStub{}
 	s.db.Get(key, stub)
 
-	if bytes.Compare(stub.Root, s.chain.Root.Hash) != 0 {
+	if stub.Root != s.chain.Root.Hash() {
 		logger.WithFields(log.Fields{
 			"stub.Root":  stub.Root,
 			"chain.Root": s.chain.Root.Hash,
@@ -105,13 +104,13 @@ func (s *State) Load() (err error) {
 
 	s.lastVoteHeight = stub.LastVoteHeight
 	s.epoch = stub.Epoch
-	if stub.LastFinalizedBlock != nil {
+	if !stub.LastFinalizedBlock.IsEmpty() {
 		lastFinalizedBlock, err := s.chain.FindBlock(stub.LastFinalizedBlock)
 		if err == nil {
 			s.lastFinalizedBlock = lastFinalizedBlock
 		}
 	}
-	if stub.HighestCCBlock != nil {
+	if !stub.HighestCCBlock.IsEmpty() {
 		highestCCBlock, err := s.chain.FindBlock(stub.HighestCCBlock)
 		if err == nil {
 			s.highestCCBlock = highestCCBlock
@@ -160,7 +159,7 @@ func (s *State) SetLastFinalizedBlock(block *core.ExtendedBlock) error {
 // SetTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
 func (s *State) SetTip() *core.ExtendedBlock {
-	ret, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash)
+	ret, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash())
 	s.tip = ret
 	return ret
 }
@@ -204,8 +203,8 @@ func (s *State) AddVoteByHeight(vote *core.Vote) error {
 	return s.db.Put(key, voteset)
 }
 
-func (s *State) GetVoteSetByBlock(hash common.Bytes) (*core.VoteSet, error) {
-	key := append([]byte(DBVoteByBlockPrefix), hash...)
+func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
+	key := append([]byte(DBVoteByBlockPrefix), hash[:]...)
 	ret := core.NewVoteSet()
 	err := s.db.Get(key, ret)
 	return ret, err
@@ -215,13 +214,13 @@ func (s *State) AddVoteByBlock(vote *core.Vote) error {
 	if vote.Block == nil {
 		return nil
 	}
-	hash := vote.Block.Hash
+	hash := vote.Block.Hash()
 	voteset, err := s.GetVoteSetByBlock(hash)
 	if err != nil {
 		voteset = core.NewVoteSet()
 	}
 	voteset.AddVote(*vote)
-	key := append([]byte(DBVoteByBlockPrefix), hash...)
+	key := append([]byte(DBVoteByBlockPrefix), hash[:]...)
 	return s.db.Put(key, voteset)
 }
 

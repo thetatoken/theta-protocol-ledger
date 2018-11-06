@@ -78,6 +78,11 @@ func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 // Hex converts a hash to a hex string.
 func (h Hash) Hex() string { return hexutil.Encode(h[:]) }
 
+var emptyHash = Hash{}
+
+// IsEmpty checks whether a hash is empty.
+func (h Hash) IsEmpty() bool { return h == emptyHash }
+
 // TerminalString implements log.TerminalStringer, formatting a string for console
 // output during logging.
 func (h Hash) TerminalString() string {

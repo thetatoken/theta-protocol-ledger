@@ -17,10 +17,7 @@ func TestTxIndex(t *testing.T) {
 	tx2 := common.Bytes("tx2")
 	tx3 := common.Bytes("tx3")
 	tx4 := common.Bytes("tx4")
-	block1 := core.NewBlock()
-	block1.ChainID = "testchain"
-	hash := common.BytesToHash(common.Bytes("block1"))
-	block1.Hash = hash[:]
+	block1 := core.CreateTestBlock("b1", "")
 	block1.Height = 10
 	block1.Txs = []common.Bytes{tx1, tx2, tx3}
 
@@ -33,7 +30,7 @@ func TestTxIndex(t *testing.T) {
 		assert.NotNil(tx)
 		assert.Equal(t, tx)
 		assert.NotNil(block)
-		assert.Equal(block.Hash, block1.Hash)
+		assert.Equal(block.Hash(), block1.Hash())
 	}
 
 	tx, block, found := chain.FindTxByHash(crypto.Keccak256Hash(tx4))
@@ -50,17 +47,11 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	tx2 := common.Bytes("tx2")
 	tx3 := common.Bytes("tx3")
 
-	block1 := core.NewBlock()
-	block1.ChainID = "testchain"
-	hash1 := common.BytesToHash(common.Bytes("block1"))
-	block1.Hash = hash1[:]
+	block1 := core.CreateTestBlock("b1", "")
 	block1.Height = 10
 	block1.Txs = []common.Bytes{tx1, tx2}
 
-	block2 := core.NewBlock()
-	block2.ChainID = "testchain"
-	hash2 := common.BytesToHash(common.Bytes("block2"))
-	block2.Hash = hash2[:]
+	block2 := core.CreateTestBlock("b2", "")
 	block2.Height = 20
 	block2.Txs = []common.Bytes{tx2, tx3}
 
@@ -76,7 +67,7 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	assert.NotNil(tx)
 	assert.Equal(tx1, tx)
 	assert.NotNil(block)
-	assert.Equal(block.Hash, block1.Hash)
+	assert.Equal(block.Hash(), block1.Hash())
 
 	// Tx2 should be linked with block1 instead of block2.
 	tx, block, found = chain.FindTxByHash(crypto.Keccak256Hash(tx2))
@@ -84,14 +75,14 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	assert.NotNil(tx)
 	assert.Equal(tx2, tx)
 	assert.NotNil(block)
-	assert.Equal(block.Hash, block1.Hash)
+	assert.Equal(block.Hash(), block1.Hash())
 
 	tx, block, found = chain.FindTxByHash(crypto.Keccak256Hash(tx3))
 	assert.True(found)
 	assert.NotNil(tx)
 	assert.Equal(tx3, tx)
 	assert.NotNil(block)
-	assert.Equal(block.Hash, block2.Hash)
+	assert.Equal(block.Hash(), block2.Hash())
 
 	// Tx2 should be linked with block2 after force insert.
 	eb := &core.ExtendedBlock{Block: block2}
@@ -101,5 +92,5 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	assert.NotNil(tx)
 	assert.Equal(tx2, tx)
 	assert.NotNil(block)
-	assert.Equal(block.Hash, block2.Hash)
+	assert.Equal(block.Hash(), block2.Hash())
 }

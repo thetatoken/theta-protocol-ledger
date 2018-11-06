@@ -25,7 +25,7 @@ type TxIndexEntry struct {
 func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 	for idx, tx := range block.Txs {
 		txIndexEntry := TxIndexEntry{
-			BlockHash:   common.BytesToHash(block.Hash),
+			BlockHash:   block.Hash(),
 			BlockHeight: block.Height,
 			Index:       uint64(idx),
 		}
@@ -57,7 +57,7 @@ func (ch *Chain) FindTxByHash(hash common.Hash) (tx common.Bytes, block *core.Ex
 		}
 		log.Panic(err)
 	}
-	block, err = ch.FindBlock(txIndexEntry.BlockHash[:])
+	block, err = ch.FindBlock(txIndexEntry.BlockHash)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return nil, nil, false

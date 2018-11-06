@@ -1,9 +1,7 @@
 package netsync
 
 import (
-	"bytes"
 	"context"
-	"encoding/hex"
 	"sync"
 
 	"github.com/thetatoken/ukulele/blockchain"
@@ -170,24 +168,10 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 			}).Error("No start hash is specified in InvRequest")
 			return
 		}
-		curr, err := hex.DecodeString(req.Start)
-		if err != nil {
-			m.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-				"start":     req.Start,
-			}).Error("Failed to decode start in InvRequest")
-			return
-		}
-		end, err := hex.DecodeString(req.End)
-		if err != nil {
-			m.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-				"end":       req.End,
-			}).Error("Failed to decode end in InvRequest")
-			return
-		}
+		curr := common.HexToHash(req.Start)
+		end := common.HexToHash(req.End)
 		for i := 0; i < dispatcher.MaxInventorySize; i++ {
-			blocks = append(blocks, hex.EncodeToString(curr))
+			blocks = append(blocks, curr.Hex())
 			block, err := m.chain.FindBlock(curr)
 			if err != nil {
 				m.logger.WithFields(log.Fields{
@@ -209,8 +193,8 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 				}).Error("Failed to load block")
 				return
 			}
-			if bytes.Compare(curr, end) == 0 {
-				blocks = append(blocks, hex.EncodeToString(end))
+			if curr == end {
+				blocks = append(blocks, end.Hex())
 				break
 			}
 		}
@@ -235,11 +219,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	switch resp.ChannelID {
 	case common.ChannelIDBlock:
 		for _, hashStr := range resp.Entries {
-			hash, err := hex.DecodeString(hashStr)
-			if err != nil {
-				m.logger.WithFields(log.Fields{"channelID": resp.ChannelID, "hashStr": hashStr, "err": err}).Error("Failed to parse hash string in InvResponse")
-				return
-			}
+			hash := common.HexToHash(hashStr)
 			m.requestMgr.AddHash(hash, []string{peerID})
 		}
 	default:
@@ -253,15 +233,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
 		for _, hashStr := range data.Entries {
-			hash, err := hex.DecodeString(hashStr)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"channelID": data.ChannelID,
-					"hashStr":   hashStr,
-					"err":       err,
-				}).Error("Failed to parse hash string in DataRequest")
-				return
-			}
+			hash := common.HexToHash(hashStr)
 			block, err := m.chain.FindBlock(hash)
 			if err != nil {
 				m.logger.WithFields(log.Fields{
@@ -365,7 +337,7 @@ func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 
 func (sm *SyncManager) handleVote(vote *core.Vote) {
 	if vote.Block != nil {
-		sm.requestMgr.AddHash(vote.Block.Hash, []string{})
+		sm.requestMgr.AddHash(vote.Block.Hash(), []string{})
 	}
 	sm.consumer.AddMessage(vote)
 }

@@ -3,7 +3,6 @@
 package consensus
 
 import (
-	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,13 +14,14 @@ import (
 
 func TestConsensusStateBasic(t *testing.T) {
 	assert := assert.New(t)
+	core.ResetTestBlocks()
 
 	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	chain := blockchain.CreateTestChainByBlocks([]string{
 		"A1", "A0",
 		"A2", "A1",
 	})
-	cc, _ := chain.FindBlock(blockchain.ParseHex("A1"))
+	cc, _ := chain.FindBlock(core.GetTestBlock("A1").Hash())
 
 	state1 := NewState(db, chain)
 	state1.SetEpoch(3)
@@ -33,11 +33,11 @@ func TestConsensusStateBasic(t *testing.T) {
 	assert.Equal(uint64(3), state2.GetEpoch())
 	assert.Equal(uint64(10), state2.GetLastVoteHeight())
 	assert.NotNil(state2.GetHighestCCBlock())
-	assert.Equal(0, bytes.Compare(blockchain.ParseHex("A1"), state2.GetHighestCCBlock().Hash))
+	assert.Equal(core.GetTestBlock("A1").Hash(), state2.GetHighestCCBlock().Hash())
 	assert.NotNil(state2.GetTip())
-	assert.Equal(0, bytes.Compare(blockchain.ParseHex("A2"), state2.GetTip().Hash))
+	assert.Equal(core.GetTestBlock("A2").Hash(), state2.GetTip().Hash())
 	assert.NotNil(state2.GetLastFinalizedBlock())
-	assert.Equal(0, bytes.Compare(blockchain.ParseHex("A0"), state2.GetLastFinalizedBlock().Hash))
+	assert.Equal(core.GetTestBlock("A0").Hash(), state2.GetLastFinalizedBlock().Hash())
 }
 
 func TestConsensusStateVoteSet(t *testing.T) {
@@ -48,8 +48,8 @@ func TestConsensusStateVoteSet(t *testing.T) {
 		"A1", "A0",
 		"A2", "A1",
 	})
-	block1 := blockchain.CreateTestBlock("A1", "A0")
-	block2 := blockchain.CreateTestBlock("A2", "A1")
+	block1 := core.CreateTestBlock("A1", "A0")
+	block2 := core.CreateTestBlock("A2", "A1")
 
 	state1 := NewState(db, chain)
 	vote1 := &core.Vote{
