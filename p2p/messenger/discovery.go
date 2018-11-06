@@ -117,7 +117,7 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connectiong to outbound peer: %v...", peerNetAddress)
+	log.Infof("[p2p] Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
@@ -131,7 +131,7 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 }
 
 func (discMgr *PeerDiscoveryManager) connectWithInboundPeer(netconn net.Conn, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connectiong with inbound peer: %v...", netconn.RemoteAddr())
+	log.Infof("[p2p] Connecting with inbound peer: %v...", netconn.RemoteAddr())
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateInboundPeer(netconn, peerConfig, connConfig)

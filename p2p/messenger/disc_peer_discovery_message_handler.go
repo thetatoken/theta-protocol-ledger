@@ -24,10 +24,10 @@ const (
 )
 
 const (
-	connectivityPulsePeriod      = 30 * time.Second
-	minNumOutboundPeers          = 10
-	maxPeerDiscoveryMessageSize  = 1048576 // 1MB
-	requestPeersAddressesPercent = 25
+	defaultPeerDiscoveryPulseInterval = 30 * time.Second
+	minNumOutboundPeers               = 10
+	maxPeerDiscoveryMessageSize       = 1048576 // 1MB
+	requestPeersAddressesPercent      = 25
 )
 
 // PeerDiscoveryMessage defines the structure of the peer discovery message
@@ -41,15 +41,23 @@ type PeerDiscoveryMessage struct {
 // PeerDiscoveryMessageHandler implements the MessageHandler interface
 //
 type PeerDiscoveryMessageHandler struct {
-	discMgr *PeerDiscoveryManager
+	discMgr                    *PeerDiscoveryManager
+	peerDiscoveryPulseInterval time.Duration
+	discoveryCallback          InboundCallback
 }
 
 // createPeerDiscoveryMessageHandler creates an instance of PeerDiscoveryMessageHandler
 func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDiscoveryMessageHandler, error) {
 	pmdh := PeerDiscoveryMessageHandler{
-		discMgr: discMgr,
+		discMgr:                    discMgr,
+		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
 	}
 	return pmdh, nil
+}
+
+// SetPeerDiscoveryPulseInterval sets peerDiscoveryPulseInterval value (used for testing purpose)
+func (pdmh *PeerDiscoveryMessageHandler) SetPeerDiscoveryPulseInterval(interval time.Duration) {
+	pdmh.peerDiscoveryPulseInterval = interval
 }
 
 // Start is called when the message handler starts
@@ -67,6 +75,11 @@ func (pdmh *PeerDiscoveryMessageHandler) GetChannelIDs() []common.ChannelIDEnum 
 	return []common.ChannelIDEnum{
 		common.ChannelIDPeerDiscovery,
 	}
+}
+
+// EncodeMessage implements the p2p.MessageHandler interface
+func (pdmh *PeerDiscoveryMessageHandler) EncodeMessage(message interface{}) (common.Bytes, error) {
+	return rlp.EncodeToBytes(message)
 }
 
 // ParseMessage implements the p2p.MessageHandler interface
@@ -132,6 +145,11 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	pdmh.connectToOutboundPeers(message.Addresses)
 }
 
+// SetInboundCallback sets the inbound callback function
+func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCallback) {
+	pdmh.discoveryCallback = disccb
+}
+
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
 	numNeeded := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers - numPeers
@@ -146,11 +164,14 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
 				j := perm[i]
 				peerNetAddress := addresses[j]
-				_, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
+				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
 				if err != nil {
 					log.Errorf("[p2p] Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
 				} else {
 					log.Infof("[p2p] Successfully connected to seed peer %v", peerNetAddress.String())
+				}
+				if pdmh.discoveryCallback != nil {
+					pdmh.discoveryCallback(peer, err)
 				}
 			}(i)
 		}
@@ -158,7 +179,7 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine() {
-	pulse := time.NewTicker(connectivityPulsePeriod)
+	pulse := time.NewTicker(pdmh.peerDiscoveryPulseInterval)
 	for {
 		select {
 		case <-pulse.C:
@@ -174,7 +195,8 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
 	if numPeers > 0 {
 		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
-			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
+			peersPtr := pdmh.discMgr.peerTable.GetAllPeers()
+			peers := *peersPtr
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
