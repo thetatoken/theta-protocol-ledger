@@ -259,7 +259,6 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 
 func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount) common.Bytes {
 	sendTx := &types.SendTx{
-		Gas: 0,
 		Fee: types.NewCoins(0, 3),
 		Inputs: []types.TxInput{
 			{

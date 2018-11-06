@@ -44,7 +44,6 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: big.NewInt(0),
 			GammaWei: big.NewInt(feeInGammaFlag),
 		},
-		Gas:             gasAmountFlag,
 		Source:          input,
 		ReserveSequence: reserveSeqFlag,
 	}
@@ -81,7 +80,6 @@ func init() {
 	releaseFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	releaseFundCmd.Flags().StringVar(&fromFlag, "from", "", "Reserve owner's address")
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	releaseFundCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
 	releaseFundCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
 

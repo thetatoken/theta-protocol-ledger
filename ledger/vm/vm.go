@@ -45,9 +45,9 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	context := Context{
 		GasPrice:    tx.GasPrice,
 		GasLimit:    tx.GasLimit,
-		BlockNumber: big.NewInt(0), // TODO: set to the actual height?
-		Time:        big.NewInt(time.Now().Unix()),
-		Difficulty:  big.NewInt(0),
+		BlockNumber: new(big.Int).SetUint64(storeView.Height()),
+		Time:        new(big.Int).SetInt64(time.Now().Unix()),
+		Difficulty:  new(big.Int).SetInt64(0),
 	}
 	chainConfig := &params.ChainConfig{}
 	config := Config{}

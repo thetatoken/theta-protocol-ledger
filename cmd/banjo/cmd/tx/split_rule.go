@@ -73,7 +73,6 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: big.NewInt(0),
 			GammaWei: big.NewInt(feeInGammaFlag),
 		},
-		Gas:        gasAmountFlag,
 		ResourceID: common.Bytes(resourceIDFlag),
 		Initiator:  input,
 		Duration:   durationFlag,
@@ -112,7 +111,6 @@ func init() {
 	splitRuleCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	splitRuleCmd.Flags().StringVar(&fromFlag, "from", "", "Initiator's address")
 	splitRuleCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	splitRuleCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
 	splitRuleCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
 	splitRuleCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "The resourceID of interest")
 	splitRuleCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")

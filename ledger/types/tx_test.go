@@ -220,7 +220,6 @@ func TestSlashTxProto(t *testing.T) {
 
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
-		Gas: 222,
 		Fee: Coins{ThetaWei: big.NewInt(111), GammaWei: big.NewInt(0)},
 		Inputs: []TxInput{
 			TxInput{
@@ -247,7 +246,7 @@ func TestSendTxSignable(t *testing.T) {
 	}
 	signBytes := sendTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E02F87C81DEC26F80F83EE094696E707574310000000000000000000000000000C482303980830109328080DC94696E707574320000000000000000000000000000C26F8081DE8080F6DA946F75747075743100000000000000000000000000C482014D80DA946F75747075743200000000000000000000000000C48201BC80"
+	expected := "8A746573745F636861696E02F87AC26F80F83EE094696E707574310000000000000000000000000000C482303980830109328080DC94696E707574320000000000000000000000000000C26F8081DE8080F6DA946F75747075743100000000000000000000000000C482014D80DA946F75747075743200000000000000000000000000C48201BC80"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for SendTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -262,7 +261,6 @@ func TestSendTxProto(t *testing.T) {
 
 	// Construct a SendTx signature
 	tx := &SendTx{
-		Gas: 1,
 		Fee: Coins{GammaWei: big.NewInt(2)},
 		Inputs: []TxInput{
 			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(10)}, 1),
@@ -306,7 +304,6 @@ func TestSendTxProto(t *testing.T) {
 
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
-		Gas: 222,
 		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
@@ -320,7 +317,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 
 	signBytes := reserveFundTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E03F83881DEC2806FE094696E707574310000000000000000000000000000C480823039830109328080C480825971C98872696430303132338203E7"
+	expected := "8A746573745F636861696E03F6C2806FE094696E707574310000000000000000000000000000C480823039830109328080C480825971C98872696430303132338203E7"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ReserveFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -334,7 +331,6 @@ func TestReserveFundTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
-		Gas:         222,
 		Fee:         Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
@@ -373,7 +369,6 @@ func TestReserveFundTxProto(t *testing.T) {
 
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
-		Gas: 222,
 		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
@@ -385,7 +380,7 @@ func TestReleaseFundTxSignable(t *testing.T) {
 
 	signBytes := releaseFundTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E04E781DEC2806FE094696E707574310000000000000000000000000000C4808230398301093280800C"
+	expected := "8A746573745F636861696E04E5C2806FE094696E707574310000000000000000000000000000C4808230398301093280800C"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ReleaseFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -399,7 +394,6 @@ func TestReleaseFundTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
-		Gas:             222,
 		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		ReserveSequence: 1,
@@ -436,7 +430,6 @@ func TestReleaseFundTxProto(t *testing.T) {
 
 func TestServicePaymentTxSourceSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
-		Gas: 222,
 		Fee: Coins{GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
@@ -455,7 +448,7 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 
 	signBytes := servicePaymentTx.SourceSignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E05F84980C28080DD94736F757263650000000000000000000000000000C480823039808080DB947461726765740000000000000000000000000000C28080808080030C887269643030313233"
+	expected := "8A746573745F636861696E05F848C28080DD94736F757263650000000000000000000000000000C480823039808080DB947461726765740000000000000000000000000000C28080808080030C887269643030313233"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ServicePaymentTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -463,7 +456,6 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 
 func TestServicePaymentTxTargetSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
-		Gas: 222,
 		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
@@ -482,7 +474,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 
 	signBytes := servicePaymentTx.TargetSignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E05F84F81DEC2806FE094736F757263650000000000000000000000000000C480823039830109328080DD947461726765740000000000000000000000000000C280808257458080030C887269643030313233"
+	expected := "8A746573745F636861696E05F84DC2806FE094736F757263650000000000000000000000000000C480823039830109328080DD947461726765740000000000000000000000000000C280808257458080030C887269643030313233"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ServicePaymentTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -497,7 +489,6 @@ func TestServicePaymentTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
-		Gas:             222,
 		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10000)}, 1),
 		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
@@ -529,7 +520,6 @@ func TestSplitRuleTxSignable(t *testing.T) {
 		Percentage: 30,
 	}
 	splitRuleTx := &SplitRuleTx{
-		Gas:        222,
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
 		Initiator: TxInput{
@@ -543,7 +533,7 @@ func TestSplitRuleTxSignable(t *testing.T) {
 
 	signBytes := splitRuleTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E06F84881DEC2806F887269643030313233E094736F757263650000000000000000000000000000C480823039830109328080D7D69473706C69746164647231000000000000000000001E63"
+	expected := "8A746573745F636861696E06F846C2806F887269643030313233E094736F757263650000000000000000000000000000C480823039830109328080D7D69473706C69746164647231000000000000000000001E63"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for SplitRuleTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -561,7 +551,6 @@ func TestSplitRuleTxProto(t *testing.T) {
 		Percentage: 30,
 	}
 	tx := &SplitRuleTx{
-		Gas:        222,
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: []byte("rid00123"),
 		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),

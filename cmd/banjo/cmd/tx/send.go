@@ -56,7 +56,6 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: big.NewInt(0),
 			GammaWei: big.NewInt(feeInGammaFlag),
 		},
-		Gas:     gasAmountFlag,
 		Inputs:  inputs,
 		Outputs: outputs,
 	}
@@ -107,8 +106,7 @@ func init() {
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	sendCmd.Flags().Int64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
 	sendCmd.Flags().Int64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
-	sendCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
-	sendCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
+	sendCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")

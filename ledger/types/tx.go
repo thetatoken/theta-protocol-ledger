@@ -213,7 +213,6 @@ func (tx *SlashTx) String() string {
 //-----------------------------------------------------------------------------
 
 type SendTx struct {
-	Gas     uint64     `json:"gas"` // Gas
 	Fee     Coins      `json:"fee"` // Fee
 	Inputs  []TxInput  `json:"inputs"`
 	Outputs []TxOutput `json:"outputs"`
@@ -247,13 +246,12 @@ func (tx *SendTx) SetSignature(addr common.Address, sig *crypto.Signature) bool 
 }
 
 func (tx *SendTx) String() string {
-	return fmt.Sprintf("SendTx{%v/%v %v->%v}", tx.Gas, tx.Fee, tx.Inputs, tx.Outputs)
+	return fmt.Sprintf("SendTx{fee: %v, %v->%v}", tx.Inputs, tx.Outputs, tx.Fee)
 }
 
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Gas         uint64         `json:"gas"`          // Gas
 	Fee         Coins          `json:"fee"`          // Fee
 	Source      TxInput        `json:"source"`       // Source account
 	Collateral  Coins          `json:"collateral"`   // Collateral for the micropayment pool
@@ -282,13 +280,13 @@ func (tx *ReserveFundTx) SetSignature(addr common.Address, sig *crypto.Signature
 }
 
 func (tx *ReserveFundTx) String() string {
-	return fmt.Sprintf("ReserveFundTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Collateral, tx.ResourceIDs, tx.Duration)
+	return fmt.Sprintf("ReserveFundTx{fee: %v, source: %v, collateral: %v, resource_ids: %v, duration: %v}",
+		tx.Fee, tx.Source, tx.Collateral, tx.ResourceIDs, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------
 
 type ReleaseFundTx struct {
-	Gas             uint64  `json:"gas"`    // Gas
 	Fee             Coins   `json:"fee"`    // Fee
 	Source          TxInput `json:"source"` // source account
 	ReserveSequence uint64  `json:"reserve_sequence"`
@@ -315,13 +313,12 @@ func (tx *ReleaseFundTx) SetSignature(addr common.Address, sig *crypto.Signature
 }
 
 func (tx *ReleaseFundTx) String() string {
-	return fmt.Sprintf("ReleaseFundTx{%v/%v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.ReserveSequence)
+	return fmt.Sprintf("ReleaseFundTx{fee: %v, source: %v, reserve_sequence: %v}", tx.Fee, tx.Source, tx.ReserveSequence)
 }
 
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Gas             uint64       `json:"gas"`              // Gas
 	Fee             Coins        `json:"fee"`              // Fee
 	Source          TxInput      `json:"source"`           // source account
 	Target          TxInput      `json:"target"`           // target account
@@ -338,12 +335,10 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	source := tx.Source
 	target := tx.Target
 	fee := tx.Fee
-	gas := tx.Gas
 
 	tx.Source = TxInput{Address: source.Address, Coins: source.Coins}
 	tx.Target = TxInput{Address: target.Address}
 	tx.Fee = NewCoins(0, 0)
-	tx.Gas = uint64(0)
 
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
@@ -351,7 +346,6 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	tx.Source = source
 	tx.Target = target
 	tx.Fee = fee
-	tx.Gas = gas
 
 	return signBytes
 }
@@ -386,7 +380,8 @@ func (tx *ServicePaymentTx) SignBytes(chainID string) []byte {
 }
 
 func (tx *ServicePaymentTx) String() string {
-	return fmt.Sprintf("ServicePaymentTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.Source, tx.Target, tx.ReserveSequence, tx.ResourceID)
+	return fmt.Sprintf("ServicePaymentTx{fee: %v, source: %v, target: %v, reserve_sequence: %v, resource_id: %v}",
+		tx.Fee, tx.Source, tx.Target, tx.ReserveSequence, tx.ResourceID)
 }
 
 // TxBytes returns the transaction data as well as all signatures
@@ -399,7 +394,6 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 //-----------------------------------------------------------------------------
 
 type SplitRuleTx struct {
-	Gas        uint64       `json:"gas"`         // Gas
 	Fee        Coins        `json:"fee"`         // Fee
 	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
 	Initiator  TxInput      `json:"initiator"`   // Initiator of the split rule
@@ -428,13 +422,13 @@ func (tx *SplitRuleTx) SetSignature(addr common.Address, sig *crypto.Signature) 
 }
 
 func (tx *SplitRuleTx) String() string {
-	return fmt.Sprintf("SplitRuleTx{%v/%v %v %v %v %v}", tx.Gas, tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
+	return fmt.Sprintf("SplitRuleTx{fee: %v, resource_id: %v, initiator: %v, splits: %v, duration: %v}",
+		tx.Fee, tx.ResourceID, tx.Initiator, tx.Splits, tx.Duration)
 }
 
 //-----------------------------------------------------------------------------
 
 type UpdateValidatorsTx struct {
-	Gas        uint64            `json:"gas"`        // Gas
 	Fee        Coins             `json:"fee"`        // Fee
 	Validators []*core.Validator `json:"validators"` // validators diff
 	Proposer   TxInput           `json:"source"`     // source account

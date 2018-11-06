@@ -61,7 +61,6 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: big.NewInt(0),
 			GammaWei: big.NewInt(feeInGammaFlag),
 		},
-		Gas:         gasAmountFlag,
 		Source:      input,
 		ResourceIDs: resourceIDs,
 		Collateral:  collateral,
@@ -102,7 +101,6 @@ func init() {
 	reserveFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	reserveFundCmd.Flags().Int64Var(&reserveFundInGammaFlag, "fund", 0, "Gamma amount in Wei to reserve")
 	reserveFundCmd.Flags().Int64Var(&reserveCollateralInGammaFlag, "collateral", 0, "Gamma amount in Wei as collateral")
-	reserveFundCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
 	reserveFundCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")

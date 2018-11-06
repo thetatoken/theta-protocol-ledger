@@ -2,6 +2,7 @@ package types
 
 import (
 	"bytes"
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,7 +20,7 @@ func TestNodeInfoRLPEncoding1(t *testing.T) {
 
 	encodedNodeInfoBytes, err := rlp.EncodeToBytes(nodeInfo)
 	assert.Nil(err)
-	t.Logf("encodedNodeInfoBytes     = %v", string(encodedNodeInfoBytes))
+	t.Logf("encodedNodeInfoBytes     = %v", hex.EncodeToString(encodedNodeInfoBytes))
 
 	var decodedNodeInfo NodeInfo
 	rlp.DecodeBytes(encodedNodeInfoBytes, &decodedNodeInfo)
