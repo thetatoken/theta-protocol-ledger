@@ -106,7 +106,10 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 
-	fromAccount.Sequence++
+	createContract := (tx.To.Address == common.Address{})
+	if !createContract { // vm.create() increments the sequence of the from account
+		fromAccount.Sequence++
+	}
 	view.SetAccount(fromAddress, fromAccount)
 
 	txHash := types.TxID(chainID, tx)

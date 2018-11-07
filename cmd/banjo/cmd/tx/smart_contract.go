@@ -111,7 +111,7 @@ func init() {
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")
 	smartContractCmd.Flags().Uint64Var(&valueFlag, "value", 0, "Value to be transferred")
-	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", 0, "The gas price")
+	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", types.MinimumGasPrice, "The gas price")
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

@@ -2,7 +2,6 @@ package types
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/common"
@@ -233,44 +232,44 @@ func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServi
 }
 
 func (acc *Account) UpdateToHeight(height uint64) {
-	acc.UpdateAccountGammaReward(height)
+	//	acc.UpdateAccountGammaReward(height) // Initial Gamma inflation should be zero for all accounts
 	acc.ReleaseExpiredFunds(height)
 }
 
-func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint64) {
-	if acc.LastUpdatedBlockHeight < 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
-		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
-	}
+// func (acc *Account) UpdateAccountGammaReward(currentBlockHeight uint64) {
+// 	if acc.LastUpdatedBlockHeight < 0 || acc.LastUpdatedBlockHeight > currentBlockHeight {
+// 		panic(fmt.Sprintf("Invalid LastRewardedBlockHeight: acc.LastUpdatedBlockHeight: %d, currentBlockHeight: %d", acc.LastUpdatedBlockHeight, currentBlockHeight))
+// 	}
 
-	totalThetaWei := acc.Balance.ThetaWei
-	if totalThetaWei == nil {
-		totalThetaWei = big.NewInt(0)
-	}
-	span := currentBlockHeight - acc.LastUpdatedBlockHeight
+// 	totalThetaWei := acc.Balance.ThetaWei
+// 	if totalThetaWei == nil {
+// 		totalThetaWei = big.NewInt(0)
+// 	}
+// 	span := currentBlockHeight - acc.LastUpdatedBlockHeight
 
-	newGammaBalance := big.NewInt(int64(span))
-	newGammaBalance.Mul(newGammaBalance, totalThetaWei)
-	newGammaBalance.Mul(newGammaBalance, big.NewInt(RegularGammaGenerationRateNumerator))
-	newGammaBalance.Div(newGammaBalance, big.NewInt(RegularGammaGenerationRateDenominator))
+// 	newGammaBalance := big.NewInt(int64(span))
+// 	newGammaBalance.Mul(newGammaBalance, totalThetaWei)
+// 	newGammaBalance.Mul(newGammaBalance, big.NewInt(RegularGammaGenerationRateNumerator))
+// 	newGammaBalance.Div(newGammaBalance, big.NewInt(RegularGammaGenerationRateDenominator))
 
-	if newGammaBalance.Sign() <= 0 {
-		// Underflow, no reward to add yet
-		return
-	}
+// 	if newGammaBalance.Sign() <= 0 {
+// 		// Underflow, no reward to add yet
+// 		return
+// 	}
 
-	newGammaBalance.Add(newGammaBalance, acc.Balance.GammaWei)
+// 	newGammaBalance.Add(newGammaBalance, acc.Balance.GammaWei)
 
-	if !newGammaBalance.IsInt64() {
-		panic("Account Gamma balance will overflow")
-	}
+// 	if !newGammaBalance.IsInt64() {
+// 		panic("Account Gamma balance will overflow")
+// 	}
 
-	newBalance := Coins{
-		ThetaWei: acc.Balance.ThetaWei,
-		GammaWei: newGammaBalance,
-	}
-	acc.Balance = newBalance
-	acc.LastUpdatedBlockHeight = currentBlockHeight
-}
+// 	newBalance := Coins{
+// 		ThetaWei: acc.Balance.ThetaWei,
+// 		GammaWei: newGammaBalance,
+// 	}
+// 	acc.Balance = newBalance
+// 	acc.LastUpdatedBlockHeight = currentBlockHeight
+// }
 
 func constructOverspendingProof(reservedFund *ReservedFund, currentServicePaymentTx *ServicePaymentTx) []byte {
 	// TODO: The proof can be simplied to only contain the signed transactions that go beyond the spending limit.

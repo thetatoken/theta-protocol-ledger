@@ -16,7 +16,8 @@ const (
 
 const (
 	// ValidatorThetaGenerationRateNumerator is used for calculating the generation rate of Theta for validators
-	ValidatorThetaGenerationRateNumerator int64 = 317
+	//ValidatorThetaGenerationRateNumerator int64 = 317
+	ValidatorThetaGenerationRateNumerator int64 = 0 // ZERO inflation for Theta
 
 	// ValidatorThetaGenerationRateDenominator is used for calculating the generation rate of Theta for validators
 	// ValidatorThetaGenerationRateNumerator / ValidatorThetaGenerationRateDenominator is the amount of ThetaWei
@@ -24,7 +25,7 @@ const (
 	ValidatorThetaGenerationRateDenominator int64 = 1e11
 
 	// ValidatorGammaGenerationRateNumerator is used for caluclating the generation rate of Gamma for validators
-	ValidatorGammaGenerationRateNumerator int64 = 0
+	ValidatorGammaGenerationRateNumerator int64 = 0 // ZERO initial inflation for Gamma
 
 	// ValidatorGammaGenerationRateDenominator is used for caluclating the generation rate of Gamma for validators
 	// ValidatorGammaGenerationRateNumerator / ValidatorGammaGenerationRateDenominator is the amount of GammaWei
@@ -32,7 +33,8 @@ const (
 	ValidatorGammaGenerationRateDenominator int64 = 1e9
 
 	// RegularGammaGenerationRateNumerator is used for caluclating the generation rate of Gamma for other types of accounts
-	RegularGammaGenerationRateNumerator int64 = 1900
+	//RegularGammaGenerationRateNumerator int64 = 1900
+	RegularGammaGenerationRateNumerator int64 = 0 // ZERO initial inflation for Gamma
 
 	// RegularGammaGenerationRateDenominator is used for caluclating the generation rate of Gamma for other types of accounts
 	// RegularGammaGenerationRateNumerator / RegularGammaGenerationRateDenominator is the amount of GammaWei

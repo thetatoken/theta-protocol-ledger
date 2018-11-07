@@ -51,8 +51,8 @@ func TestGetInputs(t *testing.T) {
 	inputs = types.Accs2TxInputs(1, et.accIn)
 	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
-	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
-		"getInputs: expected to update input account gamma balance")
+	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
+		"getInputs: gamma amount should not change")
 }
 
 func TestGetOrMakeOutputs(t *testing.T) {
@@ -96,8 +96,8 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	et.acc2State(et.accIn)
 	mapRes1, res := getOrMakeOutputs(et.state().Delivered(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
-	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
-		"getOrMakeOutputs: expected to update existing output account gamma balance")
+	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
+		"getOrMakeOutputs: gamma amount should not change")
 
 	mapRes2, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
@@ -285,12 +285,12 @@ func TestSendTx(t *testing.T) {
 		"ExecTx/good DeliverTx: unexpected change in output balance, got: %v, expected: %v", balOut, balOutExp)
 }
 
-func TestCalculateThetaReward(t *testing.T) {
-	assert := assert.New(t)
+// func TestCalculateThetaReward(t *testing.T) {
+// 	assert := assert.New(t)
 
-	res := calculateThetaReward(big.NewInt(1e17), true)
-	assert.True(res.ThetaWei.Cmp(types.Zero) > 0)
-}
+// 	res := calculateThetaReward(big.NewInt(1e17), true)
+// 	assert.True(res.ThetaWei.Cmp(types.Zero) == 0) // ZERO Theta inflation
+// }
 
 func TestNonEmptyPubKey(t *testing.T) {
 	assert := assert.New(t)
@@ -399,14 +399,14 @@ func TestCoinbaseTx(t *testing.T) {
 	var tx *types.CoinbaseTx
 	var res result.Result
 
-	//Regular check
+	// Regular check
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va1.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
@@ -415,7 +415,7 @@ func TestCoinbaseTx(t *testing.T) {
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
-	//Error if reward Theta amount is incorrect
+	// Theta should never inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
@@ -429,90 +429,118 @@ func TestCoinbaseTx(t *testing.T) {
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
-	//Error if reward Gamma amount is incorrect
+	// For the initial Mainnet release, Gamma should not inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va1.Account.PubKey.Address(), types.NewCoins(0, 987),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 1),
+			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
-	//Error if Validator 2 is not rewarded
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if reward Theta amount is incorrect
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Error if non-validator is rewarded
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
-		}, {
-			user1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if reward Gamma amount is incorrect
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 1),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Error if validator address is changed
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			user1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if Validator 2 is not rewarded
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Process should update validator account
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
-		}},
-		BlockHeight: 1e7,
-	}
+	// //Error if non-validator is rewarded
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+	// 	}, {
+	// 		user1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	_, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsOK(), res.String())
+	// //Error if validator address is changed
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		user1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
-	// validator's Gamma is also updated.
-	assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
+	// //Process should update validator account
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
 
-	va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
-	assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
-	assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
+	// _, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsOK(), res.String())
 
-	user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
-	// user's Gamma is not updated.
-	assert.Equal(int64(0), user1balance.GammaWei.Int64())
+	// va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
+	// // validator's Gamma is also updated.
+	// assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
+
+	// va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
+	// assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
+
+	// user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
+	// // user's Gamma is not updated.
+	// assert.Equal(int64(0), user1balance.GammaWei.Int64())
 }
 
 func TestReserveFundTx(t *testing.T) {

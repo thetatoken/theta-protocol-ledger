@@ -111,7 +111,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("d0b4ac4187b17f354a6777333afc2b6f2a84328e4f45e3cce1cce325c88d5f03")
+	expectedStateRoot := common.HexToHash("56b82c96d5b64b3bc441052bc7d4733863101a07825bcfdd98698503dd791921")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
 	require.True(res.IsOK(), res.Message)
@@ -126,7 +126,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		valPk := val.PublicKey()
 		valAddr := (&valPk).Address()
 		valAcc := ledger.state.Delivered().GetAccount(valAddr)
-		expectedValBal := types.NewCoins(100000000317, 20000)
+		expectedValBal := types.NewCoins(100000000000, 1000)
 		assert.NotNil(valAcc)
 		assert.Equal(expectedValBal, valAcc.Balance)
 	}
@@ -236,7 +236,7 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	outputs := []types.TxOutput{}
 	for _, val := range vaList {
 		valPk := val.PublicKey()
-		output := types.TxOutput{(&valPk).Address(), types.NewCoins(317, 0)}
+		output := types.TxOutput{(&valPk).Address(), types.NewCoins(0, 0)}
 		outputs = append(outputs, output)
 	}
 

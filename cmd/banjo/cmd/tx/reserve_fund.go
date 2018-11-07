@@ -35,8 +35,8 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	input := types.TxInput{
 		Address: fromAddress,
 		Coins: types.Coins{
-			ThetaWei: big.NewInt(0),
-			GammaWei: big.NewInt(reserveFundInGammaFlag),
+			ThetaWei: new(big.Int).SetUint64(0),
+			GammaWei: new(big.Int).SetUint64(reserveFundInGammaFlag),
 		},
 		Sequence: uint64(seqFlag),
 	}
@@ -48,8 +48,8 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 		resourceIDs = append(resourceIDs, common.Bytes(id))
 	}
 	collateral := types.Coins{
-		ThetaWei: big.NewInt(0),
-		GammaWei: big.NewInt(reserveCollateralInGammaFlag),
+		ThetaWei: new(big.Int).SetUint64(0),
+		GammaWei: new(big.Int).SetUint64(reserveCollateralInGammaFlag),
 	}
 	if !collateral.IsPositive() {
 		fmt.Printf("Invalid input: collateral must be positive\n")
@@ -58,8 +58,8 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.Coins{
-			ThetaWei: big.NewInt(0),
-			GammaWei: big.NewInt(feeInGammaFlag),
+			ThetaWei: new(big.Int).SetUint64(0),
+			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
 		},
 		Source:      input,
 		ResourceIDs: resourceIDs,
@@ -99,9 +99,9 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	reserveFundCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	reserveFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	reserveFundCmd.Flags().Int64Var(&reserveFundInGammaFlag, "fund", 0, "Gamma amount in Wei to reserve")
-	reserveFundCmd.Flags().Int64Var(&reserveCollateralInGammaFlag, "collateral", 0, "Gamma amount in Wei as collateral")
-	reserveFundCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
+	reserveFundCmd.Flags().Uint64Var(&reserveFundInGammaFlag, "fund", 0, "Gamma amount in Wei to reserve")
+	reserveFundCmd.Flags().Uint64Var(&reserveCollateralInGammaFlag, "collateral", 0, "Gamma amount in Wei as collateral")
+	reserveFundCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
 

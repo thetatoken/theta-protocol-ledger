@@ -36,8 +36,8 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{
-			GammaWei: big.NewInt(gammaAmountFlag + feeInGammaFlag),
-			ThetaWei: big.NewInt(thetaAmountFlag),
+			GammaWei: new(big.Int).SetUint64(gammaAmountFlag + feeInGammaFlag),
+			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
 		},
 		Sequence: uint64(seqFlag),
 	}}
@@ -47,14 +47,14 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{
-			GammaWei: big.NewInt(gammaAmountFlag),
-			ThetaWei: big.NewInt(thetaAmountFlag),
+			GammaWei: new(big.Int).SetUint64(gammaAmountFlag),
+			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
 		},
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
-			ThetaWei: big.NewInt(0),
-			GammaWei: big.NewInt(feeInGammaFlag),
+			ThetaWei: new(big.Int).SetUint64(0),
+			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
 		},
 		Inputs:  inputs,
 		Outputs: outputs,
@@ -104,9 +104,9 @@ func init() {
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	sendCmd.Flags().Int64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
-	sendCmd.Flags().Int64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
-	sendCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee")
+	sendCmd.Flags().Uint64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
+	sendCmd.Flags().Uint64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
+	sendCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")
