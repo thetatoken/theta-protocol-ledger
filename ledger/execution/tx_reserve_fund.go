@@ -63,8 +63,8 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee").
-			WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	fund := tx.Source.Coins

@@ -49,7 +49,8 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee

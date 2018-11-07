@@ -80,7 +80,8 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	transferAmount := tx.Source.Coins

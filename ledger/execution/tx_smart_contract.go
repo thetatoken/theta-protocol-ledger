@@ -56,7 +56,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	if !sanityCheckForGasPrice(tx.GasPrice) {
-		return result.Error("Invalid gas price").
+		return result.Error("Insufficient gas price. Gas price needs to be at least %v GammaWei", types.MinimumGasPrice).
 			WithErrorCode(result.CodeInvalidGasPrice)
 	}
 

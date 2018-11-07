@@ -139,8 +139,8 @@ The return should look like the json below. As we can see, 100000 GammaWei were 
     ...
     "address": "2E833968E5bB786Ae419c4d13189fB081Cc43bab",
     "coins": {
-        "gammawei": 95970332,
-        "thetawei": 100001609399
+        "gammawei": 912033999799979,
+        "thetawei": 999999999999990
     },
     ...
     "reserved_funds": [
@@ -149,12 +149,12 @@ The return should look like the json below. As we can see, 100000 GammaWei were 
                 "gammawei": 100001,
                 "thetawei": 0
             },
-            "end_block_height": 6066,
+            "end_block_height": 1077,
             "initial_fund": {
                 "gammawei": 100000,
                 "thetawei": 0
             },
-            "reserve_sequence": 6,
+            "reserve_sequence": 4,
             "resource_ids": [
                 "cmlkMTAwMDAwMQ=="
             ],

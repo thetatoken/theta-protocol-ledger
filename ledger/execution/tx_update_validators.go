@@ -46,7 +46,8 @@ func (exec *UpdateValidatorsTxExecutor) sanityCheck(chainID string, view *st.Sto
 	// }
 
 	// if !sanityCheckForFee(tx.Fee) {
-	// 	return result.Error("invalid fee")
+	//	return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+	//		types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	// }
 
 	// // Verify that validator set matches with local config.
