@@ -143,19 +143,19 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
-			ledger.ResetState(currHeight, currStateRoot)
+			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
-			ledger.ResetState(currHeight, currStateRoot)
+			ledger.resetState(currHeight, currStateRoot)
 			return res
 		}
 	}
 
 	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
-		ledger.ResetState(currHeight, currStateRoot)
+		ledger.resetState(currHeight, currStateRoot)
 		return result.Error("State root mismatch! root: %v, exptected: %v",
 			hex.EncodeToString(newStateRoot[:]),
 			hex.EncodeToString(expectedStateRoot[:]))
@@ -173,11 +173,7 @@ func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Res
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
-	res := ledger.state.ResetState(height, rootHash)
-	if res.IsError() {
-		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
-	}
-	return result.OK
+	return ledger.resetState(height, rootHash)
 }
 
 // FinalizeState sets the ledger state with the finalized root
@@ -188,6 +184,15 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 	res := ledger.state.Finalize(height, rootHash)
 	if res.IsError() {
 		return result.Error("Failed to finalize state root: %v", hex.EncodeToString(rootHash[:]))
+	}
+	return result.OK
+}
+
+// resetState sets the ledger state with the designated root
+func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
+	res := ledger.state.ResetState(height, rootHash)
+	if res.IsError() {
+		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
 	}
 	return result.OK
 }

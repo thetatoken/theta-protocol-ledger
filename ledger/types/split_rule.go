@@ -6,10 +6,6 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
-//
-// ----- Definition and Implementation of Various Specialized Smart Contracts ----- //
-//
-
 // ** Split Rule: Specifies the payment split agreement among participating addresses **
 //
 

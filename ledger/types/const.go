@@ -1,11 +1,17 @@
 package types
 
 const (
-	// DenomThetaWei is the basic unit of theta, 1 Theta = 10^6 ThetaWei
+	// DenomThetaWei is the basic unit of theta, 1 Theta = 10^18 ThetaWei
 	DenomThetaWei string = "ThetaWei"
 
-	// DenomGammaWei is the basic unit of theta, 1 Theta = 10^6 ThetaWei
+	// DenomGammaWei is the basic unit of theta, 1 Theta = 10^18 ThetaWei
 	DenomGammaWei string = "GammaWei"
+
+	// MinimumGasPrice is the minimum gas price for a smart contract transaction
+	MinimumGasPrice uint64 = 1e9
+
+	// MinimumTransactionFeeGammaWei specifies the minimum fee for a regular transaction
+	MinimumTransactionFeeGammaWei uint64 = 1e12
 )
 
 const (

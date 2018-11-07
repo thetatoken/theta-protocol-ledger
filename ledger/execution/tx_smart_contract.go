@@ -45,7 +45,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(fromAccount, signBytes, tx.From)
 	if res.IsError() {
-		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %X: %v", tx.From.Address, res))
+		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
 		return res
 	}
 
@@ -55,12 +55,12 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidValueToTransfer)
 	}
 
-	zero := big.NewInt(0)
-	if tx.GasPrice == nil || tx.GasPrice.Cmp(zero) < 0 {
+	if !sanityCheckForGasPrice(tx.GasPrice) {
 		return result.Error("Invalid gas price").
 			WithErrorCode(result.CodeInvalidGasPrice)
 	}
 
+	zero := big.NewInt(0)
 	feeLimit := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(tx.GasLimit))
 	if feeLimit.BitLen() > 255 || feeLimit.Cmp(zero) < 0 {
 		// There is no explicit upper limit for big.Int. Just be conservative
@@ -75,7 +75,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 		GammaWei: feeLimit.Add(feeLimit, value),
 	}
 	if !fromAccount.Balance.IsGTE(minimalBalance) {
-		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.From.Address))
+		log.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.From.Address.Hex()))
 		return result.Error("Source balance is %v, but required minimal balance is %v",
 			fromAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}

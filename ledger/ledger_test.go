@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"testing"
 
@@ -103,12 +104,14 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2])
 	sendTx4Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[3])
 	sendTx5Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[4])
+	inAccInitGammaWei := accIns[0].Balance.GammaWei
+	txFee := getMinimumTxFee()
 
 	blockRawTxs := []common.Bytes{
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("9302a4403b3da80d1a7e509c090b07a78bdcbc788fe5c341f7ad73d999ce6026")
+	expectedStateRoot := common.HexToHash("d0b4ac4187b17f354a6777333afc2b6f2a84328e4f45e3cce1cce325c88d5f03")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
 	require.True(res.IsOK(), res.Message)
@@ -134,7 +137,10 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	assert.Equal(expectedAccOutBal, accOutAfter.Balance)
 
 	// Input account balance
-	expectedAccInBal := types.NewCoins(899985, 49997)
+	expectedAccInBal := types.Coins{
+		ThetaWei: new(big.Int).SetInt64(899985),
+		GammaWei: inAccInitGammaWei.Sub(inAccInitGammaWei, new(big.Int).SetInt64(txFee)),
+	}
 	for idx, _ := range accIns {
 		accInAddr := accIns[idx].Account.PubKey.Address()
 		accInAfter := ledger.state.Delivered().GetAccount(accInAddr)
@@ -195,6 +201,7 @@ func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
 }
 
 func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
+	txFee := getMinimumTxFee()
 	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
 	for _, val := range validators {
 		valPubKey := val.PublicKey()
@@ -211,7 +218,7 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 
 	for i := 0; i < numInAccs; i++ {
 		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
-		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000))
+		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000*txFee))
 		accIns = append(accIns, accIn)
 		ledger.state.Delivered().SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
 	}
@@ -258,14 +265,15 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 }
 
 func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount) common.Bytes {
+	txFee := getMinimumTxFee()
 	sendTx := &types.SendTx{
-		Fee: types.NewCoins(0, 3),
+		Fee: types.NewCoins(0, txFee),
 		Inputs: []types.TxInput{
 			{
 				Sequence: uint64(sequence),
 				PubKey:   accIn.PubKey,
 				Address:  accIn.PubKey.Address(),
-				Coins:    types.NewCoins(15, 3),
+				Coins:    types.NewCoins(15, txFee),
 			},
 		},
 		Outputs: []types.TxOutput{
@@ -296,4 +304,8 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		panic(err)
 	}
 	return sendTxBytes
+}
+
+func getMinimumTxFee() int64 {
+	return int64(types.MinimumTransactionFeeGammaWei)
 }

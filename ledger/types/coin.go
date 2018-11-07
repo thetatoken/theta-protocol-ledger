@@ -21,10 +21,10 @@ type Coins struct {
 }
 
 // NewCoins is a convenient method for creating small amount of coins.
-func NewCoins(theta int, gamma int) Coins {
+func NewCoins(theta int64, gamma int64) Coins {
 	return Coins{
-		ThetaWei: big.NewInt(int64(theta)),
-		GammaWei: big.NewInt(int64(gamma)),
+		ThetaWei: big.NewInt(theta),
+		GammaWei: big.NewInt(gamma),
 	}
 }
 

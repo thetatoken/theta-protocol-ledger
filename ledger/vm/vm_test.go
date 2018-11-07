@@ -198,7 +198,7 @@ func TestVMExecute(t *testing.T) {
 
 	// First deploy a smart contract
 	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := 9723
+	valueAmount := int64(9723)
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address: deployerAddr,
@@ -282,7 +282,7 @@ func TestVMInteractWithContract(t *testing.T) {
 
 	// First deploy a smart contract
 	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := 0 // NOTE: For this contract, the value NEEDS to be ZERO
+	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address: deployerAddr,
@@ -353,7 +353,7 @@ func TestVMDeployComplexContract(t *testing.T) {
 
 	// First deploy a smart contract
 	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := 0 // NOTE: For this contract, the value NEEDS to be ZERO
+	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address: deployerAddr,
@@ -438,7 +438,7 @@ func TestVMDeployERC20TokenContract(t *testing.T) {
 
 	// First deploy a smart contract
 	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := 0 // NOTE: For this contract, the value NEEDS to be ZERO
+	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address: deployerAddr,

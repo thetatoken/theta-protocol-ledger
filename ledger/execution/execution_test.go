@@ -520,7 +520,10 @@ func TestReserveFundTx(t *testing.T) {
 	et := NewExecTest()
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
+	user1.Balance = types.Coins{
+		GammaWei: big.NewInt(50 * getMinimumTxFee()),
+		ThetaWei: big.NewInt(10000 * 1e6),
+	}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -530,7 +533,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Reserved fund not specified
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
@@ -547,14 +550,14 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Insufficient fund
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(50000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(50000 * 1e9), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(50001 * 1e9), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -565,7 +568,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Reserved fund more than collateral
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
@@ -583,7 +586,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Regular check
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
@@ -612,7 +615,10 @@ func TestReleaseFundTx(t *testing.T) {
 	et := NewExecTest()
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
+	user1.Balance = types.Coins{
+		GammaWei: big.NewInt(50 * getMinimumTxFee()),
+		ThetaWei: big.NewInt(10000 * 1e6),
+	}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -622,7 +628,7 @@ func TestReleaseFundTx(t *testing.T) {
 	var res result.Result
 
 	reserveFundTx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 1000),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
@@ -643,7 +649,20 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Invalid Fee
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(100, 0),
+		Fee: types.NewCoins(0, getMinimumTxFee()-1), // insufficient transaction fee
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 1,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.getTxExecutor(releaseFundTx).sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeInvalidFee, res.String())
+
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.NewCoins(100, getMinimumTxFee()), // Theta cannot be used as transaction fee
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -657,7 +676,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Not expire yet
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -673,7 +692,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// No matching ReserveSequence
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -692,7 +711,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Check auto-expiration
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -710,17 +729,19 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bob
-	payAmount1 := int64(800)
+	payAmount1 := int64(80 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -731,14 +752,15 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
 	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - txFee: need to account for tx fee
 
 	// Simulate micropayment #2 between Alice and Bob
-	payAmount2 := int64(500)
+	payAmount2 := int64(50 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 2, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx2 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount2, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx2).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.True(res.IsOK(), res.Message)
@@ -751,12 +773,12 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2*txFee)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2*txFee: need to account for tx fee
 
 	// Simulate micropayment #3 between Alice and Carol
-	payAmount3 := int64(1200)
+	payAmount3 := int64(120 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 1, 3, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &carol, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx3 := createServicePaymentTx(et.chainID, &alice, &carol, payAmount3, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx3).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx3)
 	assert.True(res.IsOK(), res.Message)
@@ -769,12 +791,12 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
 	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.PubKey.Address())
-	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - 1)}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
+	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - txFee)}), retrievedCarolAcc3.Balance) // payAmount3 - txFee: need to account for tx fee
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
-	payAmount4 := int64(2000 * 1e6)
+	payAmount4 := int64(2000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 4, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &carol, 70000, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 70000*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx4 := createServicePaymentTx(et.chainID, &alice, &carol, payAmount4, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx4).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx4)
 	assert.True(res.IsOK(), res.Message) // the following process() call will create an SlashIntent
@@ -790,17 +812,19 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	et, resourceID, alice, bob, _, _, bobInitBalance, _ := setupForServicePayment(assert)
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bobs
-	payAmount1 := int64(800)
+	payAmount1 := int64(80 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -812,14 +836,14 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1)}), retrievedBobAcc2.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee)}), retrievedBobAcc2.Balance) // payAmount1 - txFee: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
 
 	// Simulate micropayment #2 between Alice and Bobs
-	payAmount2 := int64(500)
+	payAmount2 := int64(50 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 2, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx2 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount2, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx2).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.False(res.IsOK(), res.Message)
@@ -839,6 +863,8 @@ func TestSlashTx(t *testing.T) {
 
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
 	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
@@ -846,10 +872,10 @@ func TestSlashTx(t *testing.T) {
 	expectedAliceSlashedAmount := aliceCollateral.Plus(aliceReservedFund)
 
 	// Simulate micropayment #1 between Alice and Bob, which is an overspend
-	payAmount1 := int64(8000 * 1e6)
+	payAmount1 := int64(8000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -900,8 +926,10 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -909,7 +937,7 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
-		Fee:        types.NewCoins(0, 10),
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -928,10 +956,10 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
-	payAmount := int64(10000)
+	payAmount := int64(1000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &bob, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
@@ -949,7 +977,7 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 
 	// Check the balances of the relevant accounts
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 70 / 100), ThetaWei: big.NewInt(0)}
-	servicePaymentTxFee := types.NewCoins(0, 1)
+	servicePaymentTxFee := types.NewCoins(0, txFee)
 	carolSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 30 / 100), ThetaWei: big.NewInt(0)}
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
@@ -961,8 +989,10 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -970,7 +1000,7 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
-		Fee:        types.NewCoins(0, 10),
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -991,7 +1021,7 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 	et.fastforwardBy(105) // The split rule should expire after the fastforward
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should NOT get a cut
-	payAmount := int64(10000)
+	payAmount := int64(1000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
@@ -1012,7 +1042,7 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 
 	// Check the balances of the relevant accounts
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
-	servicePaymentTxFee := types.NewCoins(0, 1)
+	servicePaymentTxFee := types.NewCoins(0, txFee)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split rule has expired
 }
@@ -1022,12 +1052,14 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 	et, resourceID, _, _, carol, _, _, _ := setupForServicePayment(assert)
 	et.fastforwardBy(1000)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	fakeInitiator := types.MakeAcc("User Eric")
-	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(fakeInitiator)
 
 	splitCarol := types.Split{
@@ -1035,7 +1067,7 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
-		Fee:        types.NewCoins(0, 10),
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1060,7 +1092,7 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 
 	// Another user tries to update the split rule, should fail
 	fakeSplitRuleUpdateTx := &types.SplitRuleTx{
-		Fee:        types.NewCoins(0, 10),
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  fakeInitiator.PubKey.Address(),
@@ -1089,7 +1121,7 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 	// The original initiator tries to update the split rule, should succeed
 	extendedDuration := uint64(1000)
 	splitRuleUpdateTx := &types.SplitRuleTx{
-		Fee:        types.NewCoins(0, 10),
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1155,8 +1187,8 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 
 	deployerAcc := deployerPrivAcc.Account
 	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := 9723
-	gasPrice := int64(234)
+	valueAmount := int64(9723)
+	gasPrice := types.MinimumGasPrice
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address:  deployerAddr,
@@ -1165,7 +1197,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 			Sequence: 1,
 		},
 		GasLimit: 60000,
-		GasPrice: big.NewInt(gasPrice),
+		GasPrice: new(big.Int).SetUint64(gasPrice),
 		Data:     deploymentCode,
 	}
 	signBytes := deploySCTx.SignBytes(et.chainID)
@@ -1200,7 +1232,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 
 	// Check the deployment gas fee
 	retrievedDeployerAcc := et.state().Delivered().GetAccount(deployerAddr)
-	deploymentFee := types.NewCoins(0, int(gasUsed)*int(gasPrice))
+	deploymentFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
 	expectedTotalDeploymentCost := expectedTransferredValue.Plus(deploymentFee)
 	deploymentAccBalanceReduction := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
 	assert.Equal(expectedTotalDeploymentCost, deploymentAccBalanceReduction)
@@ -1221,7 +1253,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 		},
 		To:       types.TxOutput{Address: contractAddr},
 		GasLimit: 60000,
-		GasPrice: big.NewInt(gasPrice),
+		GasPrice: new(big.Int).SetUint64(gasPrice),
 		Data:     nil,
 	}
 	signBytes = callSCTX.SignBytes(et.chainID)
@@ -1246,7 +1278,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 
 	// Check the smart contract execution gas fee
 	retrievedCallerAcc := et.state().Delivered().GetAccount(callerAddr)
-	expectedSCExecGasFee := types.NewCoins(0, int(gasUsed)*int(gasPrice))
+	expectedSCExecGasFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
 	callerAccBalanceReduction := callerAcc.Balance.Minus(retrievedCallerAcc.Balance)
 	assert.Equal(expectedSCExecGasFee, callerAccBalanceReduction)
 	log.Infof("[Execution ] expected gas cost: %v, actual gas cost: %v",
@@ -1257,7 +1289,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
 	servicePaymentTx := &types.ServicePaymentTx{
-		Fee: types.NewCoins(0, 1),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  source.PubKey.Address(),
 			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
@@ -1300,21 +1332,21 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 	et = NewExecTest()
 
 	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
 	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
 	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
 
 	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
+	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
 	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
 	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
 
 	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
+	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
 	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
@@ -1324,14 +1356,14 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 
 	resourceID = common.Bytes("rid001")
 	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  alice.PubKey.Address(),
 			PubKey:   alice.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{resourceID},
 		Duration:    1000,
 	}
@@ -1349,7 +1381,7 @@ func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTes
 
 	for i := 0; i < numAccounts; i++ {
 		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
-		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, 50000000000))
+		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, int64(9000000*types.MinimumGasPrice)))
 		privAccounts = append(privAccounts, privAccount)
 		et.acc2State(privAccount)
 	}
