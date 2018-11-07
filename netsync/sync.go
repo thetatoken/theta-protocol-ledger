@@ -4,18 +4,16 @@ import (
 	"context"
 	"sync"
 
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/dispatcher"
 	"github.com/thetatoken/ukulele/p2p"
-	"github.com/thetatoken/ukulele/rlp"
-
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	"github.com/thetatoken/ukulele/rlp"
 )
 
 type MessageConsumer interface {
@@ -336,8 +334,8 @@ func (sm *SyncManager) handleCC(cc *core.CommitCertificate) {
 }
 
 func (sm *SyncManager) handleVote(vote *core.Vote) {
-	if vote.Block != nil {
-		sm.requestMgr.AddHash(vote.Block.Hash(), []string{})
+	if !vote.Block.IsEmpty() {
+		sm.requestMgr.AddHash(vote.Block, []string{})
 	}
 	sm.consumer.AddMessage(vote)
 }

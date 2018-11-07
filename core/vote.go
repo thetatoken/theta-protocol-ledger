@@ -1,18 +1,21 @@
 package core
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"sort"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
 // Proposal represents a proposal of a new block.
 type Proposal struct {
-	Block             *Block
-	ProposerID        string
+	Block             *Block `rlp:"nil"`
+	ProposerID        common.Address
 	CommitCertificate *CommitCertificate `rlp:"nil"`
 }
 
@@ -48,16 +51,38 @@ func (cc *CommitCertificate) IsValid() bool {
 
 // Vote represents a vote on a block by a validaor.
 type Vote struct {
-	Block *BlockHeader `rlp:"nil"`
-	ID    string
-	Epoch uint64
+	Block     common.Hash       // Hash of the tip as seen by the voter.
+	Epoch     uint64            // Voter's current epoch. It doesn't need to equal the epoch in the block above.
+	ID        common.Address    // Voter's address.
+	Signature *crypto.Signature `rlp:"nil"`
 }
 
 func (v Vote) String() string {
-	if v.Block != nil {
-		return fmt.Sprintf("Vote{block: %s, ID: %s, Epoch: %v}", v.Block.Hash().Hex(), v.ID, v.Epoch)
+	return fmt.Sprintf("Vote{ID: %s, block: %s,  Epoch: %v}", v.ID, v.Block, v.Epoch)
+}
+
+// SignBytes returns raw bytes to be signed.
+func (v Vote) SignBytes() common.Bytes {
+	vv := Vote{
+		Block: v.Block,
+		Epoch: v.Epoch,
+		ID:    v.ID,
 	}
-	return fmt.Sprintf("Vote{block: nil, ID: %s, Epoch: %v}", v.ID, v.Epoch)
+	raw, _ := rlp.EncodeToBytes(vv)
+	return raw
+}
+
+// SetSignature sets given signature in vote.
+func (v Vote) SetSignature(sig *crypto.Signature) {
+	v.Signature = sig
+}
+
+// Validate checks the vote is legitimate.
+func (v Vote) Validate() result.Result {
+	if v.Signature.IsEmpty() {
+		return result.Error("Vote is not signed")
+	}
+	return v.Signature.VerifyBytes(v.SignBytes(), v.ID)
 }
 
 // VoteSet represents a set of votes on a proposal.
@@ -83,7 +108,7 @@ func (s *VoteSet) Copy() *VoteSet {
 
 // AddVote adds a vote to vote set.
 func (s *VoteSet) AddVote(vote Vote) {
-	s.votes[vote.ID] = vote
+	s.votes[vote.ID.Hex()] = vote
 }
 
 // Size returns the number of votes in the vote set.
@@ -99,6 +124,16 @@ func (s *VoteSet) Votes() []Vote {
 	}
 	sort.Sort(VoteByID(ret))
 	return ret
+}
+
+// Validate checks the vote set is legitimate.
+func (s *VoteSet) Validate() result.Result {
+	for _, vote := range s.votes {
+		if vote.Validate().IsError() {
+			return result.Error("Contains invalid vote: %s", vote.String())
+		}
+	}
+	return result.OK
 }
 
 func (s *VoteSet) String() string {
@@ -126,7 +161,7 @@ func (s *VoteSet) DecodeRLP(stream *rlp.Stream) error {
 	}
 	s.votes = make(map[string]Vote)
 	for _, v := range votes {
-		s.votes[v.ID] = v
+		s.votes[v.ID.Hex()] = v
 	}
 	return nil
 }
@@ -136,4 +171,4 @@ type VoteByID []Vote
 
 func (a VoteByID) Len() int           { return len(a) }
 func (a VoteByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a VoteByID) Less(i, j int) bool { return a[i].ID < a[j].ID }
+func (a VoteByID) Less(i, j int) bool { return bytes.Compare(a[i].ID.Bytes(), a[j].ID.Bytes()) < 0 }

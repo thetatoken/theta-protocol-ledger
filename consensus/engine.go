@@ -276,8 +276,8 @@ func (e *ConsensusEngine) vote() {
 	}
 
 	vote := core.Vote{
-		Block: header,
-		ID:    e.ID(),
+		Block: header.Hash(),
+		ID:    e.privateKey.PublicKey().Address(),
 		Epoch: e.GetEpoch(),
 	}
 
@@ -326,7 +326,7 @@ func (e *ConsensusEngine) handleCC(cc *core.CommitCertificate) {
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
 
-	validators := e.validatorManager.GetValidatorSetForEpoch(0)
+	validators := e.validatorManager.GetValidatorSetForEpoch(e.state.GetEpoch())
 	err := e.state.AddVote(&vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to add vote")
@@ -357,21 +357,21 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		}
 	}
 
-	if vote.Block == nil {
-		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Empty vote received")
+	if vote.Block.IsEmpty() {
+		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Vote with empty block hash received")
 		return
 	}
-	block, err := e.Chain().FindBlock(vote.Block.Hash())
+	block, err := e.Chain().FindBlock(vote.Block)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"vote.block.hash": vote.Block.Hash}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Warn("Block hash in vote is not found")
 		return
 	}
-	votes, err := e.state.GetVoteSetByBlock(vote.Block.Hash())
+	votes, err := e.state.GetVoteSetByBlock(vote.Block)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
 	}
 	if validators.HasMajority(votes) {
-		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block.Hash()}
+		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block}
 		block.CommitCertificate = cc
 
 		e.chain.SaveBlock(block)
@@ -459,7 +459,7 @@ func (e *ConsensusEngine) randHex() []byte {
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
-	return proposer.ID() == e.ID()
+	return proposer.ID().Hex() == e.ID()
 }
 
 func (e *ConsensusEngine) propose() {
@@ -489,7 +489,7 @@ func (e *ConsensusEngine) propose() {
 	block.StateHash = newRoot
 
 	lastCC := e.state.GetHighestCCBlock()
-	proposal := core.Proposal{Block: block, ProposerID: e.ID()}
+	proposal := core.Proposal{Block: block, ProposerID: common.HexToAddress(e.ID())}
 	if lastCC.CommitCertificate != nil {
 		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
 	}
