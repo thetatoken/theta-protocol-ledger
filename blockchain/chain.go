@@ -29,9 +29,13 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 		store:   store,
 		mu:      &sync.Mutex{},
 	}
-	rootBlock, err := chain.AddBlock(root)
+	rootBlock, err := chain.FindBlock(root.Hash())
 	if err != nil {
-		log.Panic(err)
+		log.WithFields(log.Fields{"Hash": root.Hash().Hex(), "error": err}).Info("Root block is not found in chain. Adding block.")
+		rootBlock, err = chain.AddBlock(root)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 	chain.FinalizePreviousBlocks(rootBlock)
 	chain.Root = rootBlock
@@ -52,7 +56,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 	err := ch.store.Get(hash[:], val)
 	if err == nil {
 		// Block has already been added.
-		return val, errors.New("Block has already been added")
+		return val, fmt.Errorf("Block has already been added: %X", hash[:])
 	}
 
 	if !block.Parent.IsEmpty() {
