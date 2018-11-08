@@ -18,8 +18,8 @@ type Account struct {
 	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
 
 	// Smart contract
-	Root     common.Hash // merkle root of the storage trie
-	CodeHash common.Hash
+	Root     common.Hash `json:"root"`      // merkle root of the storage trie
+	CodeHash common.Hash `json:"code_hash"` // hash of the smart contract code
 }
 
 func NewAccount() *Account {
