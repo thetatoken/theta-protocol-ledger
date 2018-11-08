@@ -114,6 +114,7 @@ func (discMgr *PeerDiscoveryManager) Stop() {
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	peer.Stop()
+	discMgr.peerTable.DeletePeer(peer.ID())
 
 	if peer.IsPersistent() {
 		var err error
