@@ -316,7 +316,7 @@ func (sv *StoreView) GetCodeHash(addr common.Address) common.Hash {
 	if account == nil {
 		return common.Hash{}
 	}
-	return common.BytesToHash(account.CodeHash)
+	return account.CodeHash
 }
 
 func (sv *StoreView) GetCode(addr common.Address) []byte {
@@ -324,10 +324,10 @@ func (sv *StoreView) GetCode(addr common.Address) []byte {
 	if account == nil {
 		return nil
 	}
-	if bytes.Equal(account.CodeHash, types.EmptyCodeHash) {
+	if account.CodeHash == types.EmptyCodeHash {
 		return nil
 	}
-	return sv.GetCodeByHash(common.BytesToHash(account.CodeHash))
+	return sv.GetCodeByHash(account.CodeHash)
 }
 
 func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
@@ -338,8 +338,8 @@ func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
 func (sv *StoreView) SetCode(addr common.Address, code []byte) {
 	account := sv.GetOrCreateAccount(addr)
 	codeHash := crypto.Keccak256Hash(code)
-	account.CodeHash = codeHash[:]
-	sv.Set(CodeKey(account.CodeHash), code)
+	account.CodeHash = codeHash
+	sv.Set(CodeKey(account.CodeHash[:]), code)
 	sv.SetAccount(addr, account)
 }
 
@@ -444,7 +444,7 @@ func (sv *StoreView) Empty(addr common.Address) bool {
 		return true
 	}
 	return account.Sequence == 0 &&
-		bytes.Compare(account.CodeHash, types.EmptyCodeHash) == 0 &&
+		account.CodeHash == types.EmptyCodeHash &&
 		account.Balance.IsZero()
 }
 

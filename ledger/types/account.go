@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 )
 
-var EmptyCodeHash = crypto.Keccak256(nil)
+var EmptyCodeHash = common.BytesToHash(crypto.Keccak256(nil))
 
 type Account struct {
 	PubKey                 *crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
@@ -19,7 +19,7 @@ type Account struct {
 
 	// Smart contract
 	Root     common.Hash // merkle root of the storage trie
-	CodeHash common.Bytes
+	CodeHash common.Hash
 }
 
 func NewAccount() *Account {
