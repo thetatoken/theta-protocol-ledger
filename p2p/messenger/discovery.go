@@ -113,7 +113,21 @@ func (discMgr *PeerDiscoveryManager) Stop() {
 // If the peer is persistent, it will attempt to reconnect to the
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
-	// TODO: implementation
+	peer.Stop()
+
+	if peer.IsPersistent() {
+		var err error
+		if peer.IsOutbound() {
+			_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
+		} else {
+			_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+		}
+		if err != nil {
+			log.Errorf("[p2p] Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+		} else {
+			log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())
+		}
+	}
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {

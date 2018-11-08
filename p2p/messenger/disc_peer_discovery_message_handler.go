@@ -56,11 +56,6 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDisco
 	return pdmh, nil
 }
 
-// SetPeerDiscoveryPulseInterval sets peerDiscoveryPulseInterval value (used for testing purpose)
-func (pdmh *PeerDiscoveryMessageHandler) SetPeerDiscoveryPulseInterval(interval time.Duration) {
-	pdmh.peerDiscoveryPulseInterval = interval
-}
-
 // Start is called when the message handler starts
 func (pdmh *PeerDiscoveryMessageHandler) Start() error {
 	go pdmh.maintainSufficientConnectivityRoutine()

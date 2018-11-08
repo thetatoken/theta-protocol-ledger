@@ -165,11 +165,10 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 
-	// TODO: error handling..
-	// errorHandler := func(interface{}) {
-	// 	msgr.discMgr.HandlePeerWithErrors(peer)
-	// }
-	// peer.GetConnection().SetErrorHandler(errorHandler)
+	errorHandler := func(interface{}) {
+		msgr.discMgr.HandlePeerWithErrors(peer)
+	}
+	peer.GetConnection().SetErrorHandler(errorHandler)
 }
 
 // SetAddressBookFilePath sets the address book file path
