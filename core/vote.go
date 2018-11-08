@@ -79,6 +79,9 @@ func (v Vote) SetSignature(sig *crypto.Signature) {
 
 // Validate checks the vote is legitimate.
 func (v Vote) Validate() result.Result {
+	if v.ID.IsEmpty() {
+		return result.Error("Voter is not specified")
+	}
 	if v.Signature.IsEmpty() {
 		return result.Error("Vote is not signed")
 	}
