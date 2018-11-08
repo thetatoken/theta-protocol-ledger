@@ -23,7 +23,6 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/ledger/vm/params"
 )
@@ -37,48 +36,6 @@ type (
 	// and is used by the BLOCKHASH EVM op code.
 	GetHashFunc func(uint64) common.Hash
 )
-
-// TODO1: handle intrinsic gas?
-// TODO2: refund gas for execution error?
-func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
-	contractAddr common.Address, gasUsed uint64, evmErr error) {
-	context := Context{
-		GasPrice:    tx.GasPrice,
-		GasLimit:    tx.GasLimit,
-		BlockNumber: new(big.Int).SetUint64(storeView.Height()),
-		Time:        new(big.Int).SetInt64(time.Now().Unix()),
-		Difficulty:  new(big.Int).SetInt64(0),
-	}
-	chainConfig := &params.ChainConfig{}
-	config := Config{}
-	evm := NewEVM(context, storeView, chainConfig, config)
-
-	var leftOverGas uint64
-
-	value := tx.From.Coins.GammaWei
-	if value == nil {
-		value = big.NewInt(0)
-	}
-	gasLimit := tx.GasLimit
-	fromAddr := tx.From.Address
-	contractAddr = tx.To.Address
-	createContract := (contractAddr == common.Address{})
-	if createContract {
-		code := tx.Data
-		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, gasLimit, value)
-	} else {
-		input := tx.Data
-		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, gasLimit, value)
-	}
-
-	if leftOverGas > gasLimit { // should not happen
-		gasUsed = uint64(0)
-	} else {
-		gasUsed = gasLimit - leftOverGas
-	}
-
-	return evmRet, contractAddr, gasUsed, evmErr
-}
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
