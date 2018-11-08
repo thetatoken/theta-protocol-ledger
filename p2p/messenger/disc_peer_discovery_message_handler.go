@@ -42,17 +42,18 @@ type PeerDiscoveryMessage struct {
 //
 type PeerDiscoveryMessageHandler struct {
 	discMgr                    *PeerDiscoveryManager
+	peerDiscoveryPulse         *time.Ticker
 	peerDiscoveryPulseInterval time.Duration
 	discoveryCallback          InboundCallback
 }
 
 // createPeerDiscoveryMessageHandler creates an instance of PeerDiscoveryMessageHandler
 func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDiscoveryMessageHandler, error) {
-	pmdh := PeerDiscoveryMessageHandler{
+	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
 	}
-	return pmdh, nil
+	return pdmh, nil
 }
 
 // SetPeerDiscoveryPulseInterval sets peerDiscoveryPulseInterval value (used for testing purpose)
@@ -68,6 +69,9 @@ func (pdmh *PeerDiscoveryMessageHandler) Start() error {
 
 // Stop is called when the message handler stops
 func (pdmh *PeerDiscoveryMessageHandler) Stop() {
+	if pdmh.peerDiscoveryPulse != nil {
+		pdmh.peerDiscoveryPulse.Stop()
+	}
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface
@@ -145,7 +149,7 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	pdmh.connectToOutboundPeers(message.Addresses)
 }
 
-// SetInboundCallback sets the inbound callback function
+// SetDiscoveryCallback sets the inbound callback function
 func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCallback) {
 	pdmh.discoveryCallback = disccb
 }
@@ -179,10 +183,10 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine() {
-	pulse := time.NewTicker(pdmh.peerDiscoveryPulseInterval)
+	peerDiscoveryPulse := time.NewTicker(pdmh.peerDiscoveryPulseInterval)
 	for {
 		select {
-		case <-pulse.C:
+		case <-peerDiscoveryPulse.C:
 			pdmh.maintainSufficientConnectivity()
 		}
 	}
@@ -195,8 +199,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
 	if numPeers > 0 {
 		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
-			peersPtr := pdmh.discMgr.peerTable.GetAllPeers()
-			peers := *peersPtr
+			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
