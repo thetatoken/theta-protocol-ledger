@@ -1,5 +1,3 @@
-// +build unit
-
 package netsync
 
 import (
@@ -59,10 +57,18 @@ func (m *MockMsgHandler) HandleMessage(message types.Message) error {
 
 func TestSyncManager(t *testing.T) {
 	assert := assert.New(t)
+	core.ResetTestBlocks()
 
 	// node1's chain initially contains only A0, A1
 	initChain := blockchain.CreateTestChainByBlocks([]string{
 		"A1", "A0",
+	})
+	// node2's chain
+	_ = blockchain.CreateTestChainByBlocks([]string{
+		"A1", "A0",
+		"A2", "A1",
+		"A3", "A2",
+		"A4", "A3",
 	})
 	simnet := simulation.NewSimnet()
 	net1 := simnet.AddEndpoint("node1")
@@ -82,7 +88,7 @@ func TestSyncManager(t *testing.T) {
 	sm.Start(context.Background())
 
 	// Send block A4 to node1
-	payload, _ := rlp.EncodeToBytes(blockchain.CreateTestBlock("A4", "A3"))
+	payload, _ := rlp.EncodeToBytes(core.CreateTestBlock("A4", "A3"))
 	net2.Broadcast(types.Message{
 		ChannelID: common.ChannelIDBlock,
 		Content: dispatcher.DataResponse{
@@ -97,14 +103,18 @@ func TestSyncManager(t *testing.T) {
 	msg1, ok := res.(dispatcher.InventoryRequest)
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
-	assert.Equal("A1", msg1.Start)
+	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), msg1.Start)
 
 	// node2 replies with InventoryReponse
+	entries := []string{}
+	for _, name := range []string{"A0", "A1", "A2", "A3", "A4"} {
+		entries = append(entries, core.GetTestBlock(name).Hash().Hex())
+	}
 	net2.Broadcast(types.Message{
 		ChannelID: common.ChannelIDBlock,
 		Content: dispatcher.InventoryResponse{
 			ChannelID: common.ChannelIDBlock,
-			Entries:   []string{"A0", "A1", "A2", "A3", "A4"},
+			Entries:   entries,
 		},
 	})
 
@@ -116,7 +126,7 @@ func TestSyncManager(t *testing.T) {
 	// assert.Equal([]string{"A3"}, msg2.Entries)
 
 	// node2 replies with A3 first
-	payload, _ = rlp.EncodeToBytes(blockchain.CreateTestBlock("A3", "A2"))
+	payload, _ = rlp.EncodeToBytes(core.CreateTestBlock("A3", "A2"))
 	net2.Broadcast(types.Message{
 		ChannelID: common.ChannelIDBlock,
 		Content: dispatcher.DataResponse{
@@ -134,7 +144,7 @@ func TestSyncManager(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// node2 replies with A2 next
-	payload, _ = rlp.EncodeToBytes(blockchain.CreateTestBlock("A2", "A1"))
+	payload, _ = rlp.EncodeToBytes(core.CreateTestBlock("A2", "A1"))
 	net2.Broadcast(types.Message{
 		ChannelID: common.ChannelIDBlock,
 		Content: dispatcher.DataResponse{
@@ -149,6 +159,6 @@ func TestSyncManager(t *testing.T) {
 	assert.Equal(3, len(mockMsgConsumer.Received))
 	expected := []string{"A2", "A3", "A4"}
 	for i, msg := range mockMsgConsumer.Received {
-		assert.Equal(expected[i], msg.(*core.Block).Hash.String())
+		assert.Equal(core.GetTestBlock(expected[i]).Hash(), msg.(*core.Block).Hash())
 	}
 }

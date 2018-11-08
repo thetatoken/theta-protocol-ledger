@@ -14,7 +14,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/node"
@@ -52,7 +51,6 @@ func TestConsensusBaseCase(t *testing.T) {
 		root := core.NewBlock()
 		root.ChainID = chainID
 		root.Epoch = 0
-		root.Hash = blockchain.ParseHex("a0")
 
 		params := &node.Params{
 			PrivateKey: privateKey,

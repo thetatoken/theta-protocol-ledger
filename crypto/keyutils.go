@@ -220,6 +220,9 @@ func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
 }
 
 var (
-	UnmarshalPubkey = unmarshalPubkey
-	FromECDSAPub    = fromECDSAPub
+	UnmarshalPubkey         = unmarshalPubkey
+	FromECDSAPub            = fromECDSAPub
+	ValidateSignatureValues = validateSignatureValues
+	CreateAddress           = createAddress
+	CreateAddress2          = createAddress2
 )

@@ -1,8 +1,10 @@
 package execution
 
 import (
+	"bytes"
 	"encoding/hex"
 	"math/big"
+	"strconv"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -11,6 +13,7 @@ import (
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/ledger/vm"
 )
 
 func TestGetInputs(t *testing.T) {
@@ -48,8 +51,8 @@ func TestGetInputs(t *testing.T) {
 	inputs = types.Accs2TxInputs(1, et.accIn)
 	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
-	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
-		"getInputs: expected to update input account gamma balance")
+	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
+		"getInputs: gamma amount should not change")
 }
 
 func TestGetOrMakeOutputs(t *testing.T) {
@@ -93,8 +96,8 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	et.acc2State(et.accIn)
 	mapRes1, res := getOrMakeOutputs(et.state().Delivered(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
-	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) > 0,
-		"getOrMakeOutputs: expected to update existing output account gamma balance")
+	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
+		"getOrMakeOutputs: gamma amount should not change")
 
 	mapRes2, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
@@ -282,12 +285,12 @@ func TestSendTx(t *testing.T) {
 		"ExecTx/good DeliverTx: unexpected change in output balance, got: %v, expected: %v", balOut, balOutExp)
 }
 
-func TestCalculateThetaReward(t *testing.T) {
-	assert := assert.New(t)
+// func TestCalculateThetaReward(t *testing.T) {
+// 	assert := assert.New(t)
 
-	res := calculateThetaReward(big.NewInt(1e17), true)
-	assert.True(res.ThetaWei.Cmp(types.Zero) > 0)
-}
+// 	res := calculateThetaReward(big.NewInt(1e17), true)
+// 	assert.True(res.ThetaWei.Cmp(types.Zero) == 0) // ZERO Theta inflation
+// }
 
 func TestNonEmptyPubKey(t *testing.T) {
 	assert := assert.New(t)
@@ -396,14 +399,14 @@ func TestCoinbaseTx(t *testing.T) {
 	var tx *types.CoinbaseTx
 	var res result.Result
 
-	//Regular check
+	// Regular check
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va1.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
@@ -412,7 +415,7 @@ func TestCoinbaseTx(t *testing.T) {
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
-	//Error if reward Theta amount is incorrect
+	// Theta should never inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
@@ -426,98 +429,131 @@ func TestCoinbaseTx(t *testing.T) {
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
-	//Error if reward Gamma amount is incorrect
+	// For the initial Mainnet release, Gamma should not inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va1.Account.PubKey.Address(), types.NewCoins(0, 987),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 1),
+			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
-	//Error if Validator 2 is not rewarded
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if reward Theta amount is incorrect
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Error if non-validator is rewarded
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
-		}, {
-			user1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if reward Gamma amount is incorrect
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 1),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Error if validator address is changed
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			user1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}},
-		BlockHeight: 1e7,
-	}
-	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsError(), res.String())
+	// //Error if Validator 2 is not rewarded
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	//Process should update validator account
-	tx = &types.CoinbaseTx{
-		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
-		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
-		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(951, 0),
-		}},
-		BlockHeight: 1e7,
-	}
+	// //Error if non-validator is rewarded
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+	// 	}, {
+	// 		user1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	_, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
-	assert.True(res.IsOK(), res.String())
+	// //Error if validator address is changed
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		user1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
+	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsError(), res.String())
 
-	va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
-	// validator's Gamma is also updated.
-	assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
+	// //Process should update validator account
+	// tx = &types.CoinbaseTx{
+	// 	Proposer: types.TxInput{
+	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+	// 	Outputs: []types.TxOutput{{
+	// 		va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+	// 	}, {
+	// 		va2.Account.PubKey.Address(), types.NewCoins(951, 0),
+	// 	}},
+	// 	BlockHeight: 1e7,
+	// }
 
-	va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
-	assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
-	assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
+	// _, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
+	// assert.True(res.IsOK(), res.String())
 
-	user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
-	assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
-	// user's Gamma is not updated.
-	assert.Equal(int64(0), user1balance.GammaWei.Int64())
+	// va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
+	// // validator's Gamma is also updated.
+	// assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
+
+	// va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
+	// assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
+
+	// user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
+	// assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
+	// // user's Gamma is not updated.
+	// assert.Equal(int64(0), user1balance.GammaWei.Int64())
 }
 
 func TestReserveFundTx(t *testing.T) {
 	assert := assert.New(t)
 	et := NewExecTest()
 
+	txFee := getMinimumTxFee()
+
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
+	user1.Balance = types.Coins{
+		GammaWei: big.NewInt(6200 * txFee),
+		ThetaWei: big.NewInt(10000 * 1e6),
+	}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -527,13 +563,13 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Reserved fund not specified
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -544,14 +580,14 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Insufficient fund
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(50000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(50000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(50001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -562,32 +598,32 @@ func TestReserveFundTx(t *testing.T) {
 
 	// Reserved fund more than collateral
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(5000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(5000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.False(res.IsOK(), res.String())
-	assert.Equal(res.Code, result.CodeReserveFundCheckFailed)
+	assert.Equal(res.Code, result.CodeReserveFundCheckFailed, res.Message)
 
 	// Regular check
 	tx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
 		Duration:    1000,
 	}
@@ -600,7 +636,7 @@ func TestReserveFundTx(t *testing.T) {
 	retrievedUserAcc := et.state().Delivered().GetAccount(user1.PubKey.Address())
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
 
@@ -609,7 +645,10 @@ func TestReleaseFundTx(t *testing.T) {
 	et := NewExecTest()
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(10000 * 1e6)}
+	user1.Balance = types.Coins{
+		GammaWei: big.NewInt(50 * getMinimumTxFee()),
+		ThetaWei: big.NewInt(10000 * 1e6),
+	}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -619,7 +658,7 @@ func TestReleaseFundTx(t *testing.T) {
 	var res result.Result
 
 	reserveFundTx = &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 1000),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			PubKey:   user1.PubKey,
@@ -640,7 +679,20 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Invalid Fee
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(100, 0),
+		Fee: types.NewCoins(0, getMinimumTxFee()-1), // insufficient transaction fee
+		Source: types.TxInput{
+			Address:  user1.PubKey.Address(),
+			Sequence: 2,
+		},
+		ReserveSequence: 1,
+	}
+	releaseFundTx.Source.Signature = user1.Sign(releaseFundTx.SignBytes(et.chainID))
+	res = et.executor.getTxExecutor(releaseFundTx).sanityCheck(et.chainID, et.state().Delivered(), releaseFundTx)
+	assert.False(res.IsOK(), res.String())
+	assert.Equal(res.Code, result.CodeInvalidFee, res.String())
+
+	releaseFundTx = &types.ReleaseFundTx{
+		Fee: types.NewCoins(100, getMinimumTxFee()), // Theta cannot be used as transaction fee
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -654,7 +706,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Not expire yet
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -670,7 +722,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// No matching ReserveSequence
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -689,7 +741,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	// Check auto-expiration
 	releaseFundTx = &types.ReleaseFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.PubKey.Address(),
 			Sequence: 2,
@@ -707,17 +759,19 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bob
-	payAmount1 := int64(800)
+	payAmount1 := int64(80 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -728,14 +782,15 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
 	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - txFee: need to account for tx fee
 
 	// Simulate micropayment #2 between Alice and Bob
-	payAmount2 := int64(500)
+	payAmount2 := int64(50 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 2, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx2 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount2, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx2).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.True(res.IsOK(), res.Message)
@@ -748,12 +803,12 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2*txFee)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2*txFee: need to account for tx fee
 
 	// Simulate micropayment #3 between Alice and Carol
-	payAmount3 := int64(1200)
+	payAmount3 := int64(120 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 1, 3, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &carol, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx3 := createServicePaymentTx(et.chainID, &alice, &carol, payAmount3, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx3).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx3)
 	assert.True(res.IsOK(), res.Message)
@@ -766,12 +821,12 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
 	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.PubKey.Address())
-	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - 1)}), retrievedCarolAcc3.Balance) // payAmount3 - 1: need to account for Gas
+	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - txFee)}), retrievedCarolAcc3.Balance) // payAmount3 - txFee: need to account for tx fee
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
-	payAmount4 := int64(2000 * 1e6)
+	payAmount4 := int64(2000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 4, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &carol, 70000, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 70000*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx4 := createServicePaymentTx(et.chainID, &alice, &carol, payAmount4, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx4).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx4)
 	assert.True(res.IsOK(), res.Message) // the following process() call will create an SlashIntent
@@ -787,17 +842,19 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	et, resourceID, alice, bob, _, _, bobInitBalance, _ := setupForServicePayment(assert)
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bobs
-	payAmount1 := int64(800)
+	payAmount1 := int64(80 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -809,14 +866,14 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - 1)}), retrievedBobAcc2.Balance) // payAmount1 - 1: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee)}), retrievedBobAcc2.Balance) // payAmount1 - txFee: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
 
 	// Simulate micropayment #2 between Alice and Bobs
-	payAmount2 := int64(500)
+	payAmount2 := int64(50 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq = 1, 2, 2, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 300, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 30*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx2 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount2, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx2).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx2)
 	assert.False(res.IsOK(), res.Message)
@@ -836,6 +893,8 @@ func TestSlashTx(t *testing.T) {
 
 	et.state().Commit()
 
+	txFee := getMinimumTxFee()
+
 	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
 	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
@@ -843,10 +902,10 @@ func TestSlashTx(t *testing.T) {
 	expectedAliceSlashedAmount := aliceCollateral.Plus(aliceReservedFund)
 
 	// Simulate micropayment #1 between Alice and Bob, which is an overspend
-	payAmount1 := int64(8000 * 1e6)
+	payAmount1 := int64(8000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
 	assert.True(res.IsOK(), res.Message)
@@ -891,22 +950,24 @@ func TestSlashTx(t *testing.T) {
 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
 }
 
-func TestSplitContractTxNormalExecution(t *testing.T) {
+func TestSplitRuleTxNormalExecution(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
-		Fee:        types.NewCoins(0, 10),
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -916,19 +977,19 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(99999),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
-	payAmount := int64(10000)
+	payAmount := int64(1000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &bob, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
 	assert.True(res.IsOK(), res.Message)
@@ -946,28 +1007,30 @@ func TestSplitContractTxNormalExecution(t *testing.T) {
 
 	// Check the balances of the relevant accounts
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 70 / 100), ThetaWei: big.NewInt(0)}
-	servicePaymentTxFee := types.NewCoins(0, 1)
+	servicePaymentTxFee := types.NewCoins(0, txFee)
 	carolSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 30 / 100), ThetaWei: big.NewInt(0)}
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
 
-func TestSplitContractTxExpiration(t *testing.T) {
+func TestSplitRuleTxExpiration(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, alice, bob, carol, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
 	log.Infof("Bob's initial balance:   %v", bobInitBalance)
 	log.Infof("Carol's initial balance: %v", carolInitBalance)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
-		Fee:        types.NewCoins(0, 10),
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -977,18 +1040,18 @@ func TestSplitContractTxExpiration(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	et.fastforwardBy(105) // The split contract should expire after the fastforward
+	et.fastforwardBy(105) // The split rule should expire after the fastforward
 
 	// Simulate micropayment #1 between Alice and Bob, Carol should NOT get a cut
-	payAmount := int64(10000)
+	payAmount := int64(1000 * txFee)
 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
@@ -1009,30 +1072,32 @@ func TestSplitContractTxExpiration(t *testing.T) {
 
 	// Check the balances of the relevant accounts
 	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
-	servicePaymentTxFee := types.NewCoins(0, 1)
+	servicePaymentTxFee := types.NewCoins(0, txFee)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
-	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split contract has expired
+	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split rule has expired
 }
 
-func TestSplitContractTxUpdate(t *testing.T) {
+func TestSplitRuleTxUpdate(t *testing.T) {
 	assert := assert.New(t)
 	et, resourceID, _, _, carol, _, _, _ := setupForServicePayment(assert)
 	et.fastforwardBy(1000)
 
+	txFee := getMinimumTxFee()
+
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	fakeInitiator := types.MakeAcc("User Eric")
-	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(fakeInitiator)
 
 	splitCarol := types.Split{
 		Address:    carol.PubKey.Address(),
 		Percentage: 30,
 	}
-	splitContractTx := &types.SplitContractTx{
-		Fee:        types.NewCoins(0, 10),
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1042,22 +1107,22 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(100),
 	}
-	signBytes := splitContractTx.SignBytes(et.chainID)
-	splitContractTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res := et.executor.getTxExecutor(splitContractTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractTx)
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractTx).process(et.chainID, et.state().Delivered(), splitContractTx)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract)
-	originalEndHeight := splitContract.EndBlockHeight
+	splitRule := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule)
+	originalEndHeight := splitRule.EndBlockHeight
 	log.Infof("originalEndHeight = %v", originalEndHeight)
 
-	// Another user tries to update the split contract, should fail
-	fakeSplitContractUpdateTx := &types.SplitContractTx{
-		Fee:        types.NewCoins(0, 10),
+	// Another user tries to update the split rule, should fail
+	fakeSplitRuleUpdateTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  fakeInitiator.PubKey.Address(),
@@ -1067,26 +1132,26 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: uint64(1000),
 	}
-	signBytes = fakeSplitContractUpdateTx.SignBytes(et.chainID)
-	fakeSplitContractUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
+	signBytes = fakeSplitRuleUpdateTx.SignBytes(et.chainID)
+	fakeSplitRuleUpdateTx.Initiator.Signature = fakeInitiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
-	_, res = et.executor.getTxExecutor(fakeSplitContractUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitContractUpdateTx)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
+	_, res = et.executor.getTxExecutor(fakeSplitRuleUpdateTx).process(et.chainID, et.state().Delivered(), fakeSplitRuleUpdateTx)
 	assert.False(res.IsOK(), res.Message)
-	assert.Equal(result.CodeUnauthorizedToUpdateSplitContract, res.Code)
+	assert.Equal(result.CodeUnauthorizedToUpdateSplitRule, res.Code)
 
-	splitContract1 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract1)
-	endHeight1 := splitContract1.EndBlockHeight
+	splitRule1 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule1)
+	endHeight1 := splitRule1.EndBlockHeight
 	assert.Equal(originalEndHeight, endHeight1)
 	log.Infof("endHeight1 = %v", endHeight1)
 
-	// The original initiator tries to update the split contract, should succeed
+	// The original initiator tries to update the split rule, should succeed
 	extendedDuration := uint64(1000)
-	splitContractUpdateTx := &types.SplitContractTx{
-		Fee:        types.NewCoins(0, 10),
+	splitRuleUpdateTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
 			Address:  initiator.PubKey.Address(),
@@ -1095,28 +1160,166 @@ func TestSplitContractTxUpdate(t *testing.T) {
 		Splits:   []types.Split{splitCarol},
 		Duration: extendedDuration,
 	}
-	signBytes = splitContractUpdateTx.SignBytes(et.chainID)
-	splitContractUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
+	signBytes = splitRuleUpdateTx.SignBytes(et.chainID)
+	splitRuleUpdateTx.Initiator.Signature = initiator.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(splitContractUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	res = et.executor.getTxExecutor(splitRuleUpdateTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(splitContractUpdateTx).process(et.chainID, et.state().Delivered(), splitContractUpdateTx)
+	_, res = et.executor.getTxExecutor(splitRuleUpdateTx).process(et.chainID, et.state().Delivered(), splitRuleUpdateTx)
 	assert.True(res.IsOK(), res.Message)
 
-	splitContract2 := et.executor.state.Delivered().GetSplitContract(resourceID)
-	assert.NotNil(splitContract2)
+	splitRule2 := et.executor.state.Delivered().GetSplitRule(resourceID)
+	assert.NotNil(splitRule2)
 	currHeight := et.executor.state.Height()
-	endHeight2 := splitContract2.EndBlockHeight
+	endHeight2 := splitRule2.EndBlockHeight
 	assert.Equal(currHeight+extendedDuration, endHeight2)
 	log.Infof("currHeight = %v", currHeight)
 	log.Infof("endHeight2 = %v", endHeight2)
+}
+
+func TestSmartContractDeploymentAndExecution(t *testing.T) {
+	assert := assert.New(t)
+	et, privAccounts := setupForSmartContract(assert, 2)
+	et.fastforwardBy(1000)
+
+	deployerPrivAcc := privAccounts[0]
+	callerPrivAcc := privAccounts[1]
+
+	// ASM:
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	smartContractCode, _ := hex.DecodeString("600360135360016013f3")
+
+	// ASM:
+	// push 0xa
+	// push 0xc
+	// push 0x0
+	// codecopy
+	// push 0xa
+	// push 0x0
+	// return
+	// push 0x3
+	// push 0x13
+	// mstore8
+	// push 0x1
+	// push 0x13
+	// return
+	//deploymentCode, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063d46300fd14604e578063ee919d50146076575b600080fd5b348015605957600080fd5b50606060a0565b6040518082815260200191505060405180910390f35b348015608157600080fd5b50609e6004803603810190808035906020019092919050505060a9565b005b60008054905090565b80600081905550505600a165627a7a723058204872b7831a20661d172004226a8a38a19c3823ac4214a895e582d70ce17b0cb30029")
+	deploymentCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
+
+	//
+	// Step 1. Deploy a smart contract
+	//
+
+	deployerAcc := deployerPrivAcc.Account
+	deployerAddr := deployerAcc.PubKey.Address()
+	valueAmount := int64(9723)
+	gasPrice := types.MinimumGasPrice
+	deploySCTx := &types.SmartContractTx{
+		From: types.TxInput{
+			Address:  deployerAddr,
+			PubKey:   deployerAcc.PubKey,
+			Coins:    types.NewCoins(0, valueAmount),
+			Sequence: 1,
+		},
+		GasLimit: 60000,
+		GasPrice: new(big.Int).SetUint64(gasPrice),
+		Data:     deploymentCode,
+	}
+	signBytes := deploySCTx.SignBytes(et.chainID)
+	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
+
+	// Dry run to get the smart contract address when it is actually deployed
+	stateCopy, err := et.state().Delivered().Copy()
+	assert.Nil(err)
+	_, contractAddr, gasUsed, vmErr := vm.Execute(deploySCTx, stateCopy)
+	assert.Nil(vmErr)
+	log.Infof("[Deployment] gas used: %v", gasUsed)
+
+	// The actual on-chain deplpoyment
+	res := et.executor.getTxExecutor(deploySCTx).sanityCheck(et.chainID, et.state().Delivered(), deploySCTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(deploySCTx).process(et.chainID, et.state().Delivered(), deploySCTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	// Check if the smart contract code has actually been deployed on-chain
+	retrievedCode := et.state().Delivered().GetCode(contractAddr)
+	assert.True(bytes.Equal(smartContractCode, retrievedCode))
+
+	// Check the amount of coins transferred to the smart contract
+	retrievedSmartContractAccount := et.state().Delivered().GetAccount(contractAddr)
+	assert.NotNil(retrievedSmartContractAccount)
+	expectedTransferredValue := types.NewCoins(0, valueAmount)
+	assert.True(expectedTransferredValue.IsEqual(retrievedSmartContractAccount.Balance))
+	log.Infof("[Deployment] expected transferred value: %v, actual transferred value: %v",
+		expectedTransferredValue, retrievedSmartContractAccount.Balance)
+
+	// Check the deployment gas fee
+	retrievedDeployerAcc := et.state().Delivered().GetAccount(deployerAddr)
+	deploymentFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
+	expectedTotalDeploymentCost := expectedTransferredValue.Plus(deploymentFee)
+	deploymentAccBalanceReduction := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
+	assert.Equal(expectedTotalDeploymentCost, deploymentAccBalanceReduction)
+	log.Infof("[Deployment] expected gas cost: %v, actual gas cost: %v",
+		expectedTotalDeploymentCost, deploymentAccBalanceReduction)
+
+	//
+	// Step 2. Execute the smart contact
+	//
+
+	callerAcc := callerPrivAcc.Account
+	callerAddr := callerAcc.PubKey.Address()
+	callSCTX := &types.SmartContractTx{
+		From: types.TxInput{
+			Address:  callerAddr,
+			PubKey:   callerAcc.PubKey,
+			Sequence: 1,
+		},
+		To:       types.TxOutput{Address: contractAddr},
+		GasLimit: 60000,
+		GasPrice: new(big.Int).SetUint64(gasPrice),
+		Data:     nil,
+	}
+	signBytes = callSCTX.SignBytes(et.chainID)
+	callSCTX.From.Signature = callerPrivAcc.Sign(signBytes)
+
+	// Dry run to call the contract
+	stateCopy, err = et.state().Delivered().Copy()
+	assert.Nil(err)
+	vmRet, execContractAddr, gasUsed, vmErr := vm.Execute(callSCTX, stateCopy)
+	assert.Nil(vmErr)
+	assert.Equal(common.Bytes{0x3}, vmRet)
+	assert.Equal(contractAddr, execContractAddr)
+	log.Infof("[Execution ] gas used: %v", gasUsed)
+
+	// The actually on-chain contract execution
+	res = et.executor.getTxExecutor(callSCTX).sanityCheck(et.chainID, et.state().Delivered(), callSCTX)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(callSCTX).process(et.chainID, et.state().Delivered(), callSCTX)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	// Check the smart contract execution gas fee
+	retrievedCallerAcc := et.state().Delivered().GetAccount(callerAddr)
+	expectedSCExecGasFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
+	callerAccBalanceReduction := callerAcc.Balance.Minus(retrievedCallerAcc.Balance)
+	assert.Equal(expectedSCExecGasFee, callerAccBalanceReduction)
+	log.Infof("[Execution ] expected gas cost: %v, actual gas cost: %v",
+		expectedSCExecGasFee, callerAccBalanceReduction)
 }
 
 // ------------------------------ Test Utils ------------------------------ //
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
 	servicePaymentTx := &types.ServicePaymentTx{
-		Fee: types.NewCoins(0, 1),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  source.PubKey.Address(),
 			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
@@ -1159,21 +1362,21 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 	et = NewExecTest()
 
 	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * 1e6), ThetaWei: big.NewInt(0)}
+	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
 	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
 	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
 
 	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
+	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
 	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
 	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
 
 	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * 1e6), ThetaWei: big.NewInt(0)}
+	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
 	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
@@ -1183,14 +1386,14 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 
 	resourceID = common.Bytes("rid001")
 	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.NewCoins(0, 100),
+		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  alice.PubKey.Address(),
 			PubKey:   alice.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []common.Bytes{resourceID},
 		Duration:    1000,
 	}
@@ -1201,4 +1404,18 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 	ast.True(res.IsOK(), res.String())
 
 	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance
+}
+
+func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTest, privAccounts []types.PrivAccount) {
+	et = NewExecTest()
+
+	for i := 0; i < numAccounts; i++ {
+		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
+		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, int64(9000000*types.MinimumGasPrice)))
+		privAccounts = append(privAccounts, privAccount)
+		et.acc2State(privAccount)
+	}
+	et.fastforwardTo(1e2)
+
+	return et, privAccounts
 }

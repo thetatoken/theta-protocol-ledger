@@ -16,16 +16,16 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-// splitContractCmd represents the release fund command
+// splitRuleCmd represents the split rule command
 // Example:
-//		banjo tx split_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000
-var splitContractCmd = &cobra.Command{
-	Use:   "split_contract",
-	Short: "Initiate or update a split contract",
-	Run:   doSplitContractCmd,
+//		banjo tx split_rule --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000
+var splitRuleCmd = &cobra.Command{
+	Use:   "split_rule",
+	Short: "Initiate or update a split rule",
+	Run:   doSplitRuleCmd,
 }
 
-func doSplitContractCmd(cmd *cobra.Command, args []string) {
+func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
 	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
@@ -68,26 +68,25 @@ func doSplitContractCmd(cmd *cobra.Command, args []string) {
 		splits = append(splits, split)
 	}
 
-	splitContractTx := &types.SplitContractTx{
+	splitRuleTx := &types.SplitRuleTx{
 		Fee: types.Coins{
-			ThetaWei: big.NewInt(0),
-			GammaWei: big.NewInt(feeInGammaFlag),
+			ThetaWei: new(big.Int).SetUint64(0),
+			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
 		},
-		Gas:        gasAmountFlag,
 		ResourceID: common.Bytes(resourceIDFlag),
 		Initiator:  input,
 		Duration:   durationFlag,
 		Splits:     splits,
 	}
 
-	sig, err := wallet.Sign(fromAddress, splitContractTx.SignBytes(chainIDFlag))
+	sig, err := wallet.Sign(fromAddress, splitRuleTx.SignBytes(chainIDFlag))
 	if err != nil {
 		fmt.Printf("Failed to sign transaction: %v\n", err)
 		return
 	}
-	splitContractTx.SetSignature(fromAddress, sig)
+	splitRuleTx.SetSignature(fromAddress, sig)
 
-	raw, err := types.TxToBytes(splitContractTx)
+	raw, err := types.TxToBytes(splitRuleTx)
 	if err != nil {
 		fmt.Printf("Failed to encode transaction: %v\n", err)
 		return
@@ -109,22 +108,21 @@ func doSplitContractCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	splitContractCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
-	splitContractCmd.Flags().StringVar(&fromFlag, "from", "", "Initiator's address")
-	splitContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	splitContractCmd.Flags().Uint64Var(&gasAmountFlag, "gas", 1, "Gas limit")
-	splitContractCmd.Flags().Int64Var(&feeInGammaFlag, "fee", 1, "Fee limit")
-	splitContractCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "The resourceID of interest")
-	splitContractCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")
-	splitContractCmd.Flags().StringSliceVar(&percentagesFlag, "percentages", []string{}, "List of integers (between 0 and 100) representing of percentage of split")
-	splitContractCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
+	splitRuleCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
+	splitRuleCmd.Flags().StringVar(&fromFlag, "from", "", "Initiator's address")
+	splitRuleCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	splitRuleCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	splitRuleCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "The resourceID of interest")
+	splitRuleCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")
+	splitRuleCmd.Flags().StringSliceVar(&percentagesFlag, "percentages", []string{}, "List of integers (between 0 and 100) representing of percentage of split")
+	splitRuleCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 
-	splitContractCmd.MarkFlagRequired("chain")
-	splitContractCmd.MarkFlagRequired("from")
-	splitContractCmd.MarkFlagRequired("seq")
-	splitContractCmd.MarkFlagRequired("addresses")
-	splitContractCmd.MarkFlagRequired("percentages")
-	splitContractCmd.MarkFlagRequired("resource_id")
-	splitContractCmd.MarkFlagRequired("duration")
+	splitRuleCmd.MarkFlagRequired("chain")
+	splitRuleCmd.MarkFlagRequired("from")
+	splitRuleCmd.MarkFlagRequired("seq")
+	splitRuleCmd.MarkFlagRequired("addresses")
+	splitRuleCmd.MarkFlagRequired("percentages")
+	splitRuleCmd.MarkFlagRequired("resource_id")
+	splitRuleCmd.MarkFlagRequired("duration")
 
 }

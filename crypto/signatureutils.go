@@ -93,3 +93,7 @@ func s256() elliptic.Curve {
 func S256() elliptic.Curve {
 	return s256()
 }
+
+var (
+	Ecrecover = ecrecover
+)

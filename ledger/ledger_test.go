@@ -2,10 +2,12 @@ package ledger
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -90,6 +92,7 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 
 func TestLedgerApplyBlockTxs(t *testing.T) {
 	assert := assert.New(t)
+	require := require.New(t)
 
 	chainID, ledger, _ := newTestLedger()
 	numInAccs := 5
@@ -101,15 +104,17 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2])
 	sendTx4Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[3])
 	sendTx5Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[4])
+	inAccInitGammaWei := accIns[0].Balance.GammaWei
+	txFee := getMinimumTxFee()
 
 	blockRawTxs := []common.Bytes{
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("aeeac605447eb4538ded663d2d5c3a3487c68a48a26656c179c3a030f936d535")
+	expectedStateRoot := common.HexToHash("04d6910ba9f1fd2d34b99c3dbd7f0535cca17fb365f9aaf61767daa8217dc3ef")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
-	assert.True(res.IsOK(), res.Message)
+	require.True(res.IsOK(), res.Message)
 
 	//
 	// Account balance sanity checks
@@ -121,7 +126,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		valPk := val.PublicKey()
 		valAddr := (&valPk).Address()
 		valAcc := ledger.state.Delivered().GetAccount(valAddr)
-		expectedValBal := types.NewCoins(100000000317, 20000)
+		expectedValBal := types.NewCoins(100000000000, 1000)
 		assert.NotNil(valAcc)
 		assert.Equal(expectedValBal, valAcc.Balance)
 	}
@@ -132,7 +137,10 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	assert.Equal(expectedAccOutBal, accOutAfter.Balance)
 
 	// Input account balance
-	expectedAccInBal := types.NewCoins(899985, 49997)
+	expectedAccInBal := types.Coins{
+		ThetaWei: new(big.Int).SetInt64(899985),
+		GammaWei: inAccInitGammaWei.Sub(inAccInitGammaWei, new(big.Int).SetInt64(txFee)),
+	}
 	for idx, _ := range accIns {
 		accInAddr := accIns[idx].Account.PubKey.Address()
 		accInAfter := ledger.state.Delivered().GetAccount(accInAddr)
@@ -193,6 +201,7 @@ func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
 }
 
 func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
+	txFee := getMinimumTxFee()
 	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
 	for _, val := range validators {
 		valPubKey := val.PublicKey()
@@ -209,7 +218,7 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 
 	for i := 0; i < numInAccs; i++ {
 		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
-		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000))
+		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000*txFee))
 		accIns = append(accIns, accIn)
 		ledger.state.Delivered().SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
 	}
@@ -227,7 +236,7 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	outputs := []types.TxOutput{}
 	for _, val := range vaList {
 		valPk := val.PublicKey()
-		output := types.TxOutput{(&valPk).Address(), types.NewCoins(317, 0)}
+		output := types.TxOutput{(&valPk).Address(), types.NewCoins(0, 0)}
 		outputs = append(outputs, output)
 	}
 
@@ -256,15 +265,15 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 }
 
 func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount) common.Bytes {
+	txFee := getMinimumTxFee()
 	sendTx := &types.SendTx{
-		Gas: 0,
-		Fee: types.NewCoins(0, 3),
+		Fee: types.NewCoins(0, txFee),
 		Inputs: []types.TxInput{
 			{
 				Sequence: uint64(sequence),
 				PubKey:   accIn.PubKey,
 				Address:  accIn.PubKey.Address(),
-				Coins:    types.NewCoins(15, 3),
+				Coins:    types.NewCoins(15, txFee),
 			},
 		},
 		Outputs: []types.TxOutput{
@@ -295,4 +304,8 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		panic(err)
 	}
 	return sendTxBytes
+}
+
+func getMinimumTxFee() int64 {
+	return int64(types.MinimumTransactionFeeGammaWei)
 }

@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -27,42 +28,59 @@ func NewBlock() *Block {
 }
 
 func (b *Block) String() string {
-	return fmt.Sprintf("Block{Header: %v, Txs: %d}", b.BlockHeader, b.Txs)
+	txs := []string{}
+	for _, tx := range b.Txs {
+		txs = append(txs, hex.EncodeToString(tx))
+	}
+	return fmt.Sprintf("Block{Header: %v, Txs: %v}", b.BlockHeader, txs)
 }
 
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
 	ChainID   string
 	Epoch     uint64
-	Hash      common.Bytes
 	Height    uint64
-	Parent    common.Bytes
-	TxHash    common.Bytes
-	StateHash common.Bytes
+	Parent    common.Hash
+	TxHash    common.Hash
+	StateHash common.Hash
 	Timestamp *big.Int
 	Proposer  common.Address
+
+	hash common.Hash // Cache of calculated hash.
 }
 
-// UpdateHash calculate and set Hash field of header.
-func (h *BlockHeader) UpdateHash() {
-	h.Hash = nil
-	hw := sha3.NewKeccak256()
-	rlp.Encode(hw, h)
-	var buff common.Hash
-	hw.Sum(buff[:0])
-	h.Hash = buff[:]
+// Hash of header.
+func (h *BlockHeader) Hash() common.Hash {
+	if h == nil {
+		return common.Hash{}
+	}
+	if h.hash.IsEmpty() {
+		hw := sha3.NewKeccak256()
+		rlp.Encode(hw, h)
+		hw.Sum(h.hash[:0])
+	}
+	return h.hash
 }
 
 func (h *BlockHeader) String() string {
 	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
-		h.ChainID, h.Epoch, h.Hash, h.Parent, h.Height, h.TxHash, h.StateHash, h.Timestamp, h.Proposer)
+		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Children          []common.Bytes
+	Children          []common.Hash
 	CommitCertificate *CommitCertificate `rlp:"nil"`
+	Finalized         bool
+}
+
+// Hash of header.
+func (eb *ExtendedBlock) Hash() common.Hash {
+	if eb.Block == nil {
+		return common.Hash{}
+	}
+	return eb.BlockHeader.Hash()
 }
 
 func (eb *ExtendedBlock) String() string {
@@ -81,5 +99,5 @@ func (eb *ExtendedBlock) String() string {
 
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
-	return eb.Hash.String()
+	return eb.Hash().String()
 }

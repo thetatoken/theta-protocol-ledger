@@ -2,9 +2,9 @@ package ledger
 
 import (
 	"encoding/hex"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -26,6 +26,7 @@ type Ledger struct {
 	valMgr    core.ValidatorManager
 	mempool   *mp.Mempool
 
+	mu       *sync.RWMutex // Lock for accessing ledger state.
 	state    *st.LedgerState
 	executor *exec.Executor
 }
@@ -38,15 +39,35 @@ func NewLedger(chainID string, db database.Database, consensus core.ConsensusEng
 		consensus: consensus,
 		valMgr:    valMgr,
 		mempool:   mempool,
+		mu:        &sync.RWMutex{},
 		state:     state,
 		executor:  executor,
 	}
 	return ledger
 }
 
-// GetStateSnapshot returns a snapshot of current ledger state to query about accounts, etc.
-func (ledger *Ledger) GetStateSnapshot() (*st.StoreView, error) {
+// GetScreenedSnapshot returns a snapshot of screened ledger state to query about accounts, etc.
+func (ledger *Ledger) GetScreenedSnapshot() (*st.StoreView, error) {
+	ledger.mu.RLock()
+	defer ledger.mu.RUnlock()
+
+	return ledger.state.Screened().Copy()
+}
+
+// GetDeliveredSnapshot returns a snapshot of delivered ledger state to query about accounts, etc.
+func (ledger *Ledger) GetDeliveredSnapshot() (*st.StoreView, error) {
+	ledger.mu.RLock()
+	defer ledger.mu.RUnlock()
+
 	return ledger.state.Delivered().Copy()
+}
+
+// GetFinalizedSnapshot returns a snapshot of finalized ledger state to query about accounts, etc.
+func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
+	ledger.mu.RLock()
+	defer ledger.mu.RUnlock()
+
+	return ledger.state.Finalized().Copy()
 }
 
 // ScreenTx screens the given transaction
@@ -62,6 +83,9 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
 			WithErrorCode(result.CodeUnauthorizedTx)
 	}
 
+	ledger.mu.RLock()
+	defer ledger.mu.RUnlock()
+
 	_, res := ledger.executor.ScreenTx(tx)
 	return res
 }
@@ -69,6 +93,9 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
 	view := ledger.state.Checked()
 
 	// Add special transactions
@@ -105,6 +132,9 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
 	view := ledger.state.Delivered()
 
 	currHeight := view.Height()
@@ -113,19 +143,19 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
-			ledger.ResetState(currHeight, currStateRoot)
+			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
-			ledger.ResetState(currHeight, currStateRoot)
+			ledger.resetState(currHeight, currStateRoot)
 			return res
 		}
 	}
 
 	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
-		ledger.ResetState(currHeight, currStateRoot)
+		ledger.resetState(currHeight, currStateRoot)
 		return result.Error("State root mismatch! root: %v, exptected: %v",
 			hex.EncodeToString(newStateRoot[:]),
 			hex.EncodeToString(expectedStateRoot[:]))
@@ -140,6 +170,26 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 // ResetState sets the ledger state with the designated root
 func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
+	return ledger.resetState(height, rootHash)
+}
+
+// FinalizeState sets the ledger state with the finalized root
+func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.Result {
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
+	res := ledger.state.Finalize(height, rootHash)
+	if res.IsError() {
+		return result.Error("Failed to finalize state root: %v", hex.EncodeToString(rootHash[:]))
+	}
+	return result.OK
+}
+
+// resetState sets the ledger state with the designated root
+func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
 	res := ledger.state.ResetState(height, rootHash)
 	if res.IsError() {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))

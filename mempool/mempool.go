@@ -70,14 +70,18 @@ func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 		return DuplicateTxError
 	}
 
-	mp.txBookeepper.record(mptx)
-
 	txBytes := mptx.rawTransaction
 	checkTxRes := mp.ledger.ScreenTx(txBytes)
 	if !checkTxRes.IsOK() {
 		return errors.New(checkTxRes.Message)
 	}
 
+	// only record the transactions that passed the screening. This is because that
+	// an invalid transaction could becoume valid later on. For example, assume expected
+	// sequence for an account is 6. The account accidently submits txA (seq = 7), got rejected.
+	// He then submit txB(seq = 6), and then txA(seq = 7) again. For the second submission, txA
+	// should not be rejected even though it has been submitted earlier.
+	mp.txBookeepper.record(mptx)
 	mp.txCandidates.PushBack(mptx)
 
 	return nil
@@ -185,7 +189,6 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			Payload:   mptx.rawTransaction,
 		}
 
-		log.Debugf(">>>>> broadcasting mptx: %v", string(mptx.rawTransaction[:]))
 		peerIDs := []string{} // empty peerID list means broadcasting to all neighboring peers
 		mp.dispatcher.SendData(peerIDs, data)
 

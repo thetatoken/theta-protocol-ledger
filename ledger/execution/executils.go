@@ -2,6 +2,7 @@ package execution
 
 import (
 	"encoding/hex"
+	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
@@ -134,10 +135,8 @@ func getOrMakeAccountImpl(view *state.StoreView, address common.Address, makeNew
 		if !makeNewAccount {
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
-		acc = &types.Account{
-			Balance:                types.NewCoins(0, 0),
-			LastUpdatedBlockHeight: view.Height(),
-		}
+		acc = types.NewAccount()
+		acc.LastUpdatedBlockHeight = view.Height()
 	}
 	acc.UpdateToHeight(view.Height())
 
@@ -264,9 +263,23 @@ func adjustByOutputs(view *state.StoreView, accounts map[string]*types.Account, 
 	}
 }
 
+func sanityCheckForGasPrice(gasPrice *big.Int) bool {
+	if gasPrice == nil {
+		return false
+	}
+
+	minimumGasPrice := new(big.Int).SetUint64(types.MinimumGasPrice)
+	if gasPrice.Cmp(minimumGasPrice) < 0 {
+		return false
+	}
+
+	return true
+}
+
 func sanityCheckForFee(fee types.Coins) bool {
 	fee = fee.NoNil()
-	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.GammaWei.Cmp(types.Zero) > 0
+	minimumFee := new(big.Int).SetUint64(types.MinimumTransactionFeeGammaWei)
+	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.GammaWei.Cmp(minimumFee) >= 0
 }
 
 func chargeFee(account *types.Account, fee types.Coins) bool {

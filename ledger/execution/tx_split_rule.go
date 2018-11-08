@@ -11,24 +11,24 @@ import (
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
-var _ TxExecutor = (*SplitContractTxExecutor)(nil)
+var _ TxExecutor = (*SplitRuleTxExecutor)(nil)
 
-// ------------------------------- SplitContract Transaction -----------------------------------
+// ------------------------------- SplitRule Transaction -----------------------------------
 
-// SplitContractTxExecutor implements the TxExecutor interface
-type SplitContractTxExecutor struct {
+// SplitRuleTxExecutor implements the TxExecutor interface
+type SplitRuleTxExecutor struct {
 	state *st.LedgerState
 }
 
-// NewSplitContractTxExecutor creates a new instance of SplitContractTxExecutor
-func NewSplitContractTxExecutor(state *st.LedgerState) *SplitContractTxExecutor {
-	return &SplitContractTxExecutor{
+// NewSplitRuleTxExecutor creates a new instance of SplitRuleTxExecutor
+func NewSplitRuleTxExecutor(state *st.LedgerState) *SplitRuleTxExecutor {
+	return &SplitRuleTxExecutor{
 		state: state,
 	}
 }
 
-func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
-	tx := transaction.(*types.SplitContractTx)
+func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	tx := transaction.(*types.SplitRuleTx)
 
 	res := tx.Initiator.ValidateBasic()
 	if res.IsError() {
@@ -49,7 +49,8 @@ func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee")
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -75,19 +76,19 @@ func (exec *SplitContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	resourceID := tx.ResourceID
-	if view.SplitContractExists(resourceID) {
-		splitContract := view.GetSplitContract(resourceID)
-		if splitContract.InitiatorAddress != tx.Initiator.Address {
-			return result.Error("Cannot create multiple split contracts for the same resourceID").
-				WithErrorCode(result.CodeUnauthorizedToUpdateSplitContract)
+	if view.SplitRuleExists(resourceID) {
+		splitRule := view.GetSplitRule(resourceID)
+		if splitRule.InitiatorAddress != tx.Initiator.Address {
+			return result.Error("Cannot create multiple split rules for the same resourceID").
+				WithErrorCode(result.CodeUnauthorizedToUpdateSplitRule)
 		}
 	}
 
 	return result.OK
 }
 
-func (exec *SplitContractTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
-	tx := transaction.(*types.SplitContractTx)
+func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+	tx := transaction.(*types.SplitRuleTx)
 
 	initiatorAccount, res := getInput(view, tx.Initiator)
 	if res.IsError() {
@@ -95,33 +96,33 @@ func (exec *SplitContractTxExecutor) process(chainID string, view *st.StoreView,
 	}
 
 	currentBlockHeight := view.Height()
-	view.DeleteExpiredSplitContracts(currentBlockHeight)
+	view.DeleteExpiredSplitRules(currentBlockHeight)
 
 	resourceID := tx.ResourceID
 	success := false
-	if view.SplitContractExists(resourceID) {
-		splitContract := view.GetSplitContract(resourceID)
-		if splitContract.InitiatorAddress != tx.Initiator.Address {
-			return common.Hash{}, result.Error("split contract from a different initiator existed").
-				WithErrorCode(result.CodeUnauthorizedToUpdateSplitContract)
+	if view.SplitRuleExists(resourceID) {
+		splitRule := view.GetSplitRule(resourceID)
+		if splitRule.InitiatorAddress != tx.Initiator.Address {
+			return common.Hash{}, result.Error("split rule from a different initiator existed").
+				WithErrorCode(result.CodeUnauthorizedToUpdateSplitRule)
 		}
 		endBlockHeight := currentBlockHeight + tx.Duration
-		splitContract.EndBlockHeight = endBlockHeight
-		splitContract.Splits = tx.Splits
-		success = view.UpdateSplitContract(splitContract)
+		splitRule.EndBlockHeight = endBlockHeight
+		splitRule.Splits = tx.Splits
+		success = view.UpdateSplitRule(splitRule)
 	} else {
 		endBlockHeight := currentBlockHeight + tx.Duration
-		splitContract := types.SplitContract{
+		splitRule := types.SplitRule{
 			InitiatorAddress: tx.Initiator.Address,
 			ResourceID:       tx.ResourceID,
 			Splits:           tx.Splits,
 			EndBlockHeight:   endBlockHeight,
 		}
-		success = view.AddSplitContract(&splitContract)
+		success = view.AddSplitRule(&splitRule)
 	}
 
 	if !success {
-		return common.Hash{}, result.Error("failed to add or update split contract")
+		return common.Hash{}, result.Error("failed to add or update split rule")
 	}
 
 	if !chargeFee(initiatorAccount, tx.Fee) {

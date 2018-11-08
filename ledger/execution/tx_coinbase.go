@@ -1,8 +1,6 @@
 package execution
 
 import (
-	"math/big"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -120,24 +118,10 @@ func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) ma
 	accountReward := map[string]types.Coins{}
 
 	for _, validatorAddress := range validatorAddresses {
-		validatorAccount := getOrMakeAccount(view, validatorAddress)
-
-		// FIXME: for now count the validator Theta balance as their Stake. Should implement
-		//        stake binding and slashing later!!!!
-		totalStakeInThetaWei := validatorAccount.Balance.ThetaWei
-		thetaReward := calculateThetaReward(totalStakeInThetaWei, true)
-		accountReward[string(validatorAddress[:])] = thetaReward
+		// Initial Mainnet release should not reward the validators until the guardians ready to deploy
+		zeroReward := types.Coins{}.NoNil()
+		accountReward[string(validatorAddress[:])] = zeroReward
 	}
 
 	return accountReward
-}
-
-func calculateThetaReward(totalStakeInThetaWei *big.Int, isValidator bool) types.Coins {
-	thetaRewardAmountInWei := big.NewInt(0)
-	if isValidator {
-		thetaRewardAmountInWei.Mul(totalStakeInThetaWei, big.NewInt(types.ValidatorThetaGenerationRateNumerator))
-		thetaRewardAmountInWei.Div(thetaRewardAmountInWei, big.NewInt(types.ValidatorThetaGenerationRateDenominator))
-	}
-	thetaReward := types.Coins{ThetaWei: thetaRewardAmountInWei, GammaWei: big.NewInt(0)}
-	return thetaReward
 }

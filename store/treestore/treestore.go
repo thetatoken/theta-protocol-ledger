@@ -4,7 +4,6 @@ import (
 	"bytes"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/trie"
@@ -19,21 +18,60 @@ func NewTreeStore(root common.Hash, db database.Database) *TreeStore {
 		log.Errorf("Failed to create tree store for: %v: %v", root, err)
 		return nil
 	}
-	return &TreeStore{tr}
+	return &TreeStore{tr, db}
 }
 
 type TreeStore struct {
 	*trie.Trie
+	db database.Database
+}
+
+// GetDB returns the underlying database.
+func (store *TreeStore) GetDB() database.Database {
+	return store.db
+}
+
+func (store *TreeStore) Commit() (common.Hash, error) {
+	h, err := store.Trie.Commit(nil)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	err = store.Trie.GetDB().Commit(h, true)
+	if err != nil {
+		return common.Hash{}, err
+	}
+	return h, nil
+}
+
+// Revert creates a copy of the Trie with the given root, using the
+// in-memory trie DB (i.e. store.Trie.GetDB()) of the current Trie.
+// Note: Each time we call Trie.Commit() a new root node will be creates,
+// however, the older roots are still stored in the in-memory trie DB. The root
+// passed to the Revert() function needs to be one of the previous roots,
+// otherwise the function will return an error.
+func (store *TreeStore) Revert(root common.Hash) (*TreeStore, error) {
+	trieDB := store.Trie.GetDB()
+	revertedTrie, err := trie.New(root, trieDB)
+	if err != nil {
+		return nil, err
+	}
+
+	revertedStore := &TreeStore{
+		Trie: revertedTrie,
+		db:   store.db,
+	}
+	return revertedStore, nil
 }
 
 // Copy returns a copy of the TreeStore
 func (store *TreeStore) Copy() (*TreeStore, error) {
+	store.Trie.Commit(nil)
 	copiedTrie, err := store.Trie.Copy()
 	if err != nil {
 		return nil, err
 	}
 
-	copiedStore := &TreeStore{copiedTrie}
+	copiedStore := &TreeStore{copiedTrie, store.db}
 	return copiedStore, nil
 }
 

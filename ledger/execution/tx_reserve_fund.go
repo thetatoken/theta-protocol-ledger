@@ -46,7 +46,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
 	if res.IsError() {
-		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %X: %v", tx.Source.Address, res))
+		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 
@@ -63,8 +63,8 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("invalid fee").
-			WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	fund := tx.Source.Coins
@@ -74,7 +74,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 
 	minimalBalance := fund.Plus(collateral).Plus(tx.Fee)
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
-		log.Infof(fmt.Sprintf("Source did not have enough balance %X", tx.Source.Address))
+		log.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.Source.Address.Hex()))
 		return result.Error("Source balance is %v, but required minimal balance is %v",
 			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}

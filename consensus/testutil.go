@@ -15,7 +15,7 @@ loop:
 	for {
 		select {
 		case block := <-ch:
-			res = append(res, block.Hash.String())
+			res = append(res, block.Hash().String())
 		default:
 			break loop
 		}

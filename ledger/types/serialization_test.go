@@ -81,7 +81,6 @@ func TestTx(t *testing.T) {
 
 	tx1 = &SendTx{
 		Fee:     NewCoins(123, 0),
-		Gas:     123,
 		Inputs:  []TxInput{{Address: getTestAddress("123")}, {Address: getTestAddress("798")}},
 		Outputs: []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
 	}
@@ -95,11 +94,9 @@ func TestTx(t *testing.T) {
 	assert.Equal(tx1.(*SendTx).Outputs[1].Address, tx2.(*SendTx).Outputs[1].Address)
 	assert.Equal(tx1.(*SendTx).Outputs[2].Address, tx2.(*SendTx).Outputs[2].Address)
 	assert.Equal(tx1.(*SendTx).Fee, tx2.(*SendTx).Fee)
-	assert.Equal(tx1.(*SendTx).Gas, tx2.(*SendTx).Gas)
 
 	tx1 = &ReserveFundTx{
 		Fee:         NewCoins(123, 0),
-		Gas:         123,
 		Source:      TxInput{Address: getTestAddress("123")},
 		Collateral:  NewCoins(456, 0),
 		ResourceIDs: []common.Bytes{common.Bytes("789")},
@@ -110,7 +107,6 @@ func TestTx(t *testing.T) {
 	tx2, err = TxFromBytes(b)
 	require.Nil(err)
 	assert.Equal(tx1.(*ReserveFundTx).Fee, tx2.(*ReserveFundTx).Fee)
-	assert.Equal(tx1.(*ReserveFundTx).Gas, tx2.(*ReserveFundTx).Gas)
 	assert.Equal(tx1.(*ReserveFundTx).Source.Address, tx2.(*ReserveFundTx).Source.Address)
 	assert.Equal(tx1.(*ReserveFundTx).Collateral, tx2.(*ReserveFundTx).Collateral)
 	assert.Equal(tx1.(*ReserveFundTx).ResourceIDs, tx2.(*ReserveFundTx).ResourceIDs)
@@ -118,7 +114,6 @@ func TestTx(t *testing.T) {
 
 	tx1 = &ReleaseFundTx{
 		Fee:             NewCoins(123, 0),
-		Gas:             123,
 		Source:          TxInput{Address: getTestAddress("123")},
 		ReserveSequence: 1,
 	}
@@ -127,13 +122,11 @@ func TestTx(t *testing.T) {
 	tx2, err = TxFromBytes(b)
 	require.Nil(err)
 	assert.Equal(tx1.(*ReleaseFundTx).Fee, tx2.(*ReleaseFundTx).Fee)
-	assert.Equal(tx1.(*ReleaseFundTx).Gas, tx2.(*ReleaseFundTx).Gas)
 	assert.Equal(tx1.(*ReleaseFundTx).Source.Address, tx2.(*ReleaseFundTx).Source.Address)
 	assert.Equal(tx1.(*ReleaseFundTx).ReserveSequence, tx2.(*ReleaseFundTx).ReserveSequence)
 
 	tx1 = &ServicePaymentTx{
 		Fee:             NewCoins(123, 0),
-		Gas:             123,
 		Source:          TxInput{Address: getTestAddress("123")},
 		Target:          TxInput{Address: getTestAddress("456")},
 		PaymentSequence: 1,
@@ -144,15 +137,13 @@ func TestTx(t *testing.T) {
 	tx2, err = TxFromBytes(b)
 	require.Nil(err)
 	assert.Equal(tx1.(*ServicePaymentTx).Fee, tx2.(*ServicePaymentTx).Fee)
-	assert.Equal(tx1.(*ServicePaymentTx).Gas, tx2.(*ServicePaymentTx).Gas)
 	assert.Equal(tx1.(*ServicePaymentTx).Source.Address, tx2.(*ServicePaymentTx).Source.Address)
 	assert.Equal(tx1.(*ServicePaymentTx).Target.Address, tx2.(*ServicePaymentTx).Target.Address)
 	assert.Equal(tx1.(*ServicePaymentTx).PaymentSequence, tx2.(*ServicePaymentTx).PaymentSequence)
 	assert.Equal(tx1.(*ServicePaymentTx).ReserveSequence, tx2.(*ServicePaymentTx).ReserveSequence)
 
-	tx1 = &SplitContractTx{
+	tx1 = &SplitRuleTx{
 		Fee:        NewCoins(123, 0),
-		Gas:        123,
 		ResourceID: []byte("rid789"),
 		Initiator:  TxInput{Address: getTestAddress("123")},
 		Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}, Split{Address: getTestAddress("777"), Percentage: 20}},
@@ -162,12 +153,11 @@ func TestTx(t *testing.T) {
 	require.Nil(err)
 	tx2, err = TxFromBytes(b)
 	require.Nil(err)
-	assert.Equal(tx1.(*SplitContractTx).Fee, tx2.(*SplitContractTx).Fee)
-	assert.Equal(tx1.(*SplitContractTx).Gas, tx2.(*SplitContractTx).Gas)
-	assert.Equal(tx1.(*SplitContractTx).ResourceID, tx2.(*SplitContractTx).ResourceID)
-	assert.Equal(tx1.(*SplitContractTx).Initiator.Address, tx2.(*SplitContractTx).Initiator.Address)
-	assert.Equal(tx1.(*SplitContractTx).Splits, tx2.(*SplitContractTx).Splits)
-	assert.Equal(tx1.(*SplitContractTx).Duration, tx2.(*SplitContractTx).Duration)
+	assert.Equal(tx1.(*SplitRuleTx).Fee, tx2.(*SplitRuleTx).Fee)
+	assert.Equal(tx1.(*SplitRuleTx).ResourceID, tx2.(*SplitRuleTx).ResourceID)
+	assert.Equal(tx1.(*SplitRuleTx).Initiator.Address, tx2.(*SplitRuleTx).Initiator.Address)
+	assert.Equal(tx1.(*SplitRuleTx).Splits, tx2.(*SplitRuleTx).Splits)
+	assert.Equal(tx1.(*SplitRuleTx).Duration, tx2.(*SplitRuleTx).Duration)
 }
 
 func getTestAddress(addr string) common.Address {

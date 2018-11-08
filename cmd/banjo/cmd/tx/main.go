@@ -18,18 +18,22 @@ var (
 	fromFlag                     string
 	toFlag                       string
 	seqFlag                      uint64
-	thetaAmountFlag              int64
-	gammaAmountFlag              int64
+	thetaAmountFlag              uint64
+	gammaAmountFlag              uint64
 	gasAmountFlag                uint64
-	feeInGammaFlag               int64
+	feeInGammaFlag               uint64
 	resourceIDsFlag              []string
 	resourceIDFlag               string
 	durationFlag                 uint64
-	reserveFundInGammaFlag       int64
-	reserveCollateralInGammaFlag int64
+	reserveFundInGammaFlag       uint64
+	reserveCollateralInGammaFlag uint64
 	reserveSeqFlag               uint64
 	addressesFlag                []string
 	percentagesFlag              []string
+	valueFlag                    uint64
+	gasPriceFlag                 uint64
+	gasLimitFlag                 uint64
+	dataFlag                     string
 )
 
 // TxCmd represents the Tx command
@@ -42,8 +46,9 @@ var TxCmd = &cobra.Command{
 func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
-	TxCmd.AddCommand(releaseFundCmd)
-	TxCmd.AddCommand(splitContractCmd)
+	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
+	TxCmd.AddCommand(splitRuleCmd)
+	TxCmd.AddCommand(smartContractCmd)
 }
 
 func walletUnlockAddress(cfgPath, addressStr string) (wtypes.Wallet, common.Address, *crypto.PublicKey, error) {

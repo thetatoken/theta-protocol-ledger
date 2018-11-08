@@ -7,10 +7,10 @@ import (
 // QueryCmd represents the query command
 var QueryCmd = &cobra.Command{
 	Use:   "query",
-	Short: "Query entiteis stored in blockchain",
+	Short: "Query entities stored in blockchain",
 }
 
 func init() {
 	QueryCmd.AddCommand(accountCmd)
-	QueryCmd.AddCommand(splitContractCmd)
+	QueryCmd.AddCommand(splitRuleCmd)
 }

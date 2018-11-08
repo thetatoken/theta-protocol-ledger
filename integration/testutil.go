@@ -1,7 +1,6 @@
 package integration
 
 import (
-	"bytes"
 	"context"
 	"sync"
 	"time"
@@ -21,9 +20,9 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 
 	log.Info("Start simulation")
 
-	finalizedBlocksByNode := make(map[string][]common.Bytes)
+	finalizedBlocksByNode := make(map[string][]common.Hash)
 	for _, node := range nodes {
-		finalizedBlocksByNode[node.Consensus.ID()] = []common.Bytes{}
+		finalizedBlocksByNode[node.Consensus.ID()] = []common.Hash{}
 	}
 	simnet.Start(ctx)
 	for _, node := range nodes {
@@ -39,7 +38,7 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 					return
 				case block := <-n.FinalizedBlocks():
 					l.Lock()
-					finalizedBlocksByNode[n.ID()] = append(finalizedBlocksByNode[n.ID()], block.Hash)
+					finalizedBlocksByNode[n.ID()] = append(finalizedBlocksByNode[n.ID()], block.Hash())
 					l.Unlock()
 				}
 
@@ -67,13 +66,13 @@ func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*no
 		if highestFinalizedBlock == nil {
 			highestFinalizedBlock = lastFinalizedBlock
 			nodeWithHighestBlock = node
-		} else if bytes.Compare(highestFinalizedBlock.Hash, lastFinalizedBlock.Hash) != 0 {
+		} else if highestFinalizedBlock.Hash() != lastFinalizedBlock.Hash() {
 			if highestFinalizedBlock.Height < lastFinalizedBlock.Height {
 				nodeWithHighestBlock = node
-				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", highestFinalizedBlock.Hash, lastFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
+				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(highestFinalizedBlock.Hash(), lastFinalizedBlock.Hash(), 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", highestFinalizedBlock.Hash(), lastFinalizedBlock.Hash(), nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash()), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash()))
 				highestFinalizedBlock = lastFinalizedBlock
 			} else {
-				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(lastFinalizedBlock.Hash, highestFinalizedBlock.Hash, 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", lastFinalizedBlock.Hash, highestFinalizedBlock.Hash, nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash))
+				assert.Truef(nodeWithHighestBlock.Chain.IsDescendant(lastFinalizedBlock.Hash(), highestFinalizedBlock.Hash(), 1000), "Conflict found in finalized blocks: %v, %v, %v, %v", lastFinalizedBlock.Hash(), highestFinalizedBlock.Hash(), nodeWithHighestBlock.Chain.PrintBranch(highestFinalizedBlock.Hash()), nodeWithHighestBlock.Chain.PrintBranch(lastFinalizedBlock.Hash()))
 			}
 		}
 	}

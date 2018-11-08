@@ -65,8 +65,8 @@ func NewExecTest() *execTest {
 
 //reset everything. state is empty
 func (et *execTest) reset() {
-	et.accIn = types.MakeAccWithInitBalance("foo", types.NewCoins(700000, 5))
-	et.accOut = types.MakeAccWithInitBalance("bar", types.NewCoins(700000, 5))
+	et.accIn = types.MakeAccWithInitBalance("foo", types.NewCoins(700000, 50*getMinimumTxFee()))
+	et.accOut = types.MakeAccWithInitBalance("bar", types.NewCoins(700000, 50*getMinimumTxFee()))
 	et.accProposer = types.MakeAcc("proposer")
 	et.accVal2 = types.MakeAcc("val2")
 
@@ -154,4 +154,8 @@ func (et *execTest) State() *st.LedgerState {
 // SetAcc saves accounts into state.
 func (et *execTest) SetAcc(accs ...types.PrivAccount) {
 	et.acc2State(accs...)
+}
+
+func getMinimumTxFee() int64 {
+	return int64(types.MinimumTransactionFeeGammaWei)
 }

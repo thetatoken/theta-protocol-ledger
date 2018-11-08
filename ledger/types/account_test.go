@@ -210,56 +210,57 @@ func TestTransferReservedFund4(t *testing.T) {
 	assert.Equal(t, totalTransferAmount, srcAcc.ReservedFunds[0].UsedFund)
 }
 
-func TestUpdateAccountGammaReward(t *testing.T) {
-	assert := assert.New(t)
+// For the initial Mainnet release, Gamma should not inflate
+// func TestUpdateAccountGammaReward(t *testing.T) {
+// 	assert := assert.New(t)
 
-	var acc *Account
-	currentBlockHeight := uint64(1000)
+// 	var acc *Account
+// 	currentBlockHeight := uint64(1000)
 
-	// Should update account
-	acc = &Account{
-		LastUpdatedBlockHeight: 1,
-		Balance:                NewCoins(1e12, 2000),
-	}
+// 	// Should update account
+// 	acc = &Account{
+// 		LastUpdatedBlockHeight: 1,
+// 		Balance:                NewCoins(1e12, 2000),
+// 	}
 
-	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
-	assert.Equal(int64(189812000), acc.Balance.GammaWei.Int64())
-	assert.Equal(uint64(1000), acc.LastUpdatedBlockHeight)
+// 	acc.UpdateAccountGammaReward(currentBlockHeight)
+// 	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
+// 	assert.Equal(int64(189812000), acc.Balance.GammaWei.Int64())
+// 	assert.Equal(uint64(1000), acc.LastUpdatedBlockHeight)
 
-	// Underflow: Should not update account if reward is less than 1 Gamma
-	acc = &Account{
-		LastUpdatedBlockHeight: 1,
-		Balance:                NewCoins(1000, 2000),
-	}
+// 	// Underflow: Should not update account if reward is less than 1 Gamma
+// 	acc = &Account{
+// 		LastUpdatedBlockHeight: 1,
+// 		Balance:                NewCoins(1000, 2000),
+// 	}
 
-	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1000), acc.Balance.ThetaWei.Int64())
-	assert.Equal(int64(2000), acc.Balance.GammaWei.Int64())
-	assert.Equal(uint64(1), acc.LastUpdatedBlockHeight)
+// 	acc.UpdateAccountGammaReward(currentBlockHeight)
+// 	assert.Equal(int64(1000), acc.Balance.ThetaWei.Int64())
+// 	assert.Equal(int64(2000), acc.Balance.GammaWei.Int64())
+// 	assert.Equal(uint64(1), acc.LastUpdatedBlockHeight)
 
-	// Should not overflow for large span * balance
-	currentBlockHeight = 1e7
-	acc = &Account{
-		LastUpdatedBlockHeight: 1,
-		Balance:                NewCoins(1e12, 2000),
-	}
+// 	// Should not overflow for large span * balance
+// 	currentBlockHeight = 1e7
+// 	acc = &Account{
+// 		LastUpdatedBlockHeight: 1,
+// 		Balance:                NewCoins(1e12, 2000),
+// 	}
 
-	acc.UpdateAccountGammaReward(currentBlockHeight)
-	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
-	assert.Equal(int64(1899999812000), acc.Balance.GammaWei.Int64())
-	assert.Equal(uint64(1e7), acc.LastUpdatedBlockHeight)
+// 	acc.UpdateAccountGammaReward(currentBlockHeight)
+// 	assert.Equal(int64(1e12), acc.Balance.ThetaWei.Int64())
+// 	assert.Equal(int64(1899999812000), acc.Balance.GammaWei.Int64())
+// 	assert.Equal(uint64(1e7), acc.LastUpdatedBlockHeight)
 
-	// Should panic if the end balance oveflow
-	currentBlockHeight = 9e8
-	acc = &Account{
-		LastUpdatedBlockHeight: 1,
-		Balance:                NewCoins(1e18, 2000),
-	}
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-	acc.UpdateAccountGammaReward(currentBlockHeight) // Should panic
-}
+// 	// Should panic if the end balance oveflow
+// 	currentBlockHeight = 9e8
+// 	acc = &Account{
+// 		LastUpdatedBlockHeight: 1,
+// 		Balance:                NewCoins(1e18, 2000),
+// 	}
+// 	defer func() {
+// 		if r := recover(); r == nil {
+// 			t.Errorf("The code did not panic")
+// 		}
+// 	}()
+// 	acc.UpdateAccountGammaReward(currentBlockHeight) // Should panic
+// }

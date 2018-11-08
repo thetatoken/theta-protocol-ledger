@@ -25,6 +25,12 @@ const (
 	// ServerPayment Errors
 	CodeCheckTransferReservedFundFailed ErrorCode = 103001
 
-	// SplitContract Errors
-	CodeUnauthorizedToUpdateSplitContract ErrorCode = 104001
+	// SplitRule Errors
+	CodeUnauthorizedToUpdateSplitRule ErrorCode = 104001
+
+	// SmartContract Errors
+	CodeEVMError               ErrorCode = 105001
+	CodeInvalidValueToTransfer ErrorCode = 105002
+	CodeInvalidGasPrice        ErrorCode = 105003
+	CodeFeeLimitTooHigh        ErrorCode = 105004
 )

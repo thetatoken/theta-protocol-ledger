@@ -37,7 +37,7 @@ func LoadCheckpointLedgerState(checkpoint *core.Checkpoint, db database.Database
 		s.Set(pair.Key, pair.Value)
 	}
 	actualHash := s.Save()
-	if actualHash != common.BytesToHash(checkpoint.FirstBlock.StateHash) {
+	if actualHash != checkpoint.FirstBlock.StateHash {
 		panic(fmt.Sprintf("Acutal hash %v != expected hash: %v", actualHash, checkpoint.FirstBlock.StateHash))
 	}
 }
@@ -82,8 +82,11 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 			return nil, err
 		}
 		acc := &types.Account{
-			PubKey:                 pubKey,
-			Balance:                types.NewCoins(100000000000, 0),
+			PubKey: pubKey,
+			Balance: types.Coins{
+				ThetaWei: new(big.Int).SetUint64(1e15),
+				GammaWei: new(big.Int).SetUint64(1e15),
+			},
 			LastUpdatedBlockHeight: 0,
 		}
 		s.SetAccount(acc.PubKey.Address(), acc)
@@ -93,10 +96,9 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 	firstBlock := core.NewBlock()
 	firstBlock.Height = 0
 	firstBlock.Epoch = 0
-	firstBlock.Parent = nil
-	firstBlock.StateHash = stateHash.Bytes()
+	firstBlock.Parent = common.Hash{}
+	firstBlock.StateHash = stateHash
 	firstBlock.Timestamp = big.NewInt(time.Now().Unix())
-	firstBlock.UpdateHash()
 
 	genesis.FirstBlock = firstBlock
 

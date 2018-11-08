@@ -26,7 +26,7 @@ func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, resul
 		return errors.New("Address must be specified")
 	}
 	address := common.HexToAddress(args.Address)
-	ledgerState, err := t.ledger.GetStateSnapshot()
+	ledgerState, err := t.ledger.GetScreenedSnapshot()
 	if err != nil {
 		return err
 	}
@@ -35,17 +35,17 @@ func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, resul
 	return nil
 }
 
-// ------------------------------- GetSplitContract -----------------------------------
+// ------------------------------- GetSplitRule -----------------------------------
 
-type GetSplitContractArgs struct {
+type GetSplitRuleArgs struct {
 	ResourceID string `json:"resource_id"`
 }
 
-type GetSplitContractResult struct {
-	*types.SplitContract
+type GetSplitRuleResult struct {
+	*types.SplitRule
 }
 
-func (t *ThetaRPCServer) GetSplitContract(r *http.Request, args *GetSplitContractArgs, result *GetSplitContractResult) (err error) {
+func (t *ThetaRPCServer) GetSplitRule(r *http.Request, args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
@@ -53,10 +53,61 @@ func (t *ThetaRPCServer) GetSplitContract(r *http.Request, args *GetSplitContrac
 	if err != nil {
 		return err
 	}
-	ledgerState, err := t.ledger.GetStateSnapshot()
+	ledgerState, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
 	}
-	result.SplitContract = ledgerState.GetSplitContract(resourceID)
+	result.SplitRule = ledgerState.GetSplitRule(resourceID)
+	return nil
+}
+
+// ------------------------------ GetTransaction -----------------------------------
+
+type GetTransactionArgs struct {
+	Hash string `json:"hash"`
+}
+
+type GetTransactionResult struct {
+	BlockHash   common.Hash `json:"block_hash"`
+	BlockHeight uint64      `json:"block_height"`
+	Status      TxStatus    `json:"status"`
+	TxHash      common.Hash `json:"hash"`
+	Tx          types.Tx    `json:"transaction"`
+}
+
+type TxStatus string
+
+const (
+	TxStatusNotFound  = "not_found"
+	TxStatusPending   = "pending"
+	TxStatusFinalized = "finalized"
+)
+
+func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArgs, result *GetTransactionResult) (err error) {
+	if args.Hash == "" {
+		return errors.New("Transanction hash must be specified")
+	}
+	hash := common.HexToHash(args.Hash)
+	raw, block, found := t.chain.FindTxByHash(hash)
+	if !found {
+		result.Status = TxStatusNotFound
+		return nil
+	}
+	result.TxHash = hash
+	result.BlockHash = block.Hash()
+	result.BlockHeight = block.Height
+
+	if block.Finalized {
+		result.Status = TxStatusFinalized
+	} else {
+		result.Status = TxStatusPending
+	}
+
+	tx, err := types.TxFromBytes(raw)
+	if err != nil {
+		return err
+	}
+	result.Tx = tx
+
 	return nil
 }
