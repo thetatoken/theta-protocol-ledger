@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -27,7 +28,11 @@ func NewBlock() *Block {
 }
 
 func (b *Block) String() string {
-	return fmt.Sprintf("Block{Header: %v, Txs: %d}", b.BlockHeader, b.Txs)
+	txs := []string{}
+	for _, tx := range b.Txs {
+		txs = append(txs, hex.EncodeToString(tx))
+	}
+	return fmt.Sprintf("Block{Header: %v, Txs: %v}", b.BlockHeader, txs)
 }
 
 // BlockHeader contains the essential information of a block.
@@ -59,7 +64,7 @@ func (h *BlockHeader) Hash() common.Hash {
 
 func (h *BlockHeader) String() string {
 	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
-		h.ChainID, h.Epoch, h.Hash(), h.Parent, h.Height, h.TxHash, h.StateHash, h.Timestamp, h.Proposer)
+		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
