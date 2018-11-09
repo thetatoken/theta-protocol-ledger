@@ -3,6 +3,7 @@ package messenger
 import (
 	"errors"
 	"net"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
@@ -118,16 +119,19 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 
 	if peer.IsPersistent() {
 		var err error
-		if peer.IsOutbound() {
-			_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
-		} else {
-			_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+		for i := 0; i < 3; i++ { // retry up to 3 times
+			if peer.IsOutbound() {
+				_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
+			} else {
+				_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+			}
+			if err == nil {
+				log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())
+				return
+			}
+			time.Sleep(time.Second * 3)
 		}
-		if err != nil {
-			log.Errorf("[p2p] Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
-		} else {
-			log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())
-		}
+		log.Errorf("[p2p] Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
 	}
 }
 

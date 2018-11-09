@@ -28,6 +28,7 @@ const (
 	minNumOutboundPeers               = 10
 	maxPeerDiscoveryMessageSize       = 1048576 // 1MB
 	requestPeersAddressesPercent      = 25
+	peersAddressesSubSamplingPercent  = 25
 )
 
 // PeerDiscoveryMessage defines the structure of the peer discovery message
@@ -135,13 +136,17 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
+	var validAddresses []*netutil.NetAddress
 	for _, addr := range message.Addresses {
 		if addr.Valid() {
 			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
 			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
+			validAddresses = append(validAddresses, addr)
 		}
 	}
-	pdmh.connectToOutboundPeers(message.Addresses)
+	if len(validAddresses) > 0 {
+		pdmh.connectToOutboundPeers(validAddresses)
+	}
 }
 
 // SetDiscoveryCallback sets the inbound callback function
@@ -150,16 +155,18 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
-	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
-	numNeeded := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers - numPeers
+	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
+	numNeeded := int(GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers) - numPeers
 	if numNeeded > 0 {
-		numToAdd := uint(len(addresses))
-		if numToAdd > numNeeded {
+		numToAdd := len(addresses) * peersAddressesSubSamplingPercent / 100
+		if numToAdd < 1 {
+			numToAdd = 1
+		} else if numToAdd > numNeeded {
 			numToAdd = numNeeded
 		}
 		perm := rand.Perm(len(addresses))
-		for i := uint(0); i < numToAdd; i++ {
-			go func(i uint) {
+		for i := 0; i < numToAdd; i++ {
+			go func(i int) {
 				time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
 				j := perm[i]
 				peerNetAddress := addresses[j]
