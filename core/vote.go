@@ -109,14 +109,20 @@ func (s *VoteSet) Copy() *VoteSet {
 	return ret
 }
 
-// AddVote adds a vote to vote set.
+// AddVote adds a vote to vote set. Duplicate votes are ignored.
 func (s *VoteSet) AddVote(vote Vote) {
-	s.votes[vote.ID.Hex()] = vote
+	key := fmt.Sprintf("%s:%s:%d", vote.ID, vote.Block, vote.Epoch)
+	s.votes[key] = vote
 }
 
 // Size returns the number of votes in the vote set.
 func (s *VoteSet) Size() int {
 	return len(s.votes)
+}
+
+// IsEmpty returns wether the vote set is empty.
+func (s *VoteSet) IsEmpty() bool {
+	return s.Size() == 0
 }
 
 // Votes return a slice of votes in the vote set.
@@ -169,9 +175,104 @@ func (s *VoteSet) DecodeRLP(stream *rlp.Stream) error {
 	return nil
 }
 
+// Merge combines two vote sets.
+func (s *VoteSet) Merge(another *VoteSet) *VoteSet {
+	ret := NewVoteSet()
+	for _, vote := range s.Votes() {
+		ret.AddVote(vote)
+	}
+	for _, vote := range another.Votes() {
+		ret.AddVote(vote)
+	}
+	return ret
+}
+
+// KeepLatest consolidate vote set by removing votes from the same voter to same block
+// in older epoches.
+func (s *VoteSet) KeepLatest() *VoteSet {
+	latestVotes := make(map[string]Vote)
+	for _, vote := range s.votes {
+		key := fmt.Sprintf("%s:%s", vote.ID, vote.Block)
+		if prev, ok := latestVotes[key]; ok && prev.Epoch >= vote.Epoch {
+			continue
+		}
+		latestVotes[key] = vote
+	}
+	ret := NewVoteSet()
+	for _, vote := range latestVotes {
+		ret.AddVote(vote)
+	}
+	return ret
+}
+
 // VoteByID implements sort.Interface for []Vote based on Voter's ID.
 type VoteByID []Vote
 
 func (a VoteByID) Len() int           { return len(a) }
 func (a VoteByID) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a VoteByID) Less(i, j int) bool { return bytes.Compare(a[i].ID.Bytes(), a[j].ID.Bytes()) < 0 }
+
+// // VoteSetByBlockHash represents a vote set for a particular block hash.
+// type VoteSetByBlockHash struct {
+// 	*VoteSet
+// 	Block common.Hash
+// }
+
+// // Validate checks the vote set is legitimate.
+// func (s *VoteSetByBlockHash) Validate() result.Result {
+// 	if s.Block.IsEmpty() {
+// 		return result.Error("Block hash is empty")
+// 	}
+// 	if res := s.VoteSet.Validate(); res.IsError() {
+// 		return res
+// 	}
+// 	for _, vote := range s.VoteSet.votes {
+// 		if vote.Block != s.Block {
+// 			return result.Error("contains vote for other block")
+// 		}
+// 	}
+// 	return result.OK
+// }
+
+// // VoteSetByEpoch represents a vote set for a particular epoch.
+// type VoteSetByEpoch struct {
+// 	*VoteSet
+// 	Epoch uint64
+// }
+
+// // Validate checks the vote set is legitimate.
+// func (s *VoteSetByEpoch) Validate() result.Result {
+// 	if res := s.VoteSet.Validate(); res.IsError() {
+// 		return res
+// 	}
+// 	for _, vote := range s.VoteSet.votes {
+// 		if vote.Epoch != s.Epoch {
+// 			return result.Error("contains vote for other epoch")
+// 		}
+// 	}
+// 	return result.OK
+// }
+
+// // CommitCertificate represents a commit made a majority of validators. It is a
+// // frozen VoteSetByBlockHash.
+// type CommitCertificate VoteSetByBlockHash
+
+// // Copy creates a copy of this commit certificate.
+// func CommitCertificateFrom(voteSet *VoteSetByBlockHash) *CommitCertificate {
+// 	ret := &CommitCertificate{
+// 		BlockHash: cc.BlockHash,
+// 	}
+// 	if cc.Votes != nil {
+// 		ret.Votes = cc.Votes.Copy()
+// 	}
+// 	return ret
+// }
+
+// func (cc *CommitCertificate) String() string {
+// 	return fmt.Sprintf("CC{block: %s, votes: %v}", cc.Block, cc.Votes)
+// }
+
+// // IsValid checks if a CommitCertificate is valid.
+// func (cc *CommitCertificate) Validate() result.Result {
+// 	return (*VoteSetByBlockHash)(cc).Validate()
+// }
