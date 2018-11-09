@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	"math/big"
+	"strings"
 )
 
 var (
@@ -133,4 +134,22 @@ func (coins Coins) IsPositive() bool {
 func (coins Coins) IsNonnegative() bool {
 	c := coins.NoNil()
 	return c.ThetaWei.Cmp(Zero) >= 0 && c.GammaWei.Cmp(Zero) >= 0
+}
+
+// ParseCoinAmount parses a string representation of coin amount.
+func ParseCoinAmount(in string) (*big.Int, bool) {
+	inWei := false
+	if len(in) > 3 && strings.EqualFold("wei", in[len(in)-3:]) {
+		inWei = true
+		in = in[:len(in)-3]
+	}
+	f, ok := new(big.Float).SetString(in)
+	if !ok || f.Sign() < 0 || !f.IsInt() {
+		return nil, false
+	}
+	ret, _ := f.Int(nil)
+	if !inWei {
+		return ret.Mul(ret, new(big.Int).SetUint64(1e18)), true
+	}
+	return ret, true
 }
