@@ -33,11 +33,26 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	}
 	defer wallet.Lock(fromAddress)
 
+	theta, ok := types.ParseCoinAmount(thetaAmountFlag)
+	if !ok {
+		fmt.Printf("Failed to parse theta amount")
+		return
+	}
+	gamma, ok := types.ParseCoinAmount(gammaAmountFlag)
+	if !ok {
+		fmt.Printf("Failed to parse gamma amount")
+		return
+	}
+	fee, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		fmt.Printf("Failed to parse fee")
+		return
+	}
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{
-			GammaWei: new(big.Int).SetUint64(gammaAmountFlag + feeInGammaFlag),
-			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
+			GammaWei: new(big.Int).Add(gamma, fee),
+			ThetaWei: theta,
 		},
 		Sequence: uint64(seqFlag),
 	}}
@@ -47,14 +62,14 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{
-			GammaWei: new(big.Int).SetUint64(gammaAmountFlag),
-			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
+			GammaWei: gamma,
+			ThetaWei: theta,
 		},
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: fee,
 		},
 		Inputs:  inputs,
 		Outputs: outputs,
@@ -104,9 +119,9 @@ func init() {
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	sendCmd.Flags().Uint64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
-	sendCmd.Flags().Uint64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
-	sendCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
+	sendCmd.Flags().StringVar(&gammaAmountFlag, "gamma", "0", "Gamma amount")
+	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")

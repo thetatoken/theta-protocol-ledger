@@ -32,11 +32,26 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	defer wallet.Lock(fromAddress)
 
+	fee, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		fmt.Printf("Failed to parse fee")
+		return
+	}
+	fund, ok := types.ParseCoinAmount(reserveFundInGammaFlag)
+	if !ok {
+		fmt.Printf("Failed to parse fund")
+		return
+	}
+	col, ok := types.ParseCoinAmount(reserveCollateralInGammaFlag)
+	if !ok {
+		fmt.Printf("Failed to parse collateral")
+		return
+	}
 	input := types.TxInput{
 		Address: fromAddress,
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(reserveFundInGammaFlag),
+			GammaWei: fund,
 		},
 		Sequence: uint64(seqFlag),
 	}
@@ -49,7 +64,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	collateral := types.Coins{
 		ThetaWei: new(big.Int).SetUint64(0),
-		GammaWei: new(big.Int).SetUint64(reserveCollateralInGammaFlag),
+		GammaWei: col,
 	}
 	if !collateral.IsPositive() {
 		fmt.Printf("Invalid input: collateral must be positive\n")
@@ -59,7 +74,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: fee,
 		},
 		Source:      input,
 		ResourceIDs: resourceIDs,
@@ -99,9 +114,9 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	reserveFundCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	reserveFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	reserveFundCmd.Flags().Uint64Var(&reserveFundInGammaFlag, "fund", 0, "Gamma amount in Wei to reserve")
-	reserveFundCmd.Flags().Uint64Var(&reserveCollateralInGammaFlag, "collateral", 0, "Gamma amount in Wei as collateral")
-	reserveFundCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	reserveFundCmd.Flags().StringVar(&reserveFundInGammaFlag, "fund", "0", "Gamma amount to reserve")
+	reserveFundCmd.Flags().StringVar(&reserveCollateralInGammaFlag, "collateral", "0", "Gamma amount as collateral")
+	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
 

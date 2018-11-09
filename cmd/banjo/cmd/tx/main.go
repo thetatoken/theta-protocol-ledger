@@ -18,20 +18,20 @@ var (
 	fromFlag                     string
 	toFlag                       string
 	seqFlag                      uint64
-	thetaAmountFlag              uint64
-	gammaAmountFlag              uint64
+	thetaAmountFlag              string
+	gammaAmountFlag              string
 	gasAmountFlag                uint64
-	feeInGammaFlag               uint64
+	feeFlag                      string
 	resourceIDsFlag              []string
 	resourceIDFlag               string
 	durationFlag                 uint64
-	reserveFundInGammaFlag       uint64
-	reserveCollateralInGammaFlag uint64
+	reserveFundInGammaFlag       string
+	reserveCollateralInGammaFlag string
 	reserveSeqFlag               uint64
 	addressesFlag                []string
 	percentagesFlag              []string
-	valueFlag                    uint64
-	gasPriceFlag                 uint64
+	valueFlag                    string
+	gasPriceFlag                 string
 	gasLimitFlag                 uint64
 	dataFlag                     string
 )

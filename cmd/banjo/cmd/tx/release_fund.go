@@ -39,10 +39,15 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 		input.PubKey = fromPubKey
 	}
 
+	gamma, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		fmt.Printf("Failed to parse gamma amount")
+		return
+	}
 	releaseFundTx := &types.ReleaseFundTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: gamma,
 		},
 		Source:          input,
 		ReserveSequence: reserveSeqFlag,
@@ -80,7 +85,7 @@ func init() {
 	releaseFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	releaseFundCmd.Flags().StringVar(&fromFlag, "from", "", "Reserve owner's address")
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	releaseFundCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
 
 	releaseFundCmd.MarkFlagRequired("chain")

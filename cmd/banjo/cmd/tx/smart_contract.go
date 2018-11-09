@@ -39,11 +39,23 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	}
 	defer wallet.Lock(fromAddress)
 
+	value, ok := types.ParseCoinAmount(valueFlag)
+	if !ok {
+		fmt.Printf("Failed to parse value")
+		return
+	}
+
+	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
+	if !ok {
+		fmt.Printf("Failed to parse gas price")
+		return
+	}
+
 	from := types.TxInput{
 		Address: common.HexToAddress(fromFlag),
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(valueFlag),
+			GammaWei: value,
 		},
 		Sequence: seqFlag,
 	}
@@ -63,7 +75,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		From:     from,
 		To:       to,
 		GasLimit: gasLimitFlag,
-		GasPrice: new(big.Int).SetUint64(gasPriceFlag),
+		GasPrice: gasPrice,
 		Data:     data,
 	}
 
@@ -110,8 +122,8 @@ func init() {
 	smartContractCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")
-	smartContractCmd.Flags().Uint64Var(&valueFlag, "value", 0, "Value to be transferred")
-	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", types.MinimumGasPrice, "The gas price")
+	smartContractCmd.Flags().StringVar(&valueFlag, "value", "0", "Value to be transferred")
+	smartContractCmd.Flags().StringVar(&gasPriceFlag, "gas_price", fmt.Sprintf("%dwei", types.MinimumGasPrice), "The gas price")
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
