@@ -58,7 +58,7 @@ func TestConsensusBaseCase(t *testing.T) {
 			ChainID:    chainID,
 			Root:       root,
 			Validators: validators,
-			Network:    simnet.AddEndpoint(v.ID()),
+			Network:    simnet.AddEndpoint(v.ID().Hex()),
 		}
 		nodes = append(nodes, node.NewNode(params))
 	}
