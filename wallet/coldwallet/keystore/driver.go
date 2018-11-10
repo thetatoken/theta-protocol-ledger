@@ -2,7 +2,6 @@ package keystore
 
 import (
 	"io"
-	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
@@ -16,5 +15,5 @@ type Driver interface {
 	Close() error
 	Heartbeat() error
 	Derive(path types.DerivationPath) (common.Address, error)
-	SignTx(path types.DerivationPath, txrlp common.Bytes, chainID *big.Int) (common.Address, *crypto.Signature, error)
+	SignTx(path types.DerivationPath, txrlp common.Bytes) (common.Address, *crypto.Signature, error)
 }
