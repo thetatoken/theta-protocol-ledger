@@ -11,7 +11,7 @@ import (
 	"github.com/thetatoken/ukulele/ledger/vm/params"
 )
 
-// TODO: refund gas for execution error?
+// Execute executes the given smart contract
 func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{
