@@ -56,7 +56,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		return discMgr, err
 	}
 
-	discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr)
+	discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr, localNetworkAddr)
 	if err != nil {
 		return discMgr, err
 	}

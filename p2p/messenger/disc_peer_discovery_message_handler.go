@@ -43,17 +43,24 @@ type PeerDiscoveryMessage struct {
 //
 type PeerDiscoveryMessageHandler struct {
 	discMgr                    *PeerDiscoveryManager
+	selfNetAddress             netutil.NetAddress
 	peerDiscoveryPulse         *time.Ticker
 	peerDiscoveryPulseInterval time.Duration
 	discoveryCallback          InboundCallback
 }
 
 // createPeerDiscoveryMessageHandler creates an instance of PeerDiscoveryMessageHandler
-func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager) (PeerDiscoveryMessageHandler, error) {
+func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAddressStr string) (PeerDiscoveryMessageHandler, error) {
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
 	}
+	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
+	if err != nil {
+		log.Errorf("[p2p] Failed to parse the self network address: %v", selfNetAddressStr)
+		return pdmh, err
+	}
+	pdmh.selfNetAddress = *selfNetAddress
 	return pdmh, nil
 }
 
@@ -137,11 +144,23 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
 	var validAddresses []*netutil.NetAddress
+	allPeers := *(pdmh.discMgr.peerTable.GetAllPeers())
+
 	for _, addr := range message.Addresses {
-		if addr.Valid() {
+		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
 			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
 			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
-			validAddresses = append(validAddresses, addr)
+
+			isExisting := false
+			for _, existingPeer := range allPeers {
+				if existingPeer.NetAddress().Equals(addr) {
+					isExisting = true
+					break
+				}
+			}
+			if !isExisting {
+				validAddresses = append(validAddresses, addr)
+			}
 		}
 	}
 	if len(validAddresses) > 0 {
@@ -172,9 +191,9 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				peerNetAddress := addresses[j]
 				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
 				if err != nil {
-					log.Errorf("[p2p] Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
+					log.Errorf("[p2p] Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
 				} else {
-					log.Infof("[p2p] Successfully connected to seed peer %v", peerNetAddress.String())
+					log.Infof("[p2p] Successfully connected to discovery peer %v", peerNetAddress.String())
 				}
 				if pdmh.discoveryCallback != nil {
 					pdmh.discoveryCallback(peer, err)

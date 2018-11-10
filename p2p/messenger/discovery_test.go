@@ -237,10 +237,15 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
 
 	discDetectedChan := make(chan bool)
+	discAddresses := map[string]bool{peerA1NetAddr: false, peerA2NetAddr: false, peerB1NetAddr: false, peerB2NetAddr: false}
 	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
 		if err == nil {
-			t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-			discDetectedChan <- true
+			_, ok := discAddresses[peer.NetAddress().String()]
+			if ok {
+				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+				delete(discAddresses, peer.NetAddress().String())
+				discDetectedChan <- true
+			}
 		} else {
 			t.Logf("failed to Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
 			discDetectedChan <- false
@@ -263,7 +268,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	}
 
 	allPeers := discMgr.peerTable.GetAllPeers()
-	// assert.Equal(6, len(*allPeers))
+	assert.Equal(6, len(*allPeers))
 	t.Logf("---------------- All peers ----------------")
 	for _, peer := range *allPeers {
 		assert.True(peer.IsOutbound())
