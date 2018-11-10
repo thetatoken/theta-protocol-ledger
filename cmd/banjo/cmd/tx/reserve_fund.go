@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
-	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rpc"
 
@@ -55,9 +54,9 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	if seqFlag == 1 {
 		input.PubKey = fromPubKey
 	}
-	resourceIDs := []common.Bytes{}
+	resourceIDs := []string{}
 	for _, id := range resourceIDsFlag {
-		resourceIDs = append(resourceIDs, common.Bytes(id))
+		resourceIDs = append(resourceIDs, id)
 	}
 	collateral := types.Coins{
 		ThetaWei: new(big.Int).SetUint64(0),

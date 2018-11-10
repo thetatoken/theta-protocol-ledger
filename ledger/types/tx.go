@@ -252,11 +252,11 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
-	Fee         Coins          `json:"fee"`          // Fee
-	Source      TxInput        `json:"source"`       // Source account
-	Collateral  Coins          `json:"collateral"`   // Collateral for the micropayment pool
-	ResourceIDs []common.Bytes `json:"resource_ids"` // List of resource ID
-	Duration    uint64         `json:"duration"`
+	Fee         Coins    `json:"fee"`          // Fee
+	Source      TxInput  `json:"source"`       // Source account
+	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
+	ResourceIDs []string `json:"resource_ids"` // List of resource ID
+	Duration    uint64   `json:"duration"`
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -319,12 +319,12 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Fee             Coins        `json:"fee"`              // Fee
-	Source          TxInput      `json:"source"`           // source account
-	Target          TxInput      `json:"target"`           // target account
-	PaymentSequence uint64       `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence uint64       `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceID      common.Bytes `json:"resource_id"`      // The corresponding resourceID
+	Fee             Coins   `json:"fee"`              // Fee
+	Source          TxInput `json:"source"`           // source account
+	Target          TxInput `json:"target"`           // target account
+	PaymentSequence uint64  `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence uint64  `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	ResourceID      string  `json:"resource_id"`      // The corresponding resourceID
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}
@@ -394,11 +394,11 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 //-----------------------------------------------------------------------------
 
 type SplitRuleTx struct {
-	Fee        Coins        `json:"fee"`         // Fee
-	ResourceID common.Bytes `json:"resource_id"` // ResourceID of the payment to be split
-	Initiator  TxInput      `json:"initiator"`   // Initiator of the split rule
-	Splits     []Split      `json:"splits"`      // Agreed splits
-	Duration   uint64       `json:"duration"`    // Duration of the payment split in terms of blocks
+	Fee        Coins   `json:"fee"`         // Fee
+	ResourceID string  `json:"resource_id"` // ResourceID of the payment to be split
+	Initiator  TxInput `json:"initiator"`   // Initiator of the split rule
+	Splits     []Split `json:"splits"`      // Agreed splits
+	Duration   uint64  `json:"duration"`    // Duration of the payment split in terms of blocks
 }
 
 func (_ *SplitRuleTx) AssertIsTx() {}

@@ -22,8 +22,9 @@ func SplitRuleKeyPrefix() common.Bytes {
 }
 
 // SplitRuleKey construct the state key for the given resourceID
-func SplitRuleKey(resourceID common.Bytes) common.Bytes {
-	return append(SplitRuleKeyPrefix(), resourceID...)
+func SplitRuleKey(resourceID string) common.Bytes {
+	resourceIDBytes := common.Bytes(resourceID)
+	return append(SplitRuleKeyPrefix(), resourceIDBytes[:]...)
 }
 
 // CodeKey construct the state key for the given code hash

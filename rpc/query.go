@@ -1,7 +1,6 @@
 package rpc
 
 import (
-	"encoding/hex"
 	"errors"
 	"net/http"
 
@@ -49,10 +48,7 @@ func (t *ThetaRPCServer) GetSplitRule(r *http.Request, args *GetSplitRuleArgs, r
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
-	resourceID, err := hex.DecodeString(args.ResourceID)
-	if err != nil {
-		return err
-	}
+	resourceID := args.ResourceID
 	ledgerState, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
