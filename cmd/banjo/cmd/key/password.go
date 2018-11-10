@@ -16,36 +16,31 @@ var passwordCmd = &cobra.Command{
 	Long:  `Change the password for a key.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
-			fmt.Printf("Usage: banjo key password <address>\n")
-			return
+			utils.Error("Usage: banjo key password <address>\n")
 		}
 		address := common.HexToAddress(args[0])
 
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenDefaultWallet(cfgPath)
 		if err != nil {
-			fmt.Printf("Failed to open wallet: %v\n", err)
-			return
+			utils.Error("Failed to open wallet: %v\n", err)
 		}
 
 		prompt := fmt.Sprintf("Please enter the current password: ")
 		oldPassword, err := utils.GetPassword(prompt)
 		if err != nil {
-			fmt.Printf("Failed to get password: %v\n", err)
-			return
+			utils.Error("Failed to get password: %v\n", err)
 		}
 
 		prompt = fmt.Sprintf("Please enter a new password: ")
 		newPassword, err := utils.GetPassword(prompt)
 		if err != nil {
-			fmt.Printf("Failed to get password: %v\n", err)
-			return
+			utils.Error("Failed to get password: %v\n", err)
 		}
 
 		err = wallet.UpdatePassword(address, oldPassword, newPassword)
 		if err != nil {
-			fmt.Printf("Failed to update password: %v\n", err)
-			return
+			utils.Error("Failed to update password: %v\n", err)
 		}
 
 		fmt.Printf("Password updated successfully\n")

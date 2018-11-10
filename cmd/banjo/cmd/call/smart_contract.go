@@ -3,7 +3,6 @@ package call
 import (
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"math/big"
 
 	"github.com/spf13/cobra"
@@ -45,8 +44,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	}
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
-		fmt.Printf("Failed to decode data: %v\n", dataFlag)
-		return
+		utils.Error("Failed to decode data: %v\n", dataFlag)
 	}
 
 	sctx := &types.SmartContractTx{
@@ -59,8 +57,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	sctxBytes, err := types.TxToBytes(sctx)
 	if err != nil {
-		fmt.Printf("Failed to encode smart contract transaction: %v\n", sctx)
-		return
+		utils.Error("Failed to encode smart contract transaction: %v\n", sctx)
 	}
 
 	rpcCallArgs := rpc.CallSmartContractArgs{
@@ -71,18 +68,15 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.CallSmartContract", rpcCallArgs)
 	if err != nil {
-		fmt.Printf("Failed to call smart contract: %v\n", err)
-		return
+		utils.Error("Failed to call smart contract: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to execute smart contract: %v\n", res.Error)
-		return
+		utils.Error("Failed to execute smart contract: %v\n", res.Error)
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
+		utils.Error("Failed to parse server response: %v\n%s\n", err, string(json))
 	}
-	fmt.Println(string(json))
 }
 
 func init() {

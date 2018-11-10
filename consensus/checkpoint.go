@@ -81,11 +81,13 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		if err != nil {
 			return nil, err
 		}
+		theta, _ := types.ParseCoinAmount("1e5")
+		gamma, _ := types.ParseCoinAmount("1e5")
 		acc := &types.Account{
 			PubKey: pubKey,
 			Balance: types.Coins{
-				ThetaWei: new(big.Int).SetUint64(1e15),
-				GammaWei: new(big.Int).SetUint64(1e15),
+				ThetaWei: theta,
+				GammaWei: gamma,
 			},
 			LastUpdatedBlockHeight: 0,
 		}

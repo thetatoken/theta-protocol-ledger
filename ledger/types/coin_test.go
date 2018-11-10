@@ -71,3 +71,49 @@ func TestNoNilException(t *testing.T) {
 	assert.Equal(int64(0), coinsD.ThetaWei.Int64())
 	assert.Equal(int64(0), coinsD.GammaWei.Int64())
 }
+
+func TestParseCoinAmount(t *testing.T) {
+	assert := assert.New(t)
+
+	weiMultiply := big.NewInt(1e18)
+
+	var ret *big.Int
+	var ok bool
+
+	tmp := new(big.Int)
+	ret, ok = ParseCoinAmount("1000")
+	assert.True(ok)
+	assert.True(tmp.Mul(big.NewInt(1000), weiMultiply).Cmp(ret) == 0)
+
+	ret, ok = ParseCoinAmount("0")
+	assert.True(ok)
+	assert.True(big.NewInt(0).Cmp(ret) == 0)
+
+	ret, ok = ParseCoinAmount("-1000")
+	assert.False(ok)
+
+	ret, ok = ParseCoinAmount("1e3")
+	assert.True(ok)
+	assert.True(tmp.Mul(big.NewInt(1000), weiMultiply).Cmp(ret) == 0)
+
+	ret, ok = ParseCoinAmount("0.001e3")
+	assert.True(ok)
+	assert.True(tmp.Mul(big.NewInt(1), weiMultiply).Cmp(ret) == 0)
+
+	ret, ok = ParseCoinAmount("0.0000001e3")
+	assert.False(ok)
+
+	ret, ok = ParseCoinAmount("100000wei")
+	assert.True(ok)
+	assert.True(big.NewInt(100000).Cmp(ret) == 0)
+
+	ret, ok = ParseCoinAmount("1e3wei")
+	assert.True(ok)
+	assert.True(big.NewInt(1000).Cmp(ret) == 0)
+
+	// Case insensitive.
+	ret, ok = ParseCoinAmount("1e3Wei")
+	assert.True(ok)
+	assert.True(big.NewInt(1000).Cmp(ret) == 0)
+
+}
