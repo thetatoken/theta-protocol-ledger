@@ -35,18 +35,15 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 
 	theta, ok := types.ParseCoinAmount(thetaAmountFlag)
 	if !ok {
-		fmt.Printf("Failed to parse theta amount")
-		return
+		utils.Error("Failed to parse theta amount")
 	}
 	gamma, ok := types.ParseCoinAmount(gammaAmountFlag)
 	if !ok {
-		fmt.Printf("Failed to parse gamma amount")
-		return
+		utils.Error("Failed to parse gamma amount")
 	}
 	fee, ok := types.ParseCoinAmount(feeFlag)
 	if !ok {
-		fmt.Printf("Failed to parse fee")
-		return
+		utils.Error("Failed to parse fee")
 	}
 	inputs := []types.TxInput{{
 		Address: fromAddress,
@@ -77,15 +74,13 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, sendTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	sendTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(sendTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -93,23 +88,19 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	result := &rpc.BroadcastRawTransactionResult{}
 	err = res.GetObject(result)
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	formatted, err := json.MarshalIndent(result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }

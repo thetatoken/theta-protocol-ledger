@@ -70,8 +70,7 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 
 	fee, ok := types.ParseCoinAmount(feeFlag)
 	if !ok {
-		fmt.Printf("Failed to parse fee")
-		return
+		utils.Error("Failed to parse fee")
 	}
 
 	splitRuleTx := &types.SplitRuleTx{
@@ -87,15 +86,13 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, splitRuleTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	splitRuleTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(splitRuleTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -103,12 +100,10 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	fmt.Printf("Successfully broadcasted transaction.\n")
 }

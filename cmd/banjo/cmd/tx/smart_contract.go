@@ -41,14 +41,12 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	value, ok := types.ParseCoinAmount(valueFlag)
 	if !ok {
-		fmt.Printf("Failed to parse value")
-		return
+		utils.Error("Failed to parse value")
 	}
 
 	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
 	if !ok {
-		fmt.Printf("Failed to parse gas price")
-		return
+		utils.Error("Failed to parse gas price")
 	}
 
 	from := types.TxInput{
@@ -81,15 +79,13 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, smartContractTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	smartContractTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(smartContractTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -97,23 +93,19 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	result := &rpc.BroadcastRawTransactionResult{}
 	err = res.GetObject(result)
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	formatted, err := json.MarshalIndent(result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }
