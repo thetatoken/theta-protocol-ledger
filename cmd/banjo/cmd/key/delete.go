@@ -16,41 +16,35 @@ var deleteCmd = &cobra.Command{
 	Long:  `Delete a key`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
-			fmt.Printf("Usage: banjo key password <address>\n")
-			return
+			utils.Error("Usage: banjo key password <address>\n")
 		}
 		address := common.HexToAddress(args[0])
 
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenDefaultWallet(cfgPath)
 		if err != nil {
-			fmt.Printf("Failed to open wallet: %v\n", err)
-			return
+			utils.Error("Failed to open wallet: %v\n", err)
 		}
 
 		prompt := fmt.Sprintf("Please enter the password: ")
 		password, err := utils.GetPassword(prompt)
 		if err != nil {
-			fmt.Printf("Failed to get password: %v\n", err)
-			return
+			utils.Error("Failed to get password: %v\n", err)
 		}
 
 		prompt = fmt.Sprintf("Are you sure to delete the key? Please enter the password again to proceed: ")
 		password2, err := utils.GetPassword(prompt)
 		if err != nil {
-			fmt.Printf("Failed to get password: %v\n", err)
-			return
+			utils.Error("Failed to get password: %v\n", err)
 		}
 
 		if password != password2 {
-			fmt.Printf("Passwords do not match, abort\n")
-			return
+			utils.Error("Passwords do not match, abort\n")
 		}
 
 		err = wallet.Delete(address, password)
 		if err != nil {
-			fmt.Printf("Failed to delete key for address %v: %v\n", address.Hex(), err)
-			return
+			utils.Error("Failed to delete key for address %v: %v\n", address.Hex(), err)
 		}
 
 		fmt.Printf("Key for address %v has been deleted\n", address.Hex())

@@ -33,11 +33,23 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	}
 	defer wallet.Lock(fromAddress)
 
+	theta, ok := types.ParseCoinAmount(thetaAmountFlag)
+	if !ok {
+		utils.Error("Failed to parse theta amount")
+	}
+	gamma, ok := types.ParseCoinAmount(gammaAmountFlag)
+	if !ok {
+		utils.Error("Failed to parse gamma amount")
+	}
+	fee, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		utils.Error("Failed to parse fee")
+	}
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{
-			GammaWei: new(big.Int).SetUint64(gammaAmountFlag + feeInGammaFlag),
-			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
+			GammaWei: new(big.Int).Add(gamma, fee),
+			ThetaWei: theta,
 		},
 		Sequence: uint64(seqFlag),
 	}}
@@ -47,14 +59,14 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{
-			GammaWei: new(big.Int).SetUint64(gammaAmountFlag),
-			ThetaWei: new(big.Int).SetUint64(thetaAmountFlag),
+			GammaWei: gamma,
+			ThetaWei: theta,
 		},
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: fee,
 		},
 		Inputs:  inputs,
 		Outputs: outputs,
@@ -62,15 +74,13 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, sendTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	sendTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(sendTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -78,23 +88,19 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	result := &rpc.BroadcastRawTransactionResult{}
 	err = res.GetObject(result)
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	formatted, err := json.MarshalIndent(result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }
@@ -104,9 +110,9 @@ func init() {
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	sendCmd.Flags().Uint64Var(&thetaAmountFlag, "theta", 0, "Theta amount in Wei")
-	sendCmd.Flags().Uint64Var(&gammaAmountFlag, "gamma", 0, "Gamma amount in Wei")
-	sendCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
+	sendCmd.Flags().StringVar(&gammaAmountFlag, "gamma", "0", "Gamma amount")
+	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")

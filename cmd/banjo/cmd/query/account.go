@@ -2,7 +2,6 @@ package query
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/rpc"
@@ -31,18 +30,15 @@ func doAccountCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.GetAccount", rpc.GetAccountArgs{Address: addressFlag})
 	if err != nil {
-		fmt.Printf("Failed to get account details: %v\n", err)
-		return
+		utils.Error("Failed to get account details: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to get account details: %v\n", res.Error)
-		return
+		utils.Error("Failed to get account details: %v\n", res.Error)
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
+		utils.Error("Failed to parse server response: %v\n%v\n", err, string(json))
 	}
-	fmt.Println(string(json))
 }
 
 func init() {

@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 	"strings"
 
@@ -33,4 +34,9 @@ func stdinPassword() (string, error) {
 		return "", err
 	}
 	return strings.TrimSpace(password), nil
+}
+
+func Error(msg string, args ...interface{}) {
+	fmt.Printf(msg, args...)
+	os.Exit(1)
 }

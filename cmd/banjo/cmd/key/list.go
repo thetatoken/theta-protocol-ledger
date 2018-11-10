@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/wallet"
 )
 
@@ -16,14 +17,12 @@ var listCmd = &cobra.Command{
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenDefaultWallet(cfgPath)
 		if err != nil {
-			fmt.Printf("Failed to open wallet: %v\n", err)
-			return
+			utils.Error("Failed to open wallet: %v\n", err)
 		}
 
 		keyAddresses, err := wallet.List()
 		if err != nil {
-			fmt.Printf("Failed to list keys: %v\n", err)
-			return
+			utils.Error("Failed to list keys: %v\n", err)
 		}
 
 		for _, keyAddress := range keyAddresses {

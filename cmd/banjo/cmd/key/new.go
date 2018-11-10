@@ -17,21 +17,18 @@ var newCmd = &cobra.Command{
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenDefaultWallet(cfgPath)
 		if err != nil {
-			fmt.Printf("Failed to open wallet: %v\n", err)
-			return
+			utils.Error("Failed to open wallet: %v\n", err)
 		}
 
 		prompt := fmt.Sprintf("Please enter password: ")
 		password, err := utils.GetPassword(prompt)
 		if err != nil {
-			fmt.Printf("Failed to get password: %v\n", err)
-			return
+			utils.Error("Failed to get password: %v\n", err)
 		}
 
 		address, err := wallet.NewKey(password)
 		if err != nil {
-			fmt.Printf("Failed to generate new key: %v\n", err)
-			return
+			utils.Error("Failed to generate new key: %v\n", err)
 		}
 
 		fmt.Printf("Successfully created key: %v\n", address.Hex())
