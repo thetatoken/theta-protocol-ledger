@@ -27,8 +27,9 @@ const (
 	defaultPeerDiscoveryPulseInterval = 30 * time.Second
 	minNumOutboundPeers               = 10
 	maxPeerDiscoveryMessageSize       = 1048576 // 1MB
-	requestPeersAddressesPercent      = 25
-	peersAddressesSubSamplingPercent  = 25
+	requestPeersAddressesPercent      = 25      // 25%
+	peersAddressesSubSamplingPercent  = 25      // 25%
+	discoverInterval                  = 3000    // 3 sec
 )
 
 // PeerDiscoveryMessage defines the structure of the peer discovery message
@@ -186,7 +187,7 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 		perm := rand.Perm(len(addresses))
 		for i := 0; i < numToAdd; i++ {
 			go func(i int) {
-				time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
+				time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 				j := perm[i]
 				peerNetAddress := addresses[j]
 				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
@@ -227,6 +228,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 			perm := rand.Perm(int(numPeers))
 			for i := uint(0); i < numPeersToSendRequest; i++ {
+				time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 				peer := peers[perm[i]]
 				pdmh.requestAddresses(peer)
 			}
