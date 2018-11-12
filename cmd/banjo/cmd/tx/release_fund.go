@@ -39,10 +39,14 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 		input.PubKey = fromPubKey
 	}
 
+	gamma, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		utils.Error("Failed to parse gamma amount")
+	}
 	releaseFundTx := &types.ReleaseFundTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: gamma,
 		},
 		Source:          input,
 		ReserveSequence: reserveSeqFlag,
@@ -50,15 +54,13 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, releaseFundTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	releaseFundTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(releaseFundTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -66,12 +68,10 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	fmt.Printf("Successfully broadcasted transaction.\n")
 }
@@ -80,7 +80,7 @@ func init() {
 	releaseFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	releaseFundCmd.Flags().StringVar(&fromFlag, "from", "", "Reserve owner's address")
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	releaseFundCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
 
 	releaseFundCmd.MarkFlagRequired("chain")

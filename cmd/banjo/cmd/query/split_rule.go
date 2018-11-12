@@ -33,16 +33,14 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	resourceID := hex.EncodeToString(common.Bytes(resourceIDFlag))
 	res, err := client.Call("theta.GetSplitRule", rpc.GetSplitRuleArgs{ResourceID: resourceID})
 	if err != nil {
-		fmt.Printf("Failed to get split rule details: %v\n", err)
-		return
+		utils.Error("Failed to get split rule details: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Failed to get split rule details: %v\n", res.Error)
-		return
+		utils.Error("Failed to get split rule details: %v\n", res.Error)
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
+		utils.Error("Failed to parse server response: %v\n%s\n", err, string(json))
 	}
 	fmt.Println(string(json))
 }

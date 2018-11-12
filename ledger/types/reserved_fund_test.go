@@ -9,10 +9,10 @@ import (
 func TestHasResourceID(t *testing.T) {
 	assert := assert.New(t)
 
-	rid1 := []byte("rid001")
-	rid2 := []byte("rid002")
-	rid3 := []byte("rid003")
-	rid4 := []byte("rid004")
+	rid1 := "rid001"
+	rid2 := "rid002"
+	rid3 := "rid003"
+	rid4 := "rid004"
 
 	rf := ReservedFund{}
 	rf.ResourceIDs = append(rf.ResourceIDs, rid1)

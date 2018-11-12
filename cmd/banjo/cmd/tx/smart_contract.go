@@ -39,11 +39,16 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	}
 	defer wallet.Lock(fromAddress)
 
+	value, ok := types.ParseCoinAmount(valueFlag)
+	if !ok {
+		utils.Error("Failed to parse value")
+	}
+
 	from := types.TxInput{
 		Address: common.HexToAddress(fromFlag),
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(valueFlag),
+			GammaWei: value,
 		},
 		Sequence: seqFlag,
 	}
@@ -54,6 +59,12 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	to := types.TxOutput{
 		Address: common.HexToAddress(toFlag),
 	}
+
+	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
+	if !ok {
+		utils.Error("Failed to parse gas price")
+	}
+
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
 		return
@@ -63,21 +74,19 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		From:     from,
 		To:       to,
 		GasLimit: gasLimitFlag,
-		GasPrice: new(big.Int).SetUint64(gasPriceFlag),
+		GasPrice: gasPrice,
 		Data:     data,
 	}
 
 	sig, err := wallet.Sign(fromAddress, smartContractTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	smartContractTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(smartContractTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -85,23 +94,19 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	result := &rpc.BroadcastRawTransactionResult{}
 	err = res.GetObject(result)
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	formatted, err := json.MarshalIndent(result, "", "    ")
 	if err != nil {
-		fmt.Printf("Failed to parse server response: %v\n", err)
-		return
+		utils.Error("Failed to parse server response: %v\n", err)
 	}
 	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 }
@@ -110,8 +115,8 @@ func init() {
 	smartContractCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")
-	smartContractCmd.Flags().Uint64Var(&valueFlag, "value", 0, "Value to be transferred")
-	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", types.MinimumGasPrice, "The gas price")
+	smartContractCmd.Flags().StringVar(&valueFlag, "value", "0", "Value to be transferred")
+	smartContractCmd.Flags().StringVar(&gasPriceFlag, "gas_price", fmt.Sprintf("%dwei", types.MinimumGasPrice), "The gas price")
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

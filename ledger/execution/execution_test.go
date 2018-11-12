@@ -570,7 +570,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -588,7 +588,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(50001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -606,7 +606,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -624,7 +624,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -635,7 +635,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	retrievedUserAcc := et.state().Delivered().GetAccount(user1.PubKey.Address())
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
-	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{"rid001"}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
@@ -666,7 +666,7 @@ func TestReleaseFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	reserveFundTx.Source.Signature = user1.Sign(reserveFundTx.SignBytes(et.chainID))
@@ -763,7 +763,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
-	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
@@ -846,7 +846,7 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
-	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
@@ -1317,7 +1317,7 @@ func TestSmartContractDeploymentAndExecution(t *testing.T) {
 
 // ------------------------------ Test Utils ------------------------------ //
 
-func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
+func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
 	servicePaymentTx := &types.ServicePaymentTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
@@ -1357,7 +1357,7 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 	return servicePaymentTx
 }
 
-func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID common.Bytes,
+func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID string,
 	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
 	et = NewExecTest()
 
@@ -1384,7 +1384,7 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 
 	et.fastforwardTo(1e2)
 
-	resourceID = common.Bytes("rid001")
+	resourceID = "rid001"
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
@@ -1394,7 +1394,7 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{resourceID},
+		ResourceIDs: []string{resourceID},
 		Duration:    1000,
 	}
 	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))

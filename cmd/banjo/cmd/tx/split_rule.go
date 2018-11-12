@@ -68,12 +68,17 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 		splits = append(splits, split)
 	}
 
+	fee, ok := types.ParseCoinAmount(feeFlag)
+	if !ok {
+		utils.Error("Failed to parse fee")
+	}
+
 	splitRuleTx := &types.SplitRuleTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(feeInGammaFlag),
+			GammaWei: fee,
 		},
-		ResourceID: common.Bytes(resourceIDFlag),
+		ResourceID: resourceIDFlag,
 		Initiator:  input,
 		Duration:   durationFlag,
 		Splits:     splits,
@@ -81,15 +86,13 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 
 	sig, err := wallet.Sign(fromAddress, splitRuleTx.SignBytes(chainIDFlag))
 	if err != nil {
-		fmt.Printf("Failed to sign transaction: %v\n", err)
-		return
+		utils.Error("Failed to sign transaction: %v\n", err)
 	}
 	splitRuleTx.SetSignature(fromAddress, sig)
 
 	raw, err := types.TxToBytes(splitRuleTx)
 	if err != nil {
-		fmt.Printf("Failed to encode transaction: %v\n", err)
-		return
+		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 	signedTx := hex.EncodeToString(raw)
 
@@ -97,12 +100,10 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	if err != nil {
-		fmt.Printf("Failed to broadcast transaction: %v\n", err)
-		return
+		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
 	if res.Error != nil {
-		fmt.Printf("Server returned error: %v\n", res.Error)
-		return
+		utils.Error("Server returned error: %v\n", res.Error)
 	}
 	fmt.Printf("Successfully broadcasted transaction.\n")
 }
@@ -111,7 +112,7 @@ func init() {
 	splitRuleCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	splitRuleCmd.Flags().StringVar(&fromFlag, "from", "", "Initiator's address")
 	splitRuleCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	splitRuleCmd.Flags().Uint64Var(&feeInGammaFlag, "fee", types.MinimumTransactionFeeGammaWei, "Fee")
+	splitRuleCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	splitRuleCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "The resourceID of interest")
 	splitRuleCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")
 	splitRuleCmd.Flags().StringSliceVar(&percentagesFlag, "percentages", []string{}, "List of integers (between 0 and 100) representing of percentage of split")

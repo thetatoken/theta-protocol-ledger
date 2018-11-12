@@ -138,13 +138,13 @@ func TestLedgerStateSplitRuleCommit(t *testing.T) {
 	acc1Addr := acc1PubKey.Address()
 
 	// SplitRule and Commit
-	rid1 := common.Bytes("rid1")
+	rid1 := "rid1"
 	sc1 := &types.SplitRule{
 		InitiatorAddress: acc1Addr,
 		ResourceID:       rid1,
 		EndBlockHeight:   342,
 	}
-	rid2 := common.Bytes("rid2")
+	rid2 := "rid2"
 	sc2 := &types.SplitRule{
 		InitiatorAddress: acc1Addr,
 		ResourceID:       rid2,
