@@ -4,7 +4,9 @@ import (
 	"context"
 	"sync"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
@@ -61,9 +63,8 @@ func NewNode(params *Params) *Node {
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
-	rpcServer := rpc.NewThetaRPCServer(mempool, ledger, chain)
 
-	return &Node{
+	node := &Node{
 		Store:            store,
 		Chain:            chain,
 		Consensus:        consensus,
@@ -73,8 +74,13 @@ func NewNode(params *Params) *Node {
 		Network:          params.Network,
 		Ledger:           ledger,
 		Mempool:          mempool,
-		RPC:              rpcServer,
 	}
+
+	if viper.GetBool(common.CfgP2PEnabled) {
+		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain)
+	}
+
+	return node
 }
 
 // Start starts sub components and kick off the main loop.
@@ -87,7 +93,10 @@ func (n *Node) Start(ctx context.Context) {
 	n.SyncManager.Start(n.ctx)
 	n.Network.Start()
 	n.Mempool.Start()
-	n.RPC.Start(n.ctx)
+
+	if viper.GetBool(common.CfgP2PEnabled) {
+		n.RPC.Start(n.ctx)
+	}
 }
 
 // Stop notifies all sub components to stop without blocking.
