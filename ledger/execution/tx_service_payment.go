@@ -149,7 +149,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 	return txHash, result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule *types.SplitRule, resourceID common.Bytes,
+func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule *types.SplitRule, resourceID string,
 	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
 	coinsMap := map[*types.Account]types.Coins{}
 	accountAddressMap := map[*types.Account](common.Address){}

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
 )
 
 func makeAccount(secret string, balance Coins) Account {
@@ -15,9 +14,9 @@ func makeAccount(secret string, balance Coins) Account {
 	return acc
 }
 
-func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID common.Bytes, endBlockHeight uint64, reserveSequence uint64) Account {
+func makeAccountAndReserveFund(initialBalance Coins, collateral Coins, fund Coins, resourceID string, endBlockHeight uint64, reserveSequence uint64) Account {
 	acc := makeAccount("srcAcc", initialBalance)
-	resourceIDs := []common.Bytes{resourceID}
+	resourceIDs := []string{resourceID}
 	acc.ReserveFund(collateral, fund, resourceIDs, endBlockHeight, reserveSequence)
 
 	return acc
@@ -27,7 +26,7 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 	srcAccInitialBalance := NewCoins(1000, 20000)
 	srcAccCollateral := NewCoins(0, 1001)
 	srcAccFund := NewCoins(0, 1000)
-	resourceID := []byte("rid001")
+	resourceID := "rid001"
 	endBlockHeight := uint64(199)
 	reserveSequence := uint64(1)
 	srcAcc := makeAccountAndReserveFund(srcAccInitialBalance,
@@ -63,7 +62,7 @@ func TestReserveFund(t *testing.T) {
 	initialBalance := NewCoins(1000, 20000)
 	collateral := NewCoins(0, 101)
 	fund := NewCoins(0, 100)
-	resourceID := []byte("rid001")
+	resourceID := "rid001"
 
 	acc := makeAccountAndReserveFund(initialBalance, collateral, fund, resourceID, 199, 1)
 	assert.Equal(t, acc.Balance.Plus(collateral).Plus(fund), initialBalance)
@@ -73,7 +72,7 @@ func TestReleaseExpiredFunds(t *testing.T) {
 	initialBalance := NewCoins(1000, 20000)
 	collateral := NewCoins(0, 101)
 	fund := NewCoins(0, 100)
-	resourceIDs := []common.Bytes{common.Bytes("rid001")}
+	resourceIDs := []string{"rid001"}
 
 	acc := makeAccount("foo", initialBalance)
 	acc.ReserveFund(collateral, fund, resourceIDs, 10, 1)
@@ -91,7 +90,7 @@ func TestCheckReleaseFund(t *testing.T) {
 	initialBalance := NewCoins(1000, 20000)
 	collateral := NewCoins(0, 101)
 	fund := NewCoins(0, 100)
-	resourceID := []byte("rid001")
+	resourceID := "rid001"
 	endBlockHeight := uint64(199)
 	reserveSequence := uint64(1)
 

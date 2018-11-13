@@ -78,7 +78,7 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: new(big.Int).SetUint64(0),
 			GammaWei: fee,
 		},
-		ResourceID: common.Bytes(resourceIDFlag),
+		ResourceID: resourceIDFlag,
 		Initiator:  input,
 		Duration:   durationFlag,
 		Splits:     splits,

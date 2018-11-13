@@ -83,7 +83,7 @@ func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint
 }
 
 // ReserveFund reserves the given amount of fund for subsequence service payments
-func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs []common.Bytes, endBlockHeight uint64, reserveSequence uint64) {
+func (acc *Account) ReserveFund(collateral Coins, fund Coins, resourceIDs []string, endBlockHeight uint64, reserveSequence uint64) {
 	newReservedFund := ReservedFund{
 		Collateral:      collateral,
 		InitialFund:     fund,

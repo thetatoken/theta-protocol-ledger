@@ -1,7 +1,7 @@
 package types
 
 import (
-	"bytes"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/thetatoken/ukulele/common"
@@ -15,7 +15,7 @@ type ReservedFund struct {
 	Collateral      Coins            `json:"collateral"`
 	InitialFund     Coins            `json:"initial_fund"`
 	UsedFund        Coins            `json:"used_fund"`
-	ResourceIDs     []common.Bytes   `json:"resource_ids"` // List of resource ID
+	ResourceIDs     []string         `json:"resource_ids"` // List of resource ID
 	EndBlockHeight  uint64           `json:"end_block_height"`
 	ReserveSequence uint64           `json:"reserve_sequence"` // sequence number of the corresponding ReserveFundTx transaction
 	TransferRecords []TransferRecord `json:"transfer_records"` // signed ServerPaymentTransactions
@@ -47,9 +47,9 @@ func (reservedFund *ReservedFund) RecordTransfer(serverPaymentTx *ServicePayment
 	reservedFund.TransferRecords = append(reservedFund.TransferRecords, transferRecord)
 }
 
-func (reservedFund *ReservedFund) HasResourceID(resourceID []byte) bool {
+func (reservedFund *ReservedFund) HasResourceID(resourceID string) bool {
 	for _, rid := range reservedFund.ResourceIDs {
-		if bytes.Compare(rid, resourceID) == 0 {
+		if strings.Compare(rid, resourceID) == 0 {
 			return true
 		}
 	}

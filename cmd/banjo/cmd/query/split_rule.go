@@ -3,6 +3,7 @@ package query
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,6 +42,7 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.Error("Failed to parse server response: %v\n%s\n", err, string(json))
 	}
+	fmt.Println(string(json))
 }
 
 func init() {

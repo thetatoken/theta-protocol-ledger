@@ -11,7 +11,7 @@ var (
 	toFlag       string
 	seqFlag      uint64
 	valueFlag    uint64
-	gasPriceFlag uint64
+	gasPriceFlag string
 	gasLimitFlag uint64
 	dataFlag     string
 )

@@ -44,11 +44,6 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Failed to parse value")
 	}
 
-	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
-	if !ok {
-		utils.Error("Failed to parse gas price")
-	}
-
 	from := types.TxInput{
 		Address: common.HexToAddress(fromFlag),
 		Coins: types.Coins{
@@ -64,6 +59,12 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	to := types.TxOutput{
 		Address: common.HexToAddress(toFlag),
 	}
+
+	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
+	if !ok {
+		utils.Error("Failed to parse gas price")
+	}
+
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
 		return

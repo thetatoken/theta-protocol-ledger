@@ -2,6 +2,7 @@ package query
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/rpc"
@@ -39,6 +40,7 @@ func doAccountCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.Error("Failed to parse server response: %v\n%v\n", err, string(json))
 	}
+	fmt.Println(string(json))
 }
 
 func init() {

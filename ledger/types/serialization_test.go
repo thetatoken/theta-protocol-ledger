@@ -99,7 +99,7 @@ func TestTx(t *testing.T) {
 		Fee:         NewCoins(123, 0),
 		Source:      TxInput{Address: getTestAddress("123")},
 		Collateral:  NewCoins(456, 0),
-		ResourceIDs: []common.Bytes{common.Bytes("789")},
+		ResourceIDs: []string{"789"},
 		Duration:    1,
 	}
 	b, err = TxToBytes(tx1)
@@ -144,7 +144,7 @@ func TestTx(t *testing.T) {
 
 	tx1 = &SplitRuleTx{
 		Fee:        NewCoins(123, 0),
-		ResourceID: []byte("rid789"),
+		ResourceID: "rid789",
 		Initiator:  TxInput{Address: getTestAddress("123")},
 		Splits:     []Split{Split{Address: getTestAddress("456"), Percentage: 40}, Split{Address: getTestAddress("777"), Percentage: 20}},
 		Duration:   1000,

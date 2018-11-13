@@ -3,6 +3,7 @@ package call
 import (
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/spf13/cobra"
@@ -39,9 +40,16 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		},
 		Sequence: seqFlag,
 	}
+
 	to := types.TxOutput{
 		Address: common.HexToAddress(toFlag),
 	}
+
+	gasPrice, ok := types.ParseCoinAmount(gasPriceFlag)
+	if !ok {
+		utils.Error("Failed to parse gas price")
+	}
+
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
 		utils.Error("Failed to decode data: %v\n", dataFlag)
@@ -51,7 +59,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		From:     from,
 		To:       to,
 		GasLimit: gasLimitFlag,
-		GasPrice: new(big.Int).SetUint64(gasPriceFlag),
+		GasPrice: gasPrice,
 		Data:     data,
 	}
 
@@ -77,6 +85,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.Error("Failed to parse server response: %v\n%s\n", err, string(json))
 	}
+	fmt.Println(string(json))
 }
 
 func init() {
@@ -84,7 +93,7 @@ func init() {
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")
 	smartContractCmd.Flags().Uint64Var(&valueFlag, "value", 0, "Value to be transferred")
-	smartContractCmd.Flags().Uint64Var(&gasPriceFlag, "gas_price", 0, "The gas price")
+	smartContractCmd.Flags().StringVar(&gasPriceFlag, "gas_price", fmt.Sprintf("%dwei", types.MinimumGasPrice), "The gas price")
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

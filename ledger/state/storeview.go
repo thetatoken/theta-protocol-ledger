@@ -170,7 +170,7 @@ func (sv *StoreView) DeleteAccount(addr common.Address) {
 }
 
 // SplitRuleExists checks if a split rule associated with the given resourceID already exists
-func (sv *StoreView) SplitRuleExists(resourceID common.Bytes) bool {
+func (sv *StoreView) SplitRuleExists(resourceID string) bool {
 	return sv.GetSplitRule(resourceID) != nil
 }
 
@@ -195,7 +195,7 @@ func (sv *StoreView) UpdateSplitRule(splitRule *types.SplitRule) bool {
 }
 
 // GetSplitRule gets split rule.
-func (sv *StoreView) GetSplitRule(resourceID common.Bytes) *types.SplitRule {
+func (sv *StoreView) GetSplitRule(resourceID string) *types.SplitRule {
 	data := sv.Get(SplitRuleKey(resourceID))
 	if data == nil || len(data) == 0 {
 		return nil
@@ -210,7 +210,7 @@ func (sv *StoreView) GetSplitRule(resourceID common.Bytes) *types.SplitRule {
 }
 
 // SetSplitRule sets split rule.
-func (sv *StoreView) SetSplitRule(resourceID common.Bytes, splitRule *types.SplitRule) {
+func (sv *StoreView) SetSplitRule(resourceID string, splitRule *types.SplitRule) {
 	splitRuleBytes, err := types.ToBytes(splitRule)
 	if err != nil {
 		panic(fmt.Sprintf("Error writing splitRule %v error: %v",
@@ -220,7 +220,7 @@ func (sv *StoreView) SetSplitRule(resourceID common.Bytes, splitRule *types.Spli
 }
 
 // DeleteSplitRule deletes a split rule.
-func (sv *StoreView) DeleteSplitRule(resourceID common.Bytes) bool {
+func (sv *StoreView) DeleteSplitRule(resourceID string) bool {
 	key := SplitRuleKey(resourceID)
 	deleted := sv.store.Delete(key)
 	return deleted

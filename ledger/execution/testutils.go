@@ -169,7 +169,7 @@ func getMinimumTxFee() int64 {
 	return int64(types.MinimumTransactionFeeGammaWei)
 }
 
-func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
+func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
 	servicePaymentTx := &types.ServicePaymentTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
@@ -209,7 +209,7 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 	return servicePaymentTx
 }
 
-func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID common.Bytes,
+func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID string,
 	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
 	et = NewExecTest()
 
@@ -236,7 +236,7 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 
 	et.fastforwardTo(1e2)
 
-	resourceID = common.Bytes("rid001")
+	resourceID = "rid001"
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
@@ -246,7 +246,7 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID co
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{resourceID},
+		ResourceIDs: []string{resourceID},
 		Duration:    1000,
 	}
 	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
