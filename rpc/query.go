@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -93,7 +94,7 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 	result.BlockHash = block.Hash()
 	result.BlockHeight = block.Height
 
-	if block.Finalized {
+	if block.Status == core.BlockStatusFinalized {
 		result.Status = TxStatusFinalized
 	} else {
 		result.Status = TxStatusPending

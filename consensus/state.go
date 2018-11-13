@@ -19,10 +19,9 @@ type StateStub struct {
 }
 
 const (
-	DBStateStubKey       = "cs/ss"
-	DBVoteByHeightPrefix = "cs/vbh/"
-	DBVoteByBlockPrefix  = "cs/vbb/"
-	DBEpochVotesKey      = "cs/ev"
+	DBStateStubKey      = "cs/ss"
+	DBVoteByBlockPrefix = "cs/vbb/"
+	DBEpochVotesKey     = "cs/ev"
 )
 
 type State struct {

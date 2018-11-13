@@ -204,20 +204,6 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *ConsensusEngine) handleProposal(p core.Proposal) {
-	e.logger.WithFields(log.Fields{"proposal": p}).Debug("Received proposal")
-
-	if expectedProposer := e.validatorManager.GetProposerForEpoch(e.GetEpoch()).ID(); p.ProposerID != expectedProposer {
-		e.logger.WithFields(log.Fields{"proposal": p, "p.proposerID": p.ProposerID, "expected proposer": expectedProposer}).Debug("Ignoring proposed block since proposer shouldn't propose in epoch")
-		return
-	}
-
-	e.chain.AddBlock(p.Block)
-	e.handleBlock(p.Block)
-	e.handleCC(p.CommitCertificate)
-	return
-}
-
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
 
@@ -281,7 +267,7 @@ func (e *ConsensusEngine) vote() {
 		Epoch: e.GetEpoch(),
 	}
 
-	e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Debug("Sending vote")
+	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Sending vote")
 
 	payload, err := rlp.EncodeToBytes(vote)
 	if err != nil {
@@ -298,29 +284,6 @@ func (e *ConsensusEngine) vote() {
 	}
 	e.AddMessage(&vote)
 	e.network.Broadcast(voteMsg)
-}
-
-func (e *ConsensusEngine) handleCC(cc *core.CommitCertificate) {
-	e.logger.WithFields(log.Fields{"cc": cc}).Debug("Received CC")
-
-	if cc == nil {
-		return
-	}
-	ccBlock, err := e.chain.FindBlock(cc.BlockHash)
-	if err != nil {
-		e.logger.WithFields(log.Fields{"blockhash": fmt.Sprintf("%v", cc.BlockHash)}).Error("Blockhash in commit certificate is not found")
-		return
-	}
-	ccBlock.CommitCertificate = cc
-
-	e.chain.SaveBlock(ccBlock)
-	e.logger.WithFields(log.Fields{
-		"error":             err,
-		"block":             ccBlock,
-		"commitCertificate": cc,
-	}).Debug("Update block with commit certificate")
-
-	e.processCCBlock(ccBlock)
 }
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
@@ -371,10 +334,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
 	}
 	if validators.HasMajority(votes) {
-		cc := &core.CommitCertificate{Votes: votes, BlockHash: vote.Block}
-		block.CommitCertificate = cc
-
-		e.chain.SaveBlock(block)
 		e.processCCBlock(block)
 	}
 
@@ -412,12 +371,14 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		e.state.SetHighestCCBlock(ccBlock)
 	}
 
+	e.chain.CommitBlock(ccBlock)
+
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
-	if parent.CommitCertificate != nil {
+	if parent.Status == core.BlockStatusCommitted {
 		e.finalizeBlock(parent)
 	}
 }
@@ -488,11 +449,23 @@ func (e *ConsensusEngine) propose() {
 	block.Txs = txs
 	block.StateHash = newRoot
 
-	lastCC := e.state.GetHighestCCBlock()
-	proposal := core.Proposal{Block: block, ProposerID: common.HexToAddress(e.ID())}
-	if lastCC.CommitCertificate != nil {
-		proposal.CommitCertificate = lastCC.CommitCertificate.Copy()
+	proposal := core.Proposal{
+		Block:      block,
+		ProposerID: common.HexToAddress(e.ID()),
 	}
+
+	// Add votes that might help peers progress, e.g. votes on last CC block and latest epoch
+	// votes.
+	lastCC := e.state.GetHighestCCBlock()
+	lastCCVotes, err := e.state.GetVoteSetByBlock(lastCC.Hash())
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash()}).Warn("Failed to load votes for last CC block")
+	}
+	epochVotes, err := e.state.GetEpochVotes()
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
+	}
+	proposal.Votes = lastCCVotes.Merge(epochVotes).KeepLatest()
 
 	e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 

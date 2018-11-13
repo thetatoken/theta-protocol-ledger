@@ -14,13 +14,13 @@ import (
 
 // Proposal represents a proposal of a new block.
 type Proposal struct {
-	Block             *Block `rlp:"nil"`
-	ProposerID        common.Address
-	CommitCertificate *CommitCertificate `rlp:"nil"`
+	Block      *Block `rlp:"nil"`
+	ProposerID common.Address
+	Votes      *VoteSet `rlp:"nil"`
 }
 
 func (p Proposal) String() string {
-	return fmt.Sprintf("Proposal{block: %v, proposer: %v, CC: %v}", p.Block, p.ProposerID, p.CommitCertificate)
+	return fmt.Sprintf("Proposal{block: %v, proposer: %v, votes: %v}", p.Block, p.ProposerID, p.Votes)
 }
 
 // CommitCertificate represents a commit made a majority of validators.
@@ -58,7 +58,7 @@ type Vote struct {
 }
 
 func (v Vote) String() string {
-	return fmt.Sprintf("Vote{ID: %s, block: %s,  Epoch: %v}", v.ID, v.Block, v.Epoch)
+	return fmt.Sprintf("Vote{ID: %s, block: %s,  Epoch: %v}", v.ID, v.Block.Hex(), v.Epoch)
 }
 
 // SignBytes returns raw bytes to be signed.
