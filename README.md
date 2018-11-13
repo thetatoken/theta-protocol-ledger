@@ -11,7 +11,7 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 - [Off-Chain Micropayment Support](#off-chain-micropayment-support)
 
 ## Setup
-Install Go and set environment variables `GOPATH` and `PATH` following the [offcial instructions](https://golang.org/doc/install)
+Install Go and set environment variables `GOPATH` and `PATH` following the [official instructions](https://golang.org/doc/install)
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/ukulele`
 
@@ -110,7 +110,7 @@ Wait for a few seconds for the transaction to be included in the blockchain. The
 ```
 banjo query account --address=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337
 ```
-Now, let us call the `SetValue()` function of the deployed smart contract with the following `banjo tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` paramter is the concatenation of `ed8b0706`, the signature of the function `SetValue()`, and an integer `0x3` for which we want to calculate the square.  
+Now, let us call the `SetValue()` function of the deployed smart contract with the following `banjo tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` parameter is the concatenation of `ed8b0706`, the signature of the function `SetValue()`, and an integer `0x3` for which we want to calculate the square.  
 ```
 banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=1000000000wei --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000000003 --seq=3
 ```
@@ -123,7 +123,7 @@ The `vm_return` field in the returned json should be `00000000000000000000000000
 You might have noticed that both the smart contract deployment and execution use the `banjo tx smart_contract` command with similar parameters. The only difference is that the deployment command does not have the `to` parameter, while in the execution command, the `to` parameter is set to the smart contract address.
 
 ## Off-Chain Micropayment Support
-In order to handle the sheer amount of micropayments for the bandwidth sharing reward, the Theta Ledger provides native support for off-chain payment through the [resource oriented micropayment pool](https://medium.com/theta-network/building-the-theta-protocol-part-iv-d7cce583aad1) concept. The micropayment pool allows a sender to pay to multiple receipients with off-chain transactions without the sender being able to double spend.
+In order to handle the sheer amount of micropayments for the bandwidth sharing reward, the Theta Ledger provides native support for off-chain payment through the [resource oriented micropayment pool](https://medium.com/theta-network/building-the-theta-protocol-part-iv-d7cce583aad1) concept. The micropayment pool allows a sender to pay to multiple recipients with off-chain transactions without the sender being able to double spend.
 
 Below is an example. To get started, the sender creates a resource oriented micropayment pool for a live video stream with resource_id `rid1000001` by reserving some Gamma tokens for 1002 blocktimes. She can use this micropayment pool to pay multiple relay nodes that provides the desired video stream.
 ```
