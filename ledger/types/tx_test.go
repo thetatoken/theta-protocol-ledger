@@ -8,7 +8,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 )
 
@@ -311,7 +310,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 			Sequence: 67890,
 		},
 		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid00123")},
+		ResourceIDs: []string{"rid00123"},
 		Duration:    uint64(999),
 	}
 
@@ -334,7 +333,7 @@ func TestReserveFundTxProto(t *testing.T) {
 		Fee:         Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid00123")},
+		ResourceIDs: []string{"rid00123"},
 		Duration:    uint64(999),
 	}
 
@@ -443,7 +442,7 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceID:      []byte("rid00123"),
+		ResourceID:      "rid00123",
 	}
 
 	signBytes := servicePaymentTx.SourceSignBytes(chainID)
@@ -469,7 +468,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 		},
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceID:      []byte("rid00123"),
+		ResourceID:      "rid00123",
 	}
 
 	signBytes := servicePaymentTx.TargetSignBytes(chainID)
@@ -494,7 +493,7 @@ func TestServicePaymentTxProto(t *testing.T) {
 		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
-		ResourceID:      []byte("rid00123"),
+		ResourceID:      "rid00123",
 	}
 
 	// serialize this and back
@@ -521,7 +520,7 @@ func TestSplitRuleTxSignable(t *testing.T) {
 	}
 	splitRuleTx := &SplitRuleTx{
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		ResourceID: []byte("rid00123"),
+		ResourceID: "rid00123",
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
 			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
@@ -552,7 +551,7 @@ func TestSplitRuleTxProto(t *testing.T) {
 	}
 	tx := &SplitRuleTx{
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		ResourceID: []byte("rid00123"),
+		ResourceID: "rid00123",
 		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Splits:     []Split{split},
 		Duration:   99,

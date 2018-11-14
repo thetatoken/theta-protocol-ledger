@@ -1,6 +1,7 @@
 package mempool
 
 import (
+	"context"
 	"errors"
 	"sync"
 
@@ -43,6 +44,13 @@ type Mempool struct {
 
 	txCandidates *clist.CList
 	txBookeepper transactionBookkeeper
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 // CreateMempool creates an instance of Mempool
@@ -52,6 +60,7 @@ func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
 		dispatcher:   dispatcher,
 		txCandidates: clist.New(),
 		txBookeepper: createTransactionBookkeeper(defaultMaxNumTxs),
+		wg:           &sync.WaitGroup{},
 	}
 }
 
@@ -88,13 +97,25 @@ func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 }
 
 // Start needs to be called when the Mempool starts
-func (mp *Mempool) Start() error {
+func (mp *Mempool) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	mp.ctx = c
+	mp.cancel = cancel
+
+	mp.wg.Add(1)
 	go mp.broadcastTransactionsRoutine()
+
 	return nil
 }
 
 // Stop needs to be called when the Mempool stops
 func (mp *Mempool) Stop() {
+	mp.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (mp *Mempool) Wait() {
+	mp.wg.Wait()
 }
 
 // Lock is for the caller to lock/unlock the Mempool and perform safely update
@@ -174,8 +195,17 @@ func (mp *Mempool) Flush() {
 
 // broadcastTransactionRoutine broadcasts transactions to neighoring peers
 func (mp *Mempool) broadcastTransactionsRoutine() {
+	defer mp.wg.Done()
+
 	var next *clist.CElement
 	for {
+		select {
+		case <-mp.ctx.Done():
+			mp.stopped = true
+			return
+		default:
+		}
+
 		if next == nil {
 			next = mp.txCandidates.FrontWait() // Wait until a tx is available
 		}

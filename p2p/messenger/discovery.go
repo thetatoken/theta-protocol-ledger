@@ -1,8 +1,11 @@
 package messenger
 
 import (
+	"context"
 	"errors"
 	"net"
+	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
@@ -25,13 +28,21 @@ type PeerDiscoveryManager struct {
 	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
 	peerDiscMsgHandler  PeerDiscoveryMessageHandler // pro-actively connect to peer candidates obtained from connected peers
 	inboundPeerListener InboundPeerListener         // listen to incoming peering requests
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
 // PeerDiscoveryManagerConfig specifies the configuration for PeerDiscoveryManager
 //
 type PeerDiscoveryManagerConfig struct {
-	MaxNumPeers uint
+	MaxNumPeers        uint
+	SufficientNumPeers uint
 }
 
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
@@ -44,6 +55,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		messenger: msgr,
 		nodeInfo:  nodeInfo,
 		peerTable: peerTable,
+		wg:        &sync.WaitGroup{},
 	}
 
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
@@ -54,7 +66,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		return discMgr, err
 	}
 
-	discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr)
+	discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr, localNetworkAddr)
 	if err != nil {
 		return discMgr, err
 	}
@@ -70,7 +82,8 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 // GetDefaultPeerDiscoveryManagerConfig returns the default config for the PeerDiscoveryManager
 func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
-		MaxNumPeers: 128,
+		MaxNumPeers:        128,
+		SufficientNumPeers: 32,
 	}
 }
 
@@ -80,19 +93,23 @@ func (discMgr *PeerDiscoveryManager) SetMessenger(msgr *Messenger) {
 }
 
 // Start is called when the PeerDiscoveryManager starts
-func (discMgr *PeerDiscoveryManager) Start() error {
+func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	discMgr.ctx = c
+	discMgr.cancel = cancel
+
 	var err error
-	err = discMgr.seedPeerConnector.Start()
+	err = discMgr.seedPeerConnector.Start(c)
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.inboundPeerListener.Start()
+	err = discMgr.inboundPeerListener.Start(c)
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.peerDiscMsgHandler.Start()
+	err = discMgr.peerDiscMsgHandler.Start(c)
 	if err != nil {
 		return err
 	}
@@ -102,20 +119,44 @@ func (discMgr *PeerDiscoveryManager) Start() error {
 
 // Stop is called when the PeerDiscoveryManager stops
 func (discMgr *PeerDiscoveryManager) Stop() {
-	discMgr.seedPeerConnector.Stop()
-	discMgr.inboundPeerListener.Stop()
-	discMgr.peerDiscMsgHandler.Stop()
+	discMgr.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (discMgr *PeerDiscoveryManager) Wait() {
+	discMgr.seedPeerConnector.wg.Wait()
+	discMgr.inboundPeerListener.wg.Wait()
+	discMgr.peerDiscMsgHandler.wg.Wait()
+	discMgr.wg.Wait()
 }
 
 // HandlePeerWithErrors handles peers that are in the error state.
 // If the peer is persistent, it will attempt to reconnect to the
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
-	// TODO: implementation
+	peer.Stop()
+	discMgr.peerTable.DeletePeer(peer.ID())
+
+	if peer.IsPersistent() {
+		var err error
+		for i := 0; i < 3; i++ { // retry up to 3 times
+			if peer.IsOutbound() {
+				_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
+			} else {
+				_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+			}
+			if err == nil {
+				log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())
+				return
+			}
+			time.Sleep(time.Second * 3)
+		}
+		log.Errorf("[p2p] Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+	}
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connectiong to outbound peer: %v...", peerNetAddress)
+	log.Infof("[p2p] Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
@@ -129,7 +170,7 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 }
 
 func (discMgr *PeerDiscoveryManager) connectWithInboundPeer(netconn net.Conn, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connectiong with inbound peer: %v...", netconn.RemoteAddr())
+	log.Infof("[p2p] Connecting with inbound peer: %v...", netconn.RemoteAddr())
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateInboundPeer(netconn, peerConfig, connConfig)

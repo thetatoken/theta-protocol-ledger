@@ -26,7 +26,6 @@ type Node struct {
 	ValidatorManager core.ValidatorManager
 	SyncManager      *netsync.SyncManager
 	Dispatcher       *dp.Dispatcher
-	Network          p2p.Network
 	Ledger           core.Ledger
 	Mempool          *mp.Mempool
 	RPC              *rpc.ThetaRPCServer
@@ -70,7 +69,6 @@ func NewNode(params *Params) *Node {
 		ValidatorManager: validatorManager,
 		SyncManager:      syncMgr,
 		Dispatcher:       dispatcher,
-		Network:          params.Network,
 		Ledger:           ledger,
 		Mempool:          mempool,
 		RPC:              rpcServer,
@@ -85,8 +83,8 @@ func (n *Node) Start(ctx context.Context) {
 
 	n.Consensus.Start(n.ctx)
 	n.SyncManager.Start(n.ctx)
-	n.Network.Start()
-	n.Mempool.Start()
+	n.Dispatcher.Start(n.ctx)
+	n.Mempool.Start(n.ctx)
 	n.RPC.Start(n.ctx)
 }
 

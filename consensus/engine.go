@@ -126,6 +126,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.ctx = c
 	e.cancel = cancel
 
+	e.wg.Add(1)
 	go e.mainLoop()
 }
 
@@ -140,7 +141,6 @@ func (e *ConsensusEngine) Wait() {
 }
 
 func (e *ConsensusEngine) mainLoop() {
-	e.wg.Add(1)
 	defer e.wg.Done()
 
 	for {

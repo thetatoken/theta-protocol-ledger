@@ -1,19 +1,15 @@
 package execution
 
 import (
-	"bytes"
 	"encoding/hex"
 	"math/big"
-	"strconv"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/vm"
 )
 
 func TestGetInputs(t *testing.T) {
@@ -570,7 +566,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -588,7 +584,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(50001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -606,7 +602,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -624,7 +620,7 @@ func TestReserveFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	tx.Source.Signature = user1.Sign(tx.SignBytes(et.chainID))
@@ -635,7 +631,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	retrievedUserAcc := et.state().Delivered().GetAccount(user1.PubKey.Address())
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
-	assert.Equal([]common.Bytes{common.Bytes("rid001")}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{"rid001"}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
@@ -666,7 +662,7 @@ func TestReleaseFundTx(t *testing.T) {
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{common.Bytes("rid001")},
+		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
 	reserveFundTx.Source.Signature = user1.Sign(reserveFundTx.SignBytes(et.chainID))
@@ -763,7 +759,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
-	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
@@ -846,7 +842,7 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
-	assert.Equal([]common.Bytes{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
+	assert.Equal([]string{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
@@ -1175,247 +1171,4 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 	assert.Equal(currHeight+extendedDuration, endHeight2)
 	log.Infof("currHeight = %v", currHeight)
 	log.Infof("endHeight2 = %v", endHeight2)
-}
-
-func TestSmartContractDeploymentAndExecution(t *testing.T) {
-	assert := assert.New(t)
-	et, privAccounts := setupForSmartContract(assert, 2)
-	et.fastforwardBy(1000)
-
-	deployerPrivAcc := privAccounts[0]
-	callerPrivAcc := privAccounts[1]
-
-	// ASM:
-	// push 0x3
-	// push 0x13
-	// mstore8
-	// push 0x1
-	// push 0x13
-	// return
-	smartContractCode, _ := hex.DecodeString("600360135360016013f3")
-
-	// ASM:
-	// push 0xa
-	// push 0xc
-	// push 0x0
-	// codecopy
-	// push 0xa
-	// push 0x0
-	// return
-	// push 0x3
-	// push 0x13
-	// mstore8
-	// push 0x1
-	// push 0x13
-	// return
-	//deploymentCode, _ := hex.DecodeString("608060405234801561001057600080fd5b5060df8061001f6000396000f3006080604052600436106049576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff168063d46300fd14604e578063ee919d50146076575b600080fd5b348015605957600080fd5b50606060a0565b6040518082815260200191505060405180910390f35b348015608157600080fd5b50609e6004803603810190808035906020019092919050505060a9565b005b60008054905090565b80600081905550505600a165627a7a723058204872b7831a20661d172004226a8a38a19c3823ac4214a895e582d70ce17b0cb30029")
-	deploymentCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
-
-	//
-	// Step 1. Deploy a smart contract
-	//
-
-	deployerAcc := deployerPrivAcc.Account
-	deployerAddr := deployerAcc.PubKey.Address()
-	valueAmount := int64(9723)
-	gasPrice := types.MinimumGasPrice
-	deploySCTx := &types.SmartContractTx{
-		From: types.TxInput{
-			Address:  deployerAddr,
-			PubKey:   deployerAcc.PubKey,
-			Coins:    types.NewCoins(0, valueAmount),
-			Sequence: 1,
-		},
-		GasLimit: 60000,
-		GasPrice: new(big.Int).SetUint64(gasPrice),
-		Data:     deploymentCode,
-	}
-	signBytes := deploySCTx.SignBytes(et.chainID)
-	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
-
-	// Dry run to get the smart contract address when it is actually deployed
-	stateCopy, err := et.state().Delivered().Copy()
-	assert.Nil(err)
-	_, contractAddr, gasUsed, vmErr := vm.Execute(deploySCTx, stateCopy)
-	assert.Nil(vmErr)
-	log.Infof("[Deployment] gas used: %v", gasUsed)
-
-	// The actual on-chain deplpoyment
-	res := et.executor.getTxExecutor(deploySCTx).sanityCheck(et.chainID, et.state().Delivered(), deploySCTx)
-	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(deploySCTx).process(et.chainID, et.state().Delivered(), deploySCTx)
-	assert.True(res.IsOK(), res.Message)
-
-	et.state().Commit()
-
-	// Check if the smart contract code has actually been deployed on-chain
-	retrievedCode := et.state().Delivered().GetCode(contractAddr)
-	assert.True(bytes.Equal(smartContractCode, retrievedCode))
-
-	// Check the amount of coins transferred to the smart contract
-	retrievedSmartContractAccount := et.state().Delivered().GetAccount(contractAddr)
-	assert.NotNil(retrievedSmartContractAccount)
-	expectedTransferredValue := types.NewCoins(0, valueAmount)
-	assert.True(expectedTransferredValue.IsEqual(retrievedSmartContractAccount.Balance))
-	log.Infof("[Deployment] expected transferred value: %v, actual transferred value: %v",
-		expectedTransferredValue, retrievedSmartContractAccount.Balance)
-
-	// Check the deployment gas fee
-	retrievedDeployerAcc := et.state().Delivered().GetAccount(deployerAddr)
-	deploymentFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
-	expectedTotalDeploymentCost := expectedTransferredValue.Plus(deploymentFee)
-	deploymentAccBalanceReduction := deployerAcc.Balance.Minus(retrievedDeployerAcc.Balance)
-	assert.Equal(expectedTotalDeploymentCost, deploymentAccBalanceReduction)
-	log.Infof("[Deployment] expected gas cost: %v, actual gas cost: %v",
-		expectedTotalDeploymentCost, deploymentAccBalanceReduction)
-
-	//
-	// Step 2. Execute the smart contact
-	//
-
-	callerAcc := callerPrivAcc.Account
-	callerAddr := callerAcc.PubKey.Address()
-	callSCTX := &types.SmartContractTx{
-		From: types.TxInput{
-			Address:  callerAddr,
-			PubKey:   callerAcc.PubKey,
-			Sequence: 1,
-		},
-		To:       types.TxOutput{Address: contractAddr},
-		GasLimit: 60000,
-		GasPrice: new(big.Int).SetUint64(gasPrice),
-		Data:     nil,
-	}
-	signBytes = callSCTX.SignBytes(et.chainID)
-	callSCTX.From.Signature = callerPrivAcc.Sign(signBytes)
-
-	// Dry run to call the contract
-	stateCopy, err = et.state().Delivered().Copy()
-	assert.Nil(err)
-	vmRet, execContractAddr, gasUsed, vmErr := vm.Execute(callSCTX, stateCopy)
-	assert.Nil(vmErr)
-	assert.Equal(common.Bytes{0x3}, vmRet)
-	assert.Equal(contractAddr, execContractAddr)
-	log.Infof("[Execution ] gas used: %v", gasUsed)
-
-	// The actually on-chain contract execution
-	res = et.executor.getTxExecutor(callSCTX).sanityCheck(et.chainID, et.state().Delivered(), callSCTX)
-	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(callSCTX).process(et.chainID, et.state().Delivered(), callSCTX)
-	assert.True(res.IsOK(), res.Message)
-
-	et.state().Commit()
-
-	// Check the smart contract execution gas fee
-	retrievedCallerAcc := et.state().Delivered().GetAccount(callerAddr)
-	expectedSCExecGasFee := types.NewCoins(0, int64(gasUsed)*int64(gasPrice))
-	callerAccBalanceReduction := callerAcc.Balance.Minus(retrievedCallerAcc.Balance)
-	assert.Equal(expectedSCExecGasFee, callerAccBalanceReduction)
-	log.Infof("[Execution ] expected gas cost: %v, actual gas cost: %v",
-		expectedSCExecGasFee, callerAccBalanceReduction)
-}
-
-// ------------------------------ Test Utils ------------------------------ //
-
-func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID common.Bytes) *types.ServicePaymentTx {
-	servicePaymentTx := &types.ServicePaymentTx{
-		Fee: types.NewCoins(0, getMinimumTxFee()),
-		Source: types.TxInput{
-			Address:  source.PubKey.Address(),
-			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
-			Sequence: uint64(srcSeq),
-		},
-		Target: types.TxInput{
-			Address:  target.PubKey.Address(),
-			Sequence: uint64(tgtSeq),
-		},
-		PaymentSequence: uint64(paymentSeq),
-		ReserveSequence: uint64(reserveSeq),
-		ResourceID:      resourceID,
-	}
-
-	if srcSeq == 1 {
-		servicePaymentTx.Source.PubKey = source.PubKey
-	}
-	if tgtSeq == 1 {
-		servicePaymentTx.Target.PubKey = target.PubKey
-	}
-
-	srcSignBytes := servicePaymentTx.SourceSignBytes(chainID)
-	servicePaymentTx.Source.Signature = source.Sign(srcSignBytes)
-
-	tgtSignBytes := servicePaymentTx.TargetSignBytes(chainID)
-	servicePaymentTx.Target.Signature = target.Sign(tgtSignBytes)
-
-	if !source.PubKey.VerifySignature(srcSignBytes, servicePaymentTx.Source.Signature) {
-		panic("Signature verification failed for source")
-	}
-	if !target.PubKey.VerifySignature(tgtSignBytes, servicePaymentTx.Target.Signature) {
-		panic("Signature verification failed for target")
-	}
-
-	return servicePaymentTx
-}
-
-func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID common.Bytes,
-	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
-	et = NewExecTest()
-
-	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
-	alice.Balance = aliceInitBalance
-	et.acc2State(alice)
-	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
-	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
-
-	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
-	bob.Balance = bobInitBalance
-	et.acc2State(bob)
-	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
-	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
-
-	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
-	carol.Balance = carolInitBalance
-	et.acc2State(carol)
-	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
-	log.Infof("Carol's Address: %v", carol.PubKey.Address().Hex())
-
-	et.fastforwardTo(1e2)
-
-	resourceID = common.Bytes("rid001")
-	reserveFundTx := &types.ReserveFundTx{
-		Fee: types.NewCoins(0, getMinimumTxFee()),
-		Source: types.TxInput{
-			Address:  alice.PubKey.Address(),
-			PubKey:   alice.PubKey,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
-			Sequence: 1,
-		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
-		ResourceIDs: []common.Bytes{resourceID},
-		Duration:    1000,
-	}
-	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
-	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
-	ast.True(res.IsOK(), res.String())
-	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
-	ast.True(res.IsOK(), res.String())
-
-	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance
-}
-
-func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTest, privAccounts []types.PrivAccount) {
-	et = NewExecTest()
-
-	for i := 0; i < numAccounts; i++ {
-		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
-		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, int64(9000000*types.MinimumGasPrice)))
-		privAccounts = append(privAccounts, privAccount)
-		et.acc2State(privAccount)
-	}
-	et.fastforwardTo(1e2)
-
-	return et, privAccounts
 }

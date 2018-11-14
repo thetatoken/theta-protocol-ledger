@@ -1,7 +1,9 @@
 package messenger
 
 import (
+	"context"
 	"math/rand"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -18,6 +20,13 @@ type SeedPeerConnector struct {
 	seedPeerNetAddresses []netutil.NetAddress
 
 	Connected chan bool
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 // createSeedPeerConnector creates an instance of the SeedPeerConnector
@@ -27,6 +36,7 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 	spc := SeedPeerConnector{
 		discMgr:   discMgr,
 		Connected: make(chan bool, numSeedPeers),
+		wg:        &sync.WaitGroup{},
 	}
 
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
@@ -55,19 +65,32 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 }
 
 // Start is called when the SeedPeerConnector starts
-func (spc *SeedPeerConnector) Start() error {
+func (spc *SeedPeerConnector) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	spc.ctx = c
+	spc.cancel = cancel
+
 	spc.connectToSeedPeers()
 	return nil
 }
 
 // Stop is called when the SeedPeerConnector stops
 func (spc *SeedPeerConnector) Stop() {
+	spc.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (spc *SeedPeerConnector) Wait() {
+	spc.wg.Wait()
 }
 
 func (spc *SeedPeerConnector) connectToSeedPeers() {
 	perm := rand.Perm(len(spc.seedPeerNetAddresses))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+		spc.wg.Add(1)
 		go func(i int) {
+			defer spc.wg.Done()
+
 			time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
 			j := perm[i]
 			peerNetAddress := spc.seedPeerNetAddresses[j]

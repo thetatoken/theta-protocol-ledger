@@ -1,7 +1,9 @@
 package messenger
 
 import (
+	"context"
 	"strconv"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 
@@ -25,6 +27,13 @@ type Messenger struct {
 	nodeInfo  p2ptypes.NodeInfo // information of our blockchain node
 
 	config MessengerConfig
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -46,6 +55,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 		peerTable:     pr.CreatePeerTable(),
 		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey),
 		config:        msgrConfig,
+		wg:            &sync.WaitGroup{},
 	}
 
 	localNetAddress := "127.0.0.1:" + strconv.Itoa(port)
@@ -81,14 +91,24 @@ func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
 }
 
 // Start is called when the Messenger starts
-func (msgr *Messenger) Start() error {
-	err := msgr.discMgr.Start()
+func (msgr *Messenger) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	msgr.ctx = c
+	msgr.cancel = cancel
+
+	err := msgr.discMgr.Start(c)
 	return err
 }
 
 // Stop is called when the Messenger stops
 func (msgr *Messenger) Stop() {
-	msgr.discMgr.Stop()
+	msgr.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (msgr *Messenger) Wait() {
+	msgr.discMgr.Wait()
+	msgr.wg.Wait()
 }
 
 // Broadcast broadcasts the given message to all the connected peers
@@ -165,11 +185,10 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 
-	// TODO: error handling..
-	// errorHandler := func(interface{}) {
-	// 	msgr.discMgr.HandlePeerWithErrors(peer)
-	// }
-	// peer.GetConnection().SetErrorHandler(errorHandler)
+	errorHandler := func(interface{}) {
+		msgr.discMgr.HandlePeerWithErrors(peer)
+	}
+	peer.GetConnection().SetErrorHandler(errorHandler)
 }
 
 // SetAddressBookFilePath sets the address book file path

@@ -1,6 +1,9 @@
 package dispatcher
 
 import (
+	"context"
+	"sync"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
@@ -11,22 +14,42 @@ import (
 //
 type Dispatcher struct {
 	p2pnet p2p.Network
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 // NewDispatcher returns the pointer to the Dispatcher singleton
 func NewDispatcher(p2pnet p2p.Network) *Dispatcher {
-	return &Dispatcher{p2pnet: p2pnet}
+	return &Dispatcher{
+		p2pnet: p2pnet,
+		wg:     &sync.WaitGroup{},
+	}
 }
 
 // Start is called when the dispatcher starts
-func (dp *Dispatcher) Start() error {
-	err := dp.p2pnet.Start()
+func (dp *Dispatcher) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	dp.ctx = c
+	dp.cancel = cancel
+
+	err := dp.p2pnet.Start(c)
 	return err
 }
 
 // Stop is called when the dispatcher stops
 func (dp *Dispatcher) Stop() {
-	dp.p2pnet.Stop()
+	dp.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (dp *Dispatcher) Wait() {
+	dp.p2pnet.Wait()
+	dp.wg.Wait()
 }
 
 // GetInventory sends out the InventoryRequest

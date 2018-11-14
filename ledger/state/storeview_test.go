@@ -121,21 +121,21 @@ func TestStoreViewSplitRuleAccess(t *testing.T) {
 
 	initiatorAddr := initiatorPubKey.Address()
 
-	rid1 := common.Bytes("rid1")
+	rid1 := "rid1"
 	sc1 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid1,
 		EndBlockHeight:   100,
 	}
 
-	rid2 := common.Bytes("rid2")
+	rid2 := "rid2"
 	sc2 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid2,
 		EndBlockHeight:   17,
 	}
 
-	rid3 := common.Bytes("rid3")
+	rid3 := "rid3"
 	sc3 := &types.SplitRule{
 		InitiatorAddress: initiatorAddr,
 		ResourceID:       rid3,
