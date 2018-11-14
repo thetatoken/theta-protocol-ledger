@@ -171,7 +171,7 @@ func (conn *Connection) SetErrorHandler(errorHandler ErrorHandler) {
 }
 
 // EnqueueMessage enqueues the given message to the target channel.
-// The message will be send out later
+// The message will be sent out later
 func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
@@ -193,7 +193,7 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 }
 
 // AttemptToEnqueueMessage attempts to enqueue the given message to the
-// target channel. The message will be send out later (non-blocking)
+// target channel. The message will be sent out later (non-blocking)
 func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {

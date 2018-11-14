@@ -19,6 +19,7 @@ type Packet struct {
 	ChannelID common.ChannelIDEnum
 	Bytes     []byte
 	IsEOF     byte // 1 means message ends here.
+	SeqID     int
 }
 
 func (p *Packet) isEmpty() bool {
