@@ -6,7 +6,7 @@ type RecvBuffer struct {
 	workspace []byte
 
 	config  RecvBufferConfig
-	chanSeq map[common.ChannelIDEnum]int
+	chanSeq map[common.ChannelIDEnum]uint
 }
 
 type RecvBufferConfig struct {
@@ -18,7 +18,7 @@ func createRecvBuffer(config RecvBufferConfig) RecvBuffer {
 	return RecvBuffer{
 		workspace: make([]byte, 0, config.workspaceCapacity),
 		config:    config,
-		chanSeq:   make(map[common.ChannelIDEnum]int),
+		chanSeq:   make(map[common.ChannelIDEnum]uint),
 	}
 }
 

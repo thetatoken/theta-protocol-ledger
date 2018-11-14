@@ -56,7 +56,7 @@ func TestSendLongMessage(t *testing.T) {
 	assert.Equal(1, dsb.getSize())
 	assert.False(packet1.isEmpty())
 	assert.Equal(byte(0x0), packet1.IsEOF)
-	assert.Equal(0, packet1.SeqID)
+	assert.Equal(uint(0), packet1.SeqID)
 	assert.False(dsb.canInsert())
 
 	packet2 := dsb.emitPacket(common.ChannelIDTransaction)
@@ -64,7 +64,7 @@ func TestSendLongMessage(t *testing.T) {
 	assert.Equal(1, dsb.getSize())
 	assert.False(packet2.isEmpty())
 	assert.Equal(byte(0x0), packet2.IsEOF)
-	assert.Equal(1, packet2.SeqID)
+	assert.Equal(uint(1), packet2.SeqID)
 	assert.False(dsb.canInsert())
 
 	packet3 := dsb.emitPacket(common.ChannelIDTransaction)
@@ -72,7 +72,7 @@ func TestSendLongMessage(t *testing.T) {
 	assert.Equal(0, dsb.getSize())
 	assert.False(packet3.isEmpty())
 	assert.Equal(byte(0x1), packet3.IsEOF)
-	assert.Equal(2, packet3.SeqID)
+	assert.Equal(uint(2), packet3.SeqID)
 	assert.True(dsb.canInsert())
 
 	assembledMsgStr := string(packet1.Bytes) + string(packet2.Bytes) + string(packet3.Bytes)
@@ -93,7 +93,7 @@ func TestSendLongMessage(t *testing.T) {
 	assert.False(packet.isEmpty())
 	assert.Equal(msgBytes, packet.Bytes)
 	assert.Equal(byte(0x1), packet.IsEOF)
-	assert.Equal(0, packet.SeqID)
+	assert.Equal(uint(0), packet.SeqID)
 	assert.True(dsb.canInsert())
 }
 
@@ -116,13 +116,13 @@ func TestPacketSequenceInDiffChannels(t *testing.T) {
 	assert.False(dsb.canInsert())
 
 	packet1 := dsb.emitPacket(common.ChannelIDTransaction)
-	assert.Equal(0, packet1.SeqID)
+	assert.Equal(uint(0), packet1.SeqID)
 
 	packet2 := dsb.emitPacket(common.ChannelIDCheckpoint)
-	assert.Equal(0, packet2.SeqID)
+	assert.Equal(uint(0), packet2.SeqID)
 
 	packet3 := dsb.emitPacket(common.ChannelIDBlock)
-	assert.Equal(0, packet3.SeqID)
+	assert.Equal(uint(0), packet3.SeqID)
 }
 
 func TestSequentialSendMultipleMessages(t *testing.T) {
@@ -139,7 +139,7 @@ func TestSequentialSendMultipleMessages(t *testing.T) {
 		packet := dsb.emitPacket(common.ChannelIDTransaction)
 		assert.Equal(msgBytes, packet.Bytes)
 		assert.Equal(byte(0x01), packet.IsEOF)
-		assert.Equal(0, packet.SeqID)
+		assert.Equal(uint(0), packet.SeqID)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestConcurrentSendMultipleMessages(t *testing.T) {
 
 	emitBytesList := make(chan []byte, numMsgs)
 	emitEOFs := make(chan byte, numMsgs)
-	emitSeqs := make(chan int, numMsgs)
+	emitSeqs := make(chan uint, numMsgs)
 	go func(emitBytesList chan []byte, emitEOFs chan byte) { // emit packet routine
 		for {
 			packet := dsb.emitPacket(common.ChannelIDTransaction)
@@ -186,7 +186,7 @@ func TestConcurrentSendMultipleMessages(t *testing.T) {
 		assert.Equal(byte(0x01), emitEOF)
 
 		emitSeq := <-emitSeqs
-		assert.Equal(0, emitSeq)
+		assert.Equal(uint(0), emitSeq)
 	}
 }
 
@@ -210,7 +210,7 @@ func TestAttemptInsert(t *testing.T) {
 	packet := dsb.emitPacket(common.ChannelIDTransaction)
 	assert.Equal(msgBytes, packet.Bytes)
 	assert.Equal(byte(0x01), packet.IsEOF)
-	assert.Equal(0, packet.SeqID)
+	assert.Equal(uint(0), packet.SeqID)
 
 	success = dsb.attemptInsert(msgBytes)
 	assert.True(success)
@@ -220,7 +220,7 @@ func TestAttemptInsert(t *testing.T) {
 	packet = dsb.emitPacket(common.ChannelIDTransaction)
 	assert.Equal(msgBytes, packet.Bytes)
 	assert.Equal(byte(0x01), packet.IsEOF)
-	assert.Equal(0, packet.SeqID)
+	assert.Equal(uint(0), packet.SeqID)
 }
 
 // --------------- Test Utilities --------------- //

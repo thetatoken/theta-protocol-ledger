@@ -13,7 +13,7 @@ type SendBuffer struct {
 	queueSize int32
 
 	config  SendBufferConfig
-	chanSeq map[common.ChannelIDEnum]int
+	chanSeq map[common.ChannelIDEnum]uint
 }
 
 type SendBufferConfig struct {
@@ -27,7 +27,7 @@ func createSendBuffer(config SendBufferConfig) SendBuffer {
 		workspace: make([]byte, 0),
 		queue:     make(chan []byte, config.queueCapacity),
 		config:    config,
-		chanSeq:   make(map[common.ChannelIDEnum]int),
+		chanSeq:   make(map[common.ChannelIDEnum]uint),
 	}
 }
 
