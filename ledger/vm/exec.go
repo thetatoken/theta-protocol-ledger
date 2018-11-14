@@ -41,15 +41,15 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	if intrinsicGas > gasLimit {
 		return common.Bytes{}, common.Address{}, 0, ErrOutOfGas
 	}
-	gasLimit -= intrinsicGas
 
 	var leftOverGas uint64
+	remainingGas := gasLimit - intrinsicGas
 	if createContract {
 		code := tx.Data
-		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, gasLimit, value)
+		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, remainingGas, value)
 	} else {
 		input := tx.Data
-		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, gasLimit, value)
+		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, remainingGas, value)
 	}
 
 	if leftOverGas > gasLimit { // should not happen
