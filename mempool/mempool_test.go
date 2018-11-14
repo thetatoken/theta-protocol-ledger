@@ -2,6 +2,7 @@ package mempool
 
 import (
 	"context"
+	"math/big"
 	"sync"
 	"testing"
 
@@ -19,14 +20,14 @@ import (
 func TestMempoolBasics(t *testing.T) {
 	assert := assert.New(t)
 
-	tx1 := createTestMempoolTx("tx1")
-	tx2 := createTestMempoolTx("tx2")
-	tx3 := createTestMempoolTx("tx3")
-	tx4 := createTestMempoolTx("tx4")
-	tx5 := createTestMempoolTx("tx5")
-	tx6 := createTestMempoolTx("tx6")
-	tx7 := createTestMempoolTx("tx7")
-	tx8 := createTestMempoolTx("tx8")
+	tx1 := createTestRawTx("tx1")
+	tx2 := createTestRawTx("tx2")
+	tx3 := createTestRawTx("tx3")
+	tx4 := createTestRawTx("tx4")
+	tx5 := createTestRawTx("tx5")
+	tx6 := createTestRawTx("tx6")
+	tx7 := createTestRawTx("tx7")
+	tx8 := createTestRawTx("tx8")
 
 	log.Infof("tx1 hash: %v", getTransactionHash(tx1))
 	log.Infof("tx2 hash: %v", getTransactionHash(tx2))
@@ -168,9 +169,9 @@ func TestMempoolTransactionGossip(t *testing.T) {
 
 	p2psimnet.Start(ctx)
 
-	tx1 := createTestMempoolTx("tx1")
-	tx2 := createTestMempoolTx("tx2")
-	tx3 := createTestMempoolTx("tx3")
+	tx1 := createTestRawTx("tx1")
+	tx2 := createTestRawTx("tx2")
+	tx3 := createTestRawTx("tx3")
 
 	assert.Nil(mempool.InsertTransaction(tx1))
 	assert.Nil(mempool.InsertTransaction(tx2))
@@ -207,8 +208,8 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) (*Mempool, context.Con
 type TestLedger struct {
 }
 
-func (tl *TestLedger) ScreenTx(rawTx common.Bytes) result.Result {
-	return result.OK
+func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*big.Int, result.Result) {
+	return new(big.Int).SetUint64(0), result.OK
 }
 
 func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {

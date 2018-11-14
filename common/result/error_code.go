@@ -13,6 +13,7 @@ const (
 	CodeEmptyPubKeyWithSequence1 ErrorCode = 100004
 	CodeUnauthorizedTx           ErrorCode = 100005
 	CodeInvalidFee               ErrorCode = 100006
+	CodeFailedToCalculateFee     ErrorCode = 100007
 
 	// ReserveFund Errors
 	CodeReserveFundCheckFailed   ErrorCode = 101001

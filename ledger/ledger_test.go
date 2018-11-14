@@ -38,11 +38,11 @@ func TestLedgerScreenTx(t *testing.T) {
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
 	sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[0])
-	res := ledger.ScreenTx(sendTxBytes)
+	_, res := ledger.ScreenTx(sendTxBytes)
 	assert.True(res.IsOK(), res.Message)
 
 	coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
-	res = ledger.ScreenTx(coinbaseTxBytes)
+	_, res = ledger.ScreenTx(coinbaseTxBytes)
 	assert.Equal(result.CodeUnauthorizedTx, res.Code, res.Message)
 }
 
@@ -58,7 +58,7 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 	rawSendTxs := []common.Bytes{}
 	for idx := 0; idx < numMempoolTxs; idx++ {
 		sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[idx])
-		err := mempool.InsertTransaction(mp.CreateMempoolTransaction(sendTxBytes))
+		err := mempool.InsertTransaction(sendTxBytes)
 		assert.Nil(err, fmt.Sprintf("Mempool insertion error: %v", err))
 		rawSendTxs = append(rawSendTxs, sendTxBytes)
 	}

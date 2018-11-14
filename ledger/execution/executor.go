@@ -14,6 +14,7 @@ import (
 type TxExecutor interface {
 	sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result
 	process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result)
+	calculateFee(transaction types.Tx) (types.Coins, error)
 }
 
 //
@@ -51,7 +52,7 @@ func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr c
 		releaseFundTxExec:     NewReleaseFundTxExecutor(state),
 		servicePaymentTxExec:  NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:       NewSplitRuleTxExecutor(state),
-		smartContractTxExec:   NewSmartContractTxExecutor(),
+		smartContractTxExec:   NewSmartContractTxExecutor(state),
 		skipSanityCheck:       false,
 	}
 
@@ -77,6 +78,21 @@ func (exec *Executor) CheckTx(tx types.Tx) (common.Hash, result.Result) {
 // ScreenTx checks the validity of the given transaction
 func (exec *Executor) ScreenTx(tx types.Tx) (common.Hash, result.Result) {
 	return exec.processTx(tx, core.ScreenedView)
+}
+
+// CalculateFee calculates the fee for the transaction
+func (exec *Executor) CalculateFee(tx types.Tx) (types.Coins, result.Result) {
+	txExecutor := exec.getTxExecutor(tx)
+	if txExecutor == nil {
+		return types.NewCoins(0, 0), result.Error("Unknown tx type")
+	}
+
+	fee, err := txExecutor.calculateFee(tx)
+	if err != nil {
+		return types.NewCoins(0, 0), result.Error(
+			"Failed to calculate fee").WithErrorCode(result.CodeFailedToCalculateFee)
+	}
+	return fee, result.OK
 }
 
 // processTx contains the main logic to process the transaction. If the tx is invalid, a TMSP error will be returned.

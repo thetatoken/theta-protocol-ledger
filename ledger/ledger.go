@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"encoding/hex"
+	"math/big"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -71,23 +72,33 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 }
 
 // ScreenTx screens the given transaction
-func (ledger *Ledger) ScreenTx(rawTx common.Bytes) result.Result {
+func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (feeAmount *big.Int, res result.Result) {
 	var tx types.Tx
 	tx, err := types.TxFromBytes(rawTx)
 	if err != nil {
-		return result.Error("Error decoding tx: %v", err)
+		return new(big.Int).SetUint64(0), result.Error("Error decoding tx: %v", err)
 	}
 
 	if ledger.shouldSkipCheckTx(tx) {
-		return result.Error("Unauthorized transaction, should skip").
+		return new(big.Int).SetUint64(0), result.Error("Unauthorized transaction, should skip").
 			WithErrorCode(result.CodeUnauthorizedTx)
 	}
 
 	ledger.mu.RLock()
 	defer ledger.mu.RUnlock()
 
-	_, res := ledger.executor.ScreenTx(tx)
-	return res
+	_, res = ledger.executor.ScreenTx(tx)
+	if res.IsError() {
+		return new(big.Int).SetUint64(0), res
+	}
+
+	fee, res := ledger.executor.CalculateFee(tx)
+	if res.IsError() {
+		return new(big.Int).SetUint64(0), res
+	}
+
+	feeAmount = fee.GammaWei
+	return feeAmount, res
 }
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl

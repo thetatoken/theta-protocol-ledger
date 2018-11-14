@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/mempool"
 )
 
 // ------------------------------- BroadcastRawTransaction -----------------------------------
@@ -27,5 +26,5 @@ func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request, args *Broadcas
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
-	return t.mempool.InsertTransaction(mempool.CreateMempoolTransaction(txBytes))
+	return t.mempool.InsertTransaction(txBytes)
 }

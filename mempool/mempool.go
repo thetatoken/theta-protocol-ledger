@@ -3,6 +3,7 @@ package mempool
 import (
 	"context"
 	"errors"
+	"math/big"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -22,13 +23,15 @@ func (m MempoolError) Error() string {
 
 const DuplicateTxError = MempoolError("Transaction already seen")
 
-type MempoolTransaction struct {
+type mempoolTransaction struct {
 	rawTransaction common.Bytes
+	feeAmount      *big.Int
 }
 
-func CreateMempoolTransaction(rawTransaction common.Bytes) *MempoolTransaction {
-	return &MempoolTransaction{
+func createMempoolTransaction(rawTransaction common.Bytes, feeAmount *big.Int) *mempoolTransaction {
+	return &mempoolTransaction{
 		rawTransaction: rawTransaction,
+		feeAmount:      feeAmount,
 	}
 }
 
@@ -70,17 +73,16 @@ func (mp *Mempool) SetLedger(ledger core.Ledger) {
 }
 
 // InsertTransaction inserts the incoming transaction to mempool (submitted by the clients or relayed from peers)
-func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
+func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
-	if mp.txBookeepper.hasSeen(mptx) {
-		log.Infof("Transaction already seen: %v", mptx)
+	if mp.txBookeepper.hasSeen(rawTx) {
+		log.Infof("Transaction already seen: %v", rawTx)
 		return DuplicateTxError
 	}
 
-	txBytes := mptx.rawTransaction
-	checkTxRes := mp.ledger.ScreenTx(txBytes)
+	feeAmount, checkTxRes := mp.ledger.ScreenTx(rawTx)
 	if !checkTxRes.IsOK() {
 		return errors.New(checkTxRes.Message)
 	}
@@ -90,7 +92,9 @@ func (mp *Mempool) InsertTransaction(mptx *MempoolTransaction) error {
 	// sequence for an account is 6. The account accidently submits txA (seq = 7), got rejected.
 	// He then submit txB(seq = 6), and then txA(seq = 7) again. For the second submission, txA
 	// should not be rejected even though it has been submitted earlier.
-	mp.txBookeepper.record(mptx)
+	mp.txBookeepper.record(rawTx)
+
+	mptx := createMempoolTransaction(rawTx, feeAmount)
 	mp.txCandidates.PushBack(mptx)
 
 	return nil
@@ -152,7 +156,7 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 
 	txs := make([]common.Bytes, 0, maxNumTxs)
 	for e := mp.txCandidates.Front(); e != nil && len(txs) < maxNumTxs; e = e.Next() {
-		mptx := e.Value.(*MempoolTransaction)
+		mptx := e.Value.(*mempoolTransaction)
 		txs = append(txs, mptx.rawTransaction)
 	}
 
@@ -170,7 +174,7 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 	}
 
 	for e := mp.txCandidates.Front(); e != nil; e = e.Next() {
-		rawmptx := e.Value.(*MempoolTransaction).rawTransaction
+		rawmptx := e.Value.(*mempoolTransaction).rawTransaction
 		if _, exists := committedRawTxMap[string(rawmptx[:])]; exists {
 			mp.txCandidates.Remove(e)
 			e.DetachPrev()
@@ -210,7 +214,7 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			next = mp.txCandidates.FrontWait() // Wait until a tx is available
 		}
 
-		mptx := next.Value.(*MempoolTransaction)
+		mptx := next.Value.(*mempoolTransaction)
 
 		// Broadcast the transaction
 		data := dp.DataResponse{

@@ -22,16 +22,16 @@ func TestMempoolMessageHandler(t *testing.T) {
 	go func() {
 		mmh := CreateMempoolMessageHandler(mempool)
 
-		tx1 := createTestMempoolTx("tx1")
-		tx2 := createTestMempoolTx("tx2")
-		tx3 := createTestMempoolTx("tx3")
-		txs := [](*MempoolTransaction){tx1, tx2, tx3}
+		tx1 := createTestRawTx("tx1")
+		tx2 := createTestRawTx("tx2")
+		tx3 := createTestRawTx("tx3")
+		txs := []common.Bytes{tx1, tx2, tx3}
 
-		for _, tx := range txs {
+		for _, rawTx := range txs {
 			dataResponse := dp.DataResponse{
 				ChannelID: common.ChannelIDTransaction,
 				Checksum:  []byte(""),
-				Payload:   tx.rawTransaction,
+				Payload:   rawTx,
 			}
 			contentBytes, err := rlp.EncodeToBytes(dataResponse)
 			if err != nil {

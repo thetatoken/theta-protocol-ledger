@@ -98,3 +98,9 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, t
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
 }
+
+func (exec *ReleaseFundTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	tx := transaction.(*types.ReleaseFundTx)
+	fee := tx.Fee
+	return fee, nil
+}
