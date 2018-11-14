@@ -18,6 +18,7 @@
 package keystore
 
 import (
+	"bytes"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -109,7 +110,7 @@ func testDecrypt(test KeyStoreTest, t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	privHex := hex.EncodeToString(key.PrivateKey.ToBytes())
+	privHex := hex.EncodeToString(bytes.Trim(key.PrivateKey.ToBytes(), "\x00"))
 	if test.Priv != privHex {
 		t.Fatal(fmt.Errorf("Decrypted bytes not equal to test, expected %v have %v", test.Priv, privHex))
 	}
