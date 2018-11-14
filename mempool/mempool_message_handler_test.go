@@ -15,7 +15,7 @@ func TestMempoolMessageHandler(t *testing.T) {
 	assert := assert.New(t)
 
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
-	mempool := newTestMempool("peer0", p2psimnet)
+	mempool, _ := newTestMempool("peer0", p2psimnet)
 
 	// Simulate receiving a transaction gossip message from the p2p network
 	txReceivedChan := make(chan bool)

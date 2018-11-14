@@ -1,6 +1,7 @@
 package ledger
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -164,8 +165,9 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 	ledger = NewLedger(chainID, db, consensus, valMgr, mempool)
 	mempool.SetLedger(ledger)
 
-	messenger.Start()
-	mempool.Start()
+	ctx := context.Background()
+	messenger.Start(ctx)
+	mempool.Start(ctx)
 
 	initHeight := uint64(1)
 	initRootHash := common.Hash{}

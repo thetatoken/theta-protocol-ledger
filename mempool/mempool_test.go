@@ -38,7 +38,7 @@ func TestMempoolBasics(t *testing.T) {
 	log.Infof("tx8 hash: %v", getTransactionHash(tx8))
 
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
-	mempool := newTestMempool("peer0", p2psimnet)
+	mempool, _ := newTestMempool("peer0", p2psimnet)
 
 	// ProcessTransaction operation
 	log.Infof("----- Process tx1, tx2, tx3 -----")
@@ -156,17 +156,17 @@ func TestMempoolTransactionGossip(t *testing.T) {
 	p2psimnet := p2psim.NewSimnetWithHandler(netMsgIntercepter)
 
 	// Add our node
-	mempool := newTestMempool("peer0", p2psimnet)
-	mempool.Start()
+	mempool, ctx := newTestMempool("peer0", p2psimnet)
+	mempool.Start(ctx)
 
 	// Add two peer nodes
 	peer1 := p2psimnet.AddEndpoint("peer1")
-	peer1.Start()
+	peer1.Start(ctx)
 
 	peer2 := p2psimnet.AddEndpoint("peer2")
-	peer2.Start()
+	peer2.Start(ctx)
 
-	p2psimnet.Start(context.Background())
+	p2psimnet.Start(ctx)
 
 	tx1 := createTestMempoolTx("tx1")
 	tx2 := createTestMempoolTx("tx2")
@@ -191,15 +191,17 @@ func TestMempoolTransactionGossip(t *testing.T) {
 
 // --------------- Test Utilities --------------- //
 
-func newTestMempool(peerID string, simnet *p2psim.Simnet) *Mempool {
+func newTestMempool(peerID string, simnet *p2psim.Simnet) (*Mempool, context.Context) {
+	ctx := context.Background()
+
 	messenger := simnet.AddEndpoint(peerID)
 	dispatcher := dp.NewDispatcher(messenger)
 	mempool := CreateMempool(dispatcher)
 	mempool.SetLedger(newTestLedger())
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
-	messenger.Start()
-	return mempool
+	messenger.Start(ctx)
+	return mempool, ctx
 }
 
 type TestLedger struct {
