@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"sort"
 
@@ -39,8 +40,8 @@ func (v Validator) Address() common.Address {
 }
 
 // ID returns the ID of the validator, which is the string representation of its address.
-func (v Validator) ID() string {
-	return v.pubKey.Address().Hex()
+func (v Validator) ID() common.Address {
+	return v.pubKey.Address()
 }
 
 // Stake returns the stake of the validator.
@@ -79,10 +80,10 @@ type ByID []Validator
 
 func (b ByID) Len() int           { return len(b) }
 func (b ByID) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b ByID) Less(i, j int) bool { return b[i].ID() < b[j].ID() }
+func (b ByID) Less(i, j int) bool { return bytes.Compare(b[i].ID().Bytes(), b[j].ID().Bytes()) < 0 }
 
 // GetValidator returns a validator if a matching ID is found.
-func (s *ValidatorSet) GetValidator(id string) (Validator, error) {
+func (s *ValidatorSet) GetValidator(id common.Address) (Validator, error) {
 	for _, v := range s.validators {
 		if v.ID() == id {
 			return v, nil

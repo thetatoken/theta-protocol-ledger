@@ -19,10 +19,9 @@ type StateStub struct {
 }
 
 const (
-	DBStateStubKey       = "cs/ss"
-	DBVoteByHeightPrefix = "cs/vbh/"
-	DBVoteByBlockPrefix  = "cs/vbb/"
-	DBEpochVotesKey      = "cs/ev"
+	DBStateStubKey      = "cs/ss"
+	DBVoteByBlockPrefix = "cs/vbb/"
+	DBEpochVotesKey     = "cs/ev"
 )
 
 type State struct {
@@ -176,31 +175,7 @@ func (s *State) AddVote(vote *core.Vote) error {
 	if err := s.AddVoteByBlock(vote); err != nil {
 		return err
 	}
-	if err := s.AddVoteByHeight(vote); err != nil {
-		return err
-	}
 	return nil
-}
-
-func (s *State) GetVoteSetByHeight(height uint64) (*core.VoteSet, error) {
-	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
-	ret := core.NewVoteSet()
-	err := s.db.Get(key, ret)
-	return ret, err
-}
-
-func (s *State) AddVoteByHeight(vote *core.Vote) error {
-	if vote.Block == nil {
-		return nil
-	}
-	height := vote.Block.Height
-	voteset, err := s.GetVoteSetByHeight(height)
-	if err != nil {
-		voteset = core.NewVoteSet()
-	}
-	voteset.AddVote(*vote)
-	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
-	return s.db.Put(key, voteset)
 }
 
 func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
@@ -211,16 +186,15 @@ func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
 }
 
 func (s *State) AddVoteByBlock(vote *core.Vote) error {
-	if vote.Block == nil {
+	if vote.Block.IsEmpty() {
 		return nil
 	}
-	hash := vote.Block.Hash()
-	voteset, err := s.GetVoteSetByBlock(hash)
+	voteset, err := s.GetVoteSetByBlock(vote.Block)
 	if err != nil {
 		voteset = core.NewVoteSet()
 	}
 	voteset.AddVote(*vote)
-	key := append([]byte(DBVoteByBlockPrefix), hash[:]...)
+	key := append([]byte(DBVoteByBlockPrefix), vote.Block[:]...)
 	return s.db.Put(key, voteset)
 }
 

@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
@@ -220,6 +221,21 @@ func (sig *Signature) RecoverSignerAddress(msg common.Bytes) (common.Address, er
 
 	address := pk.Address()
 	return address, nil
+}
+
+// VerifyBytes verifies the signature with given raw message and address.
+func (sig *Signature) VerifyBytes(msg common.Bytes, addr common.Address) result.Result {
+	if sig == nil || sig.IsEmpty() {
+		return result.Error("Signature is empty")
+	}
+	recoveredAddress, err := sig.RecoverSignerAddress(msg)
+	if err != nil {
+		return result.Error(err.Error())
+	}
+	if recoveredAddress != addr {
+		return result.Error("Signature verification failed")
+	}
+	return result.OK
 }
 
 // GenerateKeyPair generates a random private/public key pair

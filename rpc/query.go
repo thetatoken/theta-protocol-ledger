@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -64,11 +65,11 @@ type GetTransactionArgs struct {
 }
 
 type GetTransactionResult struct {
-	BlockHash   common.Hash `json:"block_hash"`
-	BlockHeight uint64      `json:"block_height"`
-	Status      TxStatus    `json:"status"`
-	TxHash      common.Hash `json:"hash"`
-	Tx          types.Tx    `json:"transaction"`
+	BlockHash   common.Hash       `json:"block_hash"`
+	BlockHeight common.JSONUint64 `json:"block_height"`
+	Status      TxStatus          `json:"status"`
+	TxHash      common.Hash       `json:"hash"`
+	Tx          types.Tx          `json:"transaction"`
 }
 
 type TxStatus string
@@ -91,9 +92,9 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 	}
 	result.TxHash = hash
 	result.BlockHash = block.Hash()
-	result.BlockHeight = block.Height
+	result.BlockHeight = common.JSONUint64(block.Height)
 
-	if block.Finalized {
+	if block.Status == core.BlockStatusFinalized {
 		result.Status = TxStatusFinalized
 	} else {
 		result.Status = TxStatusPending
