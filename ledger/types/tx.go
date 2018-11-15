@@ -68,11 +68,52 @@ func encodeToBytes(str string) []byte {
 //-----------------------------------------------------------------------------
 
 type TxInput struct {
+	Address   common.Address // Hash of the PubKey
+	Coins     Coins
+	Sequence  uint64            // Must be 1 greater than the last committed TxInput
+	Signature *crypto.Signature // Depends on the PubKey type and the whole Tx
+	PubKey    *crypto.PublicKey // Is present iff Sequence == 0
+}
+
+type TxInputJSON struct {
 	Address   common.Address    `json:"address"`   // Hash of the PubKey
 	Coins     Coins             `json:"coins"`     //
-	Sequence  uint64            `json:"sequence"`  // Must be 1 greater than the last committed TxInput
+	Sequence  common.JSONUint64 `json:"sequence"`  // Must be 1 greater than the last committed TxInput
 	Signature *crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
 	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
+}
+
+func NewTxInputJSON(a TxInput) TxInputJSON {
+	return TxInputJSON{
+		Address:   a.Address,
+		Coins:     a.Coins,
+		Sequence:  common.JSONUint64(a.Sequence),
+		Signature: a.Signature,
+		PubKey:    a.PubKey,
+	}
+}
+
+func (a TxInputJSON) TxInput() TxInput {
+	return TxInput{
+		Address:   a.Address,
+		Coins:     a.Coins,
+		Sequence:  uint64(a.Sequence),
+		Signature: a.Signature,
+		PubKey:    a.PubKey,
+	}
+}
+
+func (a TxInput) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewTxInputJSON(a))
+}
+
+func (a *TxInput) UnmarshalJSON(data []byte) error {
+	var b TxInputJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.TxInput()
+	return nil
 }
 
 func (txIn TxInput) ValidateBasic() result.Result {
@@ -146,9 +187,44 @@ func (txOut TxOutput) String() string {
 //-----------------------------------------------------------------------------
 
 type CoinbaseTx struct {
-	Proposer    TxInput    `json:"proposer"`
-	Outputs     []TxOutput `json:"outputs"`
-	BlockHeight uint64     `json:"block_height"`
+	Proposer    TxInput
+	Outputs     []TxOutput
+	BlockHeight uint64
+}
+
+type CoinbaseTxJSON struct {
+	Proposer    TxInput           `json:"proposer"`
+	Outputs     []TxOutput        `json:"outputs"`
+	BlockHeight common.JSONUint64 `json:"block_height"`
+}
+
+func NewCoinbaseTxJSON(a CoinbaseTx) CoinbaseTxJSON {
+	return CoinbaseTxJSON{
+		Proposer:    a.Proposer,
+		Outputs:     a.Outputs,
+		BlockHeight: common.JSONUint64(a.BlockHeight),
+	}
+}
+
+func (a CoinbaseTxJSON) CoinbaseTx() CoinbaseTx {
+	return CoinbaseTx{
+		Proposer:    a.Proposer,
+		Outputs:     a.Outputs,
+		BlockHeight: uint64(a.BlockHeight),
+	}
+}
+
+func (a CoinbaseTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewCoinbaseTxJSON(a))
+}
+
+func (a *CoinbaseTx) UnmarshalJSON(data []byte) error {
+	var b CoinbaseTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.CoinbaseTx()
+	return nil
 }
 
 func (_ *CoinbaseTx) AssertIsTx() {}
@@ -178,10 +254,48 @@ func (tx *CoinbaseTx) String() string {
 //-----------------------------------------------------------------------------
 
 type SlashTx struct {
-	Proposer        TxInput        `json:"proposer"`
-	SlashedAddress  common.Address `json:"slashed_address"`
-	ReserveSequence uint64         `json:"reserved_sequence"`
-	SlashProof      common.Bytes   `json:"slash_proof"`
+	Proposer        TxInput
+	SlashedAddress  common.Address
+	ReserveSequence uint64
+	SlashProof      common.Bytes
+}
+
+type SlashTxJSON struct {
+	Proposer        TxInput           `json:"proposer"`
+	SlashedAddress  common.Address    `json:"slashed_address"`
+	ReserveSequence common.JSONUint64 `json:"reserved_sequence"`
+	SlashProof      common.Bytes      `json:"slash_proof"`
+}
+
+func NewSlashTxJSON(a SlashTx) SlashTxJSON {
+	return SlashTxJSON{
+		Proposer:        a.Proposer,
+		SlashedAddress:  a.SlashedAddress,
+		ReserveSequence: common.JSONUint64(a.ReserveSequence),
+		SlashProof:      a.SlashProof,
+	}
+}
+
+func (a SlashTxJSON) SlashTx() SlashTx {
+	return SlashTx{
+		Proposer:        a.Proposer,
+		SlashedAddress:  a.SlashedAddress,
+		ReserveSequence: uint64(a.ReserveSequence),
+		SlashProof:      a.SlashProof,
+	}
+}
+
+func (a SlashTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewSlashTxJSON(a))
+}
+
+func (a *SlashTx) UnmarshalJSON(data []byte) error {
+	var b SlashTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.SlashTx()
+	return nil
 }
 
 func (_ *SlashTx) AssertIsTx() {}
@@ -252,11 +366,60 @@ func (tx *SendTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReserveFundTx struct {
+<<<<<<< HEAD
 	Fee         Coins    `json:"fee"`          // Fee
 	Source      TxInput  `json:"source"`       // Source account
 	Collateral  Coins    `json:"collateral"`   // Collateral for the micropayment pool
 	ResourceIDs []string `json:"resource_ids"` // List of resource ID
 	Duration    uint64   `json:"duration"`
+=======
+	Fee         Coins          // Fee
+	Source      TxInput        // Source account
+	Collateral  Coins          // Collateral for the micropayment pool
+	ResourceIDs []common.Bytes // List of resource ID
+	Duration    uint64
+}
+
+type ReserveFundTxJSON struct {
+	Fee         Coins             `json:"fee"`          // Fee
+	Source      TxInput           `json:"source"`       // Source account
+	Collateral  Coins             `json:"collateral"`   // Collateral for the micropayment pool
+	ResourceIDs []common.Bytes    `json:"resource_ids"` // List of resource ID
+	Duration    common.JSONUint64 `json:"duration"`
+}
+
+func NewReserveFundTxJSON(a ReserveFundTx) ReserveFundTxJSON {
+	return ReserveFundTxJSON{
+		Fee:         a.Fee,
+		Source:      a.Source,
+		Collateral:  a.Collateral,
+		ResourceIDs: a.ResourceIDs,
+		Duration:    common.JSONUint64(a.Duration),
+	}
+}
+
+func (a ReserveFundTxJSON) ReserveFundTx() ReserveFundTx {
+	return ReserveFundTx{
+		Fee:         a.Fee,
+		Source:      a.Source,
+		Collateral:  a.Collateral,
+		ResourceIDs: a.ResourceIDs,
+		Duration:    uint64(a.Duration),
+	}
+}
+
+func (a ReserveFundTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewReserveFundTxJSON(a))
+}
+
+func (a *ReserveFundTx) UnmarshalJSON(data []byte) error {
+	var b ReserveFundTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.ReserveFundTx()
+	return nil
+>>>>>>> Update format of uint64 and big.Int fields in RPC payload.
 }
 
 func (_ *ReserveFundTx) AssertIsTx() {}
@@ -287,9 +450,44 @@ func (tx *ReserveFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ReleaseFundTx struct {
-	Fee             Coins   `json:"fee"`    // Fee
-	Source          TxInput `json:"source"` // source account
-	ReserveSequence uint64  `json:"reserve_sequence"`
+	Fee             Coins   // Fee
+	Source          TxInput // source account
+	ReserveSequence uint64
+}
+
+type ReleaseFundTxJSON struct {
+	Fee             Coins             `json:"fee"`    // Fee
+	Source          TxInput           `json:"source"` // source account
+	ReserveSequence common.JSONUint64 `json:"reserve_sequence"`
+}
+
+func NewReleaseFundTxJSON(a ReleaseFundTx) ReleaseFundTxJSON {
+	return ReleaseFundTxJSON{
+		Fee:             a.Fee,
+		Source:          a.Source,
+		ReserveSequence: common.JSONUint64(a.ReserveSequence),
+	}
+}
+
+func (a ReleaseFundTxJSON) ReleaseFundTx() ReleaseFundTx {
+	return ReleaseFundTx{
+		Fee:             a.Fee,
+		Source:          a.Source,
+		ReserveSequence: uint64(a.ReserveSequence),
+	}
+}
+
+func (a ReleaseFundTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewReleaseFundTxJSON(a))
+}
+
+func (a *ReleaseFundTx) UnmarshalJSON(data []byte) error {
+	var b ReleaseFundTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.ReleaseFundTx()
+	return nil
 }
 
 func (_ *ReleaseFundTx) AssertIsTx() {}
@@ -319,12 +517,56 @@ func (tx *ReleaseFundTx) String() string {
 //-----------------------------------------------------------------------------
 
 type ServicePaymentTx struct {
-	Fee             Coins   `json:"fee"`              // Fee
-	Source          TxInput `json:"source"`           // source account
-	Target          TxInput `json:"target"`           // target account
-	PaymentSequence uint64  `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
-	ReserveSequence uint64  `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
-	ResourceID      string  `json:"resource_id"`      // The corresponding resourceID
+	Fee             Coins        // Fee
+	Source          TxInput      // source account
+	Target          TxInput      // target account
+	PaymentSequence uint64       // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence uint64       // ReserveSequence to locate the ReservedFund
+	ResourceID      string // The corresponding resourceID
+}
+
+type ServicePaymentTxJSON struct {
+	Fee             Coins             `json:"fee"`              // Fee
+	Source          TxInput           `json:"source"`           // source account
+	Target          TxInput           `json:"target"`           // target account
+	PaymentSequence common.JSONUint64 `json:"payment_sequence"` // each on-chain settlement needs to increase the payment sequence by 1
+	ReserveSequence common.JSONUint64 `json:"reserve_sequence"` // ReserveSequence to locate the ReservedFund
+	ResourceID      common.Bytes      `json:"resource_id"`      // The corresponding resourceID
+}
+
+func NewServicePaymentTxJSON(a ServicePaymentTx) ServicePaymentTxJSON {
+	return ServicePaymentTxJSON{
+		Fee:             a.Fee,
+		Source:          a.Source,
+		Target:          a.Target,
+		PaymentSequence: common.JSONUint64(a.PaymentSequence),
+		ReserveSequence: common.JSONUint64(a.ReserveSequence),
+		ResourceID:      a.ResourceID,
+	}
+}
+
+func (a ServicePaymentTxJSON) ServicePaymentTx() ServicePaymentTx {
+	return ServicePaymentTx{
+		Fee:             a.Fee,
+		Source:          a.Source,
+		Target:          a.Target,
+		PaymentSequence: uint64(a.PaymentSequence),
+		ReserveSequence: uint64(a.ReserveSequence),
+		ResourceID:      a.ResourceID,
+	}
+}
+
+func (a ServicePaymentTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewServicePaymentTxJSON(a))
+}
+
+func (a *ServicePaymentTx) UnmarshalJSON(data []byte) error {
+	var b ServicePaymentTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.ServicePaymentTx()
+	return nil
 }
 
 func (_ *ServicePaymentTx) AssertIsTx() {}
@@ -394,11 +636,52 @@ func (tx *ServicePaymentTx) TxBytes() ([]byte, error) {
 //-----------------------------------------------------------------------------
 
 type SplitRuleTx struct {
-	Fee        Coins   `json:"fee"`         // Fee
-	ResourceID string  `json:"resource_id"` // ResourceID of the payment to be split
-	Initiator  TxInput `json:"initiator"`   // Initiator of the split rule
-	Splits     []Split `json:"splits"`      // Agreed splits
-	Duration   uint64  `json:"duration"`    // Duration of the payment split in terms of blocks
+	Fee        Coins        // Fee
+	ResourceID string // ResourceID of the payment to be split
+	Initiator  TxInput      // Initiator of the split rule
+	Splits     []Split      // Agreed splits
+	Duration   uint64       // Duration of the payment split in terms of blocks
+}
+
+type SplitRuleTxJSON struct {
+	Fee        Coins             `json:"fee"`         // Fee
+	ResourceID common.Bytes      `json:"resource_id"` // ResourceID of the payment to be split
+	Initiator  TxInput           `json:"initiator"`   // Initiator of the split rule
+	Splits     []Split           `json:"splits"`      // Agreed splits
+	Duration   common.JSONUint64 `json:"duration"`    // Duration of the payment split in terms of blocks
+}
+
+func NewSplitRuleTxJSON(a SplitRuleTx) SplitRuleTxJSON {
+	return SplitRuleTxJSON{
+		Fee:        a.Fee,
+		ResourceID: a.ResourceID,
+		Initiator:  a.Initiator,
+		Splits:     a.Splits,
+		Duration:   common.JSONUint64(a.Duration),
+	}
+}
+
+func (a SplitRuleTxJSON) SplitRuleTx() SplitRuleTx {
+	return SplitRuleTx{
+		Fee:        a.Fee,
+		ResourceID: a.ResourceID,
+		Initiator:  a.Initiator,
+		Splits:     a.Splits,
+		Duration:   uint64(a.Duration),
+	}
+}
+
+func (a SplitRuleTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewSplitRuleTxJSON(a))
+}
+
+func (a *SplitRuleTx) UnmarshalJSON(data []byte) error {
+	var b SplitRuleTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.SplitRuleTx()
+	return nil
 }
 
 func (_ *SplitRuleTx) AssertIsTx() {}
@@ -462,11 +745,52 @@ func (tx *UpdateValidatorsTx) String() string {
 //-----------------------------------------------------------------------------
 
 type SmartContractTx struct {
-	From     TxInput      `json:"from"`
-	To       TxOutput     `json:"to"`
-	GasLimit uint64       `json:"gas_limit"`
-	GasPrice *big.Int     `json:"gas_price"`
-	Data     common.Bytes `json:"data"`
+	From     TxInput
+	To       TxOutput
+	GasLimit uint64
+	GasPrice *big.Int
+	Data     common.Bytes
+}
+
+type SmartContractTxJSON struct {
+	From     TxInput           `json:"from"`
+	To       TxOutput          `json:"to"`
+	GasLimit common.JSONUint64 `json:"gas_limit"`
+	GasPrice *common.JSONBig   `json:"gas_price"`
+	Data     common.Bytes      `json:"data"`
+}
+
+func NewSmartContractTxJSON(a SmartContractTx) SmartContractTxJSON {
+	return SmartContractTxJSON{
+		From:     a.From,
+		To:       a.To,
+		GasLimit: common.JSONUint64(a.GasLimit),
+		GasPrice: (*common.JSONBig)(a.GasPrice),
+		Data:     a.Data,
+	}
+}
+
+func (a SmartContractTxJSON) SmartContractTx() SmartContractTx {
+	return SmartContractTx{
+		From:     a.From,
+		To:       a.To,
+		GasLimit: uint64(a.GasLimit),
+		GasPrice: (*big.Int)(a.GasPrice),
+		Data:     a.Data,
+	}
+}
+
+func (a SmartContractTx) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewSmartContractTxJSON(a))
+}
+
+func (a *SmartContractTx) UnmarshalJSON(data []byte) error {
+	var b SmartContractTxJSON
+	if err := json.Unmarshal(data, &b); err != nil {
+		return err
+	}
+	*a = b.SmartContractTx()
+	return nil
 }
 
 func (_ *SmartContractTx) AssertIsTx() {}

@@ -76,7 +76,7 @@ func NewNode(params *Params) *Node {
 		Mempool:          mempool,
 	}
 
-	if viper.GetBool(common.CfgP2PEnabled) {
+	if viper.GetBool(common.CfgP2P) {
 		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain)
 	}
 
@@ -94,7 +94,7 @@ func (n *Node) Start(ctx context.Context) {
 	n.Network.Start()
 	n.Mempool.Start()
 
-	if viper.GetBool(common.CfgP2PEnabled) {
+	if viper.GetBool(common.CfgP2P) {
 		n.RPC.Start(n.ctx)
 	}
 }

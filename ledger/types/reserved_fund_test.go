@@ -1,9 +1,12 @@
 package types
 
 import (
+	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestHasResourceID(t *testing.T) {
@@ -37,4 +40,21 @@ func TestRecordTransfer(t *testing.T) {
 	rf.RecordTransfer(&sp3)
 
 	assert.Equal(len(rf.TransferRecords), 3)
+}
+
+func TestReserveFundJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	reserveFund := ReservedFund{
+		EndBlockHeight: math.MaxUint64,
+	}
+
+	s, err := json.Marshal(reserveFund)
+	require.Nil(err)
+
+	var d ReservedFund
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.EndBlockHeight)
 }

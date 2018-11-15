@@ -16,8 +16,8 @@ const (
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
 
-	// CfgP2PEnabled sets whether to run RPC service.
-	CfgP2PEnabled = "p2p.enabled"
+	// CfgP2P sets whether to run RPC service.
+	CfgP2P = "p2p"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
 	// CfgP2PPort sets the port used by P2P network.
@@ -54,7 +54,7 @@ func init() {
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 
-	viper.SetDefault(CfgP2PEnabled, false)
+	viper.SetDefault(CfgP2P, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)

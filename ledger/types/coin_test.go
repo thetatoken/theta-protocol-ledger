@@ -1,10 +1,12 @@
 package types
 
 import (
+	"encoding/json"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestCoins(t *testing.T) {
@@ -116,4 +118,21 @@ func TestParseCoinAmount(t *testing.T) {
 	assert.True(ok)
 	assert.True(big.NewInt(1000).Cmp(ret) == 0)
 
+func TestJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	num, ok := new(big.Int).SetString("12313123123123123131123123313212312312312312123", 10)
+	require.True(ok)
+
+	c := Coins{
+		ThetaWei: num,
+	}
+	s, err := json.Marshal(c)
+	require.Nil(err)
+
+	var d Coins
+	err = json.Unmarshal(s, &d)
+	assert.Equal(0, num.Cmp(d.ThetaWei))
+	assert.Nil(d.GammaWei)
 }
