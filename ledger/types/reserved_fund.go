@@ -26,7 +26,7 @@ type ReservedFundJSON struct {
 	Collateral      Coins             `json:"collateral"`
 	InitialFund     Coins             `json:"initial_fund"`
 	UsedFund        Coins             `json:"used_fund"`
-	ResourceIDs     []common.Bytes    `json:"resource_ids"` // List of resource ID
+	ResourceIDs     []string          `json:"resource_ids"` // List of resource ID
 	EndBlockHeight  common.JSONUint64 `json:"end_block_height"`
 	ReserveSequence common.JSONUint64 `json:"reserve_sequence"` // sequence number of the corresponding ReserveFundTx transaction
 	TransferRecords []TransferRecord  `json:"transfer_records"` // signed ServerPaymentTransactions

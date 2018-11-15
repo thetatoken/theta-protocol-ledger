@@ -117,6 +117,7 @@ func TestParseCoinAmount(t *testing.T) {
 	ret, ok = ParseCoinAmount("1e3Wei")
 	assert.True(ok)
 	assert.True(big.NewInt(1000).Cmp(ret) == 0)
+}
 
 func TestJSON(t *testing.T) {
 	assert := assert.New(t)

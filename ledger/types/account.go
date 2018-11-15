@@ -29,7 +29,7 @@ type AccountJSON struct {
 	ReservedFunds          []ReservedFund    `json:"reserved_funds"`
 	LastUpdatedBlockHeight common.JSONUint64 `json:"last_updated_block_height"`
 	Root                   common.Hash       `json:"root"`
-	CodeHash               common.Bytes      `json:"code"`
+	CodeHash               common.Hash       `json:"code"`
 }
 
 func NewAccountJSON(acc Account) AccountJSON {

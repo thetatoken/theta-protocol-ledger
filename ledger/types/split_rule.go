@@ -26,7 +26,7 @@ type SplitRule struct {
 
 type SplitRuleJSON struct {
 	InitiatorAddress common.Address    `json:"initiator_address"` // Address of the initiator
-	ResourceID       common.Bytes      `json:"resource_id"`       // ResourceID of the payment to be split
+	ResourceID       string            `json:"resource_id"`       // ResourceID of the payment to be split
 	Splits           []Split           `json:"splits"`            // Splits of the payments
 	EndBlockHeight   common.JSONUint64 `json:"end_block_height"`  // The block height when the split rule expires
 
