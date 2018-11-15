@@ -67,12 +67,19 @@ func (h *BlockHeader) String() string {
 		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
+type BlockStatus byte
+
+const (
+	BlockStatusPending BlockStatus = BlockStatus(iota)
+	BlockStatusCommitted
+	BlockStatusFinalized
+)
+
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Children          []common.Hash
-	CommitCertificate *CommitCertificate `rlp:"nil"`
-	Finalized         bool
+	Children []common.Hash
+	Status   BlockStatus
 }
 
 // Hash of header.
@@ -94,7 +101,7 @@ func (eb *ExtendedBlock) String() string {
 		children.WriteString(c.String())
 	}
 	children.WriteString("]")
-	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, CC: %v}", eb.Block, eb.Parent.String(), children, eb.CommitCertificate)
+	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, Status: %v}", eb.Block, eb.Parent.String(), children, eb.Status)
 }
 
 // ShortString returns a short string describing the block.

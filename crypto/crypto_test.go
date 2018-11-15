@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 )
@@ -125,6 +124,37 @@ func TestAddressRecovery(t *testing.T) {
 
 	log.Infof("real address: %v", address)
 	log.Infof("fake address: %v", fakeAddr)
+}
+
+func TestSignaureVerifyBytes(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, pubKey, err := TEST_GenerateKeyPairWithSeed("test_seed")
+	assert.Nil(err)
+	addr := pubKey.Address()
+
+	msg1 := common.Bytes("Hello world!")
+	msg2 := common.Bytes("Foo bar!")
+	sig1, err := privKey.Sign(msg1)
+	assert.Nil(err)
+	sig2, err := privKey.Sign(msg2)
+	assert.Nil(err)
+	assert.True(sig1.VerifyBytes(msg1, addr).IsOK())
+	assert.True(sig2.VerifyBytes(msg1, addr).IsError())
+
+	// Should not panic
+	nilSig := (*Signature)(nil)
+	assert.True(nilSig.VerifyBytes(msg1, addr).IsError())
+
+	emptySig, err := SignatureFromBytes(common.Bytes{})
+	assert.Nil(err)
+	assert.True(emptySig.VerifyBytes(msg1, addr).IsError())
+
+	emptyAddr := common.BytesToAddress(common.Bytes{})
+	assert.True(sig1.VerifyBytes(msg1, emptyAddr).IsError())
+
+	anotherAddr := common.BytesToAddress(common.Bytes("hello"))
+	assert.True(sig1.VerifyBytes(msg1, anotherAddr).IsError())
 }
 
 func TestSignatureVerification1(t *testing.T) {

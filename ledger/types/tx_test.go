@@ -2,7 +2,9 @@ package types
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 
@@ -656,4 +658,119 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// and make sure the sig is preserved
 	assert.Equal(tx.Proposer.Signature, tx2.Proposer.Signature)
 	assert.False(tx2.Proposer.Signature.IsEmpty())
+}
+
+func TestCoinbaseTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := CoinbaseTx{
+		BlockHeight: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d CoinbaseTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.BlockHeight)
+}
+
+func TestSlashTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := SlashTx{
+		ReserveSequence: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d SlashTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.ReserveSequence)
+}
+
+func TestReserveFundTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := ReserveFundTx{
+		Duration: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d ReserveFundTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.Duration)
+}
+
+func TestReleaseFundTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := ReleaseFundTx{
+		ReserveSequence: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d ReleaseFundTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.ReserveSequence)
+}
+
+func TestServicePaymentTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := ServicePaymentTx{
+		ReserveSequence: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d ServicePaymentTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.ReserveSequence)
+}
+
+func TestSplitRuleTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	a := SplitRuleTx{
+		Duration: math.MaxUint64,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d SplitRuleTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.Duration)
+}
+
+func TestSmartContractTxJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	gasPrice, _ := new(big.Int).SetString("12312312312312312312331231231231212312312312312313213", 10)
+	a := SmartContractTx{
+		GasLimit: math.MaxUint64,
+		GasPrice: gasPrice,
+	}
+	s, err := json.Marshal(a)
+	require.Nil(err)
+
+	var d SmartContractTx
+	err = json.Unmarshal(s, &d)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), d.GasLimit)
+	assert.Equal(0, gasPrice.Cmp(d.GasPrice))
 }

@@ -11,7 +11,12 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 - [Off-Chain Micropayment Support](#off-chain-micropayment-support)
 
 ## Setup
-Install Go and set environment variables `GOPATH` and `PATH` following the [official instructions](https://golang.org/doc/install). The current code base should compile with **Go 1.9.4**.
+Install Go and set environment variables `GOPATH` and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
+
+```
+brew install go@1.9
+brew link go@1.9 --force
+```
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/ukulele`
 
@@ -29,10 +34,6 @@ make get_vendor_deps
 Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the following command
 ```
 brew install jq
-```
-On Ubuntu Linux, install `jq` with
-```
-sudo apt-get install jq
 ```
 
 ## Build and Install
