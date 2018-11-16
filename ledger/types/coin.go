@@ -1,9 +1,12 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
+
+	"github.com/thetatoken/ukulele/common"
 )
 
 var (
@@ -17,8 +20,40 @@ func init() {
 }
 
 type Coins struct {
-	ThetaWei *big.Int `json:"thetawei"`
-	GammaWei *big.Int `json:"gammawei"`
+	ThetaWei *big.Int
+	GammaWei *big.Int
+}
+
+type CoinsJSON struct {
+	ThetaWei *common.JSONBig `json:"thetawei"`
+	GammaWei *common.JSONBig `json:"gammawei"`
+}
+
+func NewCoinsJSON(coin Coins) CoinsJSON {
+	return CoinsJSON{
+		ThetaWei: (*common.JSONBig)(coin.ThetaWei),
+		GammaWei: (*common.JSONBig)(coin.GammaWei),
+	}
+}
+
+func (c CoinsJSON) Coins() Coins {
+	return Coins{
+		ThetaWei: (*big.Int)(c.ThetaWei),
+		GammaWei: (*big.Int)(c.GammaWei),
+	}
+}
+
+func (c Coins) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewCoinsJSON(c))
+}
+
+func (c *Coins) UnmarshalJSON(data []byte) error {
+	var a CoinsJSON
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*c = a.Coins()
+	return nil
 }
 
 // NewCoins is a convenient method for creating small amount of coins.

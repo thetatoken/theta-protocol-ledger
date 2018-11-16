@@ -1,5 +1,3 @@
-// +build unit
-
 package consensus
 
 import (
@@ -7,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/blockchain"
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/store/database/backend"
 	"github.com/thetatoken/ukulele/store/kvstore"
@@ -53,18 +52,18 @@ func TestConsensusStateVoteSet(t *testing.T) {
 
 	state1 := NewState(db, chain)
 	vote1 := &core.Vote{
-		Block: block1.BlockHeader,
-		ID:    "Alice",
+		Block: block1.Hash(),
+		ID:    common.HexToAddress("A1"),
 		Epoch: 13,
 	}
 	vote2 := &core.Vote{
-		Block: block2.BlockHeader,
-		ID:    "Alice",
+		Block: block2.Hash(),
+		ID:    common.HexToAddress("A1"),
 		Epoch: 20,
 	}
 	vote3 := &core.Vote{
-		Block: block1.BlockHeader,
-		ID:    "Bob",
+		Block: block1.Hash(),
+		ID:    common.HexToAddress("A2"),
 		Epoch: 20,
 	}
 	state1.AddVote(vote1)
@@ -76,6 +75,6 @@ func TestConsensusStateVoteSet(t *testing.T) {
 	vs1, _ := state2.GetEpochVotes()
 	votes := vs1.Votes()
 	assert.Equal(2, len(votes))
-	assert.Equal("Alice", votes[0].ID)
+	assert.Equal(common.HexToAddress("A1"), votes[0].ID)
 	assert.Equal(uint64(20), votes[0].Epoch)
 }

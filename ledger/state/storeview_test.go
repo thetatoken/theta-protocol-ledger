@@ -206,31 +206,31 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
 	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
 
-	sv.Save()
+	// sv.Save()
 
-	// key1 := common.Hash(common.BytesToHash([]byte{1}))
-	// value1 := common.Hash(common.BytesToHash([]byte{11}))
-	// sv.SetState(acc1Addr, key1, value1)
-	// root1 := sv.Save()
+	key1 := common.Hash(common.BytesToHash([]byte{1}))
+	value1 := common.Hash(common.BytesToHash([]byte{11}))
+	sv.SetState(acc1Addr, key1, value1)
+	root1 := sv.Save()
+	assert.Equal(value1, sv.GetState(acc1Addr, key1))
+
+	value2 := common.Hash(common.BytesToHash([]byte{22}))
+	sv.SetState(acc1Addr, key1, value2)
+	root2 := sv.Save()
+	assert.Equal(value2, sv.GetState(acc1Addr, key1))
+	for it := sv.store.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hash := it.Hash()
+			ref, _ := db.CountReference(hash[:])
+			assert.Equal(1, ref)
+		}
+	}
+
+	sv.RevertToSnapshot(root1)
+	assert.Equal(value1, sv.GetState(acc1Addr, key1))
+	sv.Prune()
 	// assert.Equal(value1, sv.GetState(acc1Addr, key1))
 
-	// value2 := common.Hash(common.BytesToHash([]byte{22}))
-	// sv.SetState(acc1Addr, key1, value2)
-	// root2 := sv.Save()
-	// assert.Equal(value2, sv.GetState(acc1Addr, key1))
-	// for it := sv.store.NodeIterator(nil); it.Next(true); {
-	// 	if it.Hash() != (common.Hash{}) {
-	// 		hash := it.Hash()
-	// 		ref, _ := db.CountReference(hash[:])
-	// 		assert.Equal(1, ref)
-	// 	}
-	// }
-
-	// sv.RevertToSnapshot(root1)
-	// assert.Equal(value1, sv.GetState(acc1Addr, key1))
-	// sv.Prune()
-	// // assert.Equal(value1, sv.GetState(acc1Addr, key1))
-
-	// sv.RevertToSnapshot(root2)
-	// assert.Equal(value2, sv.GetState(acc1Addr, key1))
+	sv.RevertToSnapshot(root2)
+	assert.Equal(value2, sv.GetState(acc1Addr, key1))
 }

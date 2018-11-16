@@ -77,12 +77,12 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 	for _, name := range []string{"a0", "a1", "a2", "a3"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
 		assert.Nil(err)
-		assert.True(block.Finalized)
+		assert.Equal(core.BlockStatusFinalized, block.Status)
 	}
 
 	for _, name := range []string{"b2", "b3", "c1", "a4", "a5"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
-		assert.False(block.Finalized)
+		assert.NotEqual(core.BlockStatusFinalized, block.Status)
 	}
 
 	block, err = ch.FindBlock(core.GetTestBlock("a5").Hash())
@@ -91,12 +91,12 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 
 	for _, name := range []string{"a0", "a1", "a2", "a3", "a4", "a5"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
-		assert.True(block.Finalized)
+		assert.Equal(core.BlockStatusFinalized, block.Status)
 	}
 
 	for _, name := range []string{"b2", "b3", "c1"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
-		assert.False(block.Finalized)
+		assert.NotEqual(core.BlockStatusFinalized, block.Status)
 	}
 
 }
