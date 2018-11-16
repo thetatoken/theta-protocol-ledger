@@ -82,22 +82,21 @@ func (sv *StoreView) Save() common.Hash {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to save the StoreView: %v", err))
 	}
-	sv.store.Trie.GetDB().Commit(rootHash, true)
 	return rootHash
 }
 
-// Get returns the value corresponding the key
+// Get returns the value corresponding to the key
 func (sv *StoreView) Get(key common.Bytes) common.Bytes {
 	value := sv.store.Get(key)
 	return value
 }
 
-// Delete removes the value corresponding the key
+// Delete removes the value corresponding to the key
 func (sv *StoreView) Delete(key common.Bytes) {
 	sv.store.Delete(key)
 }
 
-// Set returns the value corresponding the key
+// Set returns the value corresponding to the key
 func (sv *StoreView) Set(key common.Bytes, value common.Bytes) {
 	sv.store.Set(key, value)
 }
@@ -345,7 +344,6 @@ func (sv *StoreView) SetCode(addr common.Address, code []byte) {
 
 func (sv *StoreView) GetCodeSize(addr common.Address) int {
 	return len(sv.GetCode(addr))
-
 }
 
 func (sv *StoreView) AddRefund(gas uint64) {
@@ -459,6 +457,34 @@ func (sv *StoreView) RevertToSnapshot(root common.Hash) {
 func (sv *StoreView) Snapshot() common.Hash {
 	sv.store.Trie.Commit(nil) // Needs to commit to the in-memory trie DB
 	return sv.store.Hash()
+}
+
+func (sv *StoreView) Prune() bool {
+	// traverse each account to prune its storage trie first
+	sv.store.Traverse(nil, func(k, v common.Bytes) bool {
+		account := &types.Account{}
+		err := types.FromBytes(v, account)
+		if err != nil {
+			log.Errorf("Failed to parse account for %v", k)
+			return false
+		}
+
+		storage := sv.getAccountStorage(account)
+		err = storage.Prune()
+		if err != nil {
+			log.Errorf("Failed to prune storage for account %v", k)
+			return false
+		}
+		return true
+	})
+
+	// prune main trie
+	err := sv.store.Prune()
+	if err != nil {
+		log.Errorf("Failed to prune store view")
+		return false
+	}
+	return true
 }
 
 func (sv *StoreView) AddLog(*types.Log) {

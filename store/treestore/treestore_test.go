@@ -1,4 +1,4 @@
-// +build cluster_deployment
+//// +build cluster_deployment
 
 package treestore
 
@@ -169,8 +169,8 @@ func testTreeStore(db database.Database, t *testing.T) {
 	treestore.Delete(key334)
 	assert.Nil(treestore.Get(key334))
 
-	root, _ := treestore.Commit(nil)
-	treestore.Trie.GetDB().Commit(root, true)
+	root, _ := treestore.Commit()
+	// treestore.Trie.GetDB().Commit(root, true)
 
 	assert.True(db.Has(root[:]))
 	assert.Equal(value1, treestore.Get(key1))
@@ -192,8 +192,9 @@ func testTreeStore(db database.Database, t *testing.T) {
 	treestore1.Set(key66, common.Bytes("zzz"))
 	treestore1.Set(key667, nil)
 
-	root1, _ := treestore1.Commit(nil)
-	treestore1.GetDB().Commit(root1, true)
+	treestore1.Commit()
+	// root1, _ := treestore1.Commit()
+	// treestore1.GetDB().Commit(root1, true)
 
 	//////////////////////////////
 
@@ -206,8 +207,9 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	treestore2.Set(key677, nil)
 
-	root2, _ := treestore2.Commit(nil)
-	treestore2.GetDB().Commit(root2, true)
+	treestore2.Commit()
+	// root2, _ := treestore2.Commit()
+	// treestore2.GetDB().Commit(root2, true)
 
 	//////////////////////////////
 

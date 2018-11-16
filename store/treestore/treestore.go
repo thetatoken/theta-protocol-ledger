@@ -45,7 +45,7 @@ func (store *TreeStore) Commit() (common.Hash, error) {
 
 // Revert creates a copy of the Trie with the given root, using the
 // in-memory trie DB (i.e. store.Trie.GetDB()) of the current Trie.
-// Note: Each time we call Trie.Commit() a new root node will be creates,
+// Note: Each time we call Trie.Commit() a new root node will be created,
 // however, the older roots are still stored in the in-memory trie DB. The root
 // passed to the Revert() function needs to be one of the previous roots,
 // otherwise the function will return an error.
