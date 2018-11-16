@@ -13,7 +13,7 @@ import (
 
 const (
 	// MaxNumRegularTxsPerBlock represents the max number of regular transaction can be inclulded in one block
-	MaxNumRegularTxsPerBlock int = 100
+	MaxNumRegularTxsPerBlock int = 1024
 )
 
 // Block represents a block in chain.

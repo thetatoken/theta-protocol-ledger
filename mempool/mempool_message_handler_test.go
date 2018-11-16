@@ -66,7 +66,7 @@ func TestMempoolMessageHandler(t *testing.T) {
 	log.Infof("reapedRawTxs[0]: %v", string(reapedRawTxs[0]))
 	log.Infof("reapedRawTxs[1]: %v", string(reapedRawTxs[1]))
 	log.Infof("reapedRawTxs[2]: %v", string(reapedRawTxs[2]))
-	assert.Equal("tx1", string(reapedRawTxs[0][:]))
-	assert.Equal("tx2", string(reapedRawTxs[1][:]))
+	assert.Equal("tx2", string(reapedRawTxs[0][:]))
+	assert.Equal("tx1", string(reapedRawTxs[1][:]))
 	assert.Equal("tx3", string(reapedRawTxs[2][:]))
 }

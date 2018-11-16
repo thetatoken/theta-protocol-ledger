@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -134,7 +135,6 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 	}
 
 	stateRootHash = view.Hash()
-	ledger.mempool.Update(regularRawTxs) // clear txs from the mempool
 
 	return stateRootHash, blockRawTxs, result.OK
 }
