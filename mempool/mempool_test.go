@@ -3,8 +3,10 @@ package mempool
 import (
 	"context"
 	"math/big"
+	"strconv"
 	"sync"
 	"testing"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -206,6 +208,68 @@ func TestMempoolUpdate(t *testing.T) {
 	assert.Equal("tx10", string(reapedRawTxs[2][:])) // priority: 8281
 	assert.Equal("tx8", string(reapedRawTxs[3][:]))  // priority: 3727
 	assert.Equal("tx6", string(reapedRawTxs[4][:]))  // priority: 32
+}
+
+func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
+	assert := assert.New(t)
+
+	// Initialize the mempool
+
+	p2psimnet := p2psim.NewSimnetWithHandler(nil)
+	mempool, _ := newTestMempool("peer0", p2psimnet)
+
+	committedRawTxs := []common.Bytes{}
+	multiplier := 30
+	targetRemainder := 3
+	for i := 0; i < multiplier*core.MaxNumRegularTxsPerBlock; i++ {
+		tx := createTestRawTx("tx_" + strconv.FormatInt(int64(i), 10))
+		if i%multiplier == targetRemainder {
+			committedRawTxs = append(committedRawTxs, tx)
+		}
+		err := mempool.InsertTransaction(tx)
+		assert.Nil(err)
+	}
+
+	numInitCandidateTxs := mempool.Size()
+	log.Infof("Number of initial candidate txs: %v", numInitCandidateTxs)
+	log.Infof("Number of committed raw txs: %v", len(committedRawTxs))
+
+	// Update the mempool
+
+	t1 := time.Now()
+
+	success := mempool.Update(committedRawTxs)
+	assert.True(success)
+
+	t2 := time.Now()
+	elapsedA := t2.Sub(t1)
+	log.Infof("Execution time for mempool update: %v", elapsedA)
+
+	elems := mempool.candidateTxs.ElementList()
+	for _, elem := range *elems {
+		mptx := elem.(*mempoolTransaction)
+		txidx, err := strconv.ParseInt(string(mptx.rawTransaction[3:]), 10, 64)
+		assert.Nil(err)
+		assert.True(txidx%int64(multiplier) != int64(targetRemainder)) // should have been removed by mempool.Update()
+	}
+
+	// Reap the mempool
+
+	t3 := time.Now()
+
+	reapedTxs := mempool.Reap(core.MaxNumRegularTxsPerBlock)
+	numReapedTxs := len(reapedTxs)
+	assert.Equal(core.MaxNumRegularTxsPerBlock, numReapedTxs)
+
+	t4 := time.Now()
+	elapsedB := t4.Sub(t3)
+	log.Infof("Execution time for mempool reaping: %v", elapsedB)
+	log.Infof("Number of txs reaped: %v", numReapedTxs)
+
+	numFinalCandidateTxs := mempool.Size()
+	log.Infof("Number of final candidate txs: %v", numFinalCandidateTxs)
+
+	assert.Equal(numInitCandidateTxs-2*core.MaxNumRegularTxsPerBlock, numFinalCandidateTxs)
 }
 
 func TestMempoolTransactionGossip(t *testing.T) {

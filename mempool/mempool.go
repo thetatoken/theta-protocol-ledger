@@ -219,8 +219,8 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 		}
 	}
 
-	// Note after each iteration, the indices of the elems could change
-	// So we need elem.GetIndex() to return the updated index
+	// Note after each iteration, the indices of the elems in the priority queue
+	// could change. So we need elem.GetIndex() to return the updated index
 	for _, elem := range elemsTobeRemoved {
 		mp.candidateTxs.Remove(elem.GetIndex())
 	}
