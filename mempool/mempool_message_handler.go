@@ -43,14 +43,11 @@ func (mmh *MempoolMessageHandler) ParseMessage(peerID string, channelID common.C
 	var dataResponse dp.DataResponse
 	rlp.DecodeBytes(rawMessageBytes, &dataResponse)
 
-	// TODO: verify the checksum
-	mptx := MempoolTransaction{
-		rawTransaction: dataResponse.Payload,
-	}
+	rawTx := dataResponse.Payload
 	message := types.Message{
 		PeerID:    peerID,
 		ChannelID: channelID,
-		Content:   mptx,
+		Content:   rawTx,
 	}
 	return message, nil
 }
@@ -60,8 +57,8 @@ func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 	if message.ChannelID != common.ChannelIDTransaction {
 		return fmt.Errorf("Invalid channel for MempoolMessageHandler: %v", message.ChannelID)
 	}
-	mptx := message.Content.(MempoolTransaction)
-	err := mmh.mempool.InsertTransaction(&mptx)
+	rawTx := message.Content.(common.Bytes)
+	err := mmh.mempool.InsertTransaction(rawTx)
 	if err == DuplicateTxError {
 		return nil
 	}

@@ -134,8 +134,8 @@ func (discMgr *PeerDiscoveryManager) Wait() {
 // If the peer is persistent, it will attempt to reconnect to the
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
-	peer.Stop()
 	discMgr.peerTable.DeletePeer(peer.ID())
+	peer.Stop()
 
 	if peer.IsPersistent() {
 		var err error

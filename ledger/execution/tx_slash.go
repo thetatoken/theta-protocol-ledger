@@ -189,3 +189,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 
 	return false
 }
+
+func (exec *SlashTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	return types.NewCoins(0, 0), nil
+}

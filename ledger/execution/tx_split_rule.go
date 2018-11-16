@@ -135,3 +135,9 @@ func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, tra
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
 }
+
+func (exec *SplitRuleTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	tx := transaction.(*types.SplitRuleTx)
+	fee := tx.Fee
+	return fee, nil
+}

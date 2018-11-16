@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/thetatoken/ukulele/common"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -11,11 +12,11 @@ import (
 func TestTxBookkeeper(t *testing.T) {
 	assert := assert.New(t)
 
-	tx1 := createTestMempoolTx("1")
-	tx2 := createTestMempoolTx("2")
-	tx3 := createTestMempoolTx("3")
-	tx4 := createTestMempoolTx("4")
-	tx5 := createTestMempoolTx("5")
+	tx1 := createTestRawTx("1")
+	tx2 := createTestRawTx("2")
+	tx3 := createTestRawTx("3")
+	tx4 := createTestRawTx("4")
+	tx5 := createTestRawTx("5")
 
 	log.Infof("tx1 hash: %v", getTransactionHash(tx1))
 	log.Infof("tx2 hash: %v", getTransactionHash(tx2))
@@ -55,8 +56,7 @@ func TestTxBookkeeper(t *testing.T) {
 
 // --------------- Test Utilities --------------- //
 
-func createTestMempoolTx(rawTx string) *MempoolTransaction {
-	return &MempoolTransaction{
-		rawTransaction: []byte(rawTx),
-	}
+func createTestRawTx(rawTxStr string) common.Bytes {
+	rawTx := common.Bytes(rawTxStr)
+	return rawTx
 }

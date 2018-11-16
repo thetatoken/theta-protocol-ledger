@@ -370,6 +370,6 @@ func newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs []string, lo
 	messenger := newTestMessenger(seedPeerNetAddressStrs, port)
 	peerDiscoveryManager := messenger.discMgr
 	peerDiscoveryManager.peerDiscMsgHandler.peerDiscoveryPulseInterval = 1 * time.Second
-	messenger.RegisterMessageHandler(&peerDiscoveryManager.peerDiscMsgHandler)
+
 	return peerDiscoveryManager
 }

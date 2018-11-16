@@ -1,9 +1,12 @@
 package types
 
 import (
+	"encoding/json"
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func makeAccount(secret string, balance Coins) Account {
@@ -42,6 +45,24 @@ func prepareForTransferReservedFund() (Account, Account, Account, Account, Servi
 
 	return srcAcc, tgtAcc, splitAcc1, splitAcc2, servicePaymentTx, reserveSequence
 }
+
+func TestAccountJSON(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+
+	acc := Account{
+		Sequence: math.MaxUint64,
+		Balance:  NewCoins(456, 789),
+	}
+
+	s, err := json.Marshal(acc)
+	require.Nil(err)
+	var acc1 Account
+	err = json.Unmarshal(s, &acc1)
+	require.Nil(err)
+	assert.Equal(uint64(math.MaxUint64), acc1.Sequence)
+}
+
 func TestNilAccount(t *testing.T) {
 
 	var acc Account

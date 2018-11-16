@@ -85,10 +85,18 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 	return extendedBlock, nil
 }
 
+func (ch *Chain) CommitBlock(block *core.ExtendedBlock) {
+	block.Status = core.BlockStatusCommitted
+	err := ch.SaveBlock(block)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
 func (ch *Chain) FinalizePreviousBlocks(block *core.ExtendedBlock) {
 	var err error
-	for block != nil && !block.Finalized {
-		block.Finalized = true
+	for block != nil && block.Status != core.BlockStatusFinalized {
+		block.Status = core.BlockStatusFinalized
 		err = ch.SaveBlock(block)
 		if err != nil {
 			log.Panic(err)

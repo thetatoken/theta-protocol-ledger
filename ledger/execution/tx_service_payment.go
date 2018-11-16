@@ -193,3 +193,9 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule
 
 	return true, coinsMap, accountAddressMap
 }
+
+func (exec *ServicePaymentTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	tx := transaction.(*types.ServicePaymentTx)
+	fee := tx.Fee
+	return fee, nil
+}

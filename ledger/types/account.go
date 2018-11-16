@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/pkg/errors"
@@ -11,15 +12,59 @@ import (
 var EmptyCodeHash = common.BytesToHash(crypto.Keccak256(nil))
 
 type Account struct {
-	PubKey                 *crypto.PublicKey `json:"pub_key"` // May be nil, if not known.
-	Sequence               uint64            `json:"sequence"`
-	Balance                Coins             `json:"coins"`
-	ReservedFunds          []ReservedFund    `json:"reserved_funds"` // TODO: replace the slice with map
-	LastUpdatedBlockHeight uint64            `json:"last_updated_block_height"`
+	PubKey                 *crypto.PublicKey // May be nil, if not known.
+	Sequence               uint64
+	Balance                Coins
+	ReservedFunds          []ReservedFund // TODO: replace the slice with map
+	LastUpdatedBlockHeight uint64
 
 	// Smart contract
 	Root     common.Hash `json:"root"`      // merkle root of the storage trie
 	CodeHash common.Hash `json:"code_hash"` // hash of the smart contract code
+}
+
+type AccountJSON struct {
+	Sequence               common.JSONUint64 `json:"sequence"`
+	Balance                Coins             `json:"coins"`
+	ReservedFunds          []ReservedFund    `json:"reserved_funds"`
+	LastUpdatedBlockHeight common.JSONUint64 `json:"last_updated_block_height"`
+	Root                   common.Hash       `json:"root"`
+	CodeHash               common.Hash       `json:"code"`
+}
+
+func NewAccountJSON(acc Account) AccountJSON {
+	return AccountJSON{
+		Sequence:               common.JSONUint64(acc.Sequence),
+		Balance:                acc.Balance,
+		ReservedFunds:          acc.ReservedFunds,
+		LastUpdatedBlockHeight: common.JSONUint64(acc.LastUpdatedBlockHeight),
+		Root:     acc.Root,
+		CodeHash: acc.CodeHash,
+	}
+}
+
+func (acc AccountJSON) Account() Account {
+	return Account{
+		Sequence:               uint64(acc.Sequence),
+		Balance:                acc.Balance,
+		ReservedFunds:          acc.ReservedFunds,
+		LastUpdatedBlockHeight: uint64(acc.LastUpdatedBlockHeight),
+		Root:     acc.Root,
+		CodeHash: acc.CodeHash,
+	}
+}
+
+func (acc Account) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewAccountJSON(acc))
+}
+
+func (acc *Account) UnmarshalJSON(data []byte) error {
+	var a AccountJSON
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*acc = a.Account()
+	return nil
 }
 
 func NewAccount() *Account {
