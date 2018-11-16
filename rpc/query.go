@@ -2,10 +2,14 @@ package rpc
 
 import (
 	"errors"
+	"fmt"
+	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -26,12 +30,17 @@ func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, resul
 		return errors.New("Address must be specified")
 	}
 	address := common.HexToAddress(args.Address)
+	result.Address = args.Address
+
 	ledgerState, err := t.ledger.GetScreenedSnapshot()
 	if err != nil {
 		return err
 	}
-	result.Account = ledgerState.GetAccount(address)
-	result.Address = args.Address
+	account := ledgerState.GetAccount(address)
+	if account == nil {
+		return fmt.Errorf("Account with address %s is not found", address.Hex())
+	}
+	result.Account = account
 	return nil
 }
 
@@ -107,4 +116,139 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 	result.Tx = tx
 
 	return nil
+}
+
+// ------------------------------ GetBlock -----------------------------------
+
+type GetBlockArgs struct {
+	Hash common.Hash `json:"hash"`
+}
+
+type Tx struct {
+	types.Tx `json:"raw"`
+	Type     byte        `json:"type"`
+	Hash     common.Hash `json:"hash"`
+}
+
+type GetBlockResult struct {
+	ChainID   string            `json:"chain_id"`
+	Epoch     common.JSONUint64 `json:"epoch"`
+	Height    common.JSONUint64 `json:"height"`
+	Parent    common.Hash       `json:"parent"`
+	TxHash    common.Hash       `json:"transactions_hash"`
+	StateHash common.Hash       `json:"state_hash"`
+	Timestamp *common.JSONBig   `json:"timestamp"`
+	Proposer  common.Address    `json:"proposer"`
+
+	Children []common.Hash    `json:"children"`
+	Status   core.BlockStatus `json:"status"`
+
+	Hash common.Hash `json:"hash"`
+	Txs  []Tx        `json:"transactions"`
+}
+
+type TxType byte
+
+const (
+	_              = iota
+	TxTypeCoinbase = byte(iota)
+	TxTypeSlash
+	TxTypeSend
+	TxTypeReserveFund
+	TxTypeReleaseFund
+	TxTypeServicePayment
+	TxTypeSplitRule
+	TxUpdateValidators
+)
+
+func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *GetBlockResult) (err error) {
+	if args.Hash.IsEmpty() {
+		return errors.New("Block hash must be specified")
+	}
+
+	block, err := t.chain.FindBlock(args.Hash)
+	if err != nil {
+		return err
+	}
+
+	result.ChainID = block.ChainID
+	result.Epoch = common.JSONUint64(block.Epoch)
+	result.Height = common.JSONUint64(block.Height)
+	result.Parent = block.Parent
+	result.TxHash = block.TxHash
+	result.StateHash = block.StateHash
+	result.Timestamp = (*common.JSONBig)(block.Timestamp)
+	result.Proposer = block.Proposer
+	result.Children = block.Children
+	result.Status = block.Status
+
+	result.Hash = block.Hash()
+
+	// Parse and fulfill Txs.
+	var tx types.Tx
+	for _, txBytes := range block.Txs {
+		tx, err = types.TxFromBytes(txBytes)
+		if err != nil {
+			return
+		}
+		hash := crypto.Keccak256Hash(txBytes)
+
+		t := byte(0x0)
+		switch tx.(type) {
+		case *types.CoinbaseTx:
+			t = TxTypeCoinbase
+		case *types.SlashTx:
+			t = TxTypeSlash
+		case *types.SendTx:
+			t = TxTypeSend
+		case *types.ReserveFundTx:
+			t = TxTypeReserveFund
+		case *types.ReleaseFundTx:
+			t = TxTypeReleaseFund
+		case *types.ServicePaymentTx:
+			t = TxTypeServicePayment
+		case *types.SplitRuleTx:
+			t = TxTypeSplitRule
+		case *types.UpdateValidatorsTx:
+			t = TxUpdateValidators
+		}
+		txw := Tx{
+			Tx:   tx,
+			Hash: hash,
+			Type: t,
+		}
+		result.Txs = append(result.Txs, txw)
+	}
+	return
+}
+
+// ------------------------------ GetStatus -----------------------------------
+
+type GetStatusArgs struct{}
+
+type GetStatusResult struct {
+	LatestFinalizedBlockHash   common.Hash       `json:"latest_finalized_block_hash"`
+	LatestFinalizedBlockHeight common.JSONUint64 `json:"latest_finalized_block_height"`
+	LatestFinalizedBlockTime   *common.JSONBig   `json:"latest_finalized_block_time"`
+	LatestFinalizedBlockEpoch  common.JSONUint64 `json:"latest_finalized_block_epoch"`
+	CurrentEpoch               common.JSONUint64 `json:"current_epoch"`
+	CurrentTime                *common.JSONBig   `json:"current_time"`
+}
+
+func (t *ThetaRPCServer) GetStatus(r *http.Request, args *GetStatusArgs, result *GetStatusResult) (err error) {
+	s := t.consensus.GetSummary()
+	latestFinalizedHash := s.LastFinalizedBlock
+	if !latestFinalizedHash.IsEmpty() {
+		result.LatestFinalizedBlockHash = latestFinalizedHash
+		block, err := t.chain.FindBlock(latestFinalizedHash)
+		if err != nil {
+			return err
+		}
+		result.LatestFinalizedBlockEpoch = common.JSONUint64(block.Epoch)
+		result.LatestFinalizedBlockHeight = common.JSONUint64(block.Height)
+		result.LatestFinalizedBlockTime = (*common.JSONBig)(block.Timestamp)
+	}
+	result.CurrentEpoch = common.JSONUint64(s.Epoch)
+	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
+	return
 }
