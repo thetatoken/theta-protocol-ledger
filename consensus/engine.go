@@ -357,6 +357,11 @@ func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
 	return e.state.GetTip()
 }
 
+// GetSummary returns a summary of consensus state.
+func (e *ConsensusEngine) GetSummary() *StateStub {
+	return e.state.GetSummary()
+}
+
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
 func (e *ConsensusEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
