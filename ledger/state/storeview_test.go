@@ -195,8 +195,7 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	}
 	acc1Addr := acc1.PubKey.Address()
 
-	// db := backend.NewMemDatabase()
-	db, _ := backend.NewMongoDatabase()
+	db := backend.NewMemDatabase()
 	sv := NewStoreView(uint64(1), common.Hash{}, db)
 
 	sv.SetAccount(acc1Addr, acc1)
@@ -205,8 +204,6 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	assert.Equal(acc1.PubKey.ToBytes(), accRetrieved.PubKey.ToBytes())
 	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
 	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
-
-	// sv.Save()
 
 	key1 := common.Hash(common.BytesToHash([]byte{1}))
 	value1 := common.Hash(common.BytesToHash([]byte{11}))
@@ -229,7 +226,6 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	sv.RevertToSnapshot(root1)
 	assert.Equal(value1, sv.GetState(acc1Addr, key1))
 	sv.Prune()
-	// assert.Equal(value1, sv.GetState(acc1Addr, key1))
 
 	sv.RevertToSnapshot(root2)
 	assert.Equal(value2, sv.GetState(acc1Addr, key1))

@@ -460,26 +460,22 @@ func (sv *StoreView) Snapshot() common.Hash {
 }
 
 func (sv *StoreView) Prune() bool {
-	// traverse each account to prune its storage trie first
-	sv.store.Traverse(nil, func(k, v common.Bytes) bool {
+	err := sv.store.Prune(func(node []byte) bool {
 		account := &types.Account{}
-		err := types.FromBytes(v, account)
+		err := types.FromBytes(node, account)
 		if err != nil {
-			log.Errorf("Failed to parse account for %v", k)
+			log.Errorf("Failed to parse account for %v", node)
 			return false
 		}
 
 		storage := sv.getAccountStorage(account)
-		err = storage.Prune()
+		err = storage.Prune(nil)
 		if err != nil {
-			log.Errorf("Failed to prune storage for account %v", k)
+			log.Errorf("Failed to prune storage for account %v", account)
 			return false
 		}
 		return true
 	})
-
-	// prune main trie
-	err := sv.store.Prune()
 	if err != nil {
 		log.Errorf("Failed to prune store view")
 		return false

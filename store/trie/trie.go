@@ -491,12 +491,15 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 }
 
 // Prune deletes all non-referenced nodes of the Trie from DB
-func (t *Trie) Prune() error {
-	return t.pruneNode(t.root)
+func (t *Trie) Prune(cb func(n []byte) bool) error {
+	return t.pruneNode(t.root, cb)
 }
 
-func (t *Trie) pruneNode(n node) error {
+func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {
 	hash, _ := n.cache()
+	if hash == nil {
+		return nil
+	}
 	ref, err := t.db.diskdb.CountReference(hash[:])
 	if err != nil {
 		if err == store.ErrKeyNotFound {
@@ -508,7 +511,7 @@ func (t *Trie) pruneNode(n node) error {
 		return t.db.diskdb.Dereference(hash[:])
 	}
 
-	err = t.pruneChildren(n)
+	err = t.pruneChildren(n, cb)
 	if err != nil {
 		return err
 	}
@@ -519,34 +522,45 @@ func (t *Trie) pruneNode(n node) error {
 	return nil
 }
 
-func (t *Trie) pruneChildren(nd node) error {
+func (t *Trie) pruneChildren(nd node, cb func(n []byte) bool) error {
 	var err error
-
 	switch n := nd.(type) {
 	case *shortNode:
 		if _, ok := n.Val.(valueNode); !ok {
 			switch m := n.Val.(type) {
+			case valueNode:
+				if cb != nil {
+					cb(n.Val.(valueNode))
+				}
 			case hashNode:
 				childNode := t.db.node(common.BytesToHash(m[:]), 0)
-				err = t.pruneNode(childNode)
+				err = t.pruneNode(childNode, cb)
 				if err != nil {
 					return err
 				}
 			case *shortNode:
-				t.pruneNode(m)
+				t.pruneNode(m, cb)
 			case *fullNode:
-				t.pruneNode(m)
+				t.pruneNode(m, cb)
 			default:
+			}
+		} else {
+			if cb != nil {
+				cb(n.Val.(valueNode))
 			}
 		}
 	case *fullNode:
 		for i := 0; i < 16; i++ {
 			if n.Children[i] != nil {
 				switch m := n.Children[i].(type) {
+				case valueNode:
+					if cb != nil {
+						cb(n.Children[i].(valueNode))
+					}
 				case hashNode:
 					hashNode := n.Children[i].(hashNode)
 					childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
-					err = t.pruneNode(childNode)
+					err = t.pruneNode(childNode, cb)
 					if err != nil {
 						return err
 					}
@@ -554,13 +568,13 @@ func (t *Trie) pruneChildren(nd node) error {
 					if _, ok := m.Val.(valueNode); !ok {
 						hashNode := m.Val.(hashNode)
 						childNode := t.db.node(common.BytesToHash(hashNode[:]), 0)
-						err = t.pruneNode(childNode)
+						err = t.pruneNode(childNode, cb)
 						if err != nil {
 							return err
 						}
 					}
 				case *fullNode:
-					return t.pruneNode(m)
+					return t.pruneNode(m, cb)
 				default:
 				}
 			}
