@@ -211,21 +211,46 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	root1 := sv.Save()
 	assert.Equal(value1, sv.GetState(acc1Addr, key1))
 
-	value2 := common.Hash(common.BytesToHash([]byte{22}))
-	sv.SetState(acc1Addr, key1, value2)
-	root2 := sv.Save()
-	assert.Equal(value2, sv.GetState(acc1Addr, key1))
+	hashMap1 := make(map[common.Hash]bool)
 	for it := sv.store.NodeIterator(nil); it.Next(true); {
 		if it.Hash() != (common.Hash{}) {
 			hash := it.Hash()
 			ref, _ := db.CountReference(hash[:])
 			assert.Equal(1, ref)
+
+			hashMap1[it.Hash()] = true
+		}
+	}
+
+	value2 := common.Hash(common.BytesToHash([]byte{22}))
+	sv.SetState(acc1Addr, key1, value2)
+	root2 := sv.Save()
+	assert.Equal(value2, sv.GetState(acc1Addr, key1))
+
+	hashMap2 := make(map[common.Hash]bool)
+	for it := sv.store.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hash := it.Hash()
+			ref, _ := db.CountReference(hash[:])
+			assert.Equal(1, ref)
+
+			hashMap2[it.Hash()] = true
 		}
 	}
 
 	sv.RevertToSnapshot(root1)
 	assert.Equal(value1, sv.GetState(acc1Addr, key1))
 	sv.Prune()
+
+	for hash := range hashMap1 {
+		has, _ := db.Has(hash[:])
+		assert.False(has)
+	}
+
+	for hash := range hashMap2 {
+		has, _ := db.Has(hash[:])
+		assert.True(has)
+	}
 
 	sv.RevertToSnapshot(root2)
 	assert.Equal(value2, sv.GetState(acc1Addr, key1))
