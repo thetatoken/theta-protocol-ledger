@@ -22,16 +22,16 @@ func TestMempoolMessageHandler(t *testing.T) {
 	go func() {
 		mmh := CreateMempoolMessageHandler(mempool)
 
-		tx1 := createTestMempoolTx("tx1")
-		tx2 := createTestMempoolTx("tx2")
-		tx3 := createTestMempoolTx("tx3")
-		txs := [](*MempoolTransaction){tx1, tx2, tx3}
+		tx1 := createTestRawTx("tx1")
+		tx2 := createTestRawTx("tx2")
+		tx3 := createTestRawTx("tx3")
+		txs := []common.Bytes{tx1, tx2, tx3}
 
-		for _, tx := range txs {
+		for _, rawTx := range txs {
 			dataResponse := dp.DataResponse{
 				ChannelID: common.ChannelIDTransaction,
 				Checksum:  []byte(""),
-				Payload:   tx.rawTransaction,
+				Payload:   rawTx,
 			}
 			contentBytes, err := rlp.EncodeToBytes(dataResponse)
 			if err != nil {
@@ -66,7 +66,7 @@ func TestMempoolMessageHandler(t *testing.T) {
 	log.Infof("reapedRawTxs[0]: %v", string(reapedRawTxs[0]))
 	log.Infof("reapedRawTxs[1]: %v", string(reapedRawTxs[1]))
 	log.Infof("reapedRawTxs[2]: %v", string(reapedRawTxs[2]))
-	assert.Equal("tx1", string(reapedRawTxs[0][:]))
-	assert.Equal("tx2", string(reapedRawTxs[1][:]))
+	assert.Equal("tx2", string(reapedRawTxs[0][:]))
+	assert.Equal("tx1", string(reapedRawTxs[1][:]))
 	assert.Equal("tx3", string(reapedRawTxs[2][:]))
 }

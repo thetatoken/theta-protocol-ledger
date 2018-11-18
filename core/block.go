@@ -13,13 +13,13 @@ import (
 
 const (
 	// MaxNumRegularTxsPerBlock represents the max number of regular transaction can be inclulded in one block
-	MaxNumRegularTxsPerBlock int = 100
+	MaxNumRegularTxsPerBlock int = 1024
 )
 
 // Block represents a block in chain.
 type Block struct {
 	*BlockHeader
-	Txs []common.Bytes
+	Txs []common.Bytes `json:"transactions"`
 }
 
 // NewBlock creates a new Block.
@@ -78,8 +78,8 @@ const (
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Children []common.Hash
-	Status   BlockStatus
+	Children []common.Hash `json:"children"`
+	Status   BlockStatus   `json:"status"`
 }
 
 // Hash of header.

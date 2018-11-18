@@ -14,6 +14,7 @@ import (
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/util"
+	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/ledger"
 	"github.com/thetatoken/ukulele/mempool"
 	"golang.org/x/net/netutil"
@@ -23,9 +24,10 @@ var logger *log.Entry
 
 // ThetaRPCServer is an instance of RPC service.
 type ThetaRPCServer struct {
-	mempool *mempool.Mempool
-	ledger  *ledger.Ledger
-	chain   *blockchain.Chain
+	mempool   *mempool.Mempool
+	ledger    *ledger.Ledger
+	chain     *blockchain.Chain
+	consensus *consensus.ConsensusEngine
 
 	server   *http.Server
 	handler  *rpc.Server
@@ -40,7 +42,7 @@ type ThetaRPCServer struct {
 }
 
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
-func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *blockchain.Chain) *ThetaRPCServer {
+func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *blockchain.Chain, consensus *consensus.ConsensusEngine) *ThetaRPCServer {
 	t := &ThetaRPCServer{
 		wg: &sync.WaitGroup{},
 	}
@@ -48,6 +50,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *b
 	t.mempool = mempool
 	t.ledger = ledger
 	t.chain = chain
+	t.consensus = consensus
 
 	t.handler = rpc.NewServer()
 	t.handler.RegisterCodec(json.NewCodec(), "application/json")

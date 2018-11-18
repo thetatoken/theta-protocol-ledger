@@ -125,3 +125,7 @@ func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) ma
 
 	return accountReward
 }
+
+func (exec *CoinbaseTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	return types.NewCoins(0, 0), nil
+}

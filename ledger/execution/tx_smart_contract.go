@@ -19,11 +19,14 @@ var _ TxExecutor = (*SmartContractTxExecutor)(nil)
 
 // SmartContractTxExecutor implements the TxExecutor interface
 type SmartContractTxExecutor struct {
+	state *st.LedgerState
 }
 
 // NewSmartContractTxExecutor creates a new instance of SmartContractTxExecutor
-func NewSmartContractTxExecutor() *SmartContractTxExecutor {
-	return &SmartContractTxExecutor{}
+func NewSmartContractTxExecutor(state *st.LedgerState) *SmartContractTxExecutor {
+	return &SmartContractTxExecutor{
+		state: state,
+	}
 }
 
 func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
@@ -114,4 +117,19 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
+}
+
+func (exec *SmartContractTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	tx := transaction.(*types.SmartContractTx)
+	view, err := exec.state.Screened().Copy()
+	if err != nil {
+		return types.NewCoins(0, 0), err
+	}
+	_, _, gasUsed, _ := vm.Execute(tx, view)
+	feeAmount := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(gasUsed))
+	fee := types.Coins{
+		ThetaWei: big.NewInt(int64(0)),
+		GammaWei: feeAmount,
+	}
+	return fee, nil
 }

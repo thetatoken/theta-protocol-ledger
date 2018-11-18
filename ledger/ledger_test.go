@@ -6,6 +6,9 @@ import (
 	"math/big"
 	"strconv"
 	"testing"
+	"time"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -37,12 +40,12 @@ func TestLedgerScreenTx(t *testing.T) {
 	numInAccs := 1
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
-	sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[0])
-	res := ledger.ScreenTx(sendTxBytes)
+	sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[0], false)
+	_, res := ledger.ScreenTx(sendTxBytes)
 	assert.True(res.IsOK(), res.Message)
 
 	coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
-	res = ledger.ScreenTx(coinbaseTxBytes)
+	_, res = ledger.ScreenTx(coinbaseTxBytes)
 	assert.Equal(result.CodeUnauthorizedTx, res.Code, res.Message)
 }
 
@@ -50,22 +53,29 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 	assert := assert.New(t)
 
 	chainID, ledger, mempool := newTestLedger()
-	numInAccs := 200
+	numInAccs := 2 * core.MaxNumRegularTxsPerBlock
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
 	// Insert send transactions into the mempool
-	numMempoolTxs := 200
+	numMempoolTxs := 2 * core.MaxNumRegularTxsPerBlock
 	rawSendTxs := []common.Bytes{}
 	for idx := 0; idx < numMempoolTxs; idx++ {
-		sendTxBytes := newRawSendTx(chainID, 1, true, accOut, accIns[idx])
-		err := mempool.InsertTransaction(mp.CreateMempoolTransaction(sendTxBytes))
+		sequence := 1
+		sendTxBytes := newRawSendTx(chainID, sequence, true, accOut, accIns[idx], true)
+		err := mempool.InsertTransaction(sendTxBytes)
 		assert.Nil(err, fmt.Sprintf("Mempool insertion error: %v", err))
 		rawSendTxs = append(rawSendTxs, sendTxBytes)
 	}
 	assert.Equal(numMempoolTxs, mempool.Size())
 
+	startTime := time.Now()
+
 	// Propose block transactions
 	_, blockTxs, res := ledger.ProposeBlockTxs()
+
+	endTime := time.Now()
+	elapsed := endTime.Sub(startTime)
+	log.Infof("Execution time for block proposal: %v", elapsed)
 
 	// Transaction counts sanity checks
 	expectedTotalNumTx := core.MaxNumRegularTxsPerBlock + 1
@@ -74,6 +84,7 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 	assert.Equal(numMempoolTxs-expectedTotalNumTx+1, mempool.Size())
 
 	// Transaction sanity checks
+	var prevSendTx *types.SendTx
 	for idx := 0; idx < expectedTotalNumTx; idx++ {
 		rawTx := blockTxs[idx]
 		tx, err := types.TxFromBytes(rawTx)
@@ -86,7 +97,15 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 			ledger.consensus.PrivateKey().PublicKey().VerifySignature(signBytes, coinbaseTx.Proposer.Signature)
 		case *types.SendTx:
 			assert.True(idx > 0)
-			assert.Equal(rawTx, rawSendTxs[idx-1]) // mempool should works like a FIFO queue
+			currSendTx := tx.(*types.SendTx)
+			if prevSendTx != nil {
+				// mempool should works like a priority queue, tx with higher fee
+				// got reaped first
+				feeDiff := prevSendTx.Fee.Minus(currSendTx.Fee)
+				assert.True(feeDiff.IsNonnegative())
+				//log.Infof("tx fee: %v, feeDiff: %v", currSendTx.Fee, feeDiff)
+			}
+			prevSendTx = currSendTx
 		}
 	}
 }
@@ -100,11 +119,11 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
 	coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
-	sendTx1Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[0])
-	sendTx2Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[1])
-	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2])
-	sendTx4Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[3])
-	sendTx5Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[4])
+	sendTx1Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[0], false)
+	sendTx2Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[1], false)
+	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2], false)
+	sendTx4Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[3], false)
+	sendTx5Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[4], false)
 	inAccInitGammaWei := accIns[0].Balance.GammaWei
 	txFee := getMinimumTxFee()
 
@@ -266,8 +285,21 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	return coinbaseTxBytes
 }
 
-func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount) common.Bytes {
-	txFee := getMinimumTxFee()
+func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount, injectFeeFluctuation bool) common.Bytes {
+	delta := int64(0)
+	var err error
+	if injectFeeFluctuation {
+		// inject so fluctuation into the txFee, so later we can test whether the
+		// mempool orders the txs by txFee
+		delta, err = strconv.ParseInt(string(accIn.PubKey.Address().Hex()[2:9]), 16, 64)
+		if delta < 0 {
+			delta = -delta
+		}
+		if err != nil {
+			panic(err)
+		}
+	}
+	txFee := getMinimumTxFee() + delta
 	sendTx := &types.SendTx{
 		Fee: types.NewCoins(0, txFee),
 		Inputs: []types.TxInput{
@@ -284,6 +316,10 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 				Coins:   types.NewCoins(15, 0),
 			},
 		},
+	}
+
+	if sequence > 1 {
+		sendTx.Inputs[0].PubKey = nil
 	}
 
 	signBytes := sendTx.SignBytes(chainID)
