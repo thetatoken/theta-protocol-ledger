@@ -170,7 +170,7 @@ func (s *VoteSet) DecodeRLP(stream *rlp.Stream) error {
 	}
 	s.votes = make(map[string]Vote)
 	for _, v := range votes {
-		s.votes[v.ID.Hex()] = v
+		s.AddVote(v)
 	}
 	return nil
 }

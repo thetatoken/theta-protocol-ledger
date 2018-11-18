@@ -250,21 +250,16 @@ func (e *ConsensusEngine) vote() {
 	previousTip := e.state.GetTip()
 	tip := e.state.SetTip()
 
-	var header *core.BlockHeader
+	var vote core.Vote
 	if previousTip.Hash() == tip.Hash() || e.state.GetLastVoteHeight() >= tip.Height {
 		e.logger.WithFields(log.Fields{
 			"lastVoteHeight": e.state.GetLastVoteHeight(),
 			"tip.Hash":       tip.Hash,
 		}).Debug("Voting nil since already voted at height")
+		vote = e.createVote(common.Hash{})
 	} else {
-		header = tip.BlockHeader
+		vote = e.createVote(tip.Hash())
 		e.state.SetLastVoteHeight(tip.Height)
-	}
-
-	vote := core.Vote{
-		Block: header.Hash(),
-		ID:    e.privateKey.PublicKey().Address(),
-		Epoch: e.GetEpoch(),
 	}
 
 	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Sending vote")
@@ -284,6 +279,20 @@ func (e *ConsensusEngine) vote() {
 	}
 	e.AddMessage(&vote)
 	e.network.Broadcast(voteMsg)
+}
+
+func (e *ConsensusEngine) createVote(block common.Hash) core.Vote {
+	vote := core.Vote{
+		Block: block,
+		ID:    e.privateKey.PublicKey().Address(),
+		Epoch: e.GetEpoch(),
+	}
+	sig, err := e.privateKey.Sign(vote.SignBytes())
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
+	}
+	vote.SetSignature(sig)
+	return vote
 }
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
@@ -471,6 +480,8 @@ func (e *ConsensusEngine) propose() {
 		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
 	}
 	proposal.Votes = lastCCVotes.Merge(epochVotes).KeepLatest()
+	selfVote := e.createVote(block.Hash())
+	proposal.Votes.AddVote(selfVote)
 
 	e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 
