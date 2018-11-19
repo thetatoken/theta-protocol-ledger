@@ -1,6 +1,7 @@
 package messenger
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -14,6 +15,7 @@ import (
 
 func TestSeedPeerConnector(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	peerANetAddr := "127.0.0.1:24511"
 	peerBNetAddr := "127.0.0.1:24512"
@@ -25,7 +27,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		seedPeerNetAddressStrs := []string{} // passively listen
 		localNetworkAddress := peerANetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A] ID: %v", peerID)
@@ -39,7 +41,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		seedPeerNetAddressStrs := []string{} // passively listen
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B] ID: %v", peerID)
@@ -51,7 +53,7 @@ func TestSeedPeerConnector(t *testing.T) {
 	seedPeerNetAddressStrs := []string{peerANetAddr, peerBNetAddr}
 	localNetworkAddress := peerCNetAddr
 	discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-	discMgr.Start()
+	discMgr.Start(ctx)
 
 	numPeers := len(seedPeerNetAddressStrs)
 	for i := 0; i < numPeers; i++ {
@@ -71,6 +73,7 @@ func TestSeedPeerConnector(t *testing.T) {
 
 func TestInboundPeerListener(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	peerANetAddr := "127.0.0.1:24521"
 	peerBNetAddr := "127.0.0.1:24522"
@@ -82,7 +85,7 @@ func TestInboundPeerListener(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // proactively connect to PeerC (i.e. us)
 		localNetworkAddress := peerANetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A] ID: %v", peerID)
@@ -96,7 +99,7 @@ func TestInboundPeerListener(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerCNetAddr} // proactively connect to PeerC (i.e. us)
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManager(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B] ID: %v", peerID)
@@ -118,7 +121,7 @@ func TestInboundPeerListener(t *testing.T) {
 			inboundDetectedChan <- false
 		}
 	})
-	discMgr.Start()
+	discMgr.Start(ctx)
 
 	numExpectedInboundPeers := 2
 	for i := 0; i < numExpectedInboundPeers; i++ {
@@ -138,6 +141,7 @@ func TestInboundPeerListener(t *testing.T) {
 
 func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	peerANetAddr := "127.0.0.1:24531"
 	peerBNetAddr := "127.0.0.1:24532"
@@ -158,7 +162,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerA1NetAddr, peerA2NetAddr}
 		localNetworkAddress := peerANetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A] ID: %v", peerID)
@@ -172,7 +176,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerA11NetAddr}
 		localNetworkAddress := peerA1NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A1] ID: %v", peerID)
@@ -186,7 +190,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{}
 		localNetworkAddress := peerA2NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A2] ID: %v", peerID)
@@ -199,7 +203,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerA111NetAddr}
 		localNetworkAddress := peerA11NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A11] ID: %v", peerID)
@@ -212,7 +216,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerA1111NetAddr}
 		localNetworkAddress := peerA111NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A111] ID: %v", peerID)
@@ -225,7 +229,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{}
 		localNetworkAddress := peerA1111NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer A1111] ID: %v", peerID)
@@ -239,7 +243,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{peerB1NetAddr, peerB2NetAddr}
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B] ID: %v", peerID)
@@ -253,7 +257,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{}
 		localNetworkAddress := peerB1NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B1] ID: %v", peerID)
@@ -267,7 +271,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		seedPeerNetAddressStrs := []string{}
 		localNetworkAddress := peerB2NetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
-		discMgr.Start()
+		discMgr.Start(ctx)
 
 		peerID := discMgr.nodeInfo.PubKey.Address().Hex()
 		t.Logf("[Peer B2] ID: %v", peerID)
@@ -305,7 +309,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 			discDetectedChan <- false
 		}
 	})
-	discMgr.Start()
+	discMgr.Start(ctx)
 
 	numPeers := len(seedPeerNetAddressStrs)
 	for i := 0; i < numPeers; i++ {
@@ -366,6 +370,6 @@ func newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs []string, lo
 	messenger := newTestMessenger(seedPeerNetAddressStrs, port)
 	peerDiscoveryManager := messenger.discMgr
 	peerDiscoveryManager.peerDiscMsgHandler.peerDiscoveryPulseInterval = 1 * time.Second
-	messenger.RegisterMessageHandler(&peerDiscoveryManager.peerDiscMsgHandler)
+
 	return peerDiscoveryManager
 }

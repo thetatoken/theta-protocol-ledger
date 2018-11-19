@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"fmt"
+	"sync"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/blockchain"
@@ -19,13 +20,14 @@ type StateStub struct {
 }
 
 const (
-	DBStateStubKey       = "cs/ss"
-	DBVoteByHeightPrefix = "cs/vbh/"
-	DBVoteByBlockPrefix  = "cs/vbb/"
-	DBEpochVotesKey      = "cs/ev"
+	DBStateStubKey      = "cs/ss"
+	DBVoteByBlockPrefix = "cs/vbb/"
+	DBEpochVotesKey     = "cs/ev"
 )
 
 type State struct {
+	mu *sync.RWMutex
+
 	db    store.Store
 	chain *blockchain.Chain
 
@@ -38,6 +40,7 @@ type State struct {
 
 func NewState(db store.Store, chain *blockchain.Chain) *State {
 	s := &State{
+		mu:                 &sync.RWMutex{},
 		db:                 db,
 		chain:              chain,
 		highestCCBlock:     chain.Root,
@@ -53,6 +56,9 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 }
 
 func (s *State) String() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	highestCCBlockStr := "nil"
 	if s.highestCCBlock != nil {
 		highestCCBlockStr = s.highestCCBlock.Hash().Hex()
@@ -71,7 +77,14 @@ func (s *State) String() string {
 		highestCCBlockStr, lastFinalizedBlockStr, tipStr, s.lastVoteHeight, s.epoch)
 }
 
-func (s *State) commit() error {
+func (s *State) GetSummary() *StateStub {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.getSummary()
+}
+
+func (s *State) getSummary() *StateStub {
 	stub := &StateStub{
 		LastVoteHeight: s.lastVoteHeight,
 		Epoch:          s.epoch,
@@ -83,6 +96,11 @@ func (s *State) commit() error {
 	if s.lastFinalizedBlock != nil {
 		stub.LastFinalizedBlock = s.lastFinalizedBlock.Hash()
 	}
+	return stub
+}
+
+func (s *State) commit() error {
+	stub := s.getSummary()
 	key := []byte(DBStateStubKey)
 
 	return s.db.Put(key, stub)
@@ -121,37 +139,61 @@ func (s *State) Load() (err error) {
 }
 
 func (s *State) GetEpoch() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.epoch
 }
 
 func (s *State) SetEpoch(epoch uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.epoch = epoch
 	return s.commit()
 }
 
 func (s *State) GetLastVoteHeight() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.lastVoteHeight
 }
 
 func (s *State) SetLastVoteHeight(height uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.lastVoteHeight = height
 	return s.commit()
 }
 
 func (s *State) GetHighestCCBlock() *core.ExtendedBlock {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.highestCCBlock
 }
 
 func (s *State) SetHighestCCBlock(block *core.ExtendedBlock) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.highestCCBlock = block
 	return s.commit()
 }
 
 func (s *State) GetLastFinalizedBlock() *core.ExtendedBlock {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.lastFinalizedBlock
 }
 
 func (s *State) SetLastFinalizedBlock(block *core.ExtendedBlock) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.lastFinalizedBlock = block
 	return s.commit()
 }
@@ -159,6 +201,9 @@ func (s *State) SetLastFinalizedBlock(block *core.ExtendedBlock) error {
 // SetTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
 // descendants as the fork-choice rule.
 func (s *State) SetTip() *core.ExtendedBlock {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	ret, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash())
 	s.tip = ret
 	return ret
@@ -166,6 +211,9 @@ func (s *State) SetTip() *core.ExtendedBlock {
 
 // GetTip return the block to be extended from.
 func (s *State) GetTip() *core.ExtendedBlock {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.tip
 }
 
@@ -176,31 +224,7 @@ func (s *State) AddVote(vote *core.Vote) error {
 	if err := s.AddVoteByBlock(vote); err != nil {
 		return err
 	}
-	if err := s.AddVoteByHeight(vote); err != nil {
-		return err
-	}
 	return nil
-}
-
-func (s *State) GetVoteSetByHeight(height uint64) (*core.VoteSet, error) {
-	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
-	ret := core.NewVoteSet()
-	err := s.db.Get(key, ret)
-	return ret, err
-}
-
-func (s *State) AddVoteByHeight(vote *core.Vote) error {
-	if vote.Block == nil {
-		return nil
-	}
-	height := vote.Block.Height
-	voteset, err := s.GetVoteSetByHeight(height)
-	if err != nil {
-		voteset = core.NewVoteSet()
-	}
-	voteset.AddVote(*vote)
-	key := []byte(fmt.Sprintf("%s:%d", DBVoteByHeightPrefix, height))
-	return s.db.Put(key, voteset)
 }
 
 func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
@@ -211,16 +235,15 @@ func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
 }
 
 func (s *State) AddVoteByBlock(vote *core.Vote) error {
-	if vote.Block == nil {
+	if vote.Block.IsEmpty() {
 		return nil
 	}
-	hash := vote.Block.Hash()
-	voteset, err := s.GetVoteSetByBlock(hash)
+	voteset, err := s.GetVoteSetByBlock(vote.Block)
 	if err != nil {
 		voteset = core.NewVoteSet()
 	}
 	voteset.AddVote(*vote)
-	key := append([]byte(DBVoteByBlockPrefix), hash[:]...)
+	key := append([]byte(DBVoteByBlockPrefix), vote.Block[:]...)
 	return s.db.Put(key, voteset)
 }
 
@@ -237,6 +260,16 @@ func (s *State) AddEpochVote(vote *core.Vote) error {
 		voteset = core.NewVoteSet()
 	}
 	voteset.AddVote(*vote)
+
+	newVoteSet := core.NewVoteSet()
+	for _, v := range voteset.Votes() {
+		if vote.ID == v.ID && vote.Epoch > v.Epoch {
+			newVoteSet.AddVote(*vote)
+		} else {
+			newVoteSet.AddVote(v)
+		}
+	}
+
 	key := []byte(DBEpochVotesKey)
-	return s.db.Put(key, voteset)
+	return s.db.Put(key, newVoteSet)
 }

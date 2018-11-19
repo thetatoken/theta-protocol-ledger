@@ -1,6 +1,8 @@
 package p2p
 
 import (
+	"context"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p/types"
 )
@@ -29,7 +31,10 @@ type MessageHandler interface {
 type Network interface {
 
 	// Start is called when the network starts
-	Start() error
+	Start(ctx context.Context) error
+
+	// Wait blocks until all goroutines have stopped
+	Wait()
 
 	// Stop is called when the network stops
 	Stop()

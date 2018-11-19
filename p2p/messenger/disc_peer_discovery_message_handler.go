@@ -1,9 +1,11 @@
 package messenger
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/thetatoken/ukulele/rlp"
@@ -48,6 +50,13 @@ type PeerDiscoveryMessageHandler struct {
 	peerDiscoveryPulse         *time.Ticker
 	peerDiscoveryPulseInterval time.Duration
 	discoveryCallback          InboundCallback
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 // createPeerDiscoveryMessageHandler creates an instance of PeerDiscoveryMessageHandler
@@ -55,6 +64,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
+		wg: &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -66,8 +76,14 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 }
 
 // Start is called when the message handler starts
-func (pdmh *PeerDiscoveryMessageHandler) Start() error {
+func (pdmh *PeerDiscoveryMessageHandler) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	pdmh.ctx = c
+	pdmh.cancel = cancel
+
+	pdmh.wg.Add(1)
 	go pdmh.maintainSufficientConnectivityRoutine()
+
 	return nil
 }
 
@@ -76,6 +92,12 @@ func (pdmh *PeerDiscoveryMessageHandler) Stop() {
 	if pdmh.peerDiscoveryPulse != nil {
 		pdmh.peerDiscoveryPulse.Stop()
 	}
+	pdmh.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (pdmh *PeerDiscoveryMessageHandler) Wait() {
+	pdmh.wg.Wait()
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface
@@ -205,6 +227,8 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine() {
+	defer pdmh.wg.Done()
+
 	peerDiscoveryPulse := time.NewTicker(pdmh.peerDiscoveryPulseInterval)
 	for {
 		select {

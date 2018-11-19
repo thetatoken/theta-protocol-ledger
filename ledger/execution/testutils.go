@@ -1,6 +1,15 @@
 package execution
 
 import (
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"math/big"
+	"strconv"
+
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -158,4 +167,140 @@ func (et *execTest) SetAcc(accs ...types.PrivAccount) {
 
 func getMinimumTxFee() int64 {
 	return int64(types.MinimumTransactionFeeGammaWei)
+}
+
+func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
+	servicePaymentTx := &types.ServicePaymentTx{
+		Fee: types.NewCoins(0, getMinimumTxFee()),
+		Source: types.TxInput{
+			Address:  source.PubKey.Address(),
+			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
+			Sequence: uint64(srcSeq),
+		},
+		Target: types.TxInput{
+			Address:  target.PubKey.Address(),
+			Sequence: uint64(tgtSeq),
+		},
+		PaymentSequence: uint64(paymentSeq),
+		ReserveSequence: uint64(reserveSeq),
+		ResourceID:      resourceID,
+	}
+
+	if srcSeq == 1 {
+		servicePaymentTx.Source.PubKey = source.PubKey
+	}
+	if tgtSeq == 1 {
+		servicePaymentTx.Target.PubKey = target.PubKey
+	}
+
+	srcSignBytes := servicePaymentTx.SourceSignBytes(chainID)
+	servicePaymentTx.Source.Signature = source.Sign(srcSignBytes)
+
+	tgtSignBytes := servicePaymentTx.TargetSignBytes(chainID)
+	servicePaymentTx.Target.Signature = target.Sign(tgtSignBytes)
+
+	if !source.PubKey.VerifySignature(srcSignBytes, servicePaymentTx.Source.Signature) {
+		panic("Signature verification failed for source")
+	}
+	if !target.PubKey.VerifySignature(tgtSignBytes, servicePaymentTx.Target.Signature) {
+		panic("Signature verification failed for target")
+	}
+
+	return servicePaymentTx
+}
+
+func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID string,
+	alice, bob, carol types.PrivAccount, aliceInitBalance, bobInitBalance, carolInitBalance types.Coins) {
+	et = NewExecTest()
+
+	alice = types.MakeAcc("User Alice")
+	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	alice.Balance = aliceInitBalance
+	et.acc2State(alice)
+	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
+	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
+
+	bob = types.MakeAcc("User Bob")
+	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	bob.Balance = bobInitBalance
+	et.acc2State(bob)
+	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
+	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
+
+	carol = types.MakeAcc("User Carol")
+	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	carol.Balance = carolInitBalance
+	et.acc2State(carol)
+	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
+	log.Infof("Carol's Address: %v", carol.PubKey.Address().Hex())
+
+	et.fastforwardTo(1e2)
+
+	resourceID = "rid001"
+	reserveFundTx := &types.ReserveFundTx{
+		Fee: types.NewCoins(0, getMinimumTxFee()),
+		Source: types.TxInput{
+			Address:  alice.PubKey.Address(),
+			PubKey:   alice.PubKey,
+			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+			Sequence: 1,
+		},
+		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+		ResourceIDs: []string{resourceID},
+		Duration:    1000,
+	}
+	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
+	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
+	ast.True(res.IsOK(), res.String())
+	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
+	ast.True(res.IsOK(), res.String())
+
+	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance
+}
+
+type contractByteCode struct {
+	DeploymentCode string `json:"deployment_code"`
+	Code           string `json:"code"`
+}
+
+func loadJSONTest(file string, val interface{}) error {
+	content, err := ioutil.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(content, val); err != nil {
+		if syntaxerr, ok := err.(*json.SyntaxError); ok {
+			line := findLine(content, syntaxerr.Offset)
+			return fmt.Errorf("JSON syntax error at %v:%v: %v", file, line, err)
+		}
+		return fmt.Errorf("JSON unmarshal error in %v: %v", file, err)
+	}
+	return nil
+}
+
+func findLine(data []byte, offset int64) (line int) {
+	line = 1
+	for i, r := range string(data) {
+		if int64(i) >= offset {
+			return
+		}
+		if r == '\n' {
+			line++
+		}
+	}
+	return
+}
+
+func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTest, privAccounts []types.PrivAccount) {
+	et = NewExecTest()
+
+	for i := 0; i < numAccounts; i++ {
+		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
+		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, int64(9000000*types.MinimumGasPrice)))
+		privAccounts = append(privAccounts, privAccount)
+		et.acc2State(privAccount)
+	}
+	et.fastforwardTo(1e2)
+
+	return et, privAccounts
 }

@@ -1,6 +1,8 @@
 package core
 
 import (
+	"math/big"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 )
@@ -17,7 +19,7 @@ const (
 // Ledger defines the interface of the ledger
 //
 type Ledger interface {
-	ScreenTx(rawTx common.Bytes) result.Result
+	ScreenTx(rawTx common.Bytes) (feeAmount *big.Int, res result.Result)
 	ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
 	ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result
 	ResetState(height uint64, rootHash common.Hash) result.Result

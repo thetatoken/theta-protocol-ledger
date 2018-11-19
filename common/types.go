@@ -232,6 +232,13 @@ func (a Address) String() string {
 	return a.Hex()
 }
 
+var emptyAddress Address
+
+// IsEmpty returns whether this address is empty.
+func (a Address) IsEmpty() bool {
+	return a == emptyAddress
+}
+
 // SetBytes sets the address to the value of b.
 // If b is larger than len(a) it will panic.
 func (a *Address) SetBytes(b []byte) {

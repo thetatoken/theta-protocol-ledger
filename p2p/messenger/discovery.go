@@ -1,8 +1,10 @@
 package messenger
 
 import (
+	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -26,6 +28,13 @@ type PeerDiscoveryManager struct {
 	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
 	peerDiscMsgHandler  PeerDiscoveryMessageHandler // pro-actively connect to peer candidates obtained from connected peers
 	inboundPeerListener InboundPeerListener         // listen to incoming peering requests
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -46,6 +55,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		messenger: msgr,
 		nodeInfo:  nodeInfo,
 		peerTable: peerTable,
+		wg:        &sync.WaitGroup{},
 	}
 
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
@@ -83,19 +93,23 @@ func (discMgr *PeerDiscoveryManager) SetMessenger(msgr *Messenger) {
 }
 
 // Start is called when the PeerDiscoveryManager starts
-func (discMgr *PeerDiscoveryManager) Start() error {
+func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	discMgr.ctx = c
+	discMgr.cancel = cancel
+
 	var err error
-	err = discMgr.seedPeerConnector.Start()
+	err = discMgr.seedPeerConnector.Start(c)
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.inboundPeerListener.Start()
+	err = discMgr.inboundPeerListener.Start(c)
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.peerDiscMsgHandler.Start()
+	err = discMgr.peerDiscMsgHandler.Start(c)
 	if err != nil {
 		return err
 	}
@@ -105,17 +119,23 @@ func (discMgr *PeerDiscoveryManager) Start() error {
 
 // Stop is called when the PeerDiscoveryManager stops
 func (discMgr *PeerDiscoveryManager) Stop() {
-	discMgr.seedPeerConnector.Stop()
-	discMgr.inboundPeerListener.Stop()
-	discMgr.peerDiscMsgHandler.Stop()
+	discMgr.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (discMgr *PeerDiscoveryManager) Wait() {
+	discMgr.seedPeerConnector.wg.Wait()
+	discMgr.inboundPeerListener.wg.Wait()
+	discMgr.peerDiscMsgHandler.wg.Wait()
+	discMgr.wg.Wait()
 }
 
 // HandlePeerWithErrors handles peers that are in the error state.
 // If the peer is persistent, it will attempt to reconnect to the
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
-	peer.Stop()
 	discMgr.peerTable.DeletePeer(peer.ID())
+	peer.Stop()
 
 	if peer.IsPersistent() {
 		var err error

@@ -72,7 +72,7 @@ func (sn *Simnet) Start(ctx context.Context) {
 	sn.cancel = cancel
 
 	for _, endpoint := range sn.Endpoints {
-		endpoint.Start()
+		endpoint.Start(ctx)
 	}
 
 	go sn.mainLoop()
@@ -142,7 +142,7 @@ type SimnetEndpoint struct {
 var _ p2p.Network = &SimnetEndpoint{}
 
 // Start implements the Network interface. It starts goroutines to receive/send message from network.
-func (se *SimnetEndpoint) Start() error {
+func (se *SimnetEndpoint) Start(ctx context.Context) error {
 	go func() {
 		for {
 			select {
@@ -170,6 +170,10 @@ func (se *SimnetEndpoint) Start() error {
 
 // Stop implements the Network interface.
 func (se *SimnetEndpoint) Stop() {
+}
+
+// Wait blocks until all goroutines have stopped.
+func (se *SimnetEndpoint) Wait() {
 }
 
 // Broadcast implements the Network interface.

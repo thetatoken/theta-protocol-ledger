@@ -319,3 +319,7 @@ func wrapTypeError(err error, typ reflect.Type) error {
 func errNonString(typ reflect.Type) error {
 	return &json.UnmarshalTypeError{Value: "non-string", Type: typ}
 }
+
+var (
+	IsString = isString
+)

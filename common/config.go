@@ -10,6 +10,8 @@ const (
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
+	// CfgConsensusMinProposalWait defines the minimal interval between proposals.
+	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
 
@@ -25,6 +27,8 @@ const (
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 
+	// CfgRPCEnabled sets whether to run RPC service.
+	CfgRPCEnabled = "rpc.enabled"
 	// CfgRPCPort sets the port of RPC service.
 	CfgRPCPort = "rpc.port"
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
@@ -48,10 +52,12 @@ func init() {
 	viper.SetDefault(CfgChainID, "localchain")
 
 	viper.SetDefault(CfgConsensusMaxEpochLength, 2)
+	viper.SetDefault(CfgConsensusMinProposalWait, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 
+	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)

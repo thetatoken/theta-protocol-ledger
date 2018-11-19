@@ -1,9 +1,11 @@
 package messenger
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -29,6 +31,13 @@ type InboundPeerListener struct {
 	inboundCallback InboundCallback
 
 	config InboundPeerListenerConfig
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -58,6 +67,7 @@ func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, l
 		internalAddr: internalNetAddr,
 		externalAddr: externalNetAddr,
 		config:       config,
+		wg:           &sync.WaitGroup{},
 	}
 
 	return inboundPeerListener, nil
@@ -71,14 +81,26 @@ func GetDefaultInboundPeerListenerConfig() InboundPeerListenerConfig {
 }
 
 // Start is called when the InboundPeerListener instance starts
-func (ipl *InboundPeerListener) Start() error {
+func (ipl *InboundPeerListener) Start(ctx context.Context) error {
+	c, cancel := context.WithCancel(ctx)
+	ipl.ctx = c
+	ipl.cancel = cancel
+
+	ipl.wg.Add(1)
 	go ipl.listenRoutine()
+
 	return nil
 }
 
 // Stop is called when the InboundPeerListener instance stops
 func (ipl *InboundPeerListener) Stop() {
 	ipl.netListener.Close()
+	ipl.cancel()
+}
+
+// Wait suspends the caller goroutine
+func (ipl *InboundPeerListener) Wait() {
+	ipl.wg.Wait()
 }
 
 // SetInboundCallback sets the inbound callback function
@@ -87,6 +109,8 @@ func (ipl *InboundPeerListener) SetInboundCallback(incb InboundCallback) {
 }
 
 func (ipl *InboundPeerListener) listenRoutine() {
+	defer ipl.wg.Done()
+
 	for {
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {

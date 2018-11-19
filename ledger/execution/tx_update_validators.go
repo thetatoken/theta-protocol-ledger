@@ -89,3 +89,9 @@ func (exec *UpdateValidatorsTxExecutor) process(chainID string, view *st.StoreVi
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
 }
+
+func (exec *UpdateValidatorsTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+	tx := transaction.(*types.UpdateValidatorsTx)
+	fee := tx.Fee
+	return fee, nil
+}

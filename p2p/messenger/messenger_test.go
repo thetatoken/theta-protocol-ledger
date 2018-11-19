@@ -1,6 +1,7 @@
 package messenger
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -15,6 +16,7 @@ import (
 
 func TestMessengerBroadcastMessages(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	peerAPort := 24611
 	peerBPort := 24612
@@ -39,7 +41,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		peerID := messenger.nodeInfo.PubKey.Address().Hex()
 		peerAMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.RegisterMessageHandler(peerAMessageHandler)
-		messenger.Start()
+		messenger.Start(ctx)
 
 		peerAReady <- true // Peer A is ready, it has started
 		log.Infof(">>> Peer A ID: %v", peerID)
@@ -55,7 +57,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 		peerID := messenger.nodeInfo.PubKey.Address().Hex()
 		peerBMessageHandler = newTestMessageHandler(peerID, t, assert)
 		messenger.RegisterMessageHandler(peerBMessageHandler)
-		messenger.Start()
+		messenger.Start(ctx)
 
 		numPeers := len(seedPeerNetAddressStrs)
 		for i := 0; i < numPeers; i++ {
@@ -73,7 +75,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 	peerID := messenger.nodeInfo.PubKey.Address().Hex()
 	peerCMessageHandler := newTestMessageHandler(peerID, t, assert)
 	messenger.RegisterMessageHandler(peerCMessageHandler)
-	messenger.Start()
+	messenger.Start(ctx)
 
 	numPeers := len(seedPeerNetAddressStrs)
 	for i := 0; i < numPeers; i++ {

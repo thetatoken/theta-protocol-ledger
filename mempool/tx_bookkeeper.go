@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"sync"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
 
@@ -37,18 +38,18 @@ func (tb *transactionBookkeeper) reset() {
 	tb.txList.Init()
 }
 
-func (tb *transactionBookkeeper) hasSeen(mptx *MempoolTransaction) bool {
+func (tb *transactionBookkeeper) hasSeen(rawTx common.Bytes) bool {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	txhash := getTransactionHash(mptx)
+	txhash := getTransactionHash(rawTx)
 	_, exists := tb.txMap[txhash]
 	return exists
 }
 
-func (tb *transactionBookkeeper) record(mptx *MempoolTransaction) bool {
+func (tb *transactionBookkeeper) record(rawTx common.Bytes) bool {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	txhash := getTransactionHash(mptx)
+	txhash := getTransactionHash(rawTx)
 
 	if _, exists := tb.txMap[txhash]; exists {
 		return false
@@ -67,15 +68,15 @@ func (tb *transactionBookkeeper) record(mptx *MempoolTransaction) bool {
 	return true
 }
 
-func (tb *transactionBookkeeper) remove(mptx *MempoolTransaction) {
+func (tb *transactionBookkeeper) remove(rawTx common.Bytes) {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	txhash := getTransactionHash(mptx)
+	txhash := getTransactionHash(rawTx)
 	delete(tb.txMap, txhash)
 }
 
-func getTransactionHash(mptx *MempoolTransaction) string {
-	txhash := crypto.Keccak256Hash(mptx.rawTransaction)
+func getTransactionHash(rawTx common.Bytes) string {
+	txhash := crypto.Keccak256Hash(rawTx)
 	txhashStr := hex.EncodeToString(txhash[:])
 	return txhashStr
 }
