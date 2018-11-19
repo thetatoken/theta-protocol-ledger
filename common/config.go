@@ -10,6 +10,8 @@ const (
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
+	// CfgConsensusMinProposalWait defines the minimal interval between proposals.
+	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
 
@@ -50,6 +52,7 @@ func init() {
 	viper.SetDefault(CfgChainID, "localchain")
 
 	viper.SetDefault(CfgConsensusMaxEpochLength, 2)
+	viper.SetDefault(CfgConsensusMinProposalWait, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
