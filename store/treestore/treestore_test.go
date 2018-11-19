@@ -1,4 +1,4 @@
-//// +build cluster_deployment
+// +build cluster_deployment
 
 package treestore
 
@@ -236,9 +236,9 @@ func testTreeStore(db database.Database, t *testing.T) {
 	}
 
 	pruneStore := NewTreeStore(treestore.Hash(), db)
-	pruneStore.Prune()
+	pruneStore.Prune(nil)
 	pruneStore = NewTreeStore(treestore1.Hash(), db)
-	pruneStore.Prune()
+	pruneStore.Prune(nil)
 
 	for hash := range hashMap {
 		has, _ := db.Has(hash[:])
@@ -268,10 +268,6 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	//////////////////////////////
 
-	for it := treestore2.NodeIterator(nil); it.Next(true); {
-		if it.Hash() != (common.Hash{}) {
-			hash := it.Hash()
-			db.Delete(hash[:])
-		}
-	}
+	pruneStore = NewTreeStore(treestore2.Hash(), db)
+	pruneStore.Prune(nil)
 }
