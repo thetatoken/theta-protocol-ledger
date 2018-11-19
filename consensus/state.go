@@ -260,6 +260,16 @@ func (s *State) AddEpochVote(vote *core.Vote) error {
 		voteset = core.NewVoteSet()
 	}
 	voteset.AddVote(*vote)
+
+	newVoteSet := core.NewVoteSet()
+	for _, v := range voteset.Votes() {
+		if vote.ID == v.ID && vote.Epoch > v.Epoch {
+			newVoteSet.AddVote(*vote)
+		} else {
+			newVoteSet.AddVote(v)
+		}
+	}
+
 	key := []byte(DBEpochVotesKey)
-	return s.db.Put(key, voteset)
+	return s.db.Put(key, newVoteSet)
 }
