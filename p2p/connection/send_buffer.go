@@ -13,7 +13,7 @@ type SendBuffer struct {
 	queueSize int32
 
 	config  SendBufferConfig
-	chanSeq map[common.ChannelIDEnum]uint
+	chanSeq uint
 }
 
 type SendBufferConfig struct {
@@ -27,7 +27,6 @@ func createSendBuffer(config SendBufferConfig) SendBuffer {
 		workspace: make([]byte, 0),
 		queue:     make(chan []byte, config.queueCapacity),
 		config:    config,
-		chanSeq:   make(map[common.ChannelIDEnum]uint),
 	}
 }
 
@@ -95,18 +94,18 @@ func (sb *SendBuffer) emitPacket(channelID common.ChannelIDEnum) Packet {
 
 	var bytes []byte
 	var isEOF byte
-	seqID := sb.chanSeq[channelID]
+	seqID := sb.chanSeq
 	if len(sb.workspace) <= maxPayloadSize {
 		bytes = sb.workspace[:]
 		isEOF = byte(0x01) // EOF
 		sb.workspace = nil
-		sb.chanSeq[channelID] = 0          // reset sequence id
+		sb.chanSeq = 0                     // reset sequence id
 		atomic.AddInt32(&sb.queueSize, -1) // decrement queueSize
 	} else {
 		bytes = sb.workspace[:maxPayloadSize]
 		isEOF = byte(0x00)
 		sb.workspace = sb.workspace[maxPayloadSize:]
-		sb.chanSeq[channelID]++ // increment sequence id
+		sb.chanSeq++ // increment sequence id
 	}
 
 	packet := Packet{

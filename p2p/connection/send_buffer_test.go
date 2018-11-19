@@ -97,34 +97,6 @@ func TestSendLongMessage(t *testing.T) {
 	assert.True(dsb.canInsert())
 }
 
-func TestPacketSequenceInDiffChannels(t *testing.T) {
-	assert := assert.New(t)
-	dsb := newTestDefaultSendBuffer()
-
-	// prepare a 3000-byte long []byte
-	var msgStr string
-	for i := 0; i < 300; i++ {
-		msgStr = msgStr + "0123456789"
-	}
-	msgBytes := []byte(msgStr)
-
-	success := dsb.insert(msgBytes)
-	assert.True(success)
-
-	assert.False(dsb.isEmpty())
-	assert.Equal(1, dsb.getSize())
-	assert.False(dsb.canInsert())
-
-	packet1 := dsb.emitPacket(common.ChannelIDTransaction)
-	assert.Equal(uint(0), packet1.SeqID)
-
-	packet2 := dsb.emitPacket(common.ChannelIDCheckpoint)
-	assert.Equal(uint(0), packet2.SeqID)
-
-	packet3 := dsb.emitPacket(common.ChannelIDBlock)
-	assert.Equal(uint(0), packet3.SeqID)
-}
-
 func TestSequentialSendMultipleMessages(t *testing.T) {
 	assert := assert.New(t)
 	dsb := newTestDefaultSendBuffer()
