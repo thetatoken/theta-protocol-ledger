@@ -3,6 +3,7 @@ package consensus
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"sync"
@@ -46,8 +47,9 @@ type ConsensusEngine struct {
 	cancel  context.CancelFunc
 	stopped bool
 
-	mu         *sync.Mutex
-	epochTimer *time.Timer
+	mu            *sync.Mutex
+	epochTimer    *time.Timer
+	proposalTimer *time.Timer
 
 	state *State
 
@@ -160,20 +162,27 @@ func (e *ConsensusEngine) mainLoop() {
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
+			case <-e.proposalTimer.C:
+				e.propose()
 			}
 		}
 	}
 }
 
 func (e *ConsensusEngine) enterEpoch() {
-	// Reset timer.
+	// Reset timers.
 	if e.epochTimer != nil {
 		e.epochTimer.Stop()
 	}
 	e.epochTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
 
+	if e.proposalTimer != nil {
+		e.proposalTimer.Stop()
+	}
 	if e.shouldPropose(e.GetEpoch()) {
-		e.propose()
+		e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
+	} else {
+		e.proposalTimer = time.NewTimer(math.MaxInt64)
 	}
 }
 
