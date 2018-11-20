@@ -125,25 +125,28 @@ func TestDefaultChannelRecvMultipleMsgs(t *testing.T) {
 		IsEOF:     byte(0x00),
 	}
 
+	totalNumPackets := uint(11)
+	i := uint(0)
+	for ; i < totalNumPackets-1; i++ {
+		partPacket.SeqID = i
+		recvBytes, success := ch.receivePacket(partPacket)
+		assert.True(success)
+		assert.Nil(recvBytes)
+	}
+
 	endBytes := []byte("abcdef")
 	endPacket := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     endBytes,
 		IsEOF:     byte(0x01),
-	}
-
-	totalNumPackets := 11
-	for i := 0; i < totalNumPackets-1; i++ {
-		recvBytes, success := ch.receivePacket(partPacket)
-		assert.True(success)
-		assert.Nil(recvBytes)
+		SeqID:     i,
 	}
 
 	recvBytes, success := ch.receivePacket(endPacket)
 	assert.True(success)
 
 	completeMsg := ""
-	for i := 0; i < totalNumPackets-1; i++ {
+	for i := uint(0); i < totalNumPackets-1; i++ {
 		completeMsg += string(partBytes)
 	}
 	completeMsg += string(endBytes)
@@ -168,7 +171,9 @@ func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
 
 	var success bool
 	var recvBytes []byte
-	for i := 0; i < 32767; i++ {
+	i := uint(0)
+	for ; i < 32767; i++ {
+		packet.SeqID = i
 		recvBytes, success = ch.receivePacket(packet)
 		assert.True(success)
 		assert.Nil(recvBytes)
@@ -180,6 +185,7 @@ func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes,
 		IsEOF:     byte(0x01),
+		SeqID:     i,
 	}
 	aggregatedBytes, success := ch.receivePacket(endPacket)
 	assert.True(success)
