@@ -11,7 +11,7 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 - [Off-Chain Micropayment Support](#off-chain-micropayment-support)
 
 ## Setup
-Install Go and set environment variables `GOPATH` and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
 
 ```
 brew install go@1.9
@@ -49,10 +49,16 @@ make test_unit
 ```
 
 ## Launch a Local Private Net
-Open a terminal, and use the following commands to launch a private net with a single validator node.
+Open a terminal to launch the private net. For the first time, follow the setup steps below.
 ```
 cd $UKULELE_HOME
 cp -r ./integration/testnet ../testnet
+mkdir ~/.banjo
+cp -r ./integration/testnet/banjo/* ~/.banjo/
+chmod 700 ~/.banjo/keys/encrypted
+```
+And then, use the following commands to launch a private net with a single validator node.
+```
 ukulele start --config=../testnet/node2
 ```
 In another terminal, we can use the `banjo` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
