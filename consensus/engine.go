@@ -128,6 +128,18 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.ctx = c
 	e.cancel = cancel
 
+	// Verify configurations
+	if viper.GetInt(common.CfgConsensusMaxEpochLength) <= viper.GetInt(common.CfgConsensusMinProposalWait) {
+		log.WithFields(log.Fields{
+			"CfgConsensusMaxEpochLength":  viper.GetInt(common.CfgConsensusMaxEpochLength),
+			"CfgConsensusMinProposalWait": viper.GetInt(common.CfgConsensusMinProposalWait),
+		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
+	}
+
+	// Set ledger state pointer to intial state.
+	lastCC := e.state.GetHighestCCBlock()
+	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+
 	e.wg.Add(1)
 	go e.mainLoop()
 }

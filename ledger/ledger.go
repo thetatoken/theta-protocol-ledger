@@ -201,6 +201,8 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 
 // resetState sets the ledger state with the designated root
 func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
+	log.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
+
 	res := ledger.state.ResetState(height, rootHash)
 	if res.IsError() {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
