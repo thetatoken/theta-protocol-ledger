@@ -262,7 +262,6 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 		// Broadcast the transaction
 		data := dp.DataResponse{
 			ChannelID: common.ChannelIDTransaction,
-			Checksum:  []byte(""), // TODO: calculate the checksum
 			Payload:   mptx.rawTransaction,
 		}
 

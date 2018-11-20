@@ -30,7 +30,6 @@ func TestMempoolMessageHandler(t *testing.T) {
 		for _, rawTx := range txs {
 			dataResponse := dp.DataResponse{
 				ChannelID: common.ChannelIDTransaction,
-				Checksum:  []byte(""),
 				Payload:   rawTx,
 			}
 			contentBytes, err := rlp.EncodeToBytes(dataResponse)
