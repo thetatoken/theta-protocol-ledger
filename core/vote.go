@@ -187,12 +187,29 @@ func (s *VoteSet) Merge(another *VoteSet) *VoteSet {
 	return ret
 }
 
-// KeepLatest consolidate vote set by removing votes from the same voter to same block
+// UniqueVoterAndBlock consolidate vote set by removing votes from the same voter to same block
 // in older epoches.
-func (s *VoteSet) KeepLatest() *VoteSet {
+func (s *VoteSet) UniqueVoterAndBlock() *VoteSet {
 	latestVotes := make(map[string]Vote)
 	for _, vote := range s.votes {
 		key := fmt.Sprintf("%s:%s", vote.ID, vote.Block)
+		if prev, ok := latestVotes[key]; ok && prev.Epoch >= vote.Epoch {
+			continue
+		}
+		latestVotes[key] = vote
+	}
+	ret := NewVoteSet()
+	for _, vote := range latestVotes {
+		ret.AddVote(vote)
+	}
+	return ret
+}
+
+// UniqueVoter consolidate vote set by removing votes from the same voter in older epoches.
+func (s *VoteSet) UniqueVoter() *VoteSet {
+	latestVotes := make(map[string]Vote)
+	for _, vote := range s.votes {
+		key := fmt.Sprintf("%s", vote.ID)
 		if prev, ok := latestVotes[key]; ok && prev.Epoch >= vote.Epoch {
 			continue
 		}

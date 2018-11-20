@@ -337,6 +337,8 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 			}
 		}
 
+		currentEpochVotes = currentEpochVotes.UniqueVoter()
+
 		if validators.HasMajority(currentEpochVotes) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
@@ -500,7 +502,7 @@ func (e *ConsensusEngine) propose() {
 	if err != nil {
 		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
 	}
-	proposal.Votes = lastCCVotes.Merge(epochVotes).KeepLatest()
+	proposal.Votes = lastCCVotes.Merge(epochVotes).UniqueVoterAndBlock()
 	selfVote := e.createVote(block.Hash())
 	proposal.Votes.AddVote(selfVote)
 
