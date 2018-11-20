@@ -51,7 +51,7 @@ p2p:
 func init() {
 	viper.SetDefault(CfgChainID, "localchain")
 
-	viper.SetDefault(CfgConsensusMaxEpochLength, 2)
+	viper.SetDefault(CfgConsensusMaxEpochLength, 5)
 	viper.SetDefault(CfgConsensusMinProposalWait, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
