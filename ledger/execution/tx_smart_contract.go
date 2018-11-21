@@ -119,17 +119,7 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	return txHash, result.OK
 }
 
-func (exec *SmartContractTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+func (exec *SmartContractTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.SmartContractTx)
-	view, err := exec.state.Screened().Copy()
-	if err != nil {
-		return types.NewCoins(0, 0), err
-	}
-	_, _, gasUsed, _ := vm.Execute(tx, view)
-	feeAmount := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(gasUsed))
-	fee := types.Coins{
-		ThetaWei: big.NewInt(int64(0)),
-		GammaWei: feeAmount,
-	}
-	return fee, nil
+	return tx.GasPrice
 }

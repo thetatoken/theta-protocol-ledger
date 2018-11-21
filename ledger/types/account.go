@@ -12,7 +12,7 @@ import (
 var EmptyCodeHash = common.BytesToHash(crypto.Keccak256(nil))
 
 type Account struct {
-	PubKey                 *crypto.PublicKey // May be nil, if not known.
+	Address                common.Address
 	Sequence               uint64
 	Balance                Coins
 	ReservedFunds          []ReservedFund // TODO: replace the slice with map
@@ -67,8 +67,9 @@ func (acc *Account) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func NewAccount() *Account {
+func NewAccount(address common.Address) *Account {
 	return &Account{
+		Address:  address,
 		Root:     common.Hash{},
 		CodeHash: EmptyCodeHash,
 		Balance:  NewCoins(0, 0),
@@ -87,12 +88,8 @@ func (acc *Account) String() string {
 	if acc == nil {
 		return "nil-Account"
 	}
-	var address common.Address
-	if acc.PubKey != nil {
-		address = acc.PubKey.Address()
-	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
-		address, acc.Sequence, acc.Balance, acc.ReservedFunds)
+		acc.Address, acc.Sequence, acc.Balance, acc.ReservedFunds)
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.
@@ -211,7 +208,7 @@ func (acc *Account) CheckTransferReservedFund(tgtAcc *Account, transferAmount Co
 			return errors.New("Already expired")
 		}
 
-		targetAddress := tgtAcc.PubKey.Address()
+		targetAddress := tgtAcc.Address
 		err := reservedFund.VerifyPaymentSequence(targetAddress, paymentSequence)
 		if err != nil {
 			return err
@@ -263,12 +260,8 @@ func (acc *Account) TransferReservedFund(splittedCoinsMap map[*Account]Coins, cu
 func (acc *Account) generateSlashIntent(reservedFund *ReservedFund, currentServicePaymentTx *ServicePaymentTx) SlashIntent {
 	overspendingProof := constructOverspendingProof(reservedFund, currentServicePaymentTx)
 
-	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
-		panic("Account PubKey is empty!")
-	}
-
 	slashIntent := SlashIntent{
-		Address:         acc.PubKey.Address(),
+		Address:         acc.Address,
 		ReserveSequence: reservedFund.ReserveSequence,
 		Proof:           overspendingProof,
 	}

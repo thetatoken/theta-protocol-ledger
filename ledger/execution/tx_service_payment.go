@@ -2,6 +2,7 @@ package execution
 
 import (
 	"fmt"
+	"math/big"
 
 	log "github.com/sirupsen/logrus"
 
@@ -60,7 +61,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 
 	// Verify source
 	sourceSignBytes := tx.SourceSignBytes(chainID)
-	if !sourceAccount.PubKey.VerifySignature(sourceSignBytes, tx.Source.Signature) {
+	if !tx.Source.Signature.Verify(sourceSignBytes, sourceAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
@@ -73,7 +74,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	}
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
-	if !targetAccount.PubKey.VerifySignature(targetSignBytes, tx.Target.Signature) {
+	if !tx.Target.Signature.Verify(targetSignBytes, targetAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
@@ -194,8 +195,10 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule
 	return true, coinsMap, accountAddressMap
 }
 
-func (exec *ServicePaymentTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+func (exec *ServicePaymentTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.ServicePaymentTx)
 	fee := tx.Fee
-	return fee, nil
+	gas := new(big.Int).SetUint64(types.GasServicePaymentTx)
+	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	return effectiveGasPrice
 }

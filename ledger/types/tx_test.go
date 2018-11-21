@@ -20,7 +20,7 @@ func TestCoinbaseTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 
 	coinbaseTx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
+		Proposer: NewTxInput(va1PrivAcc.Address, NewCoins(0, 0), 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("validator1"),
@@ -35,7 +35,7 @@ func TestCoinbaseTxSignable(t *testing.T) {
 	}
 	signBytes := coinbaseTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8D746573745F636861696E5F696480F897F85D94B23369B1225E72332462A75C1B7F509A805E3D6EC280800180B84104F584D8724624D250A1EA8FB24BF4D934EE55E53A1D03C9386E630033079484E215E86145F4CD5BD943A75792F28643BCB1ABB37A29C6F8CF2A1EA1615A3CA9C4F6DA9476616C696461746F723100000000000000000000C482014D80DA9476616C696461746F723100000000000000000000C48201BC800A"
+	expected := "8D746573745F636861696E5F696480F853DA94B23369B1225E72332462A75C1B7F509A805E3D6EC280800180F6DA9476616C696461746F723100000000000000000000C482014D80DA9476616C696461746F723100000000000000000000C48201BC800A"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for CoinbaseTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -50,7 +50,7 @@ func TestCoinbaseTxProto(t *testing.T) {
 
 	// Construct a CoinbaseTx signature
 	tx := &CoinbaseTx{
-		Proposer: NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
+		Proposer: NewTxInput(va1PrivAcc.Address, NewCoins(0, 0), 1),
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
@@ -163,14 +163,14 @@ func TestCoinbaseTxRLP(t *testing.T) {
 func TestSlashTxSignable(t *testing.T) {
 	va1PrivAcc := PrivAccountFromSecret("validator1")
 	slashTx := &SlashTx{
-		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
+		Proposer:        NewTxInput(va1PrivAcc.Address, NewCoins(0, 0), 1),
 		SlashedAddress:  getTestAddress("014FAB"),
 		ReserveSequence: 1,
 		SlashProof:      []byte("2345ABC"),
 	}
 	signBytes := slashTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E01F87DF85D94B23369B1225E72332462A75C1B7F509A805E3D6EC280800180B84104F584D8724624D250A1EA8FB24BF4D934EE55E53A1D03C9386E630033079484E215E86145F4CD5BD943A75792F28643BCB1ABB37A29C6F8CF2A1EA1615A3CA9C4943031344641420000000000000000000000000000018732333435414243"
+	expected := "8A746573745F636861696E01F839DA94B23369B1225E72332462A75C1B7F509A805E3D6EC280800180943031344641420000000000000000000000000000018732333435414243"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for CoinbaseTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -184,7 +184,7 @@ func TestSlashTxProto(t *testing.T) {
 
 	// Construct a SlashTx signature
 	tx := &SlashTx{
-		Proposer:        NewTxInput(va1PrivAcc.PrivKey.PublicKey(), Coins{}, 1),
+		Proposer:        NewTxInput(va1PrivAcc.Address, Coins{}, 1),
 		SlashedAddress:  getTestAddress("014FAB"),
 		ReserveSequence: 1,
 		SlashProof:      []byte("2345ABC"),
@@ -247,7 +247,7 @@ func TestSendTxSignable(t *testing.T) {
 	}
 	signBytes := sendTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E02F87AC26F80F83EE094696E707574310000000000000000000000000000C482303980830109328080DC94696E707574320000000000000000000000000000C26F8081DE8080F6DA946F75747075743100000000000000000000000000C482014D80DA946F75747075743200000000000000000000000000C48201BC80"
+	expected := "8A746573745F636861696E02F878C26F80F83CDF94696E707574310000000000000000000000000000C4823039808301093280DB94696E707574320000000000000000000000000000C26F8081DE80F6DA946F75747075743100000000000000000000000000C482014D80DA946F75747075743200000000000000000000000000C48201BC80"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for SendTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -264,11 +264,11 @@ func TestSendTxProto(t *testing.T) {
 	tx := &SendTx{
 		Fee: Coins{GammaWei: big.NewInt(2)},
 		Inputs: []TxInput{
-			NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(10)}, 1),
+			NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(10)}, 1),
 		},
 		Outputs: []TxOutput{
 			TxOutput{
-				Address: test2PrivAcc.PrivKey.PublicKey().Address(),
+				Address: test2PrivAcc.Address,
 				Coins:   Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(8)},
 			},
 		},
@@ -318,7 +318,7 @@ func TestReserveFundTxSignable(t *testing.T) {
 
 	signBytes := reserveFundTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E03F6C2806FE094696E707574310000000000000000000000000000C480823039830109328080C480825971C98872696430303132338203E7"
+	expected := "8A746573745F636861696E03F5C2806FDF94696E707574310000000000000000000000000000C4808230398301093280C480825971C98872696430303132338203E7"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ReserveFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -333,7 +333,7 @@ func TestReserveFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
 		Fee:         Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:      NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Source:      NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
 		ResourceIDs: []string{"rid00123"},
 		Duration:    uint64(999),
@@ -381,7 +381,7 @@ func TestReleaseFundTxSignable(t *testing.T) {
 
 	signBytes := releaseFundTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E04E5C2806FE094696E707574310000000000000000000000000000C4808230398301093280800C"
+	expected := "8A746573745F636861696E04E4C2806FDF94696E707574310000000000000000000000000000C48082303983010932800C"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ReleaseFundTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -396,7 +396,7 @@ func TestReleaseFundTxProto(t *testing.T) {
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
 		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Source:          NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		ReserveSequence: 1,
 	}
 
@@ -449,7 +449,7 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 
 	signBytes := servicePaymentTx.SourceSignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E05F848C28080DD94736F757263650000000000000000000000000000C480823039808080DB947461726765740000000000000000000000000000C28080808080030C887269643030313233"
+	expected := "8A746573745F636861696E05F846C28080DC94736F757263650000000000000000000000000000C4808230398080DA947461726765740000000000000000000000000000C280808080030C887269643030313233"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ServicePaymentTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -475,7 +475,7 @@ func TestServicePaymentTxTargetSignable(t *testing.T) {
 
 	signBytes := servicePaymentTx.TargetSignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E05F84DC2806FE094736F757263650000000000000000000000000000C480823039830109328080DD947461726765740000000000000000000000000000C280808257458080030C887269643030313233"
+	expected := "8A746573745F636861696E05F84BC2806FDF94736F757263650000000000000000000000000000C4808230398301093280DC947461726765740000000000000000000000000000C2808082574580030C887269643030313233"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for ServicePaymentTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -491,8 +491,8 @@ func TestServicePaymentTxProto(t *testing.T) {
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
 		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(sourcePrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10000)}, 1),
-		Target:          NewTxInput(targetPrivAcc.PrivKey.PublicKey(), NewCoins(0, 0), 1),
+		Source:          NewTxInput(sourcePrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10000)}, 1),
+		Target:          NewTxInput(targetPrivAcc.Address, NewCoins(0, 0), 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
 		ResourceID:      "rid00123",
@@ -534,7 +534,7 @@ func TestSplitRuleTxSignable(t *testing.T) {
 
 	signBytes := splitRuleTx.SignBytes(chainID)
 	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "8A746573745F636861696E06F846C2806F887269643030313233E094736F757263650000000000000000000000000000C480823039830109328080D7D69473706C69746164647231000000000000000000001E63"
+	expected := "8A746573745F636861696E06F845C2806F887269643030313233DF94736F757263650000000000000000000000000000C4808230398301093280D7D69473706C69746164647231000000000000000000001E63"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for SplitRuleTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -554,7 +554,7 @@ func TestSplitRuleTxProto(t *testing.T) {
 	tx := &SplitRuleTx{
 		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
 		ResourceID: "rid00123",
-		Initiator:  NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Initiator:  NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
 	}
@@ -620,11 +620,11 @@ func TestUpdateValidatorsTxProto(t *testing.T) {
 	// va := core.NewValidator(idBytes, uint64(100))
 	// tx := &UpdateValidatorsTx{
 	// 	Validators: []*core.Validator{&va},
-	// 	Proposer:   NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{{"", 10}}, 1),
+	// 	Proposer:   NewTxInput(test1PrivAcc.Address, Coins{{"", 10}}, 1),
 	// }
 
 	tx := &UpdateValidatorsTx{
-		Proposer: NewTxInput(test1PrivAcc.PrivKey.PublicKey(), Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Proposer: NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
 	}
 
 	// serialize this and back

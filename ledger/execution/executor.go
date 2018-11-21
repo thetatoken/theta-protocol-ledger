@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"math/big"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -14,7 +16,7 @@ import (
 type TxExecutor interface {
 	sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result
 	process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result)
-	calculateFee(transaction types.Tx) (types.Coins, error)
+	calculateEffectiveGasPrice(transaction types.Tx) *big.Int
 }
 
 //
@@ -80,19 +82,15 @@ func (exec *Executor) ScreenTx(tx types.Tx) (common.Hash, result.Result) {
 	return exec.processTx(tx, core.ScreenedView)
 }
 
-// CalculateFee calculates the fee for the transaction
-func (exec *Executor) CalculateFee(tx types.Tx) (types.Coins, result.Result) {
+// CalculateEffectiveGasPrice calculates the effective gas price for the transaction
+func (exec *Executor) CalculateEffectiveGasPrice(tx types.Tx) (*big.Int, result.Result) {
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor == nil {
-		return types.NewCoins(0, 0), result.Error("Unknown tx type")
+		return new(big.Int).SetUint64(0), result.Error("Unknown tx type")
 	}
 
-	fee, err := txExecutor.calculateFee(tx)
-	if err != nil {
-		return types.NewCoins(0, 0), result.Error(
-			"Failed to calculate fee").WithErrorCode(result.CodeFailedToCalculateFee)
-	}
-	return fee, result.OK
+	effectiveGasPrice := txExecutor.calculateEffectiveGasPrice(tx)
+	return effectiveGasPrice, result.OK
 }
 
 // processTx contains the main logic to process the transaction. If the tx is invalid, a TMSP error will be returned.

@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"math/big"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -44,7 +46,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	}
 
 	// verify the proposer is one of the validators
-	res = isAValidator(tx.Proposer.PubKey, validatorAddresses)
+	res = isAValidator(tx.Proposer.Address, validatorAddresses)
 	if res.IsError() {
 		return res
 	}
@@ -56,7 +58,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
-	if !proposerAccount.PubKey.VerifySignature(signBytes, tx.Proposer.Signature) {
+	if !tx.Proposer.Signature.Verify(signBytes, proposerAccount.Address) {
 		return result.Error("SignBytes: %X", signBytes)
 	}
 
@@ -126,6 +128,6 @@ func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) ma
 	return accountReward
 }
 
-func (exec *CoinbaseTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
-	return types.NewCoins(0, 0), nil
+func (exec *CoinbaseTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
+	return new(big.Int).SetUint64(0)
 }

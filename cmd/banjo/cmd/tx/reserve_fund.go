@@ -24,7 +24,7 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
-	wallet, fromAddress, fromPubKey, err := walletUnlock(cmd, fromFlag)
+	wallet, fromAddress, _, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -49,9 +49,6 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 			GammaWei: fund,
 		},
 		Sequence: uint64(seqFlag),
-	}
-	if seqFlag == 1 {
-		input.PubKey = fromPubKey
 	}
 	resourceIDs := []string{}
 	for _, id := range resourceIDsFlag {

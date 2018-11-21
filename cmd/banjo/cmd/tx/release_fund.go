@@ -24,7 +24,7 @@ var releaseFundCmd = &cobra.Command{
 }
 
 func doReleaseFundCmd(cmd *cobra.Command, args []string) {
-	wallet, fromAddress, fromPubKey, err := walletUnlock(cmd, fromFlag)
+	wallet, fromAddress, _, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -33,9 +33,6 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 	input := types.TxInput{
 		Address:  fromAddress,
 		Sequence: uint64(seqFlag),
-	}
-	if seqFlag == 1 {
-		input.PubKey = fromPubKey
 	}
 
 	gamma, ok := types.ParseCoinAmount(feeFlag)

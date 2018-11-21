@@ -23,9 +23,20 @@ Transaction Types:
  - ReserveFundTx        Reserve fund for subsequence service payments
  - ReleaseFundTx        Release fund reserved for service payments
  - ServicePaymentTx     Payments for service
- - SplitRuleTx      Payment split rule
+ - SplitRuleTx          Payment split rule
  - UpdateValidatorsTx   Update validator set
+ - SmartContractTx      Execute smart contract
 */
+
+// Gas of regular transactions
+const (
+	GasSendTx             uint64 = 10000
+	GasReserveFundTx      uint64 = 10000
+	GasReleaseFundTx      uint64 = 10000
+	GasServicePaymentTx   uint64 = 10000
+	GasSplitRuleTx        uint64 = 10000
+	GasUpdateValidatorsTx uint64 = 10000
+)
 
 type Tx interface {
 	AssertIsTx()
@@ -72,7 +83,6 @@ type TxInput struct {
 	Coins     Coins
 	Sequence  uint64            // Must be 1 greater than the last committed TxInput
 	Signature *crypto.Signature // Depends on the PubKey type and the whole Tx
-	PubKey    *crypto.PublicKey // Is present iff Sequence == 0
 }
 
 type TxInputJSON struct {
@@ -80,7 +90,6 @@ type TxInputJSON struct {
 	Coins     Coins             `json:"coins"`     //
 	Sequence  common.JSONUint64 `json:"sequence"`  // Must be 1 greater than the last committed TxInput
 	Signature *crypto.Signature `json:"signature"` // Depends on the PubKey type and the whole Tx
-	PubKey    *crypto.PublicKey `json:"pub_key"`   // Is present iff Sequence == 0
 }
 
 func NewTxInputJSON(a TxInput) TxInputJSON {
@@ -89,7 +98,6 @@ func NewTxInputJSON(a TxInput) TxInputJSON {
 		Coins:     a.Coins,
 		Sequence:  common.JSONUint64(a.Sequence),
 		Signature: a.Signature,
-		PubKey:    a.PubKey,
 	}
 }
 
@@ -99,7 +107,6 @@ func (a TxInputJSON) TxInput() TxInput {
 		Coins:     a.Coins,
 		Sequence:  uint64(a.Sequence),
 		Signature: a.Signature,
-		PubKey:    a.PubKey,
 	}
 }
 
@@ -134,27 +141,18 @@ func (txIn TxInput) ValidateBasic() result.Result {
 	// if txIn.Sequence <= 0 {
 	// 	return result.Error("Sequence must be greater than 0")
 	// }
-	if txIn.Sequence == 1 && (txIn.PubKey == nil || txIn.PubKey.IsEmpty()) {
-		return result.Error("PubKey must be present when Sequence == 1")
-	}
-	if txIn.Sequence > 1 && !(txIn.PubKey == nil || txIn.PubKey.IsEmpty()) {
-		return result.Error("PubKey must be nil when Sequence > 1")
-	}
 	return result.OK
 }
 
 func (txIn TxInput) String() string {
-	return fmt.Sprintf("TxInput{%v,%v,%v,%v,%v}", txIn.Address.Hex(), txIn.Coins, txIn.Sequence, txIn.Signature, txIn.PubKey)
+	return fmt.Sprintf("TxInput{%v,%v,%v,%v}", txIn.Address.Hex(), txIn.Coins, txIn.Sequence, txIn.Signature)
 }
 
-func NewTxInput(pubKey *crypto.PublicKey, coins Coins, sequence int) TxInput {
+func NewTxInput(address common.Address, coins Coins, sequence int) TxInput {
 	input := TxInput{
-		Address:  pubKey.Address(),
+		Address:  address,
 		Coins:    coins,
 		Sequence: uint64(sequence),
-	}
-	if sequence == 1 {
-		input.PubKey = pubKey
 	}
 	return input
 }

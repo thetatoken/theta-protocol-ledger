@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"math/big"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/ukulele/common"
@@ -39,7 +41,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 	}
 
 	// verify the proposer is one of the validators
-	res = isAValidator(tx.Proposer.PubKey, validatorAddresses)
+	res = isAValidator(tx.Proposer.Address, validatorAddresses)
 	if res.IsError() {
 		return res
 	}
@@ -51,7 +53,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
-	if !proposerAccount.PubKey.VerifySignature(signBytes, tx.Proposer.Signature) {
+	if !tx.Proposer.Signature.Verify(signBytes, proposerAccount.Address) {
 		return result.Error("SignBytes: %X", signBytes)
 	}
 
@@ -59,10 +61,6 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 	slashedAccount := view.GetAccount(slashedAddress)
 	if slashedAccount == nil {
 		return result.Error("Account %v does not exist!", slashedAddress)
-	}
-
-	if slashedAccount.PubKey.IsEmpty() {
-		return result.Error("Account %v's Pubkey is not known yet!", slashedAddress)
 	}
 
 	reservedFundFound := false
@@ -77,7 +75,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 		return result.Error("Reserved fund not found for %v", tx.ReserveSequence)
 	}
 
-	validatorAddress := tx.Proposer.PubKey.Address()
+	validatorAddress := tx.Proposer.Address
 	validatorAccount := view.GetAccount(validatorAddress)
 	if validatorAccount == nil {
 		return result.Error("Validator %v does not exist!", validatorAddress)
@@ -112,7 +110,7 @@ func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, transac
 		return common.Hash{}, result.Error("Reserved fund not found for %v", tx.ReserveSequence)
 	}
 
-	proposerAddress := tx.Proposer.PubKey.Address()
+	proposerAddress := tx.Proposer.Address
 	proposerAccount := view.GetAccount(proposerAddress)
 	if proposerAccount == nil {
 		return common.Hash{}, result.Error("Proposer %v does not exist!", proposerAddress)
@@ -150,7 +148,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 		return false
 	}
 
-	slashedAddress := slashedAccount.PubKey.Address()
+	slashedAddress := slashedAccount.Address
 	reserveSequence := overspendingProof.ReserveSequence
 	for _, reservedFund := range slashedAccount.ReservedFunds {
 		if reservedFund.ReserveSequence != reserveSequence {
@@ -169,7 +167,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 			}
 
 			sourceSignedBytes := servicePaymentTx.SourceSignBytes(chainID)
-			if !slashedAccount.PubKey.VerifySignature(sourceSignedBytes, servicePaymentTx.Source.Signature) {
+			if !servicePaymentTx.Source.Signature.Verify(sourceSignedBytes, slashedAccount.Address) {
 				return false // servicePaymentTx not signed by the slashed account
 			}
 
@@ -190,6 +188,6 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 	return false
 }
 
-func (exec *SlashTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
-	return types.NewCoins(0, 0), nil
+func (exec *SlashTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
+	return new(big.Int).SetUint64(0)
 }

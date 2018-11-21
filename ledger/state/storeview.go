@@ -265,7 +265,7 @@ func (sv *StoreView) GetStore() *treestore.TreeStore {
 //
 
 func (sv *StoreView) CreateAccount(addr common.Address) {
-	account := types.NewAccount()
+	account := types.NewAccount(addr)
 	sv.SetAccount(addr, account)
 }
 
@@ -274,7 +274,7 @@ func (sv *StoreView) GetOrCreateAccount(addr common.Address) *types.Account {
 	if account != nil {
 		return account
 	}
-	return types.NewAccount()
+	return types.NewAccount(addr)
 }
 
 func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
@@ -397,7 +397,7 @@ func (sv *StoreView) GetState(addr common.Address, key common.Hash) common.Hash 
 func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	account := sv.GetAccount(addr)
 	if account == nil {
-		account = types.NewAccount()
+		account = types.NewAccount(addr)
 	}
 	tree := sv.getAccountStorage(account)
 	if (val == common.Hash{}) {

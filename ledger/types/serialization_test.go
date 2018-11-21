@@ -44,12 +44,10 @@ func TestTx(t *testing.T) {
 
 	var tx1 Tx
 
-	_, pubKey, _ := crypto.GenerateKeyPair()
 	sig, _ := crypto.SignatureFromBytes([]byte("i am signature"))
 	tx1 = &CoinbaseTx{
 		Proposer: TxInput{
 			Address:   getTestAddress("123"),
-			PubKey:    pubKey,
 			Signature: sig,
 		},
 		Outputs:     []TxOutput{{Address: getTestAddress("456")}, {Address: getTestAddress("888")}, {Address: getTestAddress("999")}},
@@ -60,7 +58,6 @@ func TestTx(t *testing.T) {
 	tx2, err := TxFromBytes(b)
 	require.Nil(err)
 	assert.Equal(tx1.(*CoinbaseTx).Proposer.Address, tx2.(*CoinbaseTx).Proposer.Address)
-	assert.Equal(tx1.(*CoinbaseTx).Proposer.PubKey, tx2.(*CoinbaseTx).Proposer.PubKey)
 	assert.Equal(tx1.(*CoinbaseTx).Proposer.Signature, tx2.(*CoinbaseTx).Proposer.Signature)
 	assert.Equal(tx1.(*CoinbaseTx).BlockHeight, tx2.(*CoinbaseTx).BlockHeight)
 

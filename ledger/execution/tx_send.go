@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"math/big"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	st "github.com/thetatoken/ukulele/ledger/state"
@@ -87,8 +89,10 @@ func (exec *SendTxExecutor) process(chainID string, view *st.StoreView, transact
 	return txHash, result.OK
 }
 
-func (exec *SendTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.SendTx)
 	fee := tx.Fee
-	return fee, nil
+	gas := new(big.Int).SetUint64(types.GasSendTx)
+	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	return effectiveGasPrice
 }

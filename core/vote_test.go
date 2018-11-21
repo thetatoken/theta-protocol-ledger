@@ -77,6 +77,18 @@ func TestDedup(t *testing.T) {
 		ID:    common.HexToAddress("A1"),
 		Epoch: 3,
 	})
+	// Duplcate vote from same voter
+	votes2.AddVote(Vote{
+		Block: CreateTestBlock("B3", "").Hash(),
+		ID:    common.HexToAddress("A1"),
+		Epoch: 5,
+	})
+	// Duplcate vote from same voter
+	votes2.AddVote(Vote{
+		Block: CreateTestBlock("B4", "").Hash(),
+		ID:    common.HexToAddress("A1"),
+		Epoch: 4,
+	})
 	votes2.AddVote(Vote{
 		Block: CreateTestBlock("B2", "").Hash(),
 		ID:    common.HexToAddress("A3"),
@@ -84,8 +96,14 @@ func TestDedup(t *testing.T) {
 	})
 
 	votes := votes1.Merge(votes2)
-	assert.Equal(4, len(votes.Votes()))
+	assert.Equal(6, len(votes.Votes()))
 
-	votes = votes.KeepLatest()
-	assert.Equal(3, len(votes.Votes()))
+	res := votes.UniqueVoterAndBlock()
+	assert.Equal(5, len(res.Votes()))
+
+	res = votes.UniqueVoter()
+	assert.Equal(3, len(res.Votes()))
+	v := res.Votes()[0]
+	assert.Equal(v.ID, common.HexToAddress("A1"))
+	assert.Equal(uint64(5), v.Epoch)
 }
