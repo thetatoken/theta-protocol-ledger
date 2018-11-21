@@ -25,9 +25,9 @@ type ColdWallet struct {
 	hub    *Hub // USB hub scanning
 	driver ks.Driver
 
-	pathMap map[common.Address]types.DerivationPath // Known derivation paths for signing operations
-	info    hid.DeviceInfo                          // Known USB device infos about the wallet
-	device  *hid.Device                             // USB device advertising itself as a hardware wallet
+	addressPathMap map[common.Address]types.DerivationPath // Known derivation paths for signing operations
+	info           hid.DeviceInfo                          // Known USB device infos about the wallet
+	device         *hid.Device                             // USB device advertising itself as a hardware wallet
 
 	stateLock *sync.RWMutex // Protects read and write access to the wallet struct fields
 }
@@ -46,12 +46,12 @@ func NewColdWallet(hub *Hub, scheme string, path string) (*ColdWallet, error) {
 
 	walletID := assembleColdWalletID(scheme, path)
 	wallet := &ColdWallet{
-		id:        walletID,
-		hub:       hub,
-		driver:    driver,
-		pathMap:   nil, // need to set to nil initially
-		device:    nil,
-		stateLock: &sync.RWMutex{},
+		id:             walletID,
+		hub:            hub,
+		driver:         driver,
+		addressPathMap: nil, // need to set to nil initially
+		device:         nil,
+		stateLock:      &sync.RWMutex{},
 	}
 
 	return wallet, nil
@@ -73,7 +73,11 @@ func (w *ColdWallet) Status() (string, error) {
 }
 
 func (w *ColdWallet) List() ([]common.Address, error) {
-	return nil, fmt.Errorf("Not supported for cold wallet")
+	addresses := make([]common.Address, 0, len(w.addressPathMap))
+	for addr, _ := range w.addressPathMap {
+		addresses = append(addresses, addr)
+	}
+	return addresses, nil
 }
 
 func (w *ColdWallet) NewKey(password string) (common.Address, error) {
@@ -84,7 +88,7 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	w.stateLock.Lock() // State lock is enough since there's no connection yet at this point
 	defer w.stateLock.Unlock()
 
-	if w.pathMap != nil {
+	if w.addressPathMap != nil {
 		return fmt.Errorf("Wallet already unlocked")
 	}
 	if w.device == nil {
@@ -98,7 +102,14 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	if err := w.driver.Open(w.device, password); err != nil {
 		return err
 	}
-	w.pathMap = make(map[common.Address]types.DerivationPath)
+	w.addressPathMap = make(map[common.Address]types.DerivationPath)
+
+	derivationPath := types.DefaultRootDerivationPath // TODO: support non-default derived path
+	address, err := w.driver.Derive(derivationPath)
+	if err != nil {
+		return err
+	}
+	w.addressPathMap[address] = derivationPath
 
 	return nil
 }
@@ -132,7 +143,7 @@ func (w *ColdWallet) Sign(address common.Address, txrlp common.Bytes) (*crypto.S
 	if w.device == nil {
 		return nil, fmt.Errorf("wallet closed")
 	}
-	path, ok := w.pathMap[address]
+	path, ok := w.addressPathMap[address]
 	if !ok {
 		return nil, fmt.Errorf("unknown account")
 	}
@@ -171,7 +182,7 @@ func (w *ColdWallet) close() error {
 	w.device.Close()
 	w.device = nil
 
-	w.pathMap = nil
+	w.addressPathMap = nil
 	w.driver.Close()
 
 	return nil

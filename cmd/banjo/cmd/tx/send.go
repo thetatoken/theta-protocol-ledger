@@ -26,8 +26,7 @@ var sendCmd = &cobra.Command{
 }
 
 func doSendCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, fromPubKey, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -113,6 +112,7 @@ func init() {
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
 	sendCmd.Flags().StringVar(&gammaAmountFlag, "gamma", "0", "Gamma amount")
 	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")

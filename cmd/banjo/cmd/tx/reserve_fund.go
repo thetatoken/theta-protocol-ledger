@@ -24,8 +24,7 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, fromPubKey, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}

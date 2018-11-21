@@ -66,8 +66,8 @@ type Hub struct {
 	commsLock sync.Mutex // Lock protecting the pending counter and enumeration
 }
 
-// newLedgerHub creates a new hardware wallet manager for Ledger devices.
-func newLedgerHub() (*Hub, error) {
+// NewLedgerHub creates a new hardware wallet manager for Ledger devices.
+func NewLedgerHub() (*Hub, error) {
 	return newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xffa0, 0, ks.NewLedgerDriver)
 }
 
