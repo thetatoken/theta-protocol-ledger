@@ -99,11 +99,11 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 			assert.True(idx > 0)
 			currSendTx := tx.(*types.SendTx)
 			if prevSendTx != nil {
-				// mempool should works like a priority queue, tx with higher fee
-				// got reaped first
+				// mempool should works like a priority queue, for the same type of tx (i.e. SendTx),
+				// those with higher fee should get reaped first
 				feeDiff := prevSendTx.Fee.Minus(currSendTx.Fee)
 				assert.True(feeDiff.IsNonnegative())
-				//log.Infof("tx fee: %v, feeDiff: %v", currSendTx.Fee, feeDiff)
+				log.Infof("tx fee: %v, feeDiff: %v", currSendTx.Fee, feeDiff)
 			}
 			prevSendTx = currSendTx
 		}
@@ -291,10 +291,11 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 	if injectFeeFluctuation {
 		// inject so fluctuation into the txFee, so later we can test whether the
 		// mempool orders the txs by txFee
-		delta, err = strconv.ParseInt(string(accIn.Address.Hex()[2:9]), 16, 64)
-		if delta < 0 {
-			delta = -delta
+		randint, err := strconv.ParseInt(string(accIn.Address.Hex()[2:9]), 16, 64)
+		if randint < 0 {
+			randint = -randint
 		}
+		delta = randint * int64(types.GasSendTx)
 		if err != nil {
 			panic(err)
 		}

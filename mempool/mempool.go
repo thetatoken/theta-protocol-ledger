@@ -31,13 +31,13 @@ const DuplicateTxError = MempoolError("Transaction already seen")
 type mempoolTransaction struct {
 	index          int
 	rawTransaction common.Bytes
-	feeAmount      *big.Int
+	priority       *big.Int
 }
 
 var _ pqueue.Element = (*mempoolTransaction)(nil)
 
 func (mt *mempoolTransaction) Priority() *big.Int {
-	return mt.feeAmount
+	return mt.priority
 }
 
 func (mt *mempoolTransaction) SetIndex(index int) {
@@ -48,10 +48,10 @@ func (mt *mempoolTransaction) GetIndex() int {
 	return mt.index
 }
 
-func createMempoolTransaction(rawTransaction common.Bytes, feeAmount *big.Int) *mempoolTransaction {
+func createMempoolTransaction(rawTransaction common.Bytes, priority *big.Int) *mempoolTransaction {
 	return &mempoolTransaction{
 		rawTransaction: rawTransaction,
-		feeAmount:      feeAmount,
+		priority:       priority,
 	}
 }
 
@@ -104,12 +104,13 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		return DuplicateTxError
 	}
 
-	feeAmount, checkTxRes := mp.ledger.ScreenTx(rawTx)
+	effectiveGasPrice, checkTxRes := mp.ledger.ScreenTx(rawTx)
+	txPriority := effectiveGasPrice
 	if !checkTxRes.IsOK() {
 		return errors.New(checkTxRes.Message)
 	}
 
-	log.Debugf("[mempool] Insert tx: %v, fee: %v", hex.EncodeToString(rawTx), feeAmount)
+	log.Debugf("[mempool] Insert tx: %v, priority: %v", hex.EncodeToString(rawTx), txPriority)
 
 	// only record the transactions that passed the screening. This is because that
 	// an invalid transaction could becoume valid later on. For example, assume expected
@@ -118,7 +119,7 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	// should not be rejected even though it has been submitted earlier.
 	mp.txBookeepper.record(rawTx)
 
-	mptx := createMempoolTransaction(rawTx, feeAmount)
+	mptx := createMempoolTransaction(rawTx, txPriority)
 	mp.newTxs.PushBack(mptx)
 	mp.candidateTxs.Push(mptx)
 
@@ -189,8 +190,8 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 		mptx := mp.candidateTxs.Pop().(*mempoolTransaction)
 		txs = append(txs, mptx.rawTransaction)
 
-		log.Debugf("[mempool] Reap tx: %v, fee: %v",
-			hex.EncodeToString(mptx.rawTransaction), mptx.feeAmount)
+		log.Debugf("[mempool] Reap tx: %v, priority: %v",
+			hex.EncodeToString(mptx.rawTransaction), mptx.priority)
 	}
 
 	return txs
@@ -215,7 +216,7 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 		rawTx := mptx.rawTransaction
 		if _, exists := committedRawTxMap[string(rawTx[:])]; exists {
 			elemsTobeRemoved = append(elemsTobeRemoved, elem)
-			log.Debugf("[mempool] tx to be removed: %v, fee: %v", hex.EncodeToString(rawTx), mptx.feeAmount)
+			log.Debugf("[mempool] tx to be removed: %v, priority: %v", hex.EncodeToString(rawTx), mptx.priority)
 		}
 	}
 

@@ -2,6 +2,7 @@ package execution
 
 import (
 	"fmt"
+	"math/big"
 
 	log "github.com/sirupsen/logrus"
 
@@ -194,8 +195,10 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule
 	return true, coinsMap, accountAddressMap
 }
 
-func (exec *ServicePaymentTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+func (exec *ServicePaymentTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.ServicePaymentTx)
 	fee := tx.Fee
-	return fee, nil
+	gas := new(big.Int).SetUint64(types.GasServicePaymentTx)
+	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	return effectiveGasPrice
 }

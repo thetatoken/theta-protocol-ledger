@@ -1,6 +1,8 @@
 package execution
 
 import (
+	"math/big"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -126,6 +128,6 @@ func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) ma
 	return accountReward
 }
 
-func (exec *CoinbaseTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
-	return types.NewCoins(0, 0), nil
+func (exec *CoinbaseTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
+	return new(big.Int).SetUint64(0)
 }

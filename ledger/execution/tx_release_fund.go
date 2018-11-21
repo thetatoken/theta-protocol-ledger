@@ -2,6 +2,7 @@ package execution
 
 import (
 	"fmt"
+	"math/big"
 
 	log "github.com/sirupsen/logrus"
 
@@ -99,8 +100,10 @@ func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, t
 	return txHash, result.OK
 }
 
-func (exec *ReleaseFundTxExecutor) calculateFee(transaction types.Tx) (types.Coins, error) {
+func (exec *ReleaseFundTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.ReleaseFundTx)
 	fee := tx.Fee
-	return fee, nil
+	gas := new(big.Int).SetUint64(types.GasReleaseFundTx)
+	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	return effectiveGasPrice
 }

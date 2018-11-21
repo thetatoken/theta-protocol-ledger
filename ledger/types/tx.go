@@ -23,9 +23,20 @@ Transaction Types:
  - ReserveFundTx        Reserve fund for subsequence service payments
  - ReleaseFundTx        Release fund reserved for service payments
  - ServicePaymentTx     Payments for service
- - SplitRuleTx      Payment split rule
+ - SplitRuleTx          Payment split rule
  - UpdateValidatorsTx   Update validator set
+ - SmartContractTx      Execute smart contract
 */
+
+// Gas of regular transactions
+const (
+	GasSendTx             uint64 = 10000
+	GasReserveFundTx      uint64 = 10000
+	GasReleaseFundTx      uint64 = 10000
+	GasServicePaymentTx   uint64 = 10000
+	GasSplitRuleTx        uint64 = 10000
+	GasUpdateValidatorsTx uint64 = 10000
+)
 
 type Tx interface {
 	AssertIsTx()
