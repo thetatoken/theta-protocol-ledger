@@ -77,4 +77,22 @@ func TestConsensusStateVoteSet(t *testing.T) {
 	assert.Equal(2, len(votes))
 	assert.Equal(common.HexToAddress("A1"), votes[0].ID)
 	assert.Equal(uint64(20), votes[0].Epoch)
+
+	db = kvstore.NewKVStore(backend.NewMemDatabase())
+	state3 := NewState(db, chain)
+	state3.Load()
+	state3.AddEpochVote(&core.Vote{
+		Block: block1.Hash(),
+		ID:    common.HexToAddress("A2"),
+		Epoch: 30,
+	})
+	state3.AddEpochVote(&core.Vote{
+		Block: block2.Hash(),
+		ID:    common.HexToAddress("A2"),
+		Epoch: 30,
+	})
+	vs2, _ := state3.GetEpochVotes()
+	votes = vs2.Votes()
+	assert.Equal(1, len(votes))
+	assert.Equal(uint64(30), votes[0].Epoch)
 }

@@ -337,8 +337,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 			}
 		}
 
-		currentEpochVotes = currentEpochVotes.UniqueVoter()
-
 		if validators.HasMajority(currentEpochVotes) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
