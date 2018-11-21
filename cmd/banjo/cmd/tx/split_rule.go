@@ -27,7 +27,7 @@ var splitRuleCmd = &cobra.Command{
 
 func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
 		return
 	}
@@ -36,9 +36,6 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	input := types.TxInput{
 		Address:  fromAddress,
 		Sequence: uint64(seqFlag),
-	}
-	if seqFlag == 1 {
-		input.PubKey = fromPubKey
 	}
 
 	if len(addressesFlag) != len(percentagesFlag) {

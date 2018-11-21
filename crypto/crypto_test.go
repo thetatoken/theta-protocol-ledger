@@ -139,22 +139,22 @@ func TestSignaureVerifyBytes(t *testing.T) {
 	assert.Nil(err)
 	sig2, err := privKey.Sign(msg2)
 	assert.Nil(err)
-	assert.True(sig1.VerifyBytes(msg1, addr).IsOK())
-	assert.True(sig2.VerifyBytes(msg1, addr).IsError())
+	assert.True(sig1.Verify(msg1, addr))
+	assert.False(sig2.Verify(msg1, addr))
 
 	// Should not panic
 	nilSig := (*Signature)(nil)
-	assert.True(nilSig.VerifyBytes(msg1, addr).IsError())
+	assert.False(nilSig.Verify(msg1, addr))
 
 	emptySig, err := SignatureFromBytes(common.Bytes{})
 	assert.Nil(err)
-	assert.True(emptySig.VerifyBytes(msg1, addr).IsError())
+	assert.False(emptySig.Verify(msg1, addr))
 
 	emptyAddr := common.BytesToAddress(common.Bytes{})
-	assert.True(sig1.VerifyBytes(msg1, emptyAddr).IsError())
+	assert.False(sig1.Verify(msg1, emptyAddr))
 
 	anotherAddr := common.BytesToAddress(common.Bytes("hello"))
-	assert.True(sig1.VerifyBytes(msg1, anotherAddr).IsError())
+	assert.False(sig1.Verify(msg1, anotherAddr))
 }
 
 func TestSignatureVerification1(t *testing.T) {

@@ -52,7 +52,7 @@ func TestVMExecute(t *testing.T) {
 	deployCode, _ := hex.DecodeString("600a600c600039600a6000f3600360135360016013f3")
 
 	// First deploy a smart contract
-	deployerAddr := deployerAcc.PubKey.Address()
+	deployerAddr := deployerAcc.Address
 	valueAmount := int64(9723)
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
@@ -81,7 +81,7 @@ func TestVMExecute(t *testing.T) {
 	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v, vmRet: %v", contractAddr.Hex(), gasUsed, hex.EncodeToString(vmRet))
 
 	// Call the smart contract
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	callSCTX := &types.SmartContractTx{
 		From:     types.TxInput{Address: callerAddr},
 		To:       types.TxOutput{Address: contractAddr},
@@ -136,7 +136,7 @@ func TestVMExecutionInteractWithContract(t *testing.T) {
 	assert.Nil(err)
 
 	// First deploy a smart contract
-	deployerAddr := deployerAcc.PubKey.Address()
+	deployerAddr := deployerAcc.Address
 	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
@@ -157,7 +157,7 @@ func TestVMExecutionInteractWithContract(t *testing.T) {
 	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v", contractAddr.Hex(), gasUsed)
 
 	// Call the smart contract
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	callSCTXTmpl := &types.SmartContractTx{
 		From:     types.TxInput{Address: callerAddr},
 		To:       types.TxOutput{Address: contractAddr},
@@ -207,7 +207,7 @@ func TestVMExecutionDeployComplexContract(t *testing.T) {
 	assert.Nil(err)
 
 	// First deploy a smart contract
-	deployerAddr := deployerAcc.PubKey.Address()
+	deployerAddr := deployerAcc.Address
 	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
@@ -228,7 +228,7 @@ func TestVMExecutionDeployComplexContract(t *testing.T) {
 	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v", contractAddr.Hex(), gasUsed)
 
 	// Call the smart contract
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	callSCTXTmpl := &types.SmartContractTx{
 		From:     types.TxInput{Address: callerAddr},
 		To:       types.TxOutput{Address: contractAddr},
@@ -292,7 +292,7 @@ func TestVMExecutionDeployERC20TokenContract(t *testing.T) {
 	assert.Nil(err)
 
 	// First deploy a smart contract
-	deployerAddr := deployerAcc.PubKey.Address()
+	deployerAddr := deployerAcc.Address
 	valueAmount := int64(0) // NOTE: For this contract, the value NEEDS to be ZERO
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
@@ -313,7 +313,7 @@ func TestVMExecutionDeployERC20TokenContract(t *testing.T) {
 	log.Infof("Deploy Contract -- contractAddr: %v, gasUsed: %v", contractAddr.Hex(), gasUsed)
 
 	// Call the smart contract
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	callSCTXTmpl := &types.SmartContractTx{
 		From:     types.TxInput{Address: callerAddr},
 		To:       types.TxOutput{Address: contractAddr},
@@ -348,7 +348,7 @@ func prepareInitState(storeView *state.StoreView, numAccounts int) (privAccounts
 		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
 		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(90000000, 50000000000))
 		privAccounts = append(privAccounts, privAccount)
-		storeView.SetAccount(privAccount.Account.PubKey.Address(), &privAccount.Account)
+		storeView.SetAccount(privAccount.Address, &privAccount.Account)
 	}
 
 	storeView.IncrementHeight()

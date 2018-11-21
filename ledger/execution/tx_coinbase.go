@@ -44,7 +44,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	}
 
 	// verify the proposer is one of the validators
-	res = isAValidator(tx.Proposer.PubKey, validatorAddresses)
+	res = isAValidator(tx.Proposer.Address, validatorAddresses)
 	if res.IsError() {
 		return res
 	}
@@ -56,7 +56,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
-	if !proposerAccount.PubKey.VerifySignature(signBytes, tx.Proposer.Signature) {
+	if !tx.Proposer.Signature.Verify(signBytes, proposerAccount.Address) {
 		return result.Error("SignBytes: %X", signBytes)
 	}
 

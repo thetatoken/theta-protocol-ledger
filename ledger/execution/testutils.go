@@ -1,7 +1,6 @@
 package execution
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -88,8 +87,8 @@ func (et *execTest) reset() {
 
 	consensus := NewTestConsensusEngine("localseed")
 
-	propser := core.NewValidator(et.accProposer.PubKey.ToBytes(), uint64(999))
-	val2 := core.NewValidator(et.accVal2.PubKey.ToBytes(), uint64(100))
+	propser := core.NewValidator(et.accProposer.PrivKey.PublicKey().ToBytes(), uint64(999))
+	val2 := core.NewValidator(et.accVal2.PrivKey.PublicKey().ToBytes(), uint64(100))
 	valSet := core.NewValidatorSet()
 	valSet.AddValidator(propser)
 	valSet.AddValidator(val2)
@@ -128,8 +127,8 @@ func (et *execTest) state() *st.LedgerState {
 
 // returns the final balance and expected balance for input and output accounts
 func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Result, inGot, inExp, outGot, outExp types.Coins) {
-	initBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	initBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	initBalIn := et.state().Delivered().GetAccount(et.accIn.Account.Address).Balance
+	initBalOut := et.state().Delivered().GetAccount(et.accOut.Account.Address).Balance
 
 	if screenTx {
 		_, res = et.executor.ScreenTx(tx)
@@ -137,15 +136,15 @@ func (et *execTest) execSendTx(tx *types.SendTx, screenTx bool) (res result.Resu
 		_, res = et.executor.ExecuteTx(tx)
 	}
 
-	endBalIn := et.state().Delivered().GetAccount(et.accIn.Account.PubKey.Address()).Balance
-	endBalOut := et.state().Delivered().GetAccount(et.accOut.Account.PubKey.Address()).Balance
+	endBalIn := et.state().Delivered().GetAccount(et.accIn.Account.Address).Balance
+	endBalOut := et.state().Delivered().GetAccount(et.accOut.Account.Address).Balance
 	decrBalInExp := tx.Outputs[0].Coins.Plus(tx.Fee) //expected decrease in balance In
 	return res, endBalIn, initBalIn.Minus(decrBalInExp), endBalOut, initBalOut.Plus(tx.Outputs[0].Coins)
 }
 
 func (et *execTest) acc2State(accs ...types.PrivAccount) {
 	for _, acc := range accs {
-		et.executor.state.Delivered().SetAccount(acc.Account.PubKey.Address(), &acc.Account)
+		et.executor.state.Delivered().SetAccount(acc.Account.Address, &acc.Account)
 	}
 	et.executor.state.Commit()
 }
@@ -173,24 +172,17 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 	servicePaymentTx := &types.ServicePaymentTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  source.PubKey.Address(),
+			Address:  source.Address,
 			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
 			Sequence: uint64(srcSeq),
 		},
 		Target: types.TxInput{
-			Address:  target.PubKey.Address(),
+			Address:  target.Address,
 			Sequence: uint64(tgtSeq),
 		},
 		PaymentSequence: uint64(paymentSeq),
 		ReserveSequence: uint64(reserveSeq),
 		ResourceID:      resourceID,
-	}
-
-	if srcSeq == 1 {
-		servicePaymentTx.Source.PubKey = source.PubKey
-	}
-	if tgtSeq == 1 {
-		servicePaymentTx.Target.PubKey = target.PubKey
 	}
 
 	srcSignBytes := servicePaymentTx.SourceSignBytes(chainID)
@@ -199,10 +191,10 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 	tgtSignBytes := servicePaymentTx.TargetSignBytes(chainID)
 	servicePaymentTx.Target.Signature = target.Sign(tgtSignBytes)
 
-	if !source.PubKey.VerifySignature(srcSignBytes, servicePaymentTx.Source.Signature) {
+	if !servicePaymentTx.Source.Signature.Verify(srcSignBytes, source.Address) {
 		panic("Signature verification failed for source")
 	}
-	if !target.PubKey.VerifySignature(tgtSignBytes, servicePaymentTx.Target.Signature) {
+	if !servicePaymentTx.Target.Signature.Verify(tgtSignBytes, target.Address) {
 		panic("Signature verification failed for target")
 	}
 
@@ -217,22 +209,19 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
-	log.Infof("Alice's pubKey: %v", hex.EncodeToString(alice.PubKey.ToBytes()))
-	log.Infof("Alice's Address: %v", alice.PubKey.Address().Hex())
+	log.Infof("Alice's Address: %v", alice.Address.Hex())
 
 	bob = types.MakeAcc("User Bob")
 	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
-	log.Infof("Bob's pubKey:   %v", hex.EncodeToString(bob.PubKey.ToBytes()))
-	log.Infof("Bob's Address: %v", bob.PubKey.Address().Hex())
+	log.Infof("Bob's Address: %v", bob.Address.Hex())
 
 	carol = types.MakeAcc("User Carol")
 	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
-	log.Infof("Carol's pubKey: %v", hex.EncodeToString(carol.PubKey.ToBytes()))
-	log.Infof("Carol's Address: %v", carol.PubKey.Address().Hex())
+	log.Infof("Carol's Address: %v", carol.Address.Hex())
 
 	et.fastforwardTo(1e2)
 
@@ -240,8 +229,7 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  alice.PubKey.Address(),
-			PubKey:   alice.PubKey,
+			Address:  alice.Address,
 			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},

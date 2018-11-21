@@ -1,7 +1,6 @@
 package state
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -82,11 +81,11 @@ func TestStoreViewAccountAccess(t *testing.T) {
 
 	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
 	acc1 := &types.Account{
-		PubKey:   pubKey,
+		Address:  pubKey.Address(),
 		Sequence: 173,
 		Balance:  initCoin,
 	}
-	acc1Addr := acc1.PubKey.Address()
+	acc1Addr := acc1.Address
 
 	db := backend.NewMemDatabase()
 	sv1 := NewStoreView(uint64(1), common.Hash{}, db)
@@ -94,19 +93,17 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	sv1.SetAccount(acc1Addr, acc1)
 	accRetrieved := sv1.GetAccount(acc1Addr)
 
-	assert.Equal(acc1.PubKey.ToBytes(), accRetrieved.PubKey.ToBytes())
+	assert.Equal(acc1.Address, accRetrieved.Address)
 	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
 	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
 
 	log.Infof(">>>>> Original account1\n")
-	log.Infof("PubKey: %v\n", acc1.PubKey)
-	log.Infof("PubKey Bytes: %v\n", hex.EncodeToString(acc1.PubKey.ToBytes()))
+	log.Infof("Address: %v\n", acc1.Address)
 	log.Infof("Sequence: %v\n", acc1.Sequence)
 	log.Infof("Balance: %v\n\n", acc1.Balance)
 
 	log.Infof(">>>>> Retrieved account\n")
-	log.Infof("PubKey: %v\n", accRetrieved.PubKey)
-	log.Infof("PubKey Bytes: %v\n", hex.EncodeToString(accRetrieved.PubKey.ToBytes()))
+	log.Infof("Address: %v\n", accRetrieved.Address)
 	log.Infof("Sequence: %v\n", accRetrieved.Sequence)
 	log.Infof("Balance: %v\n", accRetrieved.Balance)
 }

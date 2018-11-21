@@ -60,7 +60,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 
 	// Verify source
 	sourceSignBytes := tx.SourceSignBytes(chainID)
-	if !sourceAccount.PubKey.VerifySignature(sourceSignBytes, tx.Source.Signature) {
+	if !tx.Source.Signature.Verify(sourceSignBytes, sourceAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)
@@ -73,7 +73,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	}
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
-	if !targetAccount.PubKey.VerifySignature(targetSignBytes, tx.Target.Signature) {
+	if !tx.Target.Signature.Verify(targetSignBytes, targetAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
 		log.Infof(errMsg)
 		return result.Error(errMsg)

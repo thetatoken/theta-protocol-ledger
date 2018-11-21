@@ -84,14 +84,14 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		theta, _ := types.ParseCoinAmount("1e5")
 		gamma, _ := types.ParseCoinAmount("1e5")
 		acc := &types.Account{
-			PubKey: pubKey,
+			Address: pubKey.Address(),
 			Balance: types.Coins{
 				ThetaWei: theta,
 				GammaWei: gamma,
 			},
 			LastUpdatedBlockHeight: 0,
 		}
-		s.SetAccount(acc.PubKey.Address(), acc)
+		s.SetAccount(acc.Address, acc)
 	}
 	stateHash := s.Hash()
 
