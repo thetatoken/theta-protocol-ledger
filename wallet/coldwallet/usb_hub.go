@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/karalabe/hid"
+	log "github.com/sirupsen/logrus"
 
 	ks "github.com/thetatoken/ukulele/wallet/coldwallet/keystore"
 	"github.com/thetatoken/ukulele/wallet/types"
@@ -68,7 +69,8 @@ type Hub struct {
 
 // NewLedgerHub creates a new hardware wallet manager for Ledger devices.
 func NewLedgerHub() (*Hub, error) {
-	return newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xffa0, 0, ks.NewLedgerDriver)
+	//return newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xffa0, 0, ks.NewLedgerDriver)
+	return newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xf1d0, -1, ks.NewLedgerDriver)
 }
 
 // // newTrezorHub creates a new hardware wallet manager for Trezor devices.
@@ -120,7 +122,7 @@ func (hub *Hub) refreshWallets() {
 		return
 	}
 	// Retrieve the current list of USB wallet devices
-	var devices []hid.DeviceInfo
+	var devicesInfo []hid.DeviceInfo
 
 	if runtime.GOOS == "linux" {
 		// hidapi on Linux opens the device during enumeration to retrieve some infos,
@@ -135,14 +137,16 @@ func (hub *Hub) refreshWallets() {
 			return
 		}
 	}
-	for _, info := range hid.Enumerate(hub.vendorID, 0) {
+
+	for _, deviceInfo := range hid.Enumerate(hub.vendorID, 0) {
 		for _, id := range hub.productIDs {
-			if info.ProductID == id && (info.UsagePage == hub.usageID || info.Interface == hub.endpointID) {
-				devices = append(devices, info)
+			if deviceInfo.ProductID == id && (deviceInfo.UsagePage == hub.usageID || deviceInfo.Interface == hub.endpointID) {
+				devicesInfo = append(devicesInfo, deviceInfo)
 				break
 			}
 		}
 	}
+
 	if runtime.GOOS == "linux" {
 		// See rationale before the enumeration why this is needed and only on Linux.
 		hub.commsLock.Unlock()
@@ -150,11 +154,10 @@ func (hub *Hub) refreshWallets() {
 	// Transform the current list of wallets into the new one
 	hub.stateLock.Lock()
 
-	wallets := make([]types.Wallet, 0, len(devices))
+	wallets := make([]types.Wallet, 0, len(devicesInfo))
 
-	for _, device := range devices {
-
-		walletID := assembleColdWalletID(hub.scheme, device.Path)
+	for _, deviceInfo := range devicesInfo {
+		walletID := assembleColdWalletID(hub.scheme, deviceInfo.Path)
 
 		// Drop wallets in front of the next device or those that failed for some reason
 		for len(hub.wallets) > 0 {
@@ -166,12 +169,14 @@ func (hub *Hub) refreshWallets() {
 			// Drop the stale and failed devices
 			hub.wallets = hub.wallets[1:]
 		}
+
 		// If there are no more wallets or the device is before the next, wrap new wallet
 		if len(hub.wallets) == 0 || compareColdWalletID(hub.wallets[0].ID(), walletID) > 0 {
-			wallet, err := NewColdWallet(hub, hub.scheme, device.Path)
+			wallet, err := NewColdWallet(hub, deviceInfo)
 			if err != nil {
 				panic(fmt.Sprintf("Failed to get wallet: %v", err))
 			}
+			log.Infof("Adding wallet: %v", wallet)
 
 			wallets = append(wallets, wallet)
 			continue

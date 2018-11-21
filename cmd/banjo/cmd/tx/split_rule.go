@@ -26,7 +26,7 @@ var splitRuleCmd = &cobra.Command{
 }
 
 func doSplitRuleCmd(cmd *cobra.Command, args []string) {
-	wallet, fromAddress, _, err := walletUnlock(cmd, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}

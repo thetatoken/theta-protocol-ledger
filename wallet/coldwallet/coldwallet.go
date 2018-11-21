@@ -32,9 +32,11 @@ type ColdWallet struct {
 	stateLock *sync.RWMutex // Protects read and write access to the wallet struct fields
 }
 
-func NewColdWallet(hub *Hub, scheme string, path string) (*ColdWallet, error) {
+func NewColdWallet(hub *Hub, deviceInfo hid.DeviceInfo) (*ColdWallet, error) {
 	var driver ks.Driver
 	var err error
+
+	scheme := hub.scheme
 	if scheme == LedgerScheme {
 		driver = ks.NewLedgerDriver()
 	} else {
@@ -44,12 +46,14 @@ func NewColdWallet(hub *Hub, scheme string, path string) (*ColdWallet, error) {
 		return nil, err
 	}
 
+	path := deviceInfo.Path
 	walletID := assembleColdWalletID(scheme, path)
 	wallet := &ColdWallet{
 		id:             walletID,
 		hub:            hub,
 		driver:         driver,
 		addressPathMap: nil, // need to set to nil initially
+		info:           deviceInfo,
 		device:         nil,
 		stateLock:      &sync.RWMutex{},
 	}
@@ -84,6 +88,7 @@ func (w *ColdWallet) NewKey(password string) (common.Address, error) {
 	return common.Address{}, fmt.Errorf("Not supported for cold wallet")
 }
 
+// Neither address nor password is used by the function, silently ignored
 func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	w.stateLock.Lock() // State lock is enough since there's no connection yet at this point
 	defer w.stateLock.Unlock()
@@ -105,11 +110,11 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	w.addressPathMap = make(map[common.Address]types.DerivationPath)
 
 	derivationPath := types.DefaultRootDerivationPath // TODO: support non-default derived path
-	address, err := w.driver.Derive(derivationPath)
+	derivedAddress, err := w.driver.Derive(derivationPath)
 	if err != nil {
 		return err
 	}
-	w.addressPathMap[address] = derivationPath
+	w.addressPathMap[derivedAddress] = derivationPath
 
 	return nil
 }

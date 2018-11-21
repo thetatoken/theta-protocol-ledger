@@ -3,77 +3,82 @@ package tx
 import (
 	"fmt"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/spf13/cobra"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/wallet"
 	wtypes "github.com/thetatoken/ukulele/wallet/types"
 )
 
-func walletUnlock(cmd *cobra.Command, addressStr string) (
-	wallet wtypes.Wallet, address common.Address, pubKey *crypto.PublicKey, err error) {
+func walletUnlock(cmd *cobra.Command, addressStr string) (wtypes.Wallet, common.Address, error) {
+	var wallet wtypes.Wallet
+	var address common.Address
+	var err error
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft {
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, address, pubKey, err = softWalletUnlock(cfgPath, addressStr)
+		wallet, address, err = softWalletUnlock(cfgPath, addressStr)
 	} else {
-		wallet, address, pubKey, err = coldWalletUnlock()
+		wallet, address, err = coldWalletUnlock()
 	}
-	return wallet, address, pubKey, err
+	return wallet, address, err
 }
 
-func coldWalletUnlock() (wtypes.Wallet, common.Address, *crypto.PublicKey, error) {
+func coldWalletUnlock() (wtypes.Wallet, common.Address, error) {
 	wallet, err := wallet.OpenWallet("", wtypes.WalletTypeCold, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
-		return nil, common.Address{}, nil, err
+		return nil, common.Address{}, err
+	}
+
+	err = wallet.Unlock(common.Address{}, "")
+	if err != nil {
+		fmt.Printf("Failed to unlock wallet: %v\n", err)
+		return nil, common.Address{}, err
 	}
 
 	addresses, err := wallet.List()
 	if err != nil {
 		fmt.Printf("Failed to list wallet addresses: %v\n", err)
-		return nil, common.Address{}, nil, err
+		return nil, common.Address{}, err
 	}
 
 	if len(addresses) == 0 {
 		errMsg := fmt.Sprintf("No address detected in the wallet\n")
-		return nil, common.Address{}, nil, fmt.Errorf(errMsg)
+		fmt.Printf(errMsg)
+		return nil, common.Address{}, fmt.Errorf(errMsg)
 	}
 	address := addresses[0]
-	pubKey := (*crypto.PublicKey)(nil) // TODO: remove the pubkey requirement for tx verification
 
-	return wallet, address, pubKey, nil
+	log.Infof("Address: %v", address)
+
+	return wallet, address, nil
 }
 
-func softWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address, *crypto.PublicKey, error) {
+func softWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address, error) {
 	wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
-		return nil, common.Address{}, nil, err
+		return nil, common.Address{}, err
 	}
 
 	prompt := fmt.Sprintf("Please enter password: ")
 	password, err := utils.GetPassword(prompt)
 	if err != nil {
 		fmt.Printf("Failed to get password: %v\n", err)
-		return nil, common.Address{}, nil, err
+		return nil, common.Address{}, err
 	}
 
 	address := common.HexToAddress(addressStr)
 	err = wallet.Unlock(address, password)
 	if err != nil {
 		fmt.Printf("Failed to unlock address %v: %v\n", address.Hex(), err)
-		return nil, common.Address{}, nil, err
+		return nil, common.Address{}, err
 	}
 
-	pubKey, err := wallet.GetPublicKey(address)
-	if err != nil {
-		fmt.Printf("Failed to get the public key for address %v: %v\n", address.Hex(), err)
-		return nil, common.Address{}, nil, err
-	}
-
-	return wallet, address, pubKey, nil
+	return wallet, address, nil
 }
 
 func getWalletType(cmd *cobra.Command) (walletType wtypes.WalletType) {
