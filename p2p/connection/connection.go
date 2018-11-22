@@ -42,6 +42,8 @@ type Connection struct {
 	flushTimer *timer.ThrottleTimer // flush writes as necessary but throttled
 	pingTimer  *timer.RepeatTimer   // send pings periodically
 
+	pendingPings uint
+
 	config ConnectionConfig
 }
 
@@ -56,6 +58,7 @@ type ConnectionConfig struct {
 	PacketBatchSize    int64
 	FlushThrottle      time.Duration
 	PingTimeout        time.Duration
+	MaxPendingPings    uint
 }
 
 // MessageParser parses the raw message bytes to type p2ptypes.Message
@@ -126,6 +129,7 @@ func GetDefaultConnectionConfig() ConnectionConfig {
 		PacketBatchSize: int64(10),
 		FlushThrottle:   100 * time.Millisecond,
 		PingTimeout:     40 * time.Second,
+		MaxPendingPings: 3,
 	}
 }
 
@@ -253,6 +257,10 @@ func (conn *Connection) sendRoutine() {
 }
 
 func (conn *Connection) sendPingSignal() error {
+	if conn.pendingPings >= conn.config.MaxPendingPings {
+		log.Infof("======== closing conn: %v", conn.onError)
+		conn.onError(nil)
+	}
 	pingPacket := Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PingSignal},
@@ -261,6 +269,7 @@ func (conn *Connection) sendPingSignal() error {
 	err := rlp.Encode(conn.bufWriter, pingPacket)
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
+	conn.pendingPings++
 	return err
 }
 
@@ -308,6 +317,7 @@ func (conn *Connection) recvRoutine() {
 		}
 
 		conn.pingTimer.Reset()
+		conn.pendingPings = 0
 	}
 
 	close(conn.pongPulse)
