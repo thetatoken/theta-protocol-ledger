@@ -4,6 +4,8 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 
 ## Table of Contents
 - [Setup](#setup)
+    - [On Mac OS X](#on-mac-os-x)
+    - [On Windows](#on-windows)
 - [Build and Install](#build-and-install)
 - [Run Unit Tests](#run-unit-tests)
 - [Launch a Local Private Net](#launch-a-local-private-net)
@@ -85,7 +87,7 @@ glide install
 ## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `ukulele` and `banjo` are generated. `ukulele` can be regarded as the launcher of the Theta Ledger node, and `banjo` is a wallet with command line tools to interact with the ledger. 
 ```
-make build install
+make install
 ```
 
 ## Run Unit Tests
