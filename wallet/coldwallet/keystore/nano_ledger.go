@@ -323,13 +323,18 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes) (
 	if len(reply) != 65 {
 		return common.Address{}, nil, errors.New("reply lacks signature")
 	}
+
 	sigBytes := append(reply[1:], reply[0])
+	sigBytes[64] -= byte(27)
+
 	signature, err := crypto.SignatureFromBytes(sigBytes)
 	if err != nil {
 		return common.Address{}, nil, err
 	}
 
 	sender, err := signature.RecoverSignerAddress(txrlp)
+	log.Infof("Sender address: %v", sender.Hex())
+
 	if err != nil {
 		return common.Address{}, nil, err
 	}
@@ -395,7 +400,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 			apdu = nil
 		}
 		// Send over to the device
-		log.Infof("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		log.Debugf("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
 		if _, err := w.device.Write(chunk); err != nil {
 			return nil, err
 		}
@@ -408,7 +413,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 		if _, err := io.ReadFull(w.device, chunk); err != nil {
 			return nil, err
 		}
-		log.Infof("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		log.Debugf("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
 
 		// Make sure the transport header matches
 		if chunk[0] != 0x01 || chunk[1] != 0x01 || chunk[2] != 0x05 {

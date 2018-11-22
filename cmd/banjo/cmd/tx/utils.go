@@ -52,7 +52,7 @@ func coldWalletUnlock() (wtypes.Wallet, common.Address, error) {
 	}
 	address := addresses[0]
 
-	log.Infof("Address: %v", address)
+	log.Infof("Wallet address: %v", address)
 
 	return wallet, address, nil
 }

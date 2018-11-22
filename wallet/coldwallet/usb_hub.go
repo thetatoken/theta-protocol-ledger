@@ -176,9 +176,10 @@ func (hub *Hub) refreshWallets() {
 			if err != nil {
 				panic(fmt.Sprintf("Failed to get wallet: %v", err))
 			}
-			log.Infof("Adding wallet: %v", wallet)
 
 			wallets = append(wallets, wallet)
+			log.Infof("Added new cold wallet: %v", wallet.info.Path)
+
 			continue
 		}
 		// If the device is the same as the first wallet, keep it
