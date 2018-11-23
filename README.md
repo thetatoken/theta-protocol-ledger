@@ -60,6 +60,12 @@ Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the follo
 ```
 choco install make --source=cygwin
 ```
+To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\cygwin64\etc` folder.
+And set the db_home location to windows as below.
+
+```
+db_home:  windows
+```
 
 Install [jq](https://stedolan.github.io/jq/) to run the unit tests. 
 
