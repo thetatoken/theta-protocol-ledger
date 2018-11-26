@@ -4,6 +4,8 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 
 ## Table of Contents
 - [Setup](#setup)
+    - [On Mac OS X](#on-mac-os-x)
+    - [On Windows](#on-windows)
 - [Build and Install](#build-and-install)
 - [Run Unit Tests](#run-unit-tests)
 - [Launch a Local Private Net](#launch-a-local-private-net)
@@ -11,6 +13,9 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 - [Off-Chain Micropayment Support](#off-chain-micropayment-support)
 
 ## Setup
+
+### On Mac OS X
+
 Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
 
 ```
@@ -36,10 +41,59 @@ Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the fol
 brew install jq
 ```
 
+### On Windows
+
+On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator)
+
+```bash
+@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
+```
+
+Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
+
+```
+choco install golang --version 1.9.7 --force
+```
+
+Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
+
+```
+choco install make --source=cygwin
+```
+To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\cygwin64\etc` folder.
+And set the db_home location to windows as below.
+
+```
+db_home:  windows
+```
+
+Install [jq](https://stedolan.github.io/jq/) to run the unit tests. 
+
+Run the following command
+```
+choco install jq
+```
+Then, use the installed [Cygwin terminal](https://www.cygwin.com/) to run the following commands. Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/ukulele`
+
+```bash
+git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/ukulele
+```
+
+Install [Glide](https://github.com/Masterminds/glide). 
+Then execute the following commands to download all dependencies:
+
+```bash
+export UKULELE_HOME=$GOPATH/src/github.com/thetatoken/ukulele
+cd $UKULELE_HOME
+make tools
+glide install
+```
+
+
 ## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `ukulele` and `banjo` are generated. `ukulele` can be regarded as the launcher of the Theta Ledger node, and `banjo` is a wallet with command line tools to interact with the ledger. 
 ```
-make build install
+make install
 ```
 
 ## Run Unit Tests
