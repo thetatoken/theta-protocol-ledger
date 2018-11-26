@@ -8,7 +8,7 @@ const (
 	DenomGammaWei string = "GammaWei"
 
 	// MinimumGasPrice is the minimum gas price for a smart contract transaction
-	MinimumGasPrice uint64 = 1e9
+	MinimumGasPrice uint64 = 1e8
 
 	// MinimumTransactionFeeGammaWei specifies the minimum fee for a regular transaction
 	MinimumTransactionFeeGammaWei uint64 = 1e12
