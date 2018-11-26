@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -80,9 +81,72 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		log.Panic(err)
 	}
 
+	ch.AddBlockByHeightIndex(extendedBlock.Height, extendedBlock.Hash())
 	ch.AddTxsToIndex(extendedBlock, false)
 
 	return extendedBlock, nil
+}
+
+// blockByHeightIndexKey constructs the DB key for the given block height.
+func blockByHeightIndexKey(height uint64) common.Bytes {
+	// convert uint64 to []byte
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, height)
+	b := buf[:n]
+	return append(common.Bytes("bh/"), b...)
+}
+
+type BlockByHeightIndexEntry struct {
+	Blocks []common.Hash
+}
+
+func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {
+	key := blockByHeightIndexKey(height)
+	blockByHeightIndexEntry := BlockByHeightIndexEntry{
+		Blocks: []common.Hash{},
+	}
+
+	ch.store.Get(key, &blockByHeightIndexEntry)
+
+	// Check if block has already been added to index.
+	for _, b := range blockByHeightIndexEntry.Blocks {
+		if block == b {
+			return
+		}
+	}
+
+	blockByHeightIndexEntry.Blocks = append(blockByHeightIndexEntry.Blocks, block)
+
+	err := ch.store.Put(key, blockByHeightIndexEntry)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+// FindBlocksByHeight tries to retrieve blocks by height.
+func (ch *Chain) FindBlocksByHeight(height uint64) []*core.ExtendedBlock {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	return ch.findBlocksByHeight(height)
+}
+
+// findBlocksByHeight is the non-locking version of FindBlockByHeight.
+func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
+	key := blockByHeightIndexKey(height)
+	blockByHeightIndexEntry := BlockByHeightIndexEntry{
+		Blocks: []common.Hash{},
+	}
+	ch.store.Get(key, &blockByHeightIndexEntry)
+
+	ret := []*core.ExtendedBlock{}
+	for _, hash := range blockByHeightIndexEntry.Blocks {
+		block, err := ch.findBlock(hash)
+		if err == nil {
+			ret = append(ret, block)
+		}
+
+	}
+	return ret
 }
 
 func (ch *Chain) CommitBlock(block *core.ExtendedBlock) {
