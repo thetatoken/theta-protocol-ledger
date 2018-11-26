@@ -40,6 +40,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	"github.com/pborman/uuid"
 
@@ -97,7 +98,7 @@ func NewKeystoreEncrypted(keysDirRoot string, scryptN, scryptP int) (KeystoreEnc
 	if err != nil {
 		return KeystoreEncrypted{}, err
 	}
-	if fi.Mode().Perm() != 0700 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0700 {
 		return KeystoreEncrypted{}, fmt.Errorf("%s must have permission set to 0700", keysDirPath)
 	}
 
