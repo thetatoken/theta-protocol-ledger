@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 
 	"github.com/pborman/uuid"
 	"github.com/thetatoken/ukulele/common"
@@ -30,7 +31,7 @@ func NewKeystorePlain(keysDirRoot string) (KeystorePlain, error) {
 	if err != nil {
 		return KeystorePlain{}, err
 	}
-	if fi.Mode().Perm() != 0700 {
+	if runtime.GOOS != "windows" && fi.Mode().Perm() != 0700 {
 		return KeystorePlain{}, fmt.Errorf("%s must have permission set to 0700", keysDirPath)
 	}
 
