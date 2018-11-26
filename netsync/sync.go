@@ -326,8 +326,8 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	sm.logger.WithFields(log.Fields{
-		"block.Hash":   block.Hash,
-		"block.Parent": block.Parent,
+		"block.Hash":   block.Hash().Hex(),
+		"block.Parent": block.Parent.Hex(),
 	}).Debug("Received block")
 
 	sm.requestMgr.AddBlock(block)
