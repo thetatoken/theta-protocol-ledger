@@ -5,7 +5,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+
 	homedir "github.com/mitchellh/go-homedir"
 )
 
@@ -16,8 +18,12 @@ func getUserName() string {
 		os.Exit(1)
 	}
 
-	filepath.FromSlash(home)
-	array := strings.Split(home, "\\")
+	var sep = "/"
+	if runtime.GOOS == "windows" {
+		sep = "\\"
+	}
+
+	array := strings.Split(home, sep)
 	username := array[len(array)-1]
 
 	return username
