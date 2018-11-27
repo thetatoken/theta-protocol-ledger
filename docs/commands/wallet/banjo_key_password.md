@@ -10,6 +10,12 @@ Change the password for a key.
 banjo key password [flags]
 ```
 
+### Examples
+
+```
+banjo key password 1d8E1191E0a97C1aDa4940B79188D3B1f6f5C695
+```
+
 ### Options
 
 ```

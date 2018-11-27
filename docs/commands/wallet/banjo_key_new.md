@@ -10,6 +10,12 @@ Generates a new private key.
 banjo key new [flags]
 ```
 
+### Examples
+
+```
+banjo key new
+```
+
 ### Options
 
 ```

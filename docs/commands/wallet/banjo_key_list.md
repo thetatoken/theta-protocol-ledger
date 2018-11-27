@@ -10,6 +10,12 @@ List all keys.
 banjo key list [flags]
 ```
 
+### Examples
+
+```
+banjo key list
+```
+
 ### Options
 
 ```

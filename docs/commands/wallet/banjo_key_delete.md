@@ -10,6 +10,12 @@ Delete a key
 banjo key delete [flags]
 ```
 
+### Examples
+
+```
+banjo delete 26d813157F7503a9057FB2DB6Eb2f83a35c4FdD7
+```
+
 ### Options
 
 ```
