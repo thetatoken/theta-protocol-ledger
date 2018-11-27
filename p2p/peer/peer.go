@@ -1,8 +1,10 @@
 package peer
 
 import (
+	"context"
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
@@ -27,6 +29,13 @@ type Peer struct {
 	nodeInfo p2ptypes.NodeInfo // information of the blockchain node of the peer
 
 	config PeerConfig
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -70,9 +79,18 @@ func GetDefaultPeerConfig() PeerConfig {
 
 // Start is called when the peer starts
 // NOTE: need to call peer.Handshake() before peer.Start()
-func (peer *Peer) Start() bool {
-	success := peer.connection.Start()
+func (peer *Peer) Start(ctx context.Context) bool {
+	c, cancel := context.WithCancel(ctx)
+	peer.ctx = c
+	peer.cancel = cancel
+
+	success := peer.connection.Start(c)
 	return success
+}
+
+// StopOnly for testing purpose only
+func (peer *Peer) StopOnly() {
+	peer.connection.StopOnly()
 }
 
 // Stop is called when the peer stops
@@ -187,6 +205,7 @@ func createPeer(netconn net.Conn, isOutbound bool,
 		isOutbound: isOutbound,
 		netAddress: nu.NewNetAddress(netconn.RemoteAddr()),
 		config:     peerConfig,
+		wg:         &sync.WaitGroup{},
 	}
 	return peer
 }

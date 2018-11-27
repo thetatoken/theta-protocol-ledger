@@ -2,8 +2,10 @@ package connection
 
 import (
 	"bufio"
+	"context"
 	"net"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -45,6 +47,13 @@ type Connection struct {
 	pendingPings uint
 
 	config ConnectionConfig
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -116,6 +125,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
 		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
 		config:       config,
+		wg:           &sync.WaitGroup{},
 
 		onEncode: defaultMessageEncoder,
 	}
@@ -133,24 +143,34 @@ func GetDefaultConnectionConfig() ConnectionConfig {
 	}
 }
 
+// SetPingTimer for testing purpose
+func (conn *Connection) SetPingTimer(seconds time.Duration) {
+	conn.pingTimer = timer.NewRepeatTimer("ping", seconds*time.Second)
+	conn.pingTimer.Reset()
+}
+
 // Start is called when the connection starts
-func (conn *Connection) Start() bool {
+func (conn *Connection) Start(ctx context.Context) bool {
+	c, cancel := context.WithCancel(ctx)
+	conn.ctx = c
+	conn.cancel = cancel
+
+	conn.wg.Add(2)
+
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
+// StopOnly for testing purpose only
+func (conn *Connection) StopOnly() {
+	conn.cancel()
+}
+
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
-	if conn.sendPulse != nil {
-		close(conn.sendPulse)
-	}
-	if conn.pongPulse != nil {
-		close(conn.pongPulse)
-	}
-	if conn.quitPulse != nil {
-		close(conn.quitPulse)
-	}
+	conn.cancel()
+	conn.wg.Wait()
 	conn.netconn.Close()
 }
 
@@ -232,11 +252,15 @@ func (conn *Connection) CanEnqueueMessage(channelID common.ChannelIDEnum) bool {
 // --------------------- Send goroutine --------------------- //
 
 func (conn *Connection) sendRoutine() {
+	defer conn.wg.Done()
 	defer conn.recover()
 
 	for {
 		var err error
 		select {
+		case <-conn.ctx.Done():
+			conn.stopped = true
+			return
 		case <-conn.flushTimer.Ch:
 			conn.flush()
 		case <-conn.pingTimer.Ch:
@@ -258,7 +282,6 @@ func (conn *Connection) sendRoutine() {
 
 func (conn *Connection) sendPingSignal() error {
 	if conn.pendingPings >= conn.config.MaxPendingPings {
-		log.Infof("======== closing conn: %v", conn.onError)
 		conn.onError(nil)
 	}
 	pingPacket := Packet{
@@ -295,9 +318,17 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 // --------------------- Recv goroutine --------------------- //
 
 func (conn *Connection) recvRoutine() {
+	defer conn.wg.Done()
 	defer conn.recover()
 
 	for {
+		select {
+		case <-conn.ctx.Done():
+			conn.stopped = true
+			return
+		default:
+		}
+
 		// Block until recvMonitor allows reading
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
@@ -320,7 +351,7 @@ func (conn *Connection) recvRoutine() {
 		conn.pendingPings = 0
 	}
 
-	close(conn.pongPulse)
+	// close(conn.pongPulse)
 }
 
 func (conn *Connection) handlePingPong(packet *Packet) (success bool) {

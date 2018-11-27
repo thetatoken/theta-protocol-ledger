@@ -197,7 +197,7 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		log.Warnf("[p2p] discMgr.messenger not set, cannot attach message handlers")
 	}
 
-	if !peer.Start() {
+	if !peer.Start(discMgr.ctx) {
 		errMsg := "[p2p] Failed to start peer"
 		log.Errorf(errMsg)
 		return errors.New(errMsg)

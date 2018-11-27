@@ -1,6 +1,7 @@
 package connection
 
 import (
+	"context"
 	"errors"
 	"io/ioutil"
 	"testing"
@@ -99,6 +100,7 @@ func TestChannelSendPacketThroughNetconn(t *testing.T) {
 
 func TestConnectionSendNodeInfo(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 	port := 43254
 
 	_, randPubKey, err := crypto.GenerateKeyPair()
@@ -136,7 +138,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 		netconn := p2ptypes.GetTestNetconn(port)
 		cfg := GetDefaultConnectionConfig()
 		conn := CreateConnection(netconn, cfg)
-		conn.Start()
+		conn.Start(ctx)
 		//defer conn.Stop()
 		numMsgSent := 0
 		for {
@@ -204,6 +206,7 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 
 func TestConnectionRecvNodeInfo(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 	port := 43255
 
 	_, randPubKey, err := crypto.GenerateKeyPair()
@@ -265,7 +268,7 @@ func TestConnectionRecvNodeInfo(t *testing.T) {
 	conn := CreateConnection(netconn, cfg)
 	conn.SetMessageParser(basicMessageParser)
 	conn.SetReceiveHandler(basicReceiveHandler)
-	conn.Start()
+	conn.Start(ctx)
 	defer conn.Stop()
 
 	for i := 0; i < numMessages; i++ {
