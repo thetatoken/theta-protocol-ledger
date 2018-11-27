@@ -10,6 +10,12 @@ Get account status.
 banjo query account [flags]
 ```
 
+### Examples
+
+```
+banjo query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab
+```
+
 ### Options
 
 ```

@@ -10,6 +10,12 @@ Get split rule status
 banjo query split_rule [flags]
 ```
 
+### Examples
+
+```
+banjo query split_rule --resource_id=0x3FACC98BCCAD124
+```
+
 ### Options
 
 ```

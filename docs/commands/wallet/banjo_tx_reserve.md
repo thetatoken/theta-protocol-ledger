@@ -10,6 +10,12 @@ Reserve fund for an off-chain micropayment
 banjo tx reserve [flags]
 ```
 
+### Examples
+
+```
+banjo tx reserve --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello
+```
+
 ### Options
 
 ```

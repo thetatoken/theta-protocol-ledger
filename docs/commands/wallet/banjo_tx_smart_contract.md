@@ -10,6 +10,17 @@ Call or deploy a smart contract
 banjo tx smart_contract [flags]
 ```
 
+### Examples
+
+```
+
+	[Deploy a smart contract] 
+	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3 --seq=1	
+	
+	[Call an API of a smart contract]
+	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2
+```
+
 ### Options
 
 ```
