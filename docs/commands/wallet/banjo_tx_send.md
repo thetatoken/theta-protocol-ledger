@@ -10,6 +10,12 @@ Send tokens
 banjo tx send [flags]
 ```
 
+### Examples
+
+```
+banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1
+```
+
 ### Options
 
 ```
