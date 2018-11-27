@@ -36,4 +36,7 @@ tools:
 clean:
 	@rm -rf ./vendor
 
+gen-doc:
+	cd ./docs/commands/;go build -o generator.exe; ./generator.exe
+
 .PHONY: all build install test test_unit get_vendor_deps clean tools
