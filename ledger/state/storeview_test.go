@@ -1,7 +1,6 @@
 package state
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 
@@ -82,11 +81,11 @@ func TestStoreViewAccountAccess(t *testing.T) {
 
 	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
 	acc1 := &types.Account{
-		PubKey:   pubKey,
+		Address:  pubKey.Address(),
 		Sequence: 173,
 		Balance:  initCoin,
 	}
-	acc1Addr := acc1.PubKey.Address()
+	acc1Addr := acc1.Address
 
 	db := backend.NewMemDatabase()
 	sv1 := NewStoreView(uint64(1), common.Hash{}, db)
@@ -94,19 +93,17 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	sv1.SetAccount(acc1Addr, acc1)
 	accRetrieved := sv1.GetAccount(acc1Addr)
 
-	assert.Equal(acc1.PubKey.ToBytes(), accRetrieved.PubKey.ToBytes())
+	assert.Equal(acc1.Address, accRetrieved.Address)
 	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
 	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
 
 	log.Infof(">>>>> Original account1\n")
-	log.Infof("PubKey: %v\n", acc1.PubKey)
-	log.Infof("PubKey Bytes: %v\n", hex.EncodeToString(acc1.PubKey.ToBytes()))
+	log.Infof("Address: %v\n", acc1.Address)
 	log.Infof("Sequence: %v\n", acc1.Sequence)
 	log.Infof("Balance: %v\n\n", acc1.Balance)
 
 	log.Infof(">>>>> Retrieved account\n")
-	log.Infof("PubKey: %v\n", accRetrieved.PubKey)
-	log.Infof("PubKey Bytes: %v\n", hex.EncodeToString(accRetrieved.PubKey.ToBytes()))
+	log.Infof("Address: %v\n", accRetrieved.Address)
 	log.Infof("Sequence: %v\n", accRetrieved.Sequence)
 	log.Infof("Balance: %v\n", accRetrieved.Balance)
 }
@@ -179,4 +176,79 @@ func TestStoreViewSplitRuleAccess(t *testing.T) {
 	assert.NotNil(sv.GetSplitRule(rid1))
 	assert.Nil(sv.GetSplitRule(rid2))
 	assert.NotNil(sv.GetSplitRule(rid3))
+}
+
+func TestRevertAndPruneStoreView(t *testing.T) {
+	assert := assert.New(t)
+
+	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
+	assert.Nil(err)
+
+	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
+	acc1 := &types.Account{
+		PubKey:   pubKey,
+		Sequence: 173,
+		Balance:  initCoin,
+	}
+	acc1Addr := acc1.PubKey.Address()
+
+	db := backend.NewMemDatabase()
+	sv := NewStoreView(uint64(1), common.Hash{}, db)
+
+	sv.SetAccount(acc1Addr, acc1)
+	accRetrieved := sv.GetAccount(acc1Addr)
+
+	assert.Equal(acc1.PubKey.ToBytes(), accRetrieved.PubKey.ToBytes())
+	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
+	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
+
+	key1 := common.Hash(common.BytesToHash([]byte{1}))
+	value1 := common.Hash(common.BytesToHash([]byte{11}))
+	sv.SetState(acc1Addr, key1, value1)
+	root1 := sv.Save()
+	assert.Equal(value1, sv.GetState(acc1Addr, key1))
+
+	hashMap1 := make(map[common.Hash]bool)
+	for it := sv.store.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hash := it.Hash()
+			ref, _ := db.CountReference(hash[:])
+			assert.Equal(1, ref)
+
+			hashMap1[it.Hash()] = true
+		}
+	}
+
+	value2 := common.Hash(common.BytesToHash([]byte{22}))
+	sv.SetState(acc1Addr, key1, value2)
+	root2 := sv.Save()
+	assert.Equal(value2, sv.GetState(acc1Addr, key1))
+
+	hashMap2 := make(map[common.Hash]bool)
+	for it := sv.store.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hash := it.Hash()
+			ref, _ := db.CountReference(hash[:])
+			assert.Equal(1, ref)
+
+			hashMap2[it.Hash()] = true
+		}
+	}
+
+	sv.RevertToSnapshot(root1)
+	assert.Equal(value1, sv.GetState(acc1Addr, key1))
+	sv.Prune()
+
+	for hash := range hashMap1 {
+		has, _ := db.Has(hash[:])
+		assert.False(has)
+	}
+
+	for hash := range hashMap2 {
+		has, _ := db.Has(hash[:])
+		assert.True(has)
+	}
+
+	sv.RevertToSnapshot(root2)
+	assert.Equal(value2, sv.GetState(acc1Addr, key1))
 }

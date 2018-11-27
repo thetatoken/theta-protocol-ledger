@@ -81,11 +81,11 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	assert.Nil(err)
 	initCoin := types.Coins{ThetaWei: big.NewInt(956), GammaWei: big.NewInt(0)}
 	acc1 := &types.Account{
-		PubKey:   acc1PubKey,
+		Address:  acc1PubKey.Address(),
 		Sequence: 657,
 		Balance:  initCoin,
 	}
-	acc1Addr := acc1.PubKey.Address()
+	acc1Addr := acc1.Address
 	ls.Delivered().SetAccount(acc1Addr, acc1)
 	log.Infof("Account added\n")
 

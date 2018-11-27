@@ -71,16 +71,16 @@ type Database struct {
 	preimages map[common.Hash][]byte // Preimages of nodes from the secure trie
 	seckeybuf [secureKeyLength]byte  // Ephemeral buffer for calculating preimage keys
 
-	gctime  time.Duration      // Time spent on garbage collection since last commit
-	gcnodes uint64             // Nodes garbage collected since last commit
-	gcsize  common.StorageSize // Data storage garbage collected since last commit
+	gctime  time.Duration // Time spent on garbage collection since last commit
+	gcnodes uint64        // Nodes garbage collected since last commit
+	gcsize  StorageSize   // Data storage garbage collected since last commit
 
-	flushtime  time.Duration      // Time spent on data flushing since last commit
-	flushnodes uint64             // Nodes flushed since last commit
-	flushsize  common.StorageSize // Data storage flushed since last commit
+	flushtime  time.Duration // Time spent on data flushing since last commit
+	flushnodes uint64        // Nodes flushed since last commit
+	flushsize  StorageSize   // Data storage flushed since last commit
 
-	nodesSize     common.StorageSize // Storage size of the nodes cache (exc. flushlist)
-	preimagesSize common.StorageSize // Storage size of the preimages cache
+	nodesSize     StorageSize // Storage size of the nodes cache (exc. flushlist)
+	preimagesSize StorageSize // Storage size of the preimages cache
 
 	lock sync.RWMutex
 }
@@ -315,7 +315,7 @@ func (db *Database) insert(hash common.Hash, blob []byte, node node) {
 	} else {
 		db.nodes[db.newest].flushNext, db.newest = hash, hash
 	}
-	db.nodesSize += common.StorageSize(common.HashLength + entry.size)
+	db.nodesSize += StorageSize(common.HashLength + entry.size)
 }
 
 // insertPreimage writes a new trie node pre-image to the memory database if it's
@@ -327,7 +327,7 @@ func (db *Database) insertPreimage(hash common.Hash, preimage []byte) {
 		return
 	}
 	db.preimages[hash] = common.CopyBytes(preimage)
-	db.preimagesSize += common.StorageSize(common.HashLength + len(preimage))
+	db.preimagesSize += StorageSize(common.HashLength + len(preimage))
 }
 
 // node retrieves a cached trie node from memory, or returns nil if none can be
@@ -491,13 +491,13 @@ func (db *Database) dereference(child common.Hash, parent common.Hash) {
 			db.dereference(hash, child)
 		}
 		delete(db.nodes, child)
-		db.nodesSize -= common.StorageSize(common.HashLength + int(node.size))
+		db.nodesSize -= StorageSize(common.HashLength + int(node.size))
 	}
 }
 
 // Cap iteratively flushes old but still referenced trie nodes until the total
 // memory usage goes below the given threshold.
-func (db *Database) Cap(limit common.StorageSize) error {
+func (db *Database) Cap(limit StorageSize) error {
 	// Create a database batch to flush persistent data out. It is important that
 	// outside code doesn't see an inconsistent state (referenced data removed from
 	// memory cache during commit but not yet in persistent storage). This is ensured
@@ -510,7 +510,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 	// db.nodesSize only contains the useful data in the cache, but when reporting
 	// the total memory consumption, the maintenance metadata is also needed to be
 	// counted. For every useful node, we track 2 extra hashes as the flushlist.
-	size := db.nodesSize + common.StorageSize((len(db.nodes)-1)*2*common.HashLength)
+	size := db.nodesSize + StorageSize((len(db.nodes)-1)*2*common.HashLength)
 
 	// If the preimage cache got large enough, push to disk. If it's still small
 	// leave for later to deduplicate writes.
@@ -553,7 +553,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 		// is the total size, including both the useful cached data (hash -> blob), as
 		// well as the flushlist metadata (2*hash). When flushing items from the cache,
 		// we need to reduce both.
-		size -= common.StorageSize(3*common.HashLength + int(node.size))
+		size -= StorageSize(3*common.HashLength + int(node.size))
 		oldest = node.flushNext
 	}
 	// Flush out any remainder data from the last batch
@@ -577,7 +577,7 @@ func (db *Database) Cap(limit common.StorageSize) error {
 		delete(db.nodes, db.oldest)
 		db.oldest = node.flushNext
 
-		db.nodesSize -= common.StorageSize(common.HashLength + int(node.size))
+		db.nodesSize -= StorageSize(common.HashLength + int(node.size))
 	}
 	if db.oldest != (common.Hash{}) {
 		db.nodes[db.oldest].flushPrev = common.Hash{}
@@ -722,19 +722,19 @@ func (db *Database) uncache(hash common.Hash) {
 		db.uncache(child)
 	}
 	delete(db.nodes, hash)
-	db.nodesSize -= common.StorageSize(common.HashLength + int(node.size))
+	db.nodesSize -= StorageSize(common.HashLength + int(node.size))
 }
 
 // Size returns the current storage size of the memory cache in front of the
 // persistent database layer.
-func (db *Database) Size() (common.StorageSize, common.StorageSize) {
+func (db *Database) Size() (StorageSize, StorageSize) {
 	db.lock.RLock()
 	defer db.lock.RUnlock()
 
 	// db.nodesSize only contains the useful data in the cache, but when reporting
 	// the total memory consumption, the maintenance metadata is also needed to be
 	// counted. For every useful node, we track 2 extra hashes as the flushlist.
-	var flushlistSize = common.StorageSize((len(db.nodes) - 1) * 2 * common.HashLength)
+	var flushlistSize = StorageSize((len(db.nodes) - 1) * 2 * common.HashLength)
 	return db.nodesSize + flushlistSize, db.preimagesSize
 }
 

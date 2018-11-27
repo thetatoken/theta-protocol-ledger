@@ -113,11 +113,11 @@ func TestCustomTokenSmartContract(t *testing.T) {
 	user1PrivAcc := &privAccounts[2]
 	user2PrivAcc := &privAccounts[3]
 
-	adminAddr := adminPrivAcc.PubKey.Address()
+	adminAddr := adminPrivAcc.Address
 	assert.Equal(common.HexToAddress("0x4d4ce78b09F8A06C0d3063a315dC9c011F6e876E"), adminAddr)
-	deployerAddr := deployerPrivAcc.PubKey.Address()
-	user1Addr := user1PrivAcc.PubKey.Address()
-	user2Addr := user2PrivAcc.PubKey.Address()
+	deployerAddr := deployerPrivAcc.Address
+	user1Addr := user1PrivAcc.Address
+	user2Addr := user2PrivAcc.Address
 	log.Infof("Admin    Address: %v", adminAddr)
 	log.Infof("Deployer Address: %v", deployerAddr)
 	log.Infof("User1    Address: %v", user1Addr)
@@ -254,7 +254,7 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 	valueAmount int64, gasLimit uint64, deploymentCode, smartContractCode common.Bytes,
 	sequence uint64, assert *assert.Assertions) (contractAddr common.Address) {
 	deployerAcc := deployerPrivAcc.Account
-	deployerAddr := deployerAcc.PubKey.Address()
+	deployerAddr := deployerAcc.Address
 	gasPrice := types.MinimumGasPrice
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
@@ -265,9 +265,6 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 		GasLimit: gasLimit,
 		GasPrice: new(big.Int).SetUint64(gasPrice),
 		Data:     deploymentCode,
-	}
-	if sequence == 1 {
-		deploySCTx.From.PubKey = deployerAcc.PubKey
 	}
 	signBytes := deploySCTx.SignBytes(et.chainID)
 	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
@@ -314,7 +311,7 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 func callSmartContract(et *execTest, contractAddr common.Address, callerPrivAcc *types.PrivAccount,
 	gasLimit uint64, data common.Bytes, sequence uint64, assert *assert.Assertions) (vmRet common.Bytes, vmErr error, gasUsed uint64) {
 	callerAcc := callerPrivAcc.Account
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	gasPrice := types.MinimumGasPrice
 	callSCTX := &types.SmartContractTx{
 		From: types.TxInput{
@@ -325,9 +322,6 @@ func callSmartContract(et *execTest, contractAddr common.Address, callerPrivAcc 
 		GasLimit: gasLimit,
 		GasPrice: new(big.Int).SetUint64(gasPrice),
 		Data:     data,
-	}
-	if sequence == 1 {
-		callSCTX.From.PubKey = callerAcc.PubKey
 	}
 	signBytes := callSCTX.SignBytes(et.chainID)
 	callSCTX.From.Signature = callerPrivAcc.Sign(signBytes)
@@ -348,7 +342,7 @@ func executeSmartContract(et *execTest, contractAddr common.Address, callerPrivA
 	_, _, gasUsed := callSmartContract(et, contractAddr, callerPrivAcc, gasLimit, data, sequence, assert)
 
 	callerAcc := callerPrivAcc.Account
-	callerAddr := callerAcc.PubKey.Address()
+	callerAddr := callerAcc.Address
 	retrievedCallerAccBeforeExec := et.state().Delivered().GetAccount(callerAddr)
 	gasPrice := types.MinimumGasPrice
 	execSCTX := &types.SmartContractTx{
@@ -360,9 +354,6 @@ func executeSmartContract(et *execTest, contractAddr common.Address, callerPrivA
 		GasLimit: gasLimit,
 		GasPrice: new(big.Int).SetUint64(gasPrice),
 		Data:     data,
-	}
-	if sequence == 1 {
-		execSCTX.From.PubKey = callerAcc.PubKey
 	}
 	signBytes := execSCTX.SignBytes(et.chainID)
 	execSCTX.From.Signature = callerPrivAcc.Sign(signBytes)

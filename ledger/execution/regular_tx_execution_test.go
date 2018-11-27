@@ -1,14 +1,12 @@
 package execution
 
 import (
-	"encoding/hex"
 	"math/big"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -226,8 +224,8 @@ func TestAdjustBy(t *testing.T) {
 	adjustByInputs(et.state().Delivered(), accMap, txIn)
 	adjustByOutputs(et.state().Delivered(), accMap, txOut)
 
-	inAddr := et.accIn.Account.PubKey.Address()
-	outAddr := et.accOut.Account.PubKey.Address()
+	inAddr := et.accIn.Account.Address
+	outAddr := et.accOut.Account.Address
 	endBalIn := accMap[string(inAddr[:])].Balance
 	endBalOut := accMap[string(outAddr[:])].Balance
 	decrBalIn := initBalIn.Minus(endBalIn)
@@ -288,92 +286,6 @@ func TestSendTx(t *testing.T) {
 // 	assert.True(res.ThetaWei.Cmp(types.Zero) == 0) // ZERO Theta inflation
 // }
 
-func TestNonEmptyPubKey(t *testing.T) {
-	assert := assert.New(t)
-	et := NewExecTest()
-
-	_, userPubKey, err := crypto.TEST_GenerateKeyPairWithSeed("user")
-	assert.Nil(err)
-	userAddr := userPubKey.Address()
-	et.state().Delivered().SetAccount(userAddr, &types.Account{
-		LastUpdatedBlockHeight: 1,
-	})
-
-	// ----------- Test 1: Both acc.PubKey and txInput.PubKey are empty -----------
-
-	accInit, res := getAccount(et.state().Delivered(), userAddr)
-	assert.True(res.IsOK())
-	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
-
-	txInput1 := types.TxInput{
-		Address:  userAddr,
-		Sequence: 1,
-	} // Empty PubKey
-
-	acc, res := getInput(et.state().Delivered(), txInput1)
-	assert.Equal(result.CodeEmptyPubKeyWithSequence1, res.Code)
-	assert.True(acc == nil)
-
-	// ----------- Test 2: acc.PubKey is empty, and txInput.PubKey is not empty -----------
-
-	accInit, res = getAccount(et.state().Delivered(), userAddr)
-	assert.True(res.IsOK())
-	assert.True(accInit.PubKey == nil || accInit.PubKey.IsEmpty())
-
-	txInput2 := types.TxInput{
-		Address:  userAddr,
-		PubKey:   userPubKey,
-		Sequence: 2,
-	}
-
-	acc, res = getInput(et.state().Delivered(), txInput2)
-	assert.True(res.IsOK())
-	assert.False(acc.PubKey.IsEmpty())
-	assert.Equal(acc.PubKey, userPubKey)
-
-	// ----------- Test 3: acc.PubKey is not empty, but txInput.PubKey is empty -----------
-
-	et.state().Delivered().SetAccount(userAddr, &types.Account{
-		PubKey:                 userPubKey,
-		LastUpdatedBlockHeight: 1,
-	})
-
-	accInit, res = getAccount(et.state().Delivered(), userAddr)
-	assert.True(res.IsOK())
-	assert.False(accInit.PubKey.IsEmpty())
-
-	txInput3 := types.TxInput{
-		Address:  userAddr,
-		Sequence: 3,
-	} // Empty PubKey
-
-	acc, res = getInput(et.state().Delivered(), txInput3)
-	assert.True(res.IsOK())
-	assert.False(acc.PubKey.IsEmpty())
-	assert.Equal(acc.PubKey, userPubKey)
-
-	// ----------- Test 4: txInput contains another PubKey, should be ignored -----------
-
-	_, userPubKey2, err := crypto.TEST_GenerateKeyPairWithSeed("lol")
-	assert.Nil(err)
-
-	accInit, res = getAccount(et.state().Delivered(), userAddr)
-	assert.True(res.IsOK())
-	assert.False(accInit.PubKey.IsEmpty())
-
-	txInput4 := types.TxInput{
-		Address:  userAddr,
-		Sequence: 4,
-		PubKey:   userPubKey2,
-	}
-
-	acc, res = getInput(et.state().Delivered(), txInput4)
-	assert.True(res.IsOK())
-	assert.False(acc.PubKey.IsEmpty())
-	assert.Equal(userPubKey, acc.PubKey)     // acc.PukKey should not change
-	assert.NotEqual(userPubKey2, acc.PubKey) // acc.PukKey should not change
-}
-
 func TestCoinbaseTx(t *testing.T) {
 	assert := assert.New(t)
 	et := NewExecTest()
@@ -398,11 +310,11 @@ func TestCoinbaseTx(t *testing.T) {
 	// Regular check
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+			Address: va1.PrivKey.PublicKey().Address()},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(0, 0),
+			va1.Account.Address, types.NewCoins(0, 0),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
+			va2.Account.Address, types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
@@ -414,11 +326,11 @@ func TestCoinbaseTx(t *testing.T) {
 	// Theta should never inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+			Address: va1.Address},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va1.Account.Address, types.NewCoins(317, 0),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(317, 0),
+			va2.Account.Address, types.NewCoins(317, 0),
 		}},
 		BlockHeight: 1e7,
 	}
@@ -428,11 +340,11 @@ func TestCoinbaseTx(t *testing.T) {
 	// For the initial Mainnet release, Gamma should not inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
-			Address: va1.PubKey.Address(), PubKey: va1.PubKey},
+			Address: va1.Address},
 		Outputs: []types.TxOutput{{
-			va1.Account.PubKey.Address(), types.NewCoins(0, 987),
+			va1.Account.Address, types.NewCoins(0, 987),
 		}, {
-			va2.Account.PubKey.Address(), types.NewCoins(0, 0),
+			va2.Account.Address, types.NewCoins(0, 0),
 		}},
 		BlockHeight: 1e7,
 	}
@@ -561,8 +473,7 @@ func TestReserveFundTx(t *testing.T) {
 	tx = &types.ReserveFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
+			Address:  user1.PrivKey.PublicKey().Address(),
 			Sequence: 1,
 		},
 		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
@@ -578,8 +489,7 @@ func TestReserveFundTx(t *testing.T) {
 	tx = &types.ReserveFundTx{
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
+			Address:  user1.PrivKey.PublicKey().Address(),
 			Coins:    types.Coins{GammaWei: big.NewInt(50000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
@@ -596,8 +506,7 @@ func TestReserveFundTx(t *testing.T) {
 	tx = &types.ReserveFundTx{
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
+			Address:  user1.Address,
 			Coins:    types.Coins{GammaWei: big.NewInt(5000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
@@ -614,8 +523,7 @@ func TestReserveFundTx(t *testing.T) {
 	tx = &types.ReserveFundTx{
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
+			Address:  user1.Address,
 			Coins:    types.Coins{GammaWei: big.NewInt(1000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
@@ -629,7 +537,7 @@ func TestReserveFundTx(t *testing.T) {
 	_, res = et.executor.getTxExecutor(tx).process(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsOK(), res.String())
 
-	retrievedUserAcc := et.state().Delivered().GetAccount(user1.PubKey.Address())
+	retrievedUserAcc := et.state().Delivered().GetAccount(user1.Address)
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]string{"rid001"}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
@@ -656,8 +564,7 @@ func TestReleaseFundTx(t *testing.T) {
 	reserveFundTx = &types.ReserveFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
-			PubKey:   user1.PubKey,
+			Address:  user1.Address,
 			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
@@ -677,7 +584,7 @@ func TestReleaseFundTx(t *testing.T) {
 	releaseFundTx = &types.ReleaseFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()-1), // insufficient transaction fee
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
+			Address:  user1.Address,
 			Sequence: 2,
 		},
 		ReserveSequence: 1,
@@ -690,7 +597,7 @@ func TestReleaseFundTx(t *testing.T) {
 	releaseFundTx = &types.ReleaseFundTx{
 		Fee: types.NewCoins(100, getMinimumTxFee()), // Theta cannot be used as transaction fee
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
+			Address:  user1.Address,
 			Sequence: 2,
 		},
 		ReserveSequence: 1,
@@ -704,7 +611,7 @@ func TestReleaseFundTx(t *testing.T) {
 	releaseFundTx = &types.ReleaseFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
+			Address:  user1.Address,
 			Sequence: 2,
 		},
 		ReserveSequence: 1,
@@ -720,7 +627,7 @@ func TestReleaseFundTx(t *testing.T) {
 	releaseFundTx = &types.ReleaseFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
+			Address:  user1.Address,
 			Sequence: 2,
 		},
 		ReserveSequence: 99,
@@ -739,7 +646,7 @@ func TestReleaseFundTx(t *testing.T) {
 	releaseFundTx = &types.ReleaseFundTx{
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
-			Address:  user1.PubKey.Address(),
+			Address:  user1.Address,
 			Sequence: 2,
 		},
 		ReserveSequence: 1,
@@ -757,7 +664,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	txFee := getMinimumTxFee()
 
-	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]string{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
@@ -777,10 +684,10 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.Address)
 
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
-	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.Address)
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - txFee: need to account for tx fee
 
 	// Simulate micropayment #2 between Alice and Bob
@@ -796,9 +703,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
-	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.Address)
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2*txFee)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2*txFee: need to account for tx fee
 
 	// Simulate micropayment #3 between Alice and Carol
@@ -814,9 +721,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
-	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.PubKey.Address())
+	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.Address)
 	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - txFee)}), retrievedCarolAcc3.Balance) // payAmount3 - txFee: need to account for tx fee
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
@@ -840,7 +747,7 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 
 	txFee := getMinimumTxFee()
 
-	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]string{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
@@ -859,9 +766,9 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 
 	et.state().Commit()
 
-	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
-	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.PubKey.Address())
+	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.Address)
 	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee)}), retrievedBobAcc2.Balance) // payAmount1 - txFee: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
@@ -884,14 +791,13 @@ func TestSlashTx(t *testing.T) {
 	proposer := et.accProposer
 	proposerInitBalance := proposer.Account.Balance
 	et.acc2State(proposer)
-	log.Infof("Proposer's pubKey:  %v", hex.EncodeToString(proposer.PubKey.ToBytes()))
-	log.Infof("Proposer's Address: %v", proposer.PubKey.Address().Hex())
+	log.Infof("Proposer's Address: %v", proposer.Address.Hex())
 
 	et.state().Commit()
 
 	txFee := getMinimumTxFee()
 
-	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
 	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
 	aliceReservedFund := retrievedAliceAccount.ReservedFunds[0].InitialFund
@@ -918,9 +824,8 @@ func TestSlashTx(t *testing.T) {
 	// Test the slashTx
 	slashTx := &types.SlashTx{
 		Proposer: types.TxInput{
-			Address:  proposer.PubKey.Address(),
+			Address:  proposer.Address,
 			Sequence: 1,
-			PubKey:   proposer.PubKey,
 		},
 		SlashedAddress:  slashIntent.Address,
 		ReserveSequence: slashIntent.ReserveSequence,
@@ -934,10 +839,10 @@ func TestSlashTx(t *testing.T) {
 	_, res = et.executor.getTxExecutor(slashTx).process(et.chainID, et.state().Delivered(), slashTx)
 	assert.True(res.IsOK(), res.Message)
 
-	retrievedProposerAccount := et.state().Delivered().GetAccount(proposer.PubKey.Address())
+	retrievedProposerAccount := et.state().Delivered().GetAccount(proposer.Address)
 	assert.Equal(proposerInitBalance.Plus(expectedAliceSlashedAmount), retrievedProposerAccount.Balance) // slashed tokens transferred to the proposer
 
-	retrievedAliceAccountAfterSlash := et.state().Delivered().GetAccount(alice.PubKey.Address())
+	retrievedAliceAccountAfterSlash := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(0, len(retrievedAliceAccountAfterSlash.ReservedFunds)) // Alice is slashed
 
 	log.Infof("Proposer initial balance: %v", proposerInitBalance)
@@ -959,15 +864,14 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
-		Address:    carol.PubKey.Address(),
+		Address:    carol.Address,
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
-			Address:  initiator.PubKey.Address(),
-			PubKey:   initiator.PubKey,
+			Address:  initiator.Address,
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
@@ -996,8 +900,8 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 
 	et.state().Commit()
 
-	bobFinalBalance := et.state().Delivered().GetAccount(bob.PubKey.Address()).Balance
-	carolFinalBalance := et.state().Delivered().GetAccount(carol.PubKey.Address()).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.Address).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.Address).Balance
 	log.Infof("Bob's final balance:   %v", bobFinalBalance)
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
@@ -1022,15 +926,14 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
-		Address:    carol.PubKey.Address(),
+		Address:    carol.Address,
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
-			Address:  initiator.PubKey.Address(),
-			PubKey:   initiator.PubKey,
+			Address:  initiator.Address,
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
@@ -1061,8 +964,8 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 
 	et.state().Commit()
 
-	bobFinalBalance := et.state().Delivered().GetAccount(bob.PubKey.Address()).Balance
-	carolFinalBalance := et.state().Delivered().GetAccount(carol.PubKey.Address()).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.Address).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.Address).Balance
 	log.Infof("Bob's final balance:   %v", bobFinalBalance)
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
@@ -1089,15 +992,14 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 	et.acc2State(fakeInitiator)
 
 	splitCarol := types.Split{
-		Address:    carol.PubKey.Address(),
+		Address:    carol.Address,
 		Percentage: 30,
 	}
 	splitRuleTx := &types.SplitRuleTx{
 		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
-			Address:  initiator.PubKey.Address(),
-			PubKey:   initiator.PubKey,
+			Address:  initiator.Address,
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
@@ -1121,8 +1023,7 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
-			Address:  fakeInitiator.PubKey.Address(),
-			PubKey:   fakeInitiator.PubKey,
+			Address:  fakeInitiator.Address,
 			Sequence: 1,
 		},
 		Splits:   []types.Split{splitCarol},
@@ -1150,7 +1051,7 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 		Fee:        types.NewCoins(0, txFee),
 		ResourceID: resourceID,
 		Initiator: types.TxInput{
-			Address:  initiator.PubKey.Address(),
+			Address:  initiator.Address,
 			Sequence: 2,
 		},
 		Splits:   []types.Split{splitCarol},

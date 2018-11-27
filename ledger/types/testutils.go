@@ -33,7 +33,7 @@ func PrivAccountFromSecret(secret string) PrivAccount {
 	privAccount := PrivAccount{
 		PrivKey: privKey,
 		Account: Account{
-			PubKey:                 privKey.PublicKey(),
+			Address:                privKey.PublicKey().Address(),
 			LastUpdatedBlockHeight: 1,
 		},
 	}
@@ -58,7 +58,7 @@ func RandAccounts(num int, minAmount int64, maxAmount int64) []PrivAccount {
 		privAccs[i] = PrivAccount{
 			PrivKey: privKey,
 			Account: Account{
-				PubKey:                 pubKey,
+				Address:                pubKey.Address(),
 				Balance:                Coins{GammaWei: big.NewInt(balance), ThetaWei: big.NewInt(balance)},
 				LastUpdatedBlockHeight: 1,
 			},
@@ -85,7 +85,7 @@ func Accs2TxInputs(seq int, accs ...PrivAccount) []TxInput {
 	var txs []TxInput
 	for _, acc := range accs {
 		tx := NewTxInput(
-			acc.Account.PubKey,
+			acc.Account.Address,
 			NewCoins(4, int64(MinimumTransactionFeeGammaWei)),
 			seq)
 		txs = append(txs, tx)
@@ -98,7 +98,7 @@ func Accs2TxOutputs(accs ...PrivAccount) []TxOutput {
 	var txs []TxOutput
 	for _, acc := range accs {
 		tx := TxOutput{
-			Address: acc.Account.PubKey.Address(),
+			Address: acc.Account.Address,
 			Coins:   NewCoins(4, 0),
 		}
 		txs = append(txs, tx)

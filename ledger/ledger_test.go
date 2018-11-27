@@ -99,11 +99,11 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 			assert.True(idx > 0)
 			currSendTx := tx.(*types.SendTx)
 			if prevSendTx != nil {
-				// mempool should works like a priority queue, tx with higher fee
-				// got reaped first
+				// mempool should works like a priority queue, for the same type of tx (i.e. SendTx),
+				// those with higher fee should get reaped first
 				feeDiff := prevSendTx.Fee.Minus(currSendTx.Fee)
 				assert.True(feeDiff.IsNonnegative())
-				//log.Infof("tx fee: %v, feeDiff: %v", currSendTx.Fee, feeDiff)
+				log.Infof("tx fee: %v, feeDiff: %v", currSendTx.Fee, feeDiff)
 			}
 			prevSendTx = currSendTx
 		}
@@ -131,7 +131,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
-	expectedStateRoot := common.HexToHash("04d6910ba9f1fd2d34b99c3dbd7f0535cca17fb365f9aaf61767daa8217dc3ef")
+	expectedStateRoot := common.HexToHash("0d7bff2377e3638b82b09c21b7d0636ed593d2225164cb9b67f7296432194c58")
 
 	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
 	require.True(res.IsOK(), res.Message)
@@ -152,7 +152,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	}
 
 	// Output account balance
-	accOutAfter := ledger.state.Delivered().GetAccount(accOut.PubKey.Address())
+	accOutAfter := ledger.state.Delivered().GetAccount(accOut.Address)
 	expectedAccOutBal := types.NewCoins(700075, 3)
 	assert.Equal(expectedAccOutBal, accOutAfter.Balance)
 
@@ -162,7 +162,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 		GammaWei: inAccInitGammaWei.Sub(inAccInitGammaWei, new(big.Int).SetInt64(txFee)),
 	}
 	for idx, _ := range accIns {
-		accInAddr := accIns[idx].Account.PubKey.Address()
+		accInAddr := accIns[idx].Account.Address
 		accInAfter := ledger.state.Delivered().GetAccount(accInAddr)
 		assert.Equal(expectedAccInBal, accInAfter.Balance)
 	}
@@ -227,7 +227,7 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 	for _, val := range validators {
 		valPubKey := val.PublicKey()
 		valAccount := &types.Account{
-			PubKey:                 &valPubKey,
+			Address:                valPubKey.Address(),
 			LastUpdatedBlockHeight: 1,
 			Balance:                types.NewCoins(100000000000, 1000),
 		}
@@ -235,13 +235,13 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 	}
 
 	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
-	ledger.state.Delivered().SetAccount(accOut.Account.PubKey.Address(), &accOut.Account)
+	ledger.state.Delivered().SetAccount(accOut.Account.Address, &accOut.Account)
 
 	for i := 0; i < numInAccs; i++ {
 		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
 		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000*txFee))
 		accIns = append(accIns, accIn)
-		ledger.state.Delivered().SetAccount(accIn.Account.PubKey.Address(), &accIn.Account)
+		ledger.state.Delivered().SetAccount(accIn.Account.Address, &accIn.Account)
 	}
 
 	ledger.state.Commit()
@@ -264,7 +264,7 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	proposerSk := ledger.consensus.PrivateKey()
 	proposerPk := proposerSk.PublicKey()
 	coinbaseTx := &types.CoinbaseTx{
-		Proposer:    types.TxInput{Address: proposerPk.Address(), PubKey: proposerPk, Sequence: uint64(sequence)},
+		Proposer:    types.TxInput{Address: proposerPk.Address(), Sequence: uint64(sequence)},
 		Outputs:     outputs,
 		BlockHeight: 2,
 	}
@@ -291,10 +291,11 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 	if injectFeeFluctuation {
 		// inject so fluctuation into the txFee, so later we can test whether the
 		// mempool orders the txs by txFee
-		delta, err = strconv.ParseInt(string(accIn.PubKey.Address().Hex()[2:9]), 16, 64)
-		if delta < 0 {
-			delta = -delta
+		randint, err := strconv.ParseInt(string(accIn.Address.Hex()[2:9]), 16, 64)
+		if randint < 0 {
+			randint = -randint
 		}
+		delta = randint * int64(types.GasSendTx)
 		if err != nil {
 			panic(err)
 		}
@@ -305,21 +306,16 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		Inputs: []types.TxInput{
 			{
 				Sequence: uint64(sequence),
-				PubKey:   accIn.PubKey,
-				Address:  accIn.PubKey.Address(),
+				Address:  accIn.Address,
 				Coins:    types.NewCoins(15, txFee),
 			},
 		},
 		Outputs: []types.TxOutput{
 			{
-				Address: accOut.PubKey.Address(),
+				Address: accOut.Address,
 				Coins:   types.NewCoins(15, 0),
 			},
 		},
-	}
-
-	if sequence > 1 {
-		sendTx.Inputs[0].PubKey = nil
 	}
 
 	signBytes := sendTx.SignBytes(chainID)
@@ -331,10 +327,6 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 			panic("Failed to sign the coinbase transaction")
 		}
 		sendTx.SetSignature(in.Address, sig)
-
-		if !addPubKey {
-			sendTx.Inputs[idx].PubKey = nil
-		}
 	}
 
 	sendTxBytes, err := types.TxToBytes(sendTx)

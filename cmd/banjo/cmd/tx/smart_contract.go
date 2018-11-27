@@ -33,7 +33,7 @@ var smartContractCmd = &cobra.Command{
 
 func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
 		return
 	}
@@ -51,9 +51,6 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 			GammaWei: value,
 		},
 		Sequence: seqFlag,
-	}
-	if seqFlag == 1 {
-		from.PubKey = fromPubKey
 	}
 
 	to := types.TxOutput{

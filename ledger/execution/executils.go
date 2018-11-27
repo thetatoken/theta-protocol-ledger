@@ -7,7 +7,6 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
@@ -46,14 +45,10 @@ func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.Validator
 	return validatorAddresses
 }
 
-func isAValidator(pubKey *crypto.PublicKey, validatorAddresses []common.Address) result.Result {
-	if pubKey == nil || pubKey.IsEmpty() {
-		return result.Error("Null proposer pubKey detected in coinbaseTx sanity check")
-	}
-	addr := pubKey.Address()
+func isAValidator(address common.Address, validatorAddresses []common.Address) result.Result {
 	proposerIsAValidator := false
 	for _, validatorAddr := range validatorAddresses {
-		if addr == validatorAddr {
+		if address == validatorAddr {
 			proposerIsAValidator = true
 			break
 		}
@@ -81,9 +76,6 @@ func getInputs(view *state.StoreView, ins []types.TxInput) (map[string]*types.Ac
 			return nil, result.Error("getInputs - Unknown address: %v", in.Address)
 		}
 
-		if in.PubKey != nil && !in.PubKey.IsEmpty() {
-			acc.PubKey = in.PubKey
-		}
 		accounts[string(in.Address[:])] = acc
 	}
 	return accounts, result.OK
@@ -102,18 +94,6 @@ func getOrMakeInputImpl(view *state.StoreView, in types.TxInput, makeNewAccount 
 	acc, success := getOrMakeAccountImpl(view, in.Address, makeNewAccount)
 	if success.IsError() {
 		return nil, result.Error("getOrMakeInputImpl - Unknown address: %v", in.Address)
-	}
-
-	// if in.Sequence == 1 && in.PubKey.Empty() {
-	// 	return nil, result.Error("TxInput PubKey cannot be empty when Sequence == 1")
-	// }
-
-	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
-		acc.PubKey = in.PubKey
-	}
-
-	if acc.PubKey == nil || acc.PubKey.IsEmpty() {
-		return nil, result.Error("TxInput PubKey cannot be nil or empty when Sequence == 1").WithErrorCode(result.CodeEmptyPubKeyWithSequence1)
 	}
 
 	return acc, result.OK
@@ -135,7 +115,7 @@ func getOrMakeAccountImpl(view *state.StoreView, address common.Address, makeNew
 		if !makeNewAccount {
 			return nil, result.Error("getOrMakeAccountImpl - Unknown address: %v", address)
 		}
-		acc = types.NewAccount()
+		acc = types.NewAccount(address)
 		acc.LastUpdatedBlockHeight = view.Height()
 	}
 	acc.UpdateToHeight(view.Height())
@@ -203,13 +183,8 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 			balance, in.Coins).WithErrorCode(result.CodeInsufficientFund)
 	}
 
-	// Check pubkey
-	if acc.PubKey.IsEmpty() {
-		return result.Error("Account pubkey is nil!")
-	}
-
 	// Check signatures
-	if !acc.PubKey.VerifySignature(signBytes, in.Signature) {
+	if !in.Signature.Verify(signBytes, acc.Address) {
 		return result.Error("Signature verification failed, SignBytes: %v",
 			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}

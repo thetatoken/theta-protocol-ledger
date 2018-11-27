@@ -85,7 +85,10 @@ func (v Vote) Validate() result.Result {
 	if v.Signature.IsEmpty() {
 		return result.Error("Vote is not signed")
 	}
-	return v.Signature.VerifyBytes(v.SignBytes(), v.ID)
+	if !v.Signature.Verify(v.SignBytes(), v.ID) {
+		return result.Error("Signature verification failed")
+	}
+	return result.OK
 }
 
 // VoteSet represents a set of votes on a proposal.

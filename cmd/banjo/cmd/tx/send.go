@@ -27,7 +27,7 @@ var sendCmd = &cobra.Command{
 
 func doSendCmd(cmd *cobra.Command, args []string) {
 	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, fromPubKey, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
 	if err != nil {
 		return
 	}
@@ -53,9 +53,6 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 		},
 		Sequence: uint64(seqFlag),
 	}}
-	if seqFlag == 1 {
-		inputs[0].PubKey = fromPubKey
-	}
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{

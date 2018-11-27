@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/timer"
 	"github.com/thetatoken/ukulele/p2p/connection/flowrate"
+	"github.com/thetatoken/ukulele/p2p/types"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/rlp"
 )
@@ -480,7 +481,7 @@ func (conn *Connection) stopForError(r interface{}) {
 func (conn *Connection) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := common.StackError{
+		err := types.StackError{
 			r, stack,
 		}
 		conn.stopForError(err)

@@ -73,7 +73,7 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 }
 
 // ScreenTx screens the given transaction
-func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (feeAmount *big.Int, res result.Result) {
+func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (effectiveGasPrice *big.Int, res result.Result) {
 	var tx types.Tx
 	tx, err := types.TxFromBytes(rawTx)
 	if err != nil {
@@ -93,13 +93,12 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (feeAmount *big.Int, res resu
 		return new(big.Int).SetUint64(0), res
 	}
 
-	fee, res := ledger.executor.CalculateFee(tx)
+	effectiveGasPrice, res = ledger.executor.CalculateEffectiveGasPrice(tx)
 	if res.IsError() {
 		return new(big.Int).SetUint64(0), res
 	}
 
-	feeAmount = fee.GammaWei
-	return feeAmount, res
+	return effectiveGasPrice, res
 }
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
@@ -237,10 +236,8 @@ func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]commo
 // addCoinbaseTx adds a Coinbase transaction
 func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address()
-	proposerPubKey := proposer.PublicKey()
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
-		PubKey:  &proposerPubKey,
 	}
 
 	validatorAddresses := make([]common.Address, len(*validators))
@@ -285,10 +282,8 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 // addsSlashTx adds Slash transactions
 func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address()
-	proposerPubKey := proposer.PublicKey()
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
-		PubKey:  &proposerPubKey,
 	}
 
 	slashIntents := view.GetSlashIntents()

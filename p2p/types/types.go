@@ -1,6 +1,8 @@
 package types
 
 import (
+	"fmt"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
@@ -38,3 +40,16 @@ const (
 	// PongSignal represents a pong respond to a peer
 	PongSignal = byte(0x1)
 )
+
+type StackError struct {
+	Err   interface{}
+	Stack []byte
+}
+
+func (se StackError) String() string {
+	return fmt.Sprintf("Error: %v\nStack: %s", se.Err, se.Stack)
+}
+
+func (se StackError) Error() string {
+	return se.String()
+}
