@@ -37,6 +37,7 @@ clean:
 	@rm -rf ./vendor
 
 gen-doc:
+	go get github.com/cpuguy83/go-md2man/md2man
 	cd ./docs/commands/;go build -o generator.exe; ./generator.exe
 
 .PHONY: all build install test test_unit get_vendor_deps clean tools
