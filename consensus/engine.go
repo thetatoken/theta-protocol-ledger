@@ -356,7 +356,7 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	}
 	block, err := e.Chain().FindBlock(vote.Block)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
 		return
 	}
 	votes, err := e.state.GetVoteSetByBlock(vote.Block)
@@ -406,7 +406,7 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		e.state.SetHighestCCBlock(ccBlock)
 	}
 
-	e.chain.CommitBlock(ccBlock)
+	e.chain.CommitBlock(ccBlock.Hash())
 
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
@@ -435,7 +435,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	e.ledger.FinalizeState(block.Height, block.StateHash)
 
 	// Mark block and its ancestors as finalized.
-	e.chain.FinalizePreviousBlocks(block)
+	e.chain.FinalizePreviousBlocks(block.Hash())
 
 	// Force update TX index on block finalization so that the index doesn't point to
 	// duplicate TX in fork.

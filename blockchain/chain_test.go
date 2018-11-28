@@ -72,7 +72,7 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 	block, err := ch.FindBlock(core.GetTestBlock("a3").Hash())
 	require.Nil(err)
 
-	ch.FinalizePreviousBlocks(block)
+	ch.FinalizePreviousBlocks(block.Hash())
 
 	for _, name := range []string{"a0", "a1", "a2", "a3"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
@@ -87,7 +87,7 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 
 	block, err = ch.FindBlock(core.GetTestBlock("a5").Hash())
 	require.Nil(err)
-	ch.FinalizePreviousBlocks(block)
+	ch.FinalizePreviousBlocks(block.Hash())
 
 	for _, name := range []string{"a0", "a1", "a2", "a3", "a4", "a5"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())

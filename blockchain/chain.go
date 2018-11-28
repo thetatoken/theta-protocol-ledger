@@ -20,7 +20,7 @@ type Chain struct {
 	ChainID string
 	Root    *core.ExtendedBlock `rlp:"nil"`
 
-	mu *sync.Mutex
+	mu *sync.RWMutex
 }
 
 // NewChain creates a new Chain instance.
@@ -28,7 +28,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 	chain := &Chain{
 		ChainID: chainID,
 		store:   store,
-		mu:      &sync.Mutex{},
+		mu:      &sync.RWMutex{},
 	}
 	rootBlock, err := chain.FindBlock(root.Hash())
 	if err != nil {
@@ -38,7 +38,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 			log.Panic(err)
 		}
 	}
-	chain.FinalizePreviousBlocks(rootBlock)
+	chain.FinalizePreviousBlocks(rootBlock.Hash())
 	chain.Root = rootBlock
 	return chain
 }
@@ -71,12 +71,16 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		}
 
 		parentBlock.Children = append(parentBlock.Children, hash)
-		ch.SaveBlock(parentBlock)
+
+		err = ch.saveBlock(parentBlock)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
 
-	err = ch.SaveBlock(extendedBlock)
+	err = ch.saveBlock(extendedBlock)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -125,8 +129,8 @@ func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {
 
 // FindBlocksByHeight tries to retrieve blocks by height.
 func (ch *Chain) FindBlocksByHeight(height uint64) []*core.ExtendedBlock {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
 	return ch.findBlocksByHeight(height)
 }
 
@@ -149,39 +153,56 @@ func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
 	return ret
 }
 
-func (ch *Chain) CommitBlock(block *core.ExtendedBlock) {
+func (ch *Chain) CommitBlock(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	block, err := ch.findBlock(hash)
+	if err != nil {
+		log.Panic(err)
+	}
 	block.Status = core.BlockStatusCommitted
-	err := ch.SaveBlock(block)
+	err = ch.saveBlock(block)
 	if err != nil {
 		log.Panic(err)
 	}
 }
 
-func (ch *Chain) FinalizePreviousBlocks(block *core.ExtendedBlock) {
-	var err error
-	for block != nil && block.Status != core.BlockStatusFinalized {
+func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	for !hash.IsEmpty() {
+		block, err := ch.findBlock(hash)
+		if err != nil || block.Status == core.BlockStatusFinalized {
+			return
+		}
 		block.Status = core.BlockStatusFinalized
-		err = ch.SaveBlock(block)
+		err = ch.saveBlock(block)
 		if err != nil {
 			log.Panic(err)
 		}
-		block, err = ch.FindBlock(block.Parent)
-		if err != nil {
-			return
-		}
+		hash = block.Parent
 	}
 }
 
 // FindDeepestDescendant finds the deepest descendant of given block.
 func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
+	return ch.findDeepestDescendant(hash)
+}
+
+// findDeepestDescendant is the non-locking version of FindDeepestDescendant.
+func (ch *Chain) findDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
 	// TODO: replace recursive implementation with stack-based implementation.
-	n, err := ch.FindBlock(hash)
+	n, err := ch.findBlock(hash)
 	if err != nil {
 		return nil, -1
 	}
 	depth = 0
 	for _, child := range n.Children {
-		ret, retDepth := ch.FindDeepestDescendant(child)
+		ret, retDepth := ch.findDeepestDescendant(child)
 		if retDepth+1 > depth {
 			n = ret
 			depth = retDepth + 1
@@ -195,16 +216,16 @@ func (ch *Chain) IsOrphan(block *core.Block) bool {
 	return err != nil
 }
 
-// SaveBlock updates a previously stored block.
-func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {
+// saveBlock updates a previously stored block.
+func (ch *Chain) saveBlock(block *core.ExtendedBlock) error {
 	hash := block.Hash()
 	return ch.store.Put(hash[:], *block)
 }
 
 // FindBlock tries to retrieve a block by hash.
 func (ch *Chain) FindBlock(hash common.Hash) (*core.ExtendedBlock, error) {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
 	return ch.findBlock(hash)
 }
 
