@@ -470,6 +470,7 @@ func (conn *Connection) GetNetconn() net.Conn {
 
 func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
+		conn.cancel()
 		if conn.onError != nil {
 			conn.onError(r)
 		} else {
