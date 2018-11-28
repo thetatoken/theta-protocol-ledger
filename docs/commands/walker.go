@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	homedir "github.com/mitchellh/go-homedir"
 )
 
 func getUserName() string {
-	home, err := homedir.Dir()
+
+	user, err := user.Current()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -23,7 +23,7 @@ func getUserName() string {
 		sep = "\\"
 	}
 
-	array := strings.Split(home, sep)
+	array := strings.Split(user.Username, sep)
 	username := array[len(array)-1]
 
 	return username

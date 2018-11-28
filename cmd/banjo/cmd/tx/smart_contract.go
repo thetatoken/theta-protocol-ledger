@@ -34,6 +34,7 @@ var smartContractCmd = &cobra.Command{
 	
 	[Call an API of a smart contract]
 	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2`,
+	Long: "smartContractCmd represents the smart_contract command. It will submit a smart contract transaction to the blockchain, which will modify the global consensus state when it is included in the blockchain",
 	Run:   doSmartContractCmd,
 }
 
