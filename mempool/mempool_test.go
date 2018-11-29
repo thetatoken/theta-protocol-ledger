@@ -152,6 +152,51 @@ func TestMempoolBasics(t *testing.T) {
 	assert.Equal("tx3", string(reapedRawTxs[2][:])) // priority: 32
 }
 
+func TestMempoolReapOrder(t *testing.T) {
+	assert := assert.New(t)
+
+	p2psimnet := p2psim.NewSimnetWithHandler(nil)
+	mempool, _ := newTestMempool("peer0", p2psimnet)
+
+	tx1 := createTestRawTx("tx1")
+	tx2 := createTestRawTx("tx2")
+	tx3 := createTestRawTx("tx3")
+	tx4 := createTestRawTx("tx4")
+	tx5 := createTestRawTx("tx5")
+	tx6 := createTestRawTx("tx6")
+	tx7 := createTestRawTx("tx7")
+	tx8 := createTestRawTx("tx8")
+	tx9 := createTestRawTx("tx9")
+	tx10 := createTestRawTx("tx10")
+
+	mempool.InsertTransaction(tx1)
+	mempool.InsertTransaction(tx2)
+	mempool.InsertTransaction(tx3)
+	mempool.InsertTransaction(tx4)
+	mempool.InsertTransaction(tx5)
+	mempool.InsertTransaction(tx6)
+	mempool.InsertTransaction(tx7)
+	mempool.InsertTransaction(tx8)
+	mempool.InsertTransaction(tx9)
+	mempool.InsertTransaction(tx10)
+
+	reapedRawTxs := mempool.Reap(-1)
+	assert.Equal(10, len(reapedRawTxs))
+
+	// Transactions from the same address must be ordered by sequence number regardless of gas price,
+	// i.e. tx8 > tx5, tx4 > tx1.
+	assert.Equal("tx2", string(reapedRawTxs[0][:]))  // gasPrice: 234234, address: A2, seq: 1011
+	assert.Equal("tx9", string(reapedRawTxs[1][:]))  // gasPrice: 9273, address: C2, seq: 3021
+	assert.Equal("tx10", string(reapedRawTxs[2][:])) // gasPrice: 8281, address: A4, seq: 3022
+	assert.Equal("tx7", string(reapedRawTxs[3][:]))  // gasPrice: 5828, address: C1, seq: 3025
+	assert.Equal("tx8", string(reapedRawTxs[4][:]))  // gasPrice: 3727, address: B1, seq: 1032
+	assert.Equal("tx5", string(reapedRawTxs[5][:]))  // gasPrice: 2392992, address: B1, seq: 1033
+	assert.Equal("tx4", string(reapedRawTxs[6][:]))  // gasPrice: 525, address: A1, seq: 1000
+	assert.Equal("tx1", string(reapedRawTxs[7][:]))  // gasPrice: 78, address: A1, seq: 1023
+	assert.Equal("tx6", string(reapedRawTxs[8][:]))  // gasPrice: 32, address: B2, seq: 3023
+	assert.Equal("tx3", string(reapedRawTxs[9][:]))  // gasPrice: 32, address: A3, seq: 2012
+}
+
 func TestMempoolUpdate(t *testing.T) {
 	assert := assert.New(t)
 
@@ -180,6 +225,8 @@ func TestMempoolUpdate(t *testing.T) {
 	assert.Nil(mempool.InsertTransaction(tx9))
 	assert.Nil(mempool.InsertTransaction(tx10))
 
+	assert.Equal(10, mempool.Size())
+
 	log.Infof("----- Update committed transactions -----")
 	committedRawTxs := []common.Bytes{
 		common.Bytes("tx3"),
@@ -193,6 +240,7 @@ func TestMempoolUpdate(t *testing.T) {
 
 	success := mempool.Update(committedRawTxs)
 	assert.True(success)
+	assert.Equal(5, mempool.Size())
 
 	log.Infof("----- Reap all remaining transactions -----")
 	reapedRawTxs := mempool.Reap(-1)
@@ -203,11 +251,12 @@ func TestMempoolUpdate(t *testing.T) {
 	log.Infof("reapedRawTxs[3]: %v", string(reapedRawTxs[3]))
 	log.Infof("reapedRawTxs[4]: %v", string(reapedRawTxs[4]))
 
-	assert.Equal("tx5", string(reapedRawTxs[0][:]))  // priority: 2392992
-	assert.Equal("tx2", string(reapedRawTxs[1][:]))  // priority: 234234
-	assert.Equal("tx10", string(reapedRawTxs[2][:])) // priority: 8281
-	assert.Equal("tx8", string(reapedRawTxs[3][:]))  // priority: 3727
-	assert.Equal("tx6", string(reapedRawTxs[4][:]))  // priority: 32
+	// Tx5 will be taken after Tx8 due to seq number even as it has higher gas price.
+	assert.Equal("tx2", string(reapedRawTxs[0][:]))  // gasPrice: 234234, address: A2, seq: 1011
+	assert.Equal("tx10", string(reapedRawTxs[1][:])) // gasPrice: 8281, address: A4, seq: 3022
+	assert.Equal("tx8", string(reapedRawTxs[2][:]))  // gasPrice: 3727, address: B1, seq: 1032
+	assert.Equal("tx5", string(reapedRawTxs[3][:]))  // gasPrice: 2392992, address: B1, seq: 1033
+	assert.Equal("tx6", string(reapedRawTxs[4][:]))  // gasPrice: 32, address: B2, seq: 3023
 }
 
 func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
@@ -247,10 +296,14 @@ func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
 
 	elems := mempool.candidateTxs.ElementList()
 	for _, elem := range *elems {
-		mptx := elem.(*mempoolTransaction)
-		txidx, err := strconv.ParseInt(string(mptx.rawTransaction[3:]), 10, 64)
-		assert.Nil(err)
-		assert.True(txidx%int64(multiplier) != int64(targetRemainder)) // should have been removed by mempool.Update()
+		txGroup := elem.(*mempoolTransactionGroup)
+		txs := txGroup.txs.ElementList()
+		for _, txElem := range *txs {
+			mptx := txElem.(*mempoolTransaction)
+			txidx, err := strconv.ParseInt(string(mptx.rawTransaction[3:]), 10, 64)
+			assert.Nil(err)
+			assert.True(txidx%int64(multiplier) != int64(targetRemainder)) // should have been removed by mempool.Update()
+		}
 	}
 
 	// Reap the mempool
@@ -328,14 +381,16 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) (*Mempool, context.Con
 }
 
 type TestLedger struct {
-	counter      int
-	priorityList []uint64
+	counter               int
+	effectiveGasPriceList []uint64
+	addressList           []string
+	sequenceList          []uint64
 }
 
 func newTestLedger() core.Ledger {
 	return &TestLedger{
 		counter: 0,
-		priorityList: []uint64{
+		effectiveGasPriceList: []uint64{
 			78,      // tx1
 			234234,  // tx2
 			32,      // tx3
@@ -347,13 +402,41 @@ func newTestLedger() core.Ledger {
 			9273,    // tx9
 			8281,    // tx10
 		},
+		addressList: []string{
+			"A1",
+			"A2",
+			"A3",
+			"A1",
+			"B1",
+			"B2",
+			"C1",
+			"B1",
+			"C2",
+			"A4",
+		},
+		sequenceList: []uint64{
+			1023,
+			1011,
+			2012,
+			1000,
+			1033,
+			3023,
+			3025,
+			1032,
+			3021,
+			3022,
+		},
 	}
 }
 
-func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*big.Int, result.Result) {
-	priority := tl.priorityList[tl.counter]
-	tl.counter = (tl.counter + 1) % len(tl.priorityList)
-	return new(big.Int).SetUint64(priority), result.OK
+func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*core.TxInfo, result.Result) {
+	txInfo := &core.TxInfo{
+		EffectiveGasPrice: new(big.Int).SetUint64(tl.effectiveGasPriceList[tl.counter]),
+		Address:           common.HexToAddress(tl.addressList[tl.counter]),
+		Sequence:          tl.sequenceList[tl.counter],
+	}
+	tl.counter = (tl.counter + 1) % len(tl.effectiveGasPriceList)
+	return txInfo, result.OK
 }
 
 func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
@@ -370,9 +453,6 @@ func (tl *TestLedger) ResetState(height uint64, rootHash common.Hash) result.Res
 
 func (tl *TestLedger) FinalizeState(height uint64, rootHash common.Hash) result.Result {
 	return result.OK
-}
-
-func (tl *TestLedger) Query() {
 }
 
 type TestNetworkMessageInterceptor struct {
