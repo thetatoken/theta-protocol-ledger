@@ -128,6 +128,12 @@ func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) ma
 	return accountReward
 }
 
+func (exec *CoinbaseTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
+	return &core.TxInfo{
+		EffectiveGasPrice: exec.calculateEffectiveGasPrice(transaction),
+	}
+}
+
 func (exec *CoinbaseTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	return new(big.Int).SetUint64(0)
 }
