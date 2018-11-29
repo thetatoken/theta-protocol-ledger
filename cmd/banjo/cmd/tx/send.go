@@ -20,10 +20,10 @@ import (
 // Example:
 //		banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1
 var sendCmd = &cobra.Command{
-	Use:   "send",
-	Short: "Send tokens",
+	Use:     "send",
+	Short:   "Send tokens",
 	Example: `banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1`,
-	Run:   doSendCmd,
+	Run:     doSendCmd,
 }
 
 func doSendCmd(cmd *cobra.Command, args []string) {
@@ -110,7 +110,7 @@ func init() {
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
 	sendCmd.Flags().StringVar(&gammaAmountFlag, "gamma", "0", "Gamma amount")
 	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
-	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
+	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	sendCmd.MarkFlagRequired("chain")
 	sendCmd.MarkFlagRequired("from")

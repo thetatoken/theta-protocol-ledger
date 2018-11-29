@@ -34,7 +34,7 @@ var smartContractCmd = &cobra.Command{
 	
 	[Call an API of a smart contract]
 	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2`,
-	Run:   doSmartContractCmd,
+	Run: doSmartContractCmd,
 }
 
 func doSmartContractCmd(cmd *cobra.Command, args []string) {
@@ -122,7 +122,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	smartContractCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
+	smartContractCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	smartContractCmd.MarkFlagRequired("chain")
 	smartContractCmd.MarkFlagRequired("from")
