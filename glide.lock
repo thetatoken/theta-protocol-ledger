@@ -232,10 +232,11 @@ imports:
   subpackages:
   - semaphore
 - name: golang.org/x/sys
-  version: d8e400bc7db4870d786864138af681469693d18c
+  version: 4ed8d59d0b35e1e29334a206d1b3f38b1e5dfb31
   subpackages:
   - unix
   - windows
+  - cpu
 - name: golang.org/x/text
   version: f21a4dfb5e38f5895301dc265a8def02365cc3d0
   subpackages:
