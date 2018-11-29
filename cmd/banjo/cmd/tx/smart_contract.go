@@ -116,6 +116,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	smartContractCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
 
 	smartContractCmd.MarkFlagRequired("chain")
 	smartContractCmd.MarkFlagRequired("from")

@@ -233,6 +233,8 @@ func (tx *CoinbaseTx) SignBytes(chainID string) []byte {
 	tx.Proposer.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -304,6 +306,8 @@ func (tx *SlashTx) SignBytes(chainID string) []byte {
 	tx.Proposer.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -341,7 +345,7 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 	}
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
-	signBytes = addPrefixForSignBytes(signBytes) // For Ethereum compatibility
+	signBytes = addPrefixForSignBytes(signBytes)
 
 	for i := range tx.Inputs {
 		tx.Inputs[i].Signature = sigz[i]
@@ -422,6 +426,8 @@ func (tx *ReserveFundTx) SignBytes(chainID string) []byte {
 	tx.Source.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -490,6 +496,8 @@ func (tx *ReleaseFundTx) SignBytes(chainID string) []byte {
 	tx.Source.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -581,6 +589,8 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	tx.Target = target
 	tx.Fee = fee
 
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	return signBytes
 }
 
@@ -597,6 +607,7 @@ func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
 
 	tx.Target.Signature = targetSig
 
@@ -684,6 +695,8 @@ func (tx *SplitRuleTx) SignBytes(chainID string) []byte {
 	tx.Initiator.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Initiator.Signature = sig
 	return signBytes
 }
@@ -719,6 +732,7 @@ func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
 			signBytes = append(signBytes, bytes...)
 		}
 	}
+	signBytes = addPrefixForSignBytes(signBytes)
 	return signBytes
 }
 
@@ -793,6 +807,8 @@ func (tx *SmartContractTx) SignBytes(chainID string) []byte {
 	tx.From.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.From.Signature = sig
 	return signBytes
 }

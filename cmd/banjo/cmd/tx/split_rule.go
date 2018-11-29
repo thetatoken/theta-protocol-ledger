@@ -113,6 +113,7 @@ func init() {
 	splitRuleCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")
 	splitRuleCmd.Flags().StringSliceVar(&percentagesFlag, "percentages", []string{}, "List of integers (between 0 and 100) representing of percentage of split")
 	splitRuleCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
+	splitRuleCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
 
 	splitRuleCmd.MarkFlagRequired("chain")
 	splitRuleCmd.MarkFlagRequired("from")
@@ -121,5 +122,4 @@ func init() {
 	splitRuleCmd.MarkFlagRequired("percentages")
 	splitRuleCmd.MarkFlagRequired("resource_id")
 	splitRuleCmd.MarkFlagRequired("duration")
-
 }

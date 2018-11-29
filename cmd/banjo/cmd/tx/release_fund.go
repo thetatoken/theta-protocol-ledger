@@ -78,6 +78,7 @@ func init() {
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
+	releaseFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
 
 	releaseFundCmd.MarkFlagRequired("chain")
 	releaseFundCmd.MarkFlagRequired("from")

@@ -106,6 +106,7 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
+	reserveFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type")
 
 	reserveFundCmd.MarkFlagRequired("chain")
 	reserveFundCmd.MarkFlagRequired("from")
