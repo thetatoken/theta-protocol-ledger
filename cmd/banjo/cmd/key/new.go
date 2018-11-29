@@ -14,6 +14,7 @@ var newCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Generates a new private key",
 	Long:  `Generates a new private key.`,
+	Example: "banjo key new",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)

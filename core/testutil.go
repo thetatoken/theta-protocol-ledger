@@ -37,6 +37,7 @@ func CreateTestBlock(name string, parent string) *Block {
 			panic(fmt.Sprintf("Failed to find test block %v", parent))
 		}
 		block.Parent = pBlock.Hash()
+		block.Height = pBlock.Height + 1
 	}
 	TestBlocks[name] = block
 	return block

@@ -14,6 +14,7 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all keys",
 	Long:  `List all keys.`,
+	Example: "banjo key list",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)

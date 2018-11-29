@@ -15,9 +15,10 @@ var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete a key",
 	Long:  `Delete a key`,
+	Example: "banjo delete 26d813157F7503a9057FB2DB6Eb2f83a35c4FdD7",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
-			utils.Error("Usage: banjo key password <address>\n")
+			utils.Error("Usage: banjo key <address>\n")
 		}
 		address := common.HexToAddress(args[0])
 
@@ -33,6 +34,7 @@ var deleteCmd = &cobra.Command{
 			utils.Error("Failed to get password: %v\n", err)
 		}
 
+		// todo: option to abort deletion
 		prompt = fmt.Sprintf("Are you sure to delete the key? Please enter the password again to proceed: ")
 		password2, err := utils.GetPassword(prompt)
 		if err != nil {

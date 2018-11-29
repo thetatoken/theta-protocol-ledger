@@ -20,9 +20,10 @@ import (
 // Example:
 //		banjo tx split_rule --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000
 var splitRuleCmd = &cobra.Command{
-	Use:   "split_rule",
-	Short: "Initiate or update a split rule",
-	Run:   doSplitRuleCmd,
+	Use:     "split_rule",
+	Short:   "Initiate or update a split rule",
+	Example: `banjo tx split_rule --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000`,
+	Run:     doSplitRuleCmd,
 }
 
 func doSplitRuleCmd(cmd *cobra.Command, args []string) {

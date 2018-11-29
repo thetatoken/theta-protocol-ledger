@@ -9,6 +9,7 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 - [Build and Install](#build-and-install)
 - [Run Unit Tests](#run-unit-tests)
 - [Launch a Local Private Net](#launch-a-local-private-net)
+- [CLI Commands](#CLI-Commands)
 - [Deploy and Execute Smart Contracts](#deploy-and-execute-smart-contracts)
 - [Off-Chain Micropayment Support](#off-chain-micropayment-support)
 
@@ -123,6 +124,12 @@ The balance of an address can be retrieved with the following query command
 ```
 banjo query account --address=9F1233798E905E173560071255140b4A8aBd3Ec6
 ```
+
+## CLI commands
+|Link|Binary|
+|---|---|
+|[Theta Wallet command line tools](./docs/commands/wallet/banjo.md)|banjo|
+|[Theta Ledger node](./docs/commands/ledger/ukulele.md)|ukulele|
 
 ## Deploy and Execute Smart Contracts
 The Theta Ledger provides a Turing-Complete smart contract runtime environment compatible with the [Ethereum Virtual Machine](https://github.com/ethereum/wiki/wiki/Ethereum-Virtual-Machine-(EVM)-Awesome-List) (EVM). [Solidity](https://solidity.readthedocs.io/) based Ethereum smart contracts can be ported to the Theta Ledger with little effort. The example below demonstrates how to deploy and execute an example smart contract `SquareCalculator` on the local private net we just launched.

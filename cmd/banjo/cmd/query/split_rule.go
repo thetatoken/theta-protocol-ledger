@@ -24,6 +24,7 @@ var (
 var splitRuleCmd = &cobra.Command{
 	Use:   "split_rule",
 	Short: "Get split rule status",
+	Example: `banjo query split_rule --resource_id=0x3FACC98BCCAD124`,
 	Run:   doSplitRuleCmd,
 }
 

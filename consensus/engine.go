@@ -231,7 +231,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	if block.Epoch != e.GetEpoch() {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
-			"block.Hash":  block.Hash,
+			"block.Hash":  block.Hash().Hex(),
 			"e.epoch":     e.GetEpoch(),
 		}).Debug("Received block from another epoch")
 	}
@@ -240,8 +240,8 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	if err != nil {
 		e.logger.WithFields(log.Fields{
 			"error":  err,
-			"parent": block.Parent,
-			"block":  block.Hash,
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
 		}).Error("Failed to find parent block")
 		return
 	}
@@ -257,9 +257,9 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":           result.String(),
-			"parent":          block.Parent,
-			"block":           block.Hash,
-			"block.StateHash": block.StateHash,
+			"parent":          block.Parent.Hex(),
+			"block":           block.Hash().Hex(),
+			"block.StateHash": block.StateHash.Hex(),
 		}).Error("Failed to apply block Txs")
 		return
 	}
@@ -275,7 +275,7 @@ func (e *ConsensusEngine) vote() {
 	if previousTip.Hash() == tip.Hash() || e.state.GetLastVoteHeight() >= tip.Height {
 		e.logger.WithFields(log.Fields{
 			"lastVoteHeight": e.state.GetLastVoteHeight(),
-			"tip.Hash":       tip.Hash,
+			"tip.Hash":       tip.Hash().Hex(),
 		}).Debug("Voting nil since already voted at height")
 		vote = e.createVote(common.Hash{})
 	} else {
@@ -356,7 +356,7 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	}
 	block, err := e.Chain().FindBlock(vote.Block)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"vote.block": vote.Block}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
 		return
 	}
 	votes, err := e.state.GetVoteSetByBlock(vote.Block)
@@ -406,7 +406,7 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		e.state.SetHighestCCBlock(ccBlock)
 	}
 
-	e.chain.CommitBlock(ccBlock)
+	e.chain.CommitBlock(ccBlock.Hash())
 
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
@@ -428,14 +428,14 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 		return
 	}
 
-	e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Finalizing block")
-	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash}).Info("Done Finalized block")
+	e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex()}).Info("Finalizing block")
+	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex()}).Info("Done Finalized block")
 
 	e.state.SetLastFinalizedBlock(block)
 	e.ledger.FinalizeState(block.Height, block.StateHash)
 
 	// Mark block and its ancestors as finalized.
-	e.chain.FinalizePreviousBlocks(block)
+	e.chain.FinalizePreviousBlocks(block.Hash())
 
 	// Force update TX index on block finalization so that the index doesn't point to
 	// duplicate TX in fork.
@@ -494,7 +494,7 @@ func (e *ConsensusEngine) propose() {
 	lastCC := e.state.GetHighestCCBlock()
 	lastCCVotes, err := e.state.GetVoteSetByBlock(lastCC.Hash())
 	if err != nil {
-		e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash()}).Warn("Failed to load votes for last CC block")
+		e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash().Hex()}).Warn("Failed to load votes for last CC block")
 	}
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
