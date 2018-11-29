@@ -427,8 +427,8 @@ func TestPeerFailureHandling(t *testing.T) {
 	peerB := peerBDM.peerTable.GetPeer(peerCID)
 	peerB.GetConnection().SetPingTimer(1)
 
-	peerA.StopOnly()
-	peerB.StopOnly()
+	peerA.CancelConnection()
+	peerB.CancelConnection()
 
 	time.Sleep(time.Second * 10)
 

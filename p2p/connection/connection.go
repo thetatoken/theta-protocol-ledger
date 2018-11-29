@@ -3,6 +3,7 @@ package connection
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -163,8 +164,13 @@ func (conn *Connection) Start(ctx context.Context) bool {
 	return true
 }
 
-// StopOnly for testing purpose only
-func (conn *Connection) StopOnly() {
+// Wait suspends the caller goroutine
+func (conn *Connection) Wait() {
+	conn.wg.Wait()
+}
+
+// CancelConnection for testing purpose only
+func (conn *Connection) CancelConnection() {
 	conn.cancel()
 }
 
@@ -284,6 +290,7 @@ func (conn *Connection) sendRoutine() {
 func (conn *Connection) sendPingSignal() error {
 	if conn.pendingPings >= conn.config.MaxPendingPings {
 		conn.onError(nil)
+		return fmt.Errorf("Peer not responding to ping")
 	}
 	pingPacket := Packet{
 		ChannelID: common.ChannelIDPing,
@@ -291,10 +298,13 @@ func (conn *Connection) sendPingSignal() error {
 		IsEOF:     byte(0x01),
 	}
 	err := rlp.Encode(conn.bufWriter, pingPacket)
+	if err != nil {
+		return err
+	}
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
 	conn.pendingPings++
-	return err
+	return nil
 }
 
 func (conn *Connection) sendPongSignal() error {
@@ -304,9 +314,12 @@ func (conn *Connection) sendPongSignal() error {
 		IsEOF:     byte(0x01),
 	}
 	err := rlp.Encode(conn.bufWriter, pongPacket)
+	if err != nil {
+		return err
+	}
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
-	return err
+	return nil
 }
 
 func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
@@ -338,7 +351,7 @@ func (conn *Connection) recvRoutine() {
 		conn.recvMonitor.Update(int(1))
 		if err != nil {
 			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
-			break
+			continue
 		}
 
 		switch packet.ChannelID {
@@ -351,8 +364,6 @@ func (conn *Connection) recvRoutine() {
 		conn.pingTimer.Reset()
 		conn.pendingPings = 0
 	}
-
-	// close(conn.pongPulse)
 }
 
 func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
@@ -470,7 +481,7 @@ func (conn *Connection) GetNetconn() net.Conn {
 
 func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
-		conn.cancel()
+		conn.Stop()
 		if conn.onError != nil {
 			conn.onError(r)
 		} else {

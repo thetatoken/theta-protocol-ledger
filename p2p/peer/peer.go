@@ -88,9 +88,14 @@ func (peer *Peer) Start(ctx context.Context) bool {
 	return success
 }
 
-// StopOnly for testing purpose only
-func (peer *Peer) StopOnly() {
-	peer.connection.StopOnly()
+// Wait suspends the caller goroutine
+func (peer *Peer) Wait() {
+	peer.wg.Wait()
+}
+
+// CancelConnection for testing purpose only
+func (peer *Peer) CancelConnection() {
+	peer.connection.CancelConnection()
 }
 
 // Stop is called when the peer stops
