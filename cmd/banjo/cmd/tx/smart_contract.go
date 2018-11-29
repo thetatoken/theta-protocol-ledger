@@ -28,12 +28,17 @@ import (
 var smartContractCmd = &cobra.Command{
 	Use:   "smart_contract",
 	Short: "Call or deploy a smart contract",
-	Run:   doSmartContractCmd,
+	Example: `
+	[Deploy a smart contract] 
+	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=1680 --gas_price=3 --gas_limit=50000 --data=600a600c600039600a6000f3600360135360016013f3 --seq=1	
+	
+	[Call an API of a smart contract]
+	banjo tx smart_contract --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000 --seq=2`,
+	Run: doSmartContractCmd,
 }
 
 func doSmartContractCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -117,6 +122,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	smartContractCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	smartContractCmd.MarkFlagRequired("chain")
 	smartContractCmd.MarkFlagRequired("from")

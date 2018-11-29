@@ -52,6 +52,10 @@ func (el *ElementList) Pop() interface{} {
 	return elem
 }
 
+func (el *ElementList) Peek() interface{} {
+	return (*el)[0]
+}
+
 //
 // PriorityQueue models a priority queue (max queue).
 // The Pop() method returns the element with the MAX priority value
@@ -88,6 +92,10 @@ func (pq *PriorityQueue) Push(elem Element) {
 func (pq *PriorityQueue) Pop() Element {
 	elem := (heap.Pop(pq.elemList)).(Element)
 	return elem
+}
+
+func (pq *PriorityQueue) Peek() Element {
+	return pq.elemList.Peek().(Element)
 }
 
 func (pq *PriorityQueue) Remove(index int) error {

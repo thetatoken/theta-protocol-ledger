@@ -1,8 +1,6 @@
 package execution
 
 import (
-	"math/big"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -16,7 +14,7 @@ import (
 type TxExecutor interface {
 	sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result
 	process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result)
-	calculateEffectiveGasPrice(transaction types.Tx) *big.Int
+	getTxInfo(transaction types.Tx) *core.TxInfo
 }
 
 //
@@ -82,15 +80,15 @@ func (exec *Executor) ScreenTx(tx types.Tx) (common.Hash, result.Result) {
 	return exec.processTx(tx, core.ScreenedView)
 }
 
-// CalculateEffectiveGasPrice calculates the effective gas price for the transaction
-func (exec *Executor) CalculateEffectiveGasPrice(tx types.Tx) (*big.Int, result.Result) {
+// GetTxInfo extracts tx information used by mempool to sort Txs.
+func (exec *Executor) GetTxInfo(tx types.Tx) (*core.TxInfo, result.Result) {
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor == nil {
-		return new(big.Int).SetUint64(0), result.Error("Unknown tx type")
+		return nil, result.Error("Unknown tx type")
 	}
 
-	effectiveGasPrice := txExecutor.calculateEffectiveGasPrice(tx)
-	return effectiveGasPrice, result.OK
+	txInfo := txExecutor.getTxInfo(tx)
+	return txInfo, result.OK
 }
 
 // processTx contains the main logic to process the transaction. If the tx is invalid, a TMSP error will be returned.

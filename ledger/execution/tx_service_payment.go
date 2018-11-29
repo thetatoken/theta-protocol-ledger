@@ -8,6 +8,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
@@ -193,6 +194,15 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule
 	accountAddressMap[targetAccount] = targetAddress
 
 	return true, coinsMap, accountAddressMap
+}
+
+func (exec *ServicePaymentTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
+	tx := transaction.(*types.ServicePaymentTx)
+	return &core.TxInfo{
+		Address:           tx.Source.Address,
+		Sequence:          tx.Source.Sequence,
+		EffectiveGasPrice: exec.calculateEffectiveGasPrice(transaction),
+	}
 }
 
 func (exec *ServicePaymentTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {

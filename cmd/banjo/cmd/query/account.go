@@ -23,6 +23,7 @@ var accountCmd = &cobra.Command{
 	Use:   "account",
 	Short: "Get account status",
 	Long:  `Get account status.`,
+	Example: `banjo query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab`,
 	Run:   doAccountCmd,
 }
 

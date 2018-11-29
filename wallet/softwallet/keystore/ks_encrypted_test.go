@@ -39,17 +39,17 @@ func Test_Scrypt_1(t *testing.T) {
 	testDecrypt(tests["wikipage_test_vector_scrypt"], t)
 }
 
-// func Test_31_Byte_Key(t *testing.T) {
-// 	t.Parallel()
-// 	tests := loadKeyStoreTest("testdata/test_vector.json", t)
-// 	testDecrypt(tests["31_byte_key"], t)
-// }
+func Test_31_Byte_Key(t *testing.T) {
+	t.Parallel()
+	tests := loadKeyStoreTest("testdata/test_vector.json", t)
+	testDecrypt(tests["31_byte_key"], t)
+}
 
-// func Test_30_Byte_Key(t *testing.T) {
-// 	t.Parallel()
-// 	tests := loadKeyStoreTest("testdata/test_vector.json", t)
-// 	testDecrypt(tests["30_byte_key"], t)
-// }
+func Test_30_Byte_Key(t *testing.T) {
+	t.Parallel()
+	tests := loadKeyStoreTest("testdata/test_vector.json", t)
+	testDecrypt(tests["30_byte_key"], t)
+}
 
 func TestKeyStoreEncrypted(t *testing.T) {
 	dir, ks := tmpKeyStoreIface(t, true)

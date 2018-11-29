@@ -18,14 +18,14 @@ import (
 // Example:
 //		banjo tx reserve --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello
 var reserveFundCmd = &cobra.Command{
-	Use:   "reserve",
-	Short: "Reserve fund for an off-chain micropayment",
-	Run:   doReserveFundCmd,
+	Use:     "reserve",
+	Short:   "Reserve fund for an off-chain micropayment",
+	Example: `banjo tx reserve --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello`,
+	Run:     doReserveFundCmd,
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -107,6 +107,7 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
+	reserveFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	reserveFundCmd.MarkFlagRequired("chain")
 	reserveFundCmd.MarkFlagRequired("from")

@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/wallet"
+	wtypes "github.com/thetatoken/ukulele/wallet/types"
 )
 
 // newCmd generates a new key
@@ -13,9 +14,10 @@ var newCmd = &cobra.Command{
 	Use:   "new",
 	Short: "Generates a new private key",
 	Long:  `Generates a new private key.`,
+	Example: "banjo key new",
 	Run: func(cmd *cobra.Command, args []string) {
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, err := wallet.OpenDefaultWallet(cfgPath)
+		wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
 		if err != nil {
 			utils.Error("Failed to open wallet: %v\n", err)
 		}

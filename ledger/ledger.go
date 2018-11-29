@@ -2,7 +2,6 @@ package ledger
 
 import (
 	"encoding/hex"
-	"math/big"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -73,15 +72,15 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 }
 
 // ScreenTx screens the given transaction
-func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (effectiveGasPrice *big.Int, res result.Result) {
+func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res result.Result) {
 	var tx types.Tx
 	tx, err := types.TxFromBytes(rawTx)
 	if err != nil {
-		return new(big.Int).SetUint64(0), result.Error("Error decoding tx: %v", err)
+		return nil, result.Error("Error decoding tx: %v", err)
 	}
 
 	if ledger.shouldSkipCheckTx(tx) {
-		return new(big.Int).SetUint64(0), result.Error("Unauthorized transaction, should skip").
+		return nil, result.Error("Unauthorized transaction, should skip").
 			WithErrorCode(result.CodeUnauthorizedTx)
 	}
 
@@ -90,15 +89,15 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (effectiveGasPrice *big.Int, 
 
 	_, res = ledger.executor.ScreenTx(tx)
 	if res.IsError() {
-		return new(big.Int).SetUint64(0), res
+		return nil, res
 	}
 
-	effectiveGasPrice, res = ledger.executor.CalculateEffectiveGasPrice(tx)
+	txInfo, res = ledger.executor.GetTxInfo(tx)
 	if res.IsError() {
-		return new(big.Int).SetUint64(0), res
+		return nil, res
 	}
 
-	return effectiveGasPrice, res
+	return txInfo, res
 }
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl

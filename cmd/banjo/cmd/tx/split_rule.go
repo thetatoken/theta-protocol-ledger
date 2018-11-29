@@ -20,14 +20,14 @@ import (
 // Example:
 //		banjo tx split_rule --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000
 var splitRuleCmd = &cobra.Command{
-	Use:   "split_rule",
-	Short: "Initiate or update a split rule",
-	Run:   doSplitRuleCmd,
+	Use:     "split_rule",
+	Short:   "Initiate or update a split rule",
+	Example: `banjo tx split_rule --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000`,
+	Run:     doSplitRuleCmd,
 }
 
 func doSplitRuleCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -114,6 +114,7 @@ func init() {
 	splitRuleCmd.Flags().StringSliceVar(&addressesFlag, "addresses", []string{}, "List of addresses participating in the split")
 	splitRuleCmd.Flags().StringSliceVar(&percentagesFlag, "percentages", []string{}, "List of integers (between 0 and 100) representing of percentage of split")
 	splitRuleCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
+	splitRuleCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	splitRuleCmd.MarkFlagRequired("chain")
 	splitRuleCmd.MarkFlagRequired("from")
@@ -122,5 +123,4 @@ func init() {
 	splitRuleCmd.MarkFlagRequired("percentages")
 	splitRuleCmd.MarkFlagRequired("resource_id")
 	splitRuleCmd.MarkFlagRequired("duration")
-
 }

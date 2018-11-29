@@ -5,6 +5,7 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
+	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
@@ -87,6 +88,15 @@ func (exec *SendTxExecutor) process(chainID string, view *st.StoreView, transact
 
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
+}
+
+func (exec *SendTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
+	tx := transaction.(*types.SendTx)
+	return &core.TxInfo{
+		Address:           tx.Inputs[0].Address,
+		Sequence:          tx.Inputs[0].Sequence,
+		EffectiveGasPrice: exec.calculateEffectiveGasPrice(transaction),
+	}
 }
 
 func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {

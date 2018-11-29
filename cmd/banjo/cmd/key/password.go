@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/wallet"
+	wtypes "github.com/thetatoken/ukulele/wallet/types"
 )
 
 // passwordCmd updates the password for the key corresponding to the given address
@@ -14,6 +15,7 @@ var passwordCmd = &cobra.Command{
 	Use:   "password",
 	Short: "Change the password for a key",
 	Long:  `Change the password for a key.`,
+	Example: "banjo key password 1d8E1191E0a97C1aDa4940B79188D3B1f6f5C695",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) < 1 {
 			utils.Error("Usage: banjo key password <address>\n")
@@ -21,7 +23,7 @@ var passwordCmd = &cobra.Command{
 		address := common.HexToAddress(args[0])
 
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, err := wallet.OpenDefaultWallet(cfgPath)
+		wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
 		if err != nil {
 			utils.Error("Failed to open wallet: %v\n", err)
 		}

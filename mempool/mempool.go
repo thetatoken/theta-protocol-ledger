@@ -31,13 +31,14 @@ const DuplicateTxError = MempoolError("Transaction already seen")
 type mempoolTransaction struct {
 	index          int
 	rawTransaction common.Bytes
-	priority       *big.Int
+	txInfo         *core.TxInfo
 }
 
 var _ pqueue.Element = (*mempoolTransaction)(nil)
 
 func (mt *mempoolTransaction) Priority() *big.Int {
-	return mt.priority
+	seq := new(big.Int).SetUint64(mt.txInfo.Sequence)
+	return seq.Neg(seq)
 }
 
 func (mt *mempoolTransaction) SetIndex(index int) {
@@ -48,11 +49,80 @@ func (mt *mempoolTransaction) GetIndex() int {
 	return mt.index
 }
 
-func createMempoolTransaction(rawTransaction common.Bytes, priority *big.Int) *mempoolTransaction {
+func createMempoolTransaction(rawTransaction common.Bytes, txInfo *core.TxInfo) *mempoolTransaction {
 	return &mempoolTransaction{
 		rawTransaction: rawTransaction,
-		priority:       priority,
+		txInfo:         txInfo,
 	}
+}
+
+//
+// mempoolTransactionGroup holds a sequenece of transactions from one account. We sort transaction groups by the priority of
+// their lowest sequence transaction.
+//
+type mempoolTransactionGroup struct {
+	address common.Address
+	txs     *pqueue.PriorityQueue
+	index   int
+}
+
+var _ pqueue.Element = (*mempoolTransactionGroup)(nil)
+
+func (mtg *mempoolTransactionGroup) Priority() *big.Int {
+	if mtg.IsEmpty() {
+		return new(big.Int).SetInt64(-1)
+	}
+	return mtg.txs.Peek().(*mempoolTransaction).txInfo.EffectiveGasPrice
+}
+
+func (mtg *mempoolTransactionGroup) SetIndex(index int) {
+	mtg.index = index
+}
+
+func (mtg *mempoolTransactionGroup) GetIndex() int {
+	return mtg.index
+}
+
+func (mtg *mempoolTransactionGroup) AddTx(rawTx common.Bytes, txInfo *core.TxInfo) {
+	mpx := createMempoolTransaction(rawTx, txInfo)
+	mtg.txs.Push(mpx)
+}
+
+func (mtg *mempoolTransactionGroup) PopTx() (common.Bytes, *core.TxInfo) {
+	mptx := mtg.txs.Pop().(*mempoolTransaction)
+	return mptx.rawTransaction, mptx.txInfo
+}
+
+func (mtg *mempoolTransactionGroup) IsEmpty() bool {
+	return mtg.txs.IsEmpty()
+}
+
+// RemoveTxs removes matching Txs from transaction group. Returns number of Txs removed.
+func (mtg *mempoolTransactionGroup) RemoveTxs(committedRawTxMap map[string]bool) (numRemoved int) {
+	elementList := mtg.txs.ElementList()
+	elemsTobeRemoved := []pqueue.Element{}
+	for _, elem := range *elementList {
+		mptx := elem.(*mempoolTransaction)
+		rawTx := mptx.rawTransaction
+		if _, exists := committedRawTxMap[string(rawTx[:])]; exists {
+			elemsTobeRemoved = append(elemsTobeRemoved, elem)
+			log.Debugf("[mempool] tx to be removed: %v, txInfo: %v", hex.EncodeToString(rawTx), mptx.txInfo)
+		}
+	}
+	for _, elem := range elemsTobeRemoved {
+		mtg.txs.Remove(elem.GetIndex())
+		numRemoved++
+	}
+	return
+}
+
+func createMempoolTransactionGroup(rawTx common.Bytes, txInfo *core.TxInfo) *mempoolTransactionGroup {
+	txGroup := &mempoolTransactionGroup{
+		address: txInfo.Address,
+		txs:     pqueue.CreatePriorityQueue(),
+	}
+	txGroup.AddTx(rawTx, txInfo)
+	return txGroup
 }
 
 //
@@ -65,9 +135,11 @@ type Mempool struct {
 	ledger     core.Ledger
 	dispatcher *dp.Dispatcher
 
-	newTxs       *clist.CList          // new transactions, to be gossiped to other nodes
-	candidateTxs *pqueue.PriorityQueue // candidate transactions for new block assembly, ordered by the transaction fee (high to low)
-	txBookeepper transactionBookkeeper
+	newTxs           *clist.CList          // new transactions, to be gossiped to other nodes
+	candidateTxs     *pqueue.PriorityQueue // candidate transactions for new block assembly, ordered by the transaction fee (high to low)
+	txBookeepper     transactionBookkeeper
+	addressToTxGroup map[common.Address]*mempoolTransactionGroup
+	size             int
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -80,12 +152,13 @@ type Mempool struct {
 // CreateMempool creates an instance of Mempool
 func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
 	return &Mempool{
-		mutex:        &sync.Mutex{},
-		dispatcher:   dispatcher,
-		newTxs:       clist.New(),
-		candidateTxs: pqueue.CreatePriorityQueue(),
-		txBookeepper: createTransactionBookkeeper(defaultMaxNumTxs),
-		wg:           &sync.WaitGroup{},
+		mutex:            &sync.Mutex{},
+		dispatcher:       dispatcher,
+		newTxs:           clist.New(),
+		candidateTxs:     pqueue.CreatePriorityQueue(),
+		addressToTxGroup: make(map[common.Address]*mempoolTransactionGroup),
+		txBookeepper:     createTransactionBookkeeper(defaultMaxNumTxs),
+		wg:               &sync.WaitGroup{},
 	}
 }
 
@@ -104,13 +177,12 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		return DuplicateTxError
 	}
 
-	effectiveGasPrice, checkTxRes := mp.ledger.ScreenTx(rawTx)
-	txPriority := effectiveGasPrice
+	txInfo, checkTxRes := mp.ledger.ScreenTx(rawTx)
 	if !checkTxRes.IsOK() {
 		return errors.New(checkTxRes.Message)
 	}
 
-	log.Debugf("[mempool] Insert tx: %v, priority: %v", hex.EncodeToString(rawTx), txPriority)
+	log.Debugf("[mempool] Insert tx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
 
 	// only record the transactions that passed the screening. This is because that
 	// an invalid transaction could becoume valid later on. For example, assume expected
@@ -119,10 +191,18 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	// should not be rejected even though it has been submitted earlier.
 	mp.txBookeepper.record(rawTx)
 
-	mptx := createMempoolTransaction(rawTx, txPriority)
-	mp.newTxs.PushBack(mptx)
-	mp.candidateTxs.Push(mptx)
+	txGroup, ok := mp.addressToTxGroup[txInfo.Address]
+	if ok {
+		txGroup.AddTx(rawTx, txInfo)
+		mp.candidateTxs.Remove(txGroup.index) // Need to re-insert txGroup into queue since its priority could change.
+	} else {
+		txGroup = createMempoolTransactionGroup(rawTx, txInfo)
+		mp.addressToTxGroup[txInfo.Address] = txGroup
+	}
+	mp.candidateTxs.Push(txGroup)
 
+	mp.newTxs.PushBack(rawTx)
+	mp.size++
 	return nil
 }
 
@@ -160,7 +240,7 @@ func (mp *Mempool) Unlock() {
 
 // Size returns the number of transactions in the Mempool
 func (mp *Mempool) Size() int {
-	return mp.candidateTxs.NumElements()
+	return mp.size
 }
 
 // Reap returns a list of valid raw transactions and remove these
@@ -169,7 +249,7 @@ func (mp *Mempool) Size() int {
 // the transactions from the candidateTxs list. Instead, the consensus engine needs
 // to call the Mempool.Update() function to remove the committed transactions
 // RUNTIME COMPLEXITY: k*log(n), where k is the number transactions to reap,
-// and n is the number of transactions in the candidate pool
+// and n is the number of transactions in the candidate pool.
 func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
@@ -177,9 +257,9 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 	if maxNumTxs == 0 {
 		return []common.Bytes{}
 	} else if maxNumTxs < 0 {
-		maxNumTxs = mp.candidateTxs.NumElements()
+		maxNumTxs = mp.Size()
 	} else {
-		maxNumTxs = math.MinInt(mp.candidateTxs.NumElements(), maxNumTxs)
+		maxNumTxs = math.MinInt(mp.Size(), maxNumTxs)
 	}
 
 	txs := make([]common.Bytes, 0, maxNumTxs)
@@ -187,19 +267,28 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 		if mp.candidateTxs.IsEmpty() {
 			break
 		}
-		mptx := mp.candidateTxs.Pop().(*mempoolTransaction)
-		txs = append(txs, mptx.rawTransaction)
+		txGroup := mp.candidateTxs.Pop().(*mempoolTransactionGroup)
+		rawTx, txInfo := txGroup.PopTx()
+		txs = append(txs, rawTx)
 
-		log.Debugf("[mempool] Reap tx: %v, priority: %v",
-			hex.EncodeToString(mptx.rawTransaction), mptx.priority)
+		if txGroup.IsEmpty() {
+			delete(mp.addressToTxGroup, txGroup.address)
+		} else {
+			mp.candidateTxs.Push(txGroup)
+		}
+
+		log.Debugf("[mempool] Reap tx: %v, txInfo: %v",
+			hex.EncodeToString(rawTx), txInfo)
 	}
+
+	mp.size -= len(txs)
 
 	return txs
 }
 
 // Update removes the committed transactions from the transaction candidate list
-// RUNTIME COMPLEXITY: k*log(n), where k is the number committed raw transactions,
-// and n is the number of transactions in the candidate pool
+// RUNTIME COMPLEXITY: O(k + n), where k is the number committed raw transactions,
+// and n is the number of transactions in the candidate pool.
 func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
@@ -212,11 +301,11 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 	elementList := mp.candidateTxs.ElementList()
 	elemsTobeRemoved := []pqueue.Element{}
 	for _, elem := range *elementList {
-		mptx := elem.(*mempoolTransaction)
-		rawTx := mptx.rawTransaction
-		if _, exists := committedRawTxMap[string(rawTx[:])]; exists {
-			elemsTobeRemoved = append(elemsTobeRemoved, elem)
-			log.Debugf("[mempool] tx to be removed: %v, priority: %v", hex.EncodeToString(rawTx), mptx.priority)
+		txGroup := elem.(*mempoolTransactionGroup)
+		numRemoved := txGroup.RemoveTxs(committedRawTxMap)
+		mp.size -= numRemoved
+		if txGroup.IsEmpty() {
+			elemsTobeRemoved = append(elemsTobeRemoved, txGroup)
 		}
 	}
 
@@ -239,6 +328,7 @@ func (mp *Mempool) Flush() {
 	for !mp.candidateTxs.IsEmpty() {
 		mp.candidateTxs.Pop()
 	}
+	mp.size = 0
 }
 
 // broadcastTransactionRoutine broadcasts transactions to neighoring peers
@@ -258,12 +348,12 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 			next = mp.newTxs.FrontWait() // Wait until a tx is available
 		}
 
-		mptx := next.Value.(*mempoolTransaction)
+		rawTx := next.Value.(common.Bytes)
 
 		// Broadcast the transaction
 		data := dp.DataResponse{
 			ChannelID: common.ChannelIDTransaction,
-			Payload:   mptx.rawTransaction,
+			Payload:   rawTx,
 		}
 
 		peerIDs := []string{} // empty peerID list means broadcasting to all neighboring peers

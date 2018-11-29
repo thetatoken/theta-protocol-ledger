@@ -55,6 +55,16 @@ func NewSoftWallet(keysDirPath string, kstype KeystoreType) (*SoftWallet, error)
 	return wallet, nil
 }
 
+// ID returns the ID of the wallet
+func (w *SoftWallet) ID() string {
+	return "softwallet"
+}
+
+// Status returns the status of the wallet
+func (w *SoftWallet) Status() (string, error) {
+	return "", nil
+}
+
 // List returns the addresses of all the keys
 func (w *SoftWallet) List() ([]common.Address, error) {
 	w.mu.Lock()

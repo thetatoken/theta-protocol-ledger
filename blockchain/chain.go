@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/binary"
 	"fmt"
 	"sync"
 
@@ -19,7 +20,7 @@ type Chain struct {
 	ChainID string
 	Root    *core.ExtendedBlock `rlp:"nil"`
 
-	mu *sync.Mutex
+	mu *sync.RWMutex
 }
 
 // NewChain creates a new Chain instance.
@@ -27,7 +28,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 	chain := &Chain{
 		ChainID: chainID,
 		store:   store,
-		mu:      &sync.Mutex{},
+		mu:      &sync.RWMutex{},
 	}
 	rootBlock, err := chain.FindBlock(root.Hash())
 	if err != nil {
@@ -37,7 +38,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 			log.Panic(err)
 		}
 	}
-	chain.FinalizePreviousBlocks(rootBlock)
+	chain.FinalizePreviousBlocks(rootBlock.Hash())
 	chain.Root = rootBlock
 	return chain
 }
@@ -70,54 +71,138 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		}
 
 		parentBlock.Children = append(parentBlock.Children, hash)
-		ch.SaveBlock(parentBlock)
+
+		err = ch.saveBlock(parentBlock)
+		if err != nil {
+			log.Panic(err)
+		}
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
 
-	err = ch.SaveBlock(extendedBlock)
+	err = ch.saveBlock(extendedBlock)
 	if err != nil {
 		log.Panic(err)
 	}
 
+	ch.AddBlockByHeightIndex(extendedBlock.Height, extendedBlock.Hash())
 	ch.AddTxsToIndex(extendedBlock, false)
 
 	return extendedBlock, nil
 }
 
-func (ch *Chain) CommitBlock(block *core.ExtendedBlock) {
-	block.Status = core.BlockStatusCommitted
-	err := ch.SaveBlock(block)
+// blockByHeightIndexKey constructs the DB key for the given block height.
+func blockByHeightIndexKey(height uint64) common.Bytes {
+	// convert uint64 to []byte
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, height)
+	b := buf[:n]
+	return append(common.Bytes("bh/"), b...)
+}
+
+type BlockByHeightIndexEntry struct {
+	Blocks []common.Hash
+}
+
+func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {
+	key := blockByHeightIndexKey(height)
+	blockByHeightIndexEntry := BlockByHeightIndexEntry{
+		Blocks: []common.Hash{},
+	}
+
+	ch.store.Get(key, &blockByHeightIndexEntry)
+
+	// Check if block has already been added to index.
+	for _, b := range blockByHeightIndexEntry.Blocks {
+		if block == b {
+			return
+		}
+	}
+
+	blockByHeightIndexEntry.Blocks = append(blockByHeightIndexEntry.Blocks, block)
+
+	err := ch.store.Put(key, blockByHeightIndexEntry)
 	if err != nil {
 		log.Panic(err)
 	}
 }
 
-func (ch *Chain) FinalizePreviousBlocks(block *core.ExtendedBlock) {
-	var err error
-	for block != nil && block.Status != core.BlockStatusFinalized {
+// FindBlocksByHeight tries to retrieve blocks by height.
+func (ch *Chain) FindBlocksByHeight(height uint64) []*core.ExtendedBlock {
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
+	return ch.findBlocksByHeight(height)
+}
+
+// findBlocksByHeight is the non-locking version of FindBlockByHeight.
+func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
+	key := blockByHeightIndexKey(height)
+	blockByHeightIndexEntry := BlockByHeightIndexEntry{
+		Blocks: []common.Hash{},
+	}
+	ch.store.Get(key, &blockByHeightIndexEntry)
+
+	ret := []*core.ExtendedBlock{}
+	for _, hash := range blockByHeightIndexEntry.Blocks {
+		block, err := ch.findBlock(hash)
+		if err == nil {
+			ret = append(ret, block)
+		}
+
+	}
+	return ret
+}
+
+func (ch *Chain) CommitBlock(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	block, err := ch.findBlock(hash)
+	if err != nil {
+		log.Panic(err)
+	}
+	block.Status = core.BlockStatusCommitted
+	err = ch.saveBlock(block)
+	if err != nil {
+		log.Panic(err)
+	}
+}
+
+func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	for !hash.IsEmpty() {
+		block, err := ch.findBlock(hash)
+		if err != nil || block.Status == core.BlockStatusFinalized {
+			return
+		}
 		block.Status = core.BlockStatusFinalized
-		err = ch.SaveBlock(block)
+		err = ch.saveBlock(block)
 		if err != nil {
 			log.Panic(err)
 		}
-		block, err = ch.FindBlock(block.Parent)
-		if err != nil {
-			return
-		}
+		hash = block.Parent
 	}
 }
 
 // FindDeepestDescendant finds the deepest descendant of given block.
 func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
+	return ch.findDeepestDescendant(hash)
+}
+
+// findDeepestDescendant is the non-locking version of FindDeepestDescendant.
+func (ch *Chain) findDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
 	// TODO: replace recursive implementation with stack-based implementation.
-	n, err := ch.FindBlock(hash)
+	n, err := ch.findBlock(hash)
 	if err != nil {
 		return nil, -1
 	}
 	depth = 0
 	for _, child := range n.Children {
-		ret, retDepth := ch.FindDeepestDescendant(child)
+		ret, retDepth := ch.findDeepestDescendant(child)
 		if retDepth+1 > depth {
 			n = ret
 			depth = retDepth + 1
@@ -131,16 +216,16 @@ func (ch *Chain) IsOrphan(block *core.Block) bool {
 	return err != nil
 }
 
-// SaveBlock updates a previously stored block.
-func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {
+// saveBlock updates a previously stored block.
+func (ch *Chain) saveBlock(block *core.ExtendedBlock) error {
 	hash := block.Hash()
 	return ch.store.Put(hash[:], *block)
 }
 
 // FindBlock tries to retrieve a block by hash.
 func (ch *Chain) FindBlock(hash common.Hash) (*core.ExtendedBlock, error) {
-	ch.mu.Lock()
-	defer ch.mu.Unlock()
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
 	return ch.findBlock(hash)
 }
 
