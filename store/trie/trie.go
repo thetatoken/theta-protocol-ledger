@@ -21,6 +21,7 @@ package trie
 import (
 	"bytes"
 	"fmt"
+	"sync"
 
 	"github.com/thetatoken/ukulele/store"
 
@@ -77,6 +78,8 @@ type Trie struct {
 	// new nodes are tagged with the current generation and unloaded
 	// when their generation is older than than cachegen-cachelimit.
 	cachegen, cachelimit uint16
+
+	mu *sync.RWMutex // Lock for commit & prune.
 }
 
 // GetDB for testing purpose only
@@ -108,6 +111,7 @@ func New(root common.Hash, db *Database) (*Trie, error) {
 	trie := &Trie{
 		db:           db,
 		originalRoot: root,
+		mu:           &sync.RWMutex{},
 	}
 	if root != (common.Hash{}) && root != emptyRoot {
 		rootnode, err := trie.resolveHash(root[:], nil)
@@ -469,6 +473,9 @@ func (t *Trie) Hash() common.Hash {
 // Commit writes all nodes to the trie's memory database, tracking the internal
 // and external (for account tries) references.
 func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	if t.db == nil {
 		panic("commit called on trie with nil database")
 	}
@@ -492,6 +499,9 @@ func (t *Trie) hashRoot(db *Database, onleaf LeafCallback) (node, node, error) {
 
 // Prune deletes all non-referenced nodes of the Trie from DB
 func (t *Trie) Prune(cb func(n []byte) bool) error {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
 	return t.pruneNode(t.root, cb)
 }
 
