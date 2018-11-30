@@ -2,8 +2,11 @@ package connection
 
 import (
 	"bufio"
+	"context"
+	"fmt"
 	"net"
 	"runtime/debug"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -43,7 +46,16 @@ type Connection struct {
 	flushTimer *timer.ThrottleTimer // flush writes as necessary but throttled
 	pingTimer  *timer.RepeatTimer   // send pings periodically
 
+	pendingPings uint
+
 	config ConnectionConfig
+
+	// Life cycle
+	wg      *sync.WaitGroup
+	quit    chan struct{}
+	ctx     context.Context
+	cancel  context.CancelFunc
+	stopped bool
 }
 
 //
@@ -57,6 +69,7 @@ type ConnectionConfig struct {
 	PacketBatchSize    int64
 	FlushThrottle      time.Duration
 	PingTimeout        time.Duration
+	MaxPendingPings    uint
 }
 
 // MessageParser parses the raw message bytes to type p2ptypes.Message
@@ -114,6 +127,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
 		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
 		config:       config,
+		wg:           &sync.WaitGroup{},
 
 		onEncode: defaultMessageEncoder,
 	}
@@ -127,27 +141,43 @@ func GetDefaultConnectionConfig() ConnectionConfig {
 		PacketBatchSize: int64(10),
 		FlushThrottle:   100 * time.Millisecond,
 		PingTimeout:     40 * time.Second,
+		MaxPendingPings: 3,
 	}
 }
 
+// SetPingTimer for testing purpose
+func (conn *Connection) SetPingTimer(seconds time.Duration) {
+	conn.pingTimer = timer.NewRepeatTimer("ping", seconds*time.Second)
+	conn.pingTimer.Reset()
+}
+
 // Start is called when the connection starts
-func (conn *Connection) Start() bool {
+func (conn *Connection) Start(ctx context.Context) bool {
+	c, cancel := context.WithCancel(ctx)
+	conn.ctx = c
+	conn.cancel = cancel
+
+	conn.wg.Add(2)
+
 	go conn.sendRoutine()
 	go conn.recvRoutine()
 	return true
 }
 
+// Wait suspends the caller goroutine
+func (conn *Connection) Wait() {
+	conn.wg.Wait()
+}
+
+// CancelConnection for testing purpose only
+func (conn *Connection) CancelConnection() {
+	conn.cancel()
+}
+
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
-	if conn.sendPulse != nil {
-		close(conn.sendPulse)
-	}
-	if conn.pongPulse != nil {
-		close(conn.pongPulse)
-	}
-	if conn.quitPulse != nil {
-		close(conn.quitPulse)
-	}
+	conn.cancel()
+	conn.wg.Wait()
 	conn.netconn.Close()
 }
 
@@ -229,11 +259,15 @@ func (conn *Connection) CanEnqueueMessage(channelID common.ChannelIDEnum) bool {
 // --------------------- Send goroutine --------------------- //
 
 func (conn *Connection) sendRoutine() {
+	defer conn.wg.Done()
 	defer conn.recover()
 
 	for {
 		var err error
 		select {
+		case <-conn.ctx.Done():
+			conn.stopped = true
+			return
 		case <-conn.flushTimer.Ch:
 			conn.flush()
 		case <-conn.pingTimer.Ch:
@@ -254,15 +288,23 @@ func (conn *Connection) sendRoutine() {
 }
 
 func (conn *Connection) sendPingSignal() error {
+	if conn.pendingPings >= conn.config.MaxPendingPings {
+		conn.onError(nil)
+		return fmt.Errorf("Peer not responding to ping")
+	}
 	pingPacket := Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PingSignal},
 		IsEOF:     byte(0x01),
 	}
 	err := rlp.Encode(conn.bufWriter, pingPacket)
+	if err != nil {
+		return err
+	}
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
-	return err
+	conn.pendingPings++
+	return nil
 }
 
 func (conn *Connection) sendPongSignal() error {
@@ -272,9 +314,12 @@ func (conn *Connection) sendPongSignal() error {
 		IsEOF:     byte(0x01),
 	}
 	err := rlp.Encode(conn.bufWriter, pongPacket)
+	if err != nil {
+		return err
+	}
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
-	return err
+	return nil
 }
 
 func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
@@ -287,9 +332,17 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 // --------------------- Recv goroutine --------------------- //
 
 func (conn *Connection) recvRoutine() {
+	defer conn.wg.Done()
 	defer conn.recover()
 
 	for {
+		select {
+		case <-conn.ctx.Done():
+			conn.stopped = true
+			return
+		default:
+		}
+
 		// Block until recvMonitor allows reading
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
@@ -298,7 +351,7 @@ func (conn *Connection) recvRoutine() {
 		conn.recvMonitor.Update(int(1))
 		if err != nil {
 			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
-			break
+			continue
 		}
 
 		switch packet.ChannelID {
@@ -309,9 +362,8 @@ func (conn *Connection) recvRoutine() {
 		}
 
 		conn.pingTimer.Reset()
+		conn.pendingPings = 0
 	}
-
-	close(conn.pongPulse)
 }
 
 func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
@@ -429,6 +481,7 @@ func (conn *Connection) GetNetconn() net.Conn {
 
 func (conn *Connection) stopForError(r interface{}) {
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
+		conn.Stop()
 		if conn.onError != nil {
 			conn.onError(r)
 		} else {

@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -18,6 +19,7 @@ import (
 
 func TestPeerHandshakeAndCommunication(t *testing.T) {
 	assert := assert.New(t)
+	ctx := context.Background()
 
 	port := 38857
 	generatedPeerAAddrChan := make(chan string)
@@ -51,7 +53,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 		generatedPeerAAddrChan <- generatedPeerAAddr
 		receivedPeerBAddrChan <- receivedPeerBAddr
 
-		outboundPeer.Start()
+		outboundPeer.Start(ctx)
 
 		for i := 0; i < numMsgs; i++ {
 			assert.True(outboundPeer.Send(common.ChannelIDTransaction, messagesAtoB[i]))
@@ -134,7 +136,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	inboundPeer.GetConnection().SetMessageParser(basicMessageParser)
 	inboundPeer.GetConnection().SetReceiveHandler(basicReceiveHandler)
 
-	inboundPeer.Start()
+	inboundPeer.Start(ctx)
 	defer inboundPeer.Stop()
 
 	for i := 0; i < numMsgs; i++ {
