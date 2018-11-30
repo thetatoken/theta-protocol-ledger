@@ -18,15 +18,14 @@ import (
 // Example:
 //		banjo tx release --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8
 var releaseFundCmd = &cobra.Command{
-	Use:   "release",
-	Short: "Release fund",
+	Use:     "release",
+	Short:   "Release fund",
 	Example: `banjo tx release --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8`,
-	Run:   doReleaseFundCmd,
+	Run:     doReleaseFundCmd,
 }
 
 func doReleaseFundCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -80,6 +79,7 @@ func init() {
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
+	releaseFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	releaseFundCmd.MarkFlagRequired("chain")
 	releaseFundCmd.MarkFlagRequired("from")

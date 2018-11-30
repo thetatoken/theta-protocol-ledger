@@ -40,7 +40,7 @@ banjo call smart_contract [flags]
 ### Options inherited from parent commands
 
 ```
-      --config string   config path (default is C:\Users\<username>/.banjo) (default "C:\\Users\\<username>/.banjo")
+      --config string   config path (default is /Users/<username>/.banjo) (default "/Users/<username>/.banjo")
 ```
 
 ### SEE ALSO

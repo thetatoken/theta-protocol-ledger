@@ -327,7 +327,10 @@ func (rm *RequestManager) dumpReadyBlocks(x *list.Element) {
 			}
 		}
 
-		rm.chain.AddBlock(pendingBlock.block)
+		_, err := rm.chain.AddBlock(pendingBlock.block)
+		if err != nil {
+			rm.logger.Panic(err)
+		}
 		delete(rm.pendingBlocksByHash, hash.String())
 		rm.pendingBlocks.Remove(pendingBlockEl)
 		rm.C <- pendingBlock.block

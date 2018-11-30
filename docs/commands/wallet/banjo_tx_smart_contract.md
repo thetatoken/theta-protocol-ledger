@@ -33,12 +33,13 @@ banjo tx smart_contract [flags]
       --seq uint           Sequence number of the transaction
       --to string          The smart contract address
       --value string       Value to be transferred (default "0")
+      --wallet string      Wallet type (soft|nano) (default "soft")
 ```
 
 ### Options inherited from parent commands
 
 ```
-      --config string   config path (default is C:\Users\<username>/.banjo) (default "C:\\Users\\<username>/.banjo")
+      --config string   config path (default is /Users/<username>/.banjo) (default "/Users/<username>/.banjo")
 ```
 
 ### SEE ALSO

@@ -27,7 +27,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
 
 	log "github.com/sirupsen/logrus"
 
@@ -76,8 +75,8 @@ type ledgerDriver struct {
 	failure error         // Any failure that would make the device unusable
 }
 
-// newLedgerDriver creates a new instance of a Ledger USB protocol driver.
-func newLedgerDriver() Driver {
+// NewLedgerDriver creates a new instance of a Ledger USB protocol driver.
+func NewLedgerDriver() Driver {
 	return &ledgerDriver{}
 }
 
@@ -109,7 +108,7 @@ func (w *ledgerDriver) offline() bool {
 func (w *ledgerDriver) Open(device io.ReadWriter, password string) error {
 	w.device, w.failure = device, nil
 
-	_, err := w.ledgerDerive(types.DefaultBaseDerivationPath)
+	_, err := w.Derive(types.DefaultBaseDerivationPath)
 	if err != nil {
 		// Ethereum app is not running or in browser mode, nothing more to do, return
 		if err == errLedgerReplyInvalidHeader {
@@ -153,17 +152,13 @@ func (w *ledgerDriver) Derive(path types.DerivationPath) (common.Address, error)
 // Note, if the version of the Ethereum application running on the Ledger wallet is
 // too old to sign EIP-155 transactions, but such is requested nonetheless, an error
 // will be returned opposed to silently signing in Homestead mode.
-func (w *ledgerDriver) SignTx(path types.DerivationPath, txrlp common.Bytes, chainID *big.Int) (common.Address, *crypto.Signature, error) {
+func (w *ledgerDriver) SignTx(path types.DerivationPath, txrlp common.Bytes) (common.Address, *crypto.Signature, error) {
 	// If the Ethereum app doesn't run, abort
 	if w.offline() {
 		return common.Address{}, nil, errors.New("wallet closed")
 	}
-	// Ensure the wallet is capable of signing the given transaction
-	if chainID != nil && w.version[0] <= 1 && w.version[1] <= 0 && w.version[2] <= 2 {
-		return common.Address{}, nil, fmt.Errorf("Ledger v%d.%d.%d doesn't support signing this transaction, please update to v1.0.3 at least", w.version[0], w.version[1], w.version[2])
-	}
 	// All infos gathered and metadata checks out, request signing
-	return w.ledgerSign(path, txrlp, chainID)
+	return w.ledgerSign(path, txrlp)
 }
 
 // ledgerVersion retrieves the current version of the Ethereum wallet app running
@@ -293,7 +288,7 @@ func (w *ledgerDriver) ledgerDerive(derivationPath []uint32) (common.Address, er
 //   signature V | 1 byte
 //   signature R | 32 bytes
 //   signature S | 32 bytes
-func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes, chainID *big.Int) (common.Address, *crypto.Signature, error) {
+func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes) (common.Address, *crypto.Signature, error) {
 	// Flatten the derivation path into the Ledger request
 	path := make([]byte, 1+4*len(derivationPath))
 	path[0] = byte(len(derivationPath))
@@ -328,13 +323,18 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes, c
 	if len(reply) != 65 {
 		return common.Address{}, nil, errors.New("reply lacks signature")
 	}
+
 	sigBytes := append(reply[1:], reply[0])
+	sigBytes[64] -= byte(27)
+
 	signature, err := crypto.SignatureFromBytes(sigBytes)
 	if err != nil {
 		return common.Address{}, nil, err
 	}
 
 	sender, err := signature.RecoverSignerAddress(txrlp)
+	log.Infof("Sender address: %v", sender.Hex())
+
 	if err != nil {
 		return common.Address{}, nil, err
 	}
@@ -400,7 +400,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 			apdu = nil
 		}
 		// Send over to the device
-		log.Infof("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		log.Debugf("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
 		if _, err := w.device.Write(chunk); err != nil {
 			return nil, err
 		}
@@ -413,7 +413,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 		if _, err := io.ReadFull(w.device, chunk); err != nil {
 			return nil, err
 		}
-		log.Infof("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		log.Debugf("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
 
 		// Make sure the transport header matches
 		if chunk[0] != 0x01 || chunk[1] != 0x01 || chunk[2] != 0x05 {

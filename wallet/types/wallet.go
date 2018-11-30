@@ -13,6 +13,8 @@ const (
 )
 
 type Wallet interface {
+	ID() string
+	Status() (string, error)
 	List() ([]common.Address, error)
 	NewKey(password string) (common.Address, error)
 	Unlock(address common.Address, password string) error

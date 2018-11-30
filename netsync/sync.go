@@ -174,7 +174,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 			if err != nil {
 				m.logger.WithFields(log.Fields{
 					"channelID": req.ChannelID,
-					"hash":      curr,
+					"hash":      curr.Hex(),
 				}).Error("Failed to find block with given hash")
 				return
 			}
@@ -326,8 +326,8 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	sm.logger.WithFields(log.Fields{
-		"block.Hash":   block.Hash,
-		"block.Parent": block.Parent,
+		"block.Hash":   block.Hash().Hex(),
+		"block.Parent": block.Parent.Hex(),
 	}).Debug("Received block")
 
 	sm.requestMgr.AddBlock(block)

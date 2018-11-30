@@ -72,7 +72,7 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 	block, err := ch.FindBlock(core.GetTestBlock("a3").Hash())
 	require.Nil(err)
 
-	ch.FinalizePreviousBlocks(block)
+	ch.FinalizePreviousBlocks(block.Hash())
 
 	for _, name := range []string{"a0", "a1", "a2", "a3"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
@@ -87,7 +87,7 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 
 	block, err = ch.FindBlock(core.GetTestBlock("a5").Hash())
 	require.Nil(err)
-	ch.FinalizePreviousBlocks(block)
+	ch.FinalizePreviousBlocks(block.Hash())
 
 	for _, name := range []string{"a0", "a1", "a2", "a3", "a4", "a5"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
@@ -99,4 +99,28 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 		assert.NotEqual(core.BlockStatusFinalized, block.Status)
 	}
 
+}
+
+func TestBlockIndex(t *testing.T) {
+	assert := assert.New(t)
+	core.ResetTestBlocks()
+
+	chain := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"b2", "a1",
+		"c1", "a0"})
+
+	block, _ := chain.FindBlock(core.GetTestBlock("a0").Hash())
+	assert.NotNil(block)
+	assert.Equal(core.GetTestBlock("a0").Hash(), block.Hash())
+
+	blocks := chain.FindBlocksByHeight(0)
+	assert.Equal(1, len(blocks))
+	assert.Equal(core.GetTestBlock("a0").Hash(), blocks[0].Hash())
+
+	blocks = chain.FindBlocksByHeight(2)
+	assert.Equal(2, len(blocks))
+	assert.Equal(core.GetTestBlock("a2").Hash(), blocks[0].Hash())
+	assert.Equal(core.GetTestBlock("b2").Hash(), blocks[1].Hash())
 }

@@ -131,6 +131,10 @@ type Tx struct {
 }
 
 type GetBlockResult struct {
+	*GetBlockResultInner
+}
+
+type GetBlockResultInner struct {
 	ChainID   string            `json:"chain_id"`
 	Epoch     common.JSONUint64 `json:"epoch"`
 	Height    common.JSONUint64 `json:"height"`
@@ -171,6 +175,84 @@ func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *G
 		return err
 	}
 
+	result.GetBlockResultInner = &GetBlockResultInner{}
+	result.ChainID = block.ChainID
+	result.Epoch = common.JSONUint64(block.Epoch)
+	result.Height = common.JSONUint64(block.Height)
+	result.Parent = block.Parent
+	result.TxHash = block.TxHash
+	result.StateHash = block.StateHash
+	result.Timestamp = (*common.JSONBig)(block.Timestamp)
+	result.Proposer = block.Proposer
+	result.Children = block.Children
+	result.Status = block.Status
+
+	result.Hash = block.Hash()
+
+	// Parse and fulfill Txs.
+	var tx types.Tx
+	for _, txBytes := range block.Txs {
+		tx, err = types.TxFromBytes(txBytes)
+		if err != nil {
+			return
+		}
+		hash := crypto.Keccak256Hash(txBytes)
+
+		t := byte(0x0)
+		switch tx.(type) {
+		case *types.CoinbaseTx:
+			t = TxTypeCoinbase
+		case *types.SlashTx:
+			t = TxTypeSlash
+		case *types.SendTx:
+			t = TxTypeSend
+		case *types.ReserveFundTx:
+			t = TxTypeReserveFund
+		case *types.ReleaseFundTx:
+			t = TxTypeReleaseFund
+		case *types.ServicePaymentTx:
+			t = TxTypeServicePayment
+		case *types.SplitRuleTx:
+			t = TxTypeSplitRule
+		case *types.UpdateValidatorsTx:
+			t = TxUpdateValidators
+		}
+		txw := Tx{
+			Tx:   tx,
+			Hash: hash,
+			Type: t,
+		}
+		result.Txs = append(result.Txs, txw)
+	}
+	return
+}
+
+// ------------------------------ GetBlockByHeight -----------------------------------
+
+type GetBlockByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
+	if args.Height == 0 {
+		return errors.New("Block height must be specified")
+	}
+
+	blocks := t.chain.FindBlocksByHeight(uint64(args.Height))
+
+	var block *core.ExtendedBlock
+	for _, b := range blocks {
+		if b.Status == core.BlockStatusFinalized {
+			block = b
+			break
+		}
+	}
+
+	if block == nil {
+		return
+	}
+
+	result.GetBlockResultInner = &GetBlockResultInner{}
 	result.ChainID = block.ChainID
 	result.Epoch = common.JSONUint64(block.Epoch)
 	result.Height = common.JSONUint64(block.Height)

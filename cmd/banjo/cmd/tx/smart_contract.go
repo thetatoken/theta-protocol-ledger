@@ -39,8 +39,7 @@ var smartContractCmd = &cobra.Command{
 }
 
 func doSmartContractCmd(cmd *cobra.Command, args []string) {
-	cfgPath := cmd.Flag("config").Value.String()
-	wallet, fromAddress, _, err := walletUnlockAddress(cfgPath, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return
 	}
@@ -124,6 +123,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	smartContractCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	smartContractCmd.MarkFlagRequired("chain")
 	smartContractCmd.MarkFlagRequired("from")

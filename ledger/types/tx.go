@@ -233,6 +233,8 @@ func (tx *CoinbaseTx) SignBytes(chainID string) []byte {
 	tx.Proposer.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -304,6 +306,8 @@ func (tx *SlashTx) SignBytes(chainID string) []byte {
 	tx.Proposer.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Proposer.Signature = sig
 	return signBytes
 }
@@ -341,6 +345,8 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 	}
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	for i := range tx.Inputs {
 		tx.Inputs[i].Signature = sigz[i]
 	}
@@ -420,6 +426,8 @@ func (tx *ReserveFundTx) SignBytes(chainID string) []byte {
 	tx.Source.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -488,6 +496,8 @@ func (tx *ReleaseFundTx) SignBytes(chainID string) []byte {
 	tx.Source.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Source.Signature = sig
 	return signBytes
 }
@@ -579,6 +589,8 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	tx.Target = target
 	tx.Fee = fee
 
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	return signBytes
 }
 
@@ -595,6 +607,7 @@ func (tx *ServicePaymentTx) TargetSignBytes(chainID string) []byte {
 
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
 
 	tx.Target.Signature = targetSig
 
@@ -682,6 +695,8 @@ func (tx *SplitRuleTx) SignBytes(chainID string) []byte {
 	tx.Initiator.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.Initiator.Signature = sig
 	return signBytes
 }
@@ -717,6 +732,7 @@ func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
 			signBytes = append(signBytes, bytes...)
 		}
 	}
+	signBytes = addPrefixForSignBytes(signBytes)
 	return signBytes
 }
 
@@ -791,6 +807,8 @@ func (tx *SmartContractTx) SignBytes(chainID string) []byte {
 	tx.From.Signature = nil
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
 	tx.From.Signature = sig
 	return signBytes
 }
@@ -806,4 +824,22 @@ func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 func (tx *SmartContractTx) String() string {
 	return fmt.Sprintf("SmartContractTx{%v -> %v, value: %v, gas_limit: %v, gas_price: %v, data: %v}",
 		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.From.Coins.GammaWei, tx.GasLimit, tx.GasPrice, tx.Data)
+}
+
+// --------------- Utils --------------- //
+
+// Need to add the following prefix to the tx signbytes to be compatible with
+// the Ethereum tx format
+func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
+	signBytes, err := rlp.EncodeToBytes([]interface{}{
+		uint64(0),
+		new(big.Int).SetUint64(0),
+		uint64(0),
+		common.Address{},
+		new(big.Int).SetUint64(0),
+		signBytes})
+	if err != nil {
+		panic(err)
+	}
+	return signBytes
 }

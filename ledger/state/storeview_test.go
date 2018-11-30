@@ -185,12 +185,12 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	assert.Nil(err)
 
 	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
+	acc1Addr := pubKey.Address()
 	acc1 := &types.Account{
-		PubKey:   pubKey,
+		Address:  acc1Addr,
 		Sequence: 173,
 		Balance:  initCoin,
 	}
-	acc1Addr := acc1.PubKey.Address()
 
 	db := backend.NewMemDatabase()
 	sv := NewStoreView(uint64(1), common.Hash{}, db)
@@ -198,7 +198,7 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	sv.SetAccount(acc1Addr, acc1)
 	accRetrieved := sv.GetAccount(acc1Addr)
 
-	assert.Equal(acc1.PubKey.ToBytes(), accRetrieved.PubKey.ToBytes())
+	assert.Equal(acc1.Address, accRetrieved.Address)
 	assert.Equal(acc1.Sequence, accRetrieved.Sequence)
 	assert.Equal(acc1.Balance.String(), accRetrieved.Balance.String())
 

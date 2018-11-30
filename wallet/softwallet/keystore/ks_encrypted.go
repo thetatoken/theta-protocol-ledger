@@ -272,10 +272,9 @@ func decryptKey(keyjson []byte, auth string) (*Key, error) {
 		return nil, err
 	}
 
-	privKey, err := crypto.PrivateKeyFromBytes(keyBytes)
-	if err != nil {
-		return nil, err
-	}
+	// Use the "unsafe" convertor to support legacy private keys
+	// whose lengths are less than 32 bytes
+	privKey := crypto.PrivateKeyFromBytesUnsafe(keyBytes)
 
 	key := &Key{
 		Id:         keyId,

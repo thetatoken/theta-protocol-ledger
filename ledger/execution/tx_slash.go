@@ -188,6 +188,15 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 	return false
 }
 
+func (exec *SlashTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
+	tx := transaction.(*types.SlashTx)
+	return &core.TxInfo{
+		Address:           tx.Proposer.Address,
+		Sequence:          tx.Proposer.Sequence,
+		EffectiveGasPrice: exec.calculateEffectiveGasPrice(transaction),
+	}
+}
+
 func (exec *SlashTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	return new(big.Int).SetUint64(0)
 }

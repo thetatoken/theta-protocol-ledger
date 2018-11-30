@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"

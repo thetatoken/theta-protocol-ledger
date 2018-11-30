@@ -258,6 +258,15 @@ func PrivateKeyFromBytes(skBytes common.Bytes) (*PrivateKey, error) {
 	return sk, err
 }
 
+// PrivateKeyFromBytesUnsafe blindly converts a binary blob to a private key. It
+// should almost never be used unless you are sure the input is valid and want to
+// avoid hitting errors due to bad origin encoding (0 prefixes cut off).
+func PrivateKeyFromBytesUnsafe(skBytes common.Bytes) *PrivateKey {
+	key := toECDSAUnsafe(skBytes)
+	sk := &PrivateKey{privKey: key}
+	return sk
+}
+
 // PublicKeyFromBytes converts the given bytes to a public key
 func PublicKeyFromBytes(pkBytes common.Bytes) (*PublicKey, error) {
 	key, err := unmarshalPubkey(pkBytes)
