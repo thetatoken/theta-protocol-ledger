@@ -199,8 +199,8 @@ func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule
 func (exec *ServicePaymentTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 	tx := transaction.(*types.ServicePaymentTx)
 	return &core.TxInfo{
-		Address:           tx.Source.Address,
-		Sequence:          tx.Source.Sequence,
+		Address:           tx.Target.Address,
+		Sequence:          tx.Target.Sequence,
 		EffectiveGasPrice: exec.calculateEffectiveGasPrice(transaction),
 	}
 }

@@ -125,7 +125,7 @@ The balance of an address can be retrieved with the following query command
 banjo query account --address=9F1233798E905E173560071255140b4A8aBd3Ec6
 ```
 
-## CLI commands
+## CLI Commands
 |Link|Binary|
 |---|---|
 |[Theta Wallet command line tools](./docs/commands/wallet/banjo.md)|banjo|

@@ -35,6 +35,8 @@ var smartContractCmd = &cobra.Command{
 	[Call an API of a smart contract (local only)]
 	banjo call smart_contract --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x7ad6cea2bc3162e30a3c98d84f821b3233c22647 --gas_price=3 --gas_limit=50000
 	`,
+	Long : `smartContractCmd represents the smart_contract command, which can be used to calls the specified smart contract.
+		However, calling a smart contract does NOT modify the globally consensus state. It can be used for dry run, or for retrieving info from smart contracts without actually spending gas.`,
 	Run:   doSmartContractCmd,
 }
 
