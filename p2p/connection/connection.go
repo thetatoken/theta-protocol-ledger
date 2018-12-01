@@ -479,12 +479,11 @@ func (conn *Connection) GetNetconn() net.Conn {
 }
 
 func (conn *Connection) stopForError(r interface{}) {
+	log.Errorf("[p2p] Connection error: %v", r)
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
 		conn.Stop()
 		if conn.onError != nil {
 			conn.onError(r)
-		} else {
-			log.Errorf("[p2p] Connection error: %v", r)
 		}
 	}
 }
