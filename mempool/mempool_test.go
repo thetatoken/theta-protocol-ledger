@@ -259,6 +259,35 @@ func TestMempoolUpdate(t *testing.T) {
 	assert.Equal("tx6", string(reapedRawTxs[4][:]))  // gasPrice: 32, address: B2, seq: 3023
 }
 
+func TestMempoolUpdateAndInsert(t *testing.T) {
+	assert := assert.New(t)
+
+	tx1 := createTestRawTx("tx1")
+	tx2 := createTestRawTx("tx2")
+	tx3 := createTestRawTx("tx3")
+	tx4 := createTestRawTx("tx4")
+
+	p2psimnet := p2psim.NewSimnetWithHandler(nil)
+	mempool, _ := newTestMempool("peer0", p2psimnet)
+
+	assert.Nil(mempool.InsertTransaction(tx1))
+	assert.Nil(mempool.InsertTransaction(tx2))
+	assert.Nil(mempool.InsertTransaction(tx3))
+	assert.Equal(3, mempool.Size())
+
+	committedRawTxs := []common.Bytes{
+		common.Bytes("tx1"),
+	}
+
+	success := mempool.Update(committedRawTxs)
+	assert.True(success)
+	assert.Equal(2, mempool.Size())
+
+	// tx4 and tx1 are from the same address.
+	assert.Nil(mempool.InsertTransaction(tx4))
+	assert.Equal(3, mempool.Size())
+}
+
 func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
 	assert := assert.New(t)
 
