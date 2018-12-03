@@ -267,7 +267,7 @@ func (conn *Connection) sendRoutine() {
 		select {
 		case <-conn.ctx.Done():
 			conn.stopped = true
-			return
+			break
 		case <-conn.flushTimer.Ch:
 			conn.flush()
 		case <-conn.pingTimer.Ch:
@@ -339,7 +339,7 @@ func (conn *Connection) recvRoutine() {
 		select {
 		case <-conn.ctx.Done():
 			conn.stopped = true
-			return
+			break
 		default:
 		}
 
@@ -348,12 +348,11 @@ func (conn *Connection) recvRoutine() {
 
 		var packet Packet
 		err := rlp.Decode(conn.bufReader, &packet)
-		conn.recvMonitor.Update(int(1))
 		if err != nil {
 			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
-			continue
+			break
 		}
-
+		conn.recvMonitor.Update(int(1))
 		switch packet.ChannelID {
 		case common.ChannelIDPing:
 			conn.handlePingPong(&packet)
@@ -480,12 +479,11 @@ func (conn *Connection) GetNetconn() net.Conn {
 }
 
 func (conn *Connection) stopForError(r interface{}) {
+	log.Errorf("[p2p] Connection error: %v", r)
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
 		conn.Stop()
 		if conn.onError != nil {
 			conn.onError(r)
-		} else {
-			log.Errorf("[p2p] Connection error: %v", r)
 		}
 	}
 }

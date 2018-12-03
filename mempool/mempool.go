@@ -305,6 +305,7 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 		numRemoved := txGroup.RemoveTxs(committedRawTxMap)
 		mp.size -= numRemoved
 		if txGroup.IsEmpty() {
+			delete(mp.addressToTxGroup, txGroup.address)
 			elemsTobeRemoved = append(elemsTobeRemoved, txGroup)
 		}
 	}
