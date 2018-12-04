@@ -270,3 +270,5 @@ testImports:
   version: e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f
 - name: gopkg.in/check.v1
   version: 788fd78401277ebd861206a03c884797c6ec5541
+- name: github.com/aws/aws-sdk-go
+  version: ddc06f9fad886ea5daa5f828f3ca094084f8c2a7

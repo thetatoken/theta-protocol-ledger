@@ -101,6 +101,11 @@ func (s *LedgerState) Finalized() *StoreView {
 	return s.finalized
 }
 
+// DB returns the db of the ledger state
+func (s *LedgerState) DB() database.Database {
+	return s.db
+}
+
 // Commit stores the current delivered view as committed, starts new delivered/checked state and
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {

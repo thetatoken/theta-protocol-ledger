@@ -47,6 +47,11 @@ func NewLedger(chainID string, db database.Database, consensus core.ConsensusEng
 	return ledger
 }
 
+// State returns the state of the ledger
+func (ledger *Ledger) State() *st.LedgerState {
+	return ledger.state
+}
+
 // GetScreenedSnapshot returns a snapshot of screened ledger state to query about accounts, etc.
 func (ledger *Ledger) GetScreenedSnapshot() (*st.StoreView, error) {
 	ledger.mu.RLock()

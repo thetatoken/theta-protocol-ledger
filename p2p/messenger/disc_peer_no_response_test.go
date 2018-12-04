@@ -66,6 +66,7 @@ func TestPeerFailureHandling(t *testing.T) {
 			t.Logf("Inbound peer detected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
 			inboundDetectedChan <- true
 		} else {
+			t.Logf("Inbound peer listener error: %v", err)
 			inboundDetectedChan <- false
 		}
 	})

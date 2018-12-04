@@ -2,6 +2,7 @@ package peer
 
 import (
 	"context"
+	"encoding/hex"
 	"errors"
 	"net"
 	"sync"
@@ -106,6 +107,9 @@ func (peer *Peer) Stop() {
 // Handshake handles the initial signaling between two peers
 // NOTE: need to call peer.Handshake() before peer.Start()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
+	remoteAddr := peer.connection.GetNetconn().RemoteAddr()
+	log.Infof("[p2p] Handshake with %v...", remoteAddr)
+
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
 	var sendError error
@@ -116,21 +120,24 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), &targetPeerNodeInfo) },
 	)
 	if sendError != nil {
-		log.Errorf("[p2p] error during handshake/send: %v", sendError)
+		log.Errorf("[p2p] Error during handshake/send: %v", sendError)
 		return sendError
 	}
 	if recvError != nil {
-		log.Errorf("[p2p] error during handshake/recv: %v", recvError)
+		log.Errorf("[p2p] Error during handshake/recv: %v", recvError)
 		return recvError
 	}
 	peer.connection.GetNetconn().SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
-		log.Errorf("[p2p] error during handshake/recv: %v", err)
+		log.Errorf("[p2p] Error during handshake/recv: %v", err)
 		return err
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
+
+	log.Infof("[p2p] Handshake completed, target address: %v, target public key: %v",
+		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
 
 	return nil
 }
