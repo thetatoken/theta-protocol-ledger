@@ -76,6 +76,14 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	if err != nil {
 		return discMgr, err
 	}
+	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
+		if err == nil {
+			log.Infof("Inbound peer connected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+		} else {
+			log.Errorf("Inbound peer listener error: %v", err)
+		}
+	})
+
 	return discMgr, nil
 }
 

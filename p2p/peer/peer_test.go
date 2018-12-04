@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
@@ -45,8 +47,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 		generatedPeerAAddr := peerANodeInfo.PubKey.Address().Hex()
 		receivedPeerBAddr := outboundPeer.nodeInfo.PubKey.Address().Hex()
-		t.Logf("Generated PeerA nodeInfo.Address: %v", generatedPeerAAddr)
-		t.Logf("Received  PeerB nodeInfo.Address: %v", receivedPeerBAddr)
+		log.Infof("Generated PeerA nodeInfo.Address: %v", generatedPeerAAddr)
+		log.Infof("Received  PeerB nodeInfo.Address: %v", receivedPeerBAddr)
 
 		assert.Equal(receivedPeerBAddr, outboundPeer.ID()) // ID check
 
@@ -80,8 +82,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 	receivedPeerAAddr := inboundPeer.nodeInfo.PubKey.Address().Hex()
 	generatedPeerBAddr := peerBNodeInfo.PubKey.Address().Hex()
-	t.Logf("Received  PeerA nodeInfo.Address: %v", receivedPeerAAddr)
-	t.Logf("Generated PeerB nodeInfo.Address: %v", generatedPeerBAddr)
+	log.Infof("Received  PeerA nodeInfo.Address: %v", receivedPeerAAddr)
+	log.Infof("Generated PeerB nodeInfo.Address: %v", generatedPeerBAddr)
 
 	generatedPeerAAddr := <-generatedPeerAAddrChan
 	receivedPeerBAddr := <-receivedPeerBAddrChan
@@ -109,14 +111,14 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 	matchedChan := make(chan bool)
 	basicReceiveHandler := func(message p2ptypes.Message) error {
-		t.Logf("Received channelID: %v", message.ChannelID)
-		t.Logf("Received bytes: %v", message.Content)
+		log.Infof("Received channelID: %v", message.ChannelID)
+		log.Infof("Received bytes: %v", message.Content)
 		receivedBytes := (message.Content).(common.Bytes)
 		var receivedMsgStr string
 		err := rlp.DecodeBytes(receivedBytes, &receivedMsgStr)
 		assert.Nil(err)
 
-		t.Logf("Received message: %v", receivedMsgStr)
+		log.Infof("Received message: %v", receivedMsgStr)
 		matched := false
 		for i := 0; i < numMsgs; i++ { // messages may arrive out-of-order
 			if messagesAtoB[i] == receivedMsgStr {

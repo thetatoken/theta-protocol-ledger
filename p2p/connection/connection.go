@@ -157,7 +157,9 @@ func (conn *Connection) Start(ctx context.Context) bool {
 	conn.ctx = c
 	conn.cancel = cancel
 
-	conn.wg.Add(2)
+	// NOTE: the life cycle of recvRoutine() is not managed by
+	//       the wg since rlp.Decode() is a blocking call
+	conn.wg.Add(1)
 
 	go conn.sendRoutine()
 	go conn.recvRoutine()
@@ -267,7 +269,7 @@ func (conn *Connection) sendRoutine() {
 		select {
 		case <-conn.ctx.Done():
 			conn.stopped = true
-			break
+			return
 		case <-conn.flushTimer.Ch:
 			conn.flush()
 		case <-conn.pingTimer.Ch:
@@ -277,12 +279,12 @@ func (conn *Connection) sendRoutine() {
 		case <-conn.sendPulse:
 			conn.sendPacketBatchAndScheduleSendPulse()
 		case <-conn.quitPulse:
-			break
+			return
 		}
 		if err != nil {
 			log.Errorf("[p2p] sendRoutine error: %v", err)
 			conn.stopForError(err)
-			break
+			return
 		}
 	}
 }
@@ -332,14 +334,14 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 // --------------------- Recv goroutine --------------------- //
 
 func (conn *Connection) recvRoutine() {
-	defer conn.wg.Done()
+	//defer conn.wg.Done() // NOTE: rlp.Decode() is a blocking call
 	defer conn.recover()
 
 	for {
 		select {
 		case <-conn.ctx.Done():
 			conn.stopped = true
-			break
+			return
 		default:
 		}
 
@@ -350,7 +352,7 @@ func (conn *Connection) recvRoutine() {
 		err := rlp.Decode(conn.bufReader, &packet)
 		if err != nil {
 			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
-			break
+			return
 		}
 		conn.recvMonitor.Update(int(1))
 		switch packet.ChannelID {
