@@ -241,8 +241,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	// Simulate PeerB
 	peerBIDChan := make(chan string)
 	go func() {
-		// seedPeerNetAddressStrs := []string{peerB1NetAddr, peerB2NetAddr}
-		seedPeerNetAddressStrs := []string{peerB1NetAddr}
+		seedPeerNetAddressStrs := []string{peerB1NetAddr, peerB2NetAddr}
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start(ctx)

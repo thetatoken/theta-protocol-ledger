@@ -170,17 +170,28 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
 	var validAddresses []*netutil.NetAddress
+	allPeers := *(pdmh.discMgr.peerTable.GetAllPeers())
 
 	for i := 0; i < len(message.Addresses); i++ {
-		// for id, addr := range message.Addresses {
 		// id := message.IDs[i]
 		addr := message.Addresses[i]
 		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
+			isExisting := false
+			for _, existingPeer := range allPeers {
+				if existingPeer.NetAddress().Equals(addr) {
+					isExisting = true
+					break
+				}
+			}
+			if !isExisting {
+				validAddresses = append(validAddresses, addr)
+			}
+
+			// srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
+			// pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
 
 			// if !pdmh.discMgr.peerTable.PeerExists(id) {
-			validAddresses = append(validAddresses, addr)
+			// 	validAddresses = append(validAddresses, addr)
 			// } else {
 			// 	log.Infof(">>>>>>>>>>> %v peer exists: %v", pdmh.discMgr.nodeInfo.PubKey.Address, addr)
 			// }
