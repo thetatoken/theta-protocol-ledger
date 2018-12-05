@@ -29,5 +29,8 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		currentTime := time.Now().UTC()
 		err = consensus.WriteCheckpoint("theta_snapshot-"+currentTime.Format("2006-01-02"), block)
 	}
+
+	// sess := session.Must(session.NewSession())
+
 	return
 }
