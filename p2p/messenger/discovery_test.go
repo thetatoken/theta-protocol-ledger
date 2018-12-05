@@ -241,7 +241,8 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	// Simulate PeerB
 	peerBIDChan := make(chan string)
 	go func() {
-		seedPeerNetAddressStrs := []string{peerB1NetAddr, peerB2NetAddr}
+		// seedPeerNetAddressStrs := []string{peerB1NetAddr, peerB2NetAddr}
+		seedPeerNetAddressStrs := []string{peerB1NetAddr}
 		localNetworkAddress := peerBNetAddr
 		discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
 		discMgr.Start(ctx)
@@ -306,7 +307,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 				discDetectedChan <- true
 			}
 		} else {
-			t.Logf("failed to Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+			t.Logf("Failed to connect to discovery peer, error: %v", err)
 			discDetectedChan <- false
 		}
 	})

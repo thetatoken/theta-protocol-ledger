@@ -1,7 +1,22 @@
 package peer
 
 import (
+	"math/rand"
 	"sync"
+
+	mm "github.com/thetatoken/ukulele/common/math"
+	nu "github.com/thetatoken/ukulele/p2p/netutil"
+)
+
+const (
+	// % of total peers known returned by GetSelection.
+	getSelectionPercent = 23
+
+	// min peers that must be returned by GetSelection. Useful for bootstrapping.
+	minGetSelection = 32
+
+	// max peers returned by GetSelection
+	maxGetSelection = 250
 )
 
 //
@@ -89,6 +104,40 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 	defer pt.mutex.Unlock()
 
 	return &pt.peers
+}
+
+// GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
+func (pt *PeerTable) GetSelection() (peerIDs []string, peerAddrs []*nu.NetAddress) {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	if len(pt.peers) == 0 {
+		return nil, nil
+	}
+
+	peers := make([]*Peer, len(pt.peers))
+	copy(peers, pt.peers)
+
+	numPeers := mm.MaxInt(
+		mm.MinInt(minGetSelection, len(peers)),
+		len(peers)*getSelectionPercent/100)
+	numPeers = mm.MinInt(maxGetSelection, numPeers)
+
+	// Fisher-Yates shuffle the array. We only need to do the first
+	// `numPeers' since we are throwing the rest.
+	for i := 0; i < numPeers; i++ {
+		// pick a number between current index and the end
+		j := rand.Intn(len(peers)-i) + i
+		peers[i], peers[j] = peers[j], peers[i]
+	}
+
+	// slice off the limit we are willing to share.
+	peers = peers[:numPeers]
+	for _, peer := range peers {
+		peerIDs = append(peerIDs, peer.ID())
+		peerAddrs = append(peerAddrs, peer.netAddress)
+	}
+	return
 }
 
 // GetTotalNumPeers returns the total number of peers in the PeerTable
