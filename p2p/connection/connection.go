@@ -169,6 +169,7 @@ func (conn *Connection) Start(ctx context.Context) bool {
 // Wait suspends the caller goroutine
 func (conn *Connection) Wait() {
 	conn.wg.Wait()
+	conn.netconn.Close()
 }
 
 // CancelConnection for testing purpose only
@@ -179,8 +180,6 @@ func (conn *Connection) CancelConnection() {
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
 	conn.cancel()
-	conn.wg.Wait()
-	conn.netconn.Close()
 }
 
 // SetMessageParser sets the message parser for the connection
