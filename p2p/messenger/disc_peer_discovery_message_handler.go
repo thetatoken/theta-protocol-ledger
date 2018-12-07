@@ -163,38 +163,33 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	// peerIDs, peerAddrs := pdmh.discMgr.peerTable.GetSelection()
-	addresses := pdmh.discMgr.addrBook.GetSelection()
-	pdmh.sendAddresses(peer, nil, addresses)
+	peerIDs, addresses := pdmh.discMgr.peerTable.GetSelection()
+	var peerAddrs []*nu.NetAddress
+	for i := 0; i < len(addresses); i++ {
+		addr := addresses[i]
+		if pdmh.discMgr.addrBook.AddressExists(addr.String()) {
+			peerAddrs = append(peerAddrs, addr)
+		} else {
+			addr.Port = netutil.DefaultPort
+			peerAddrs = append(peerAddrs, addr)
+		}
+	}
+	pdmh.sendAddresses(peer, peerIDs, peerAddrs)
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
 	var validAddresses []*netutil.NetAddress
-	allPeers := *(pdmh.discMgr.peerTable.GetAllPeers())
 
 	for i := 0; i < len(message.Addresses); i++ {
-		// id := message.IDs[i]
+		id := message.IDs[i]
 		addr := message.Addresses[i]
 		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			isExisting := false
-			for _, existingPeer := range allPeers {
-				if existingPeer.NetAddress().Equals(addr) {
-					isExisting = true
-					break
-				}
-			}
-			if !isExisting {
+			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
+			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
+
+			if !pdmh.discMgr.peerTable.PeerExists(id) {
 				validAddresses = append(validAddresses, addr)
 			}
-
-			// srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			// pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
-
-			// if !pdmh.discMgr.peerTable.PeerExists(id) {
-			// 	validAddresses = append(validAddresses, addr)
-			// } else {
-			// 	log.Infof(">>>>>>>>>>> %v peer exists: %v", pdmh.discMgr.nodeInfo.PubKey.Address, addr)
-			// }
 		}
 	}
 	if len(validAddresses) > 0 {
