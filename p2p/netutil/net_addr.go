@@ -13,8 +13,6 @@ import (
 	"time"
 )
 
-const DefaultPort = 1688
-
 // NetAddress defines information about a peer on the network
 // including its IP address, and port.
 type NetAddress struct {

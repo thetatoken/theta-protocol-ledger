@@ -53,3 +53,5 @@ func (se StackError) String() string {
 func (se StackError) Error() string {
 	return se.String()
 }
+
+const DefaultPort = 1688

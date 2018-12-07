@@ -170,7 +170,7 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 		if pdmh.discMgr.addrBook.AddressExists(addr.String()) {
 			peerAddrs = append(peerAddrs, addr)
 		} else {
-			addr.Port = netutil.DefaultPort
+			addr.Port = types.DefaultPort
 			peerAddrs = append(peerAddrs, addr)
 		}
 	}
@@ -184,8 +184,8 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 		id := message.IDs[i]
 		addr := message.Addresses[i]
 		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
+			// srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
+			// pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
 
 			if !pdmh.discMgr.peerTable.PeerExists(id) {
 				validAddresses = append(validAddresses, addr)
