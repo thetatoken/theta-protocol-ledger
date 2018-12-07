@@ -333,6 +333,6 @@ func (rm *RequestManager) dumpReadyBlocks(x *list.Element) {
 		}
 		delete(rm.pendingBlocksByHash, hash.String())
 		rm.pendingBlocks.Remove(pendingBlockEl)
-		rm.C <- pendingBlock.block
+		rm.syncMgr.PassdownMessage(pendingBlock.block)
 	}
 }
