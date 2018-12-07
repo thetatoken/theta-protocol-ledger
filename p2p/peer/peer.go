@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
-	"flag"
-	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -15,7 +13,6 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	nu "github.com/thetatoken/ukulele/p2p/netutil"
-	"github.com/thetatoken/ukulele/p2p/types"
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/rlp"
 )
@@ -130,7 +127,8 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		log.Errorf("[p2p] Error during handshake/recv: %v", recvError)
 		return recvError
 	}
-	peer.connection.GetNetconn().SetDeadline(time.Time{})
+	netconn := peer.connection.GetNetconn()
+	netconn.SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
 		log.Errorf("[p2p] Error during handshake/recv: %v", err)
@@ -138,6 +136,10 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
+
+	if !peer.isOutbound {
+		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
+	}
 
 	log.Infof("[p2p] Handshake completed, target address: %v, target public key: %v",
 		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
@@ -188,6 +190,11 @@ func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
 }
 
+// SetNetAddress sets the network address of the peer
+func (peer *Peer) SetNetAddress(netAddr *nu.NetAddress) {
+	peer.netAddress = netAddr
+}
+
 // NetAddress returns the network address of the peer
 func (peer *Peer) NetAddress() *nu.NetAddress {
 	return peer.netAddress
@@ -215,32 +222,16 @@ func createPeer(netconn net.Conn, isOutbound bool,
 		log.Errorf("[p2p] Failed to create connection")
 		return nil
 	}
+	var netAddress *nu.NetAddress
+	if isOutbound {
+		netAddress = nu.NewNetAddress(netconn.RemoteAddr())
+	}
 	peer := &Peer{
 		connection: connection,
 		isOutbound: isOutbound,
-		// netAddress: nu.NewNetAddress(netconn.RemoteAddr()),
-		netAddress: GetPeerNetAddress(netconn.RemoteAddr(), isOutbound),
+		netAddress: netAddress,
 		config:     peerConfig,
 		wg:         &sync.WaitGroup{},
 	}
 	return peer
-}
-
-func GetPeerNetAddress(addr net.Addr, isOutbound bool) *nu.NetAddress {
-	tcpAddr, ok := addr.(*net.TCPAddr)
-	if !ok {
-		if flag.Lookup("test.v") == nil { // normal run
-			panic(fmt.Sprintf("Only TCPAddrs are supported. Got: %v", addr))
-		} else { // in testing
-			return nu.NewNetAddressIPPort(net.IP("0.0.0.0"), 0)
-		}
-	}
-	ip := tcpAddr.IP
-	var port uint16
-	if isOutbound {
-		port = uint16(tcpAddr.Port)
-	} else {
-		port = types.DefaultPort
-	}
-	return nu.NewNetAddressIPPort(ip, port)
 }

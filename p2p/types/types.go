@@ -22,13 +22,15 @@ type Message struct {
 type NodeInfo struct {
 	PubKey      *crypto.PublicKey `rlp:"-"`
 	PubKeyBytes common.Bytes      // needed for RLP serialization
+	Port        uint16
 }
 
 // CreateNodeInfo creates an instance of NodeInfo
-func CreateNodeInfo(pubKey *crypto.PublicKey) NodeInfo {
+func CreateNodeInfo(pubKey *crypto.PublicKey, port uint16) NodeInfo {
 	nodeInfo := NodeInfo{
 		PubKey:      pubKey,
 		PubKeyBytes: pubKey.ToBytes(),
+		Port:        port,
 	}
 	return nodeInfo
 }
@@ -53,5 +55,3 @@ func (se StackError) String() string {
 func (se StackError) Error() string {
 	return se.String()
 }
-
-const DefaultPort = 1688
