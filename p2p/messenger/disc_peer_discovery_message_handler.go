@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
-	"strings"
 	"sync"
 	"time"
 
@@ -182,9 +181,6 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
 	var validAddresses []*netutil.NetAddress
-	if pdmh.discMgr.nodeInfo.Port == uint16(24533) && strings.Split(peer.GetRemoteAddress().String(), ":")[1] == "24524" {
-		log.Infof(">>>>>>>>>>>>>>>> %v", message.Addresses)
-	}
 
 	for i := 0; i < len(message.Addresses); i++ {
 		id := message.IDs[i]
@@ -194,9 +190,6 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
 
 			if !pdmh.discMgr.peerTable.PeerExists(id) {
-				if pdmh.discMgr.nodeInfo.Port == uint16(24533) && strings.Split(peer.GetRemoteAddress().String(), ":")[1] == "24524" {
-					log.Infof("------------------ %v", addr)
-				}
 				validAddresses = append(validAddresses, addr)
 			}
 		}
@@ -206,7 +199,7 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	}
 }
 
-// SetDiscoveryCallback sets the inbound callback function
+// SetDiscoveryCallback sets the discovery callback function
 func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCallback) {
 	pdmh.discoveryCallback = disccb
 }

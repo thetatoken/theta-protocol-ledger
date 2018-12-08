@@ -164,7 +164,7 @@ func (a *AddrBook) OurAddresses() []*nu.NetAddress {
 func (a *AddrBook) AddAddress(addr *nu.NetAddress, src *nu.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Infof("[p2p] Add address to book, addr: %v, src: %v", addr, src)
+	// log.Infof("[p2p] Add address to book, addr: %v, src: %v", addr, src)
 	a.addAddress(addr, src)
 }
 
@@ -311,14 +311,14 @@ func (a *AddrBook) GetSelection() []*nu.NetAddress {
 	return allAddr[:numAddresses]
 }
 
-// AddressExists indicates whether the AddressBoook has the address
-func (a *AddrBook) AddressExists(address string) bool {
-	a.mtx.Lock()
-	defer a.mtx.Unlock()
+// // AddressExists indicates whether the AddressBoook has the address
+// func (a *AddrBook) AddressExists(address string) bool {
+// 	a.mtx.Lock()
+// 	defer a.mtx.Unlock()
 
-	_, exists := a.addrLookup[address]
-	return exists
-}
+// 	_, exists := a.addrLookup[address]
+// 	return exists
+// }
 
 /* Loading & Saving */
 
