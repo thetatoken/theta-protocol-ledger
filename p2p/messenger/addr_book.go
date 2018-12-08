@@ -311,15 +311,6 @@ func (a *AddrBook) GetSelection() []*nu.NetAddress {
 	return allAddr[:numAddresses]
 }
 
-// // AddressExists indicates whether the AddressBoook has the address
-// func (a *AddrBook) AddressExists(address string) bool {
-// 	a.mtx.Lock()
-// 	defer a.mtx.Unlock()
-
-// 	_, exists := a.addrLookup[address]
-// 	return exists
-// }
-
 /* Loading & Saving */
 
 type addrBookJSON struct {

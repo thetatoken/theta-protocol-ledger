@@ -164,18 +164,6 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
 	peerIDs, peerAddrs := pdmh.discMgr.peerTable.GetSelection()
-	// peerIDs, addresses := pdmh.discMgr.peerTable.GetSelection()
-	// var peerAddrs []*nu.NetAddress
-	// for i := 0; i < len(addresses); i++ {
-	// 	addr := addresses[i]
-	// 	if pdmh.discMgr.addrBook.AddressExists(addr.String()) {
-	// 		peerAddrs = append(peerAddrs, addr)
-	// 	} else {
-	// 		addr.Port = types.DefaultPort
-	// 		peerAddrs = append(peerAddrs, addr)
-	// 	}
-	// }
-
 	pdmh.sendAddresses(peer, peerIDs, peerAddrs)
 }
 
