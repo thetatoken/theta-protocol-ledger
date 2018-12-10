@@ -174,9 +174,6 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 		id := message.IDs[i]
 		addr := message.Addresses[i]
 		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
-
 			if !pdmh.discMgr.peerTable.PeerExists(id) {
 				validAddresses = append(validAddresses, addr)
 			}

@@ -217,8 +217,7 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		return errors.New(errMsg)
 	}
 
-	// netAddr := pr.GetPeerNetAddress(peer.GetRemoteAddress(), peer.IsOutbound())
-	// discMgr.addrBook.AddAddress(netAddr, netAddr)
+	discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
 
 	return nil
 }
