@@ -286,7 +286,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	localNetworkAddress := peerCNetAddr
 	discMgr := newTestPeerDiscoveryManagerAndMessenger(seedPeerNetAddressStrs, localNetworkAddress)
 
-	// discDetectedChan := make(chan bool)
+	discDetectedChan := make(chan bool)
 	discAddresses := map[string]bool{
 		peerA1NetAddr:    false,
 		peerA2NetAddr:    false,
@@ -298,20 +298,30 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	}
 	numDiscAddresses := len(discAddresses)
 
-	// discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
-	// 	if err == nil {
-	// 		_, ok := discAddresses[peer.NetAddress().String()]
-	// 		if ok {
-	// 			log.Errorf("================ Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-	// 			t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-	// 			delete(discAddresses, peer.NetAddress().String())
-	// 			discDetectedChan <- true
-	// 		}
-	// 	} else {
-	// 		t.Logf("Failed to connect to discovery peer, error: %v", err)
-	// 		discDetectedChan <- false
-	// 	}
-	// })
+	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
+		if err == nil {
+			_, ok := discAddresses[peer.NetAddress().String()]
+			if ok {
+				t.Logf("Inbound peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
+				delete(discAddresses, peer.NetAddress().String())
+				discDetectedChan <- true
+			}
+		} else {
+			t.Logf("Inbound peer listener error: %v", err)
+		}
+	})
+	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
+		if err == nil {
+			_, ok := discAddresses[peer.NetAddress().String()]
+			if ok {
+				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
+				delete(discAddresses, peer.NetAddress().String())
+				discDetectedChan <- true
+			}
+		} else {
+			t.Logf("Failed to connect to discovery peer, error: %v", err)
+		}
+	})
 	discMgr.Start(ctx)
 
 	numPeers := len(seedPeerNetAddressStrs)
@@ -320,12 +330,10 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		assert.True(connected)
 	}
 
-	// for i := 0; i < numDiscAddresses; i++ {
-	// 	discDetected := <-discDetectedChan
-	// 	assert.True(discDetected)
-	// }
-
-	time.Sleep(time.Second * 20)
+	for i := 0; i < numDiscAddresses; i++ {
+		discDetected := <-discDetectedChan
+		assert.True(discDetected)
+	}
 
 	allPeers := discMgr.peerTable.GetAllPeers()
 	assert.Equal(numDiscAddresses+2, len(*allPeers))
