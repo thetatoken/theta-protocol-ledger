@@ -61,6 +61,12 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 		return result.Error("the contract initiator account balance is %v, but required minimal balance is %v", initiatorAccount.Balance, minimalBalance)
 	}
 
+	numAccountsAffected := len(tx.Splits) + 1
+	if numAccountsAffected > types.MaxAccountsAffectedPerTx {
+		return result.Error("This allows one trasaction to modify many accounts. At most %v accounts are allowed per transaction.",
+			types.MaxAccountsAffectedPerTx)
+	}
+
 	totalPercentage := uint(0)
 	for _, split := range tx.Splits {
 		percentage := split.Percentage

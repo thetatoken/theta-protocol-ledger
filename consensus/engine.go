@@ -298,7 +298,7 @@ func (e *ConsensusEngine) vote() {
 		ChannelID: common.ChannelIDVote,
 		Content:   data,
 	}
-	e.AddMessage(&vote)
+	e.handleVote(vote)
 	e.network.Broadcast(voteMsg)
 }
 

@@ -12,6 +12,9 @@ const (
 
 	// MinimumTransactionFeeGammaWei specifies the minimum fee for a regular transaction
 	MinimumTransactionFeeGammaWei uint64 = 1e12
+
+	// MaxAccountsAffectedPerTx specifies the max number of accounts one transaction is allowed to modify to avoid spamming
+	MaxAccountsAffectedPerTx = 10000
 )
 
 const (

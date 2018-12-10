@@ -93,8 +93,6 @@ func (sm *SyncManager) mainLoop() {
 			return
 		case msg := <-sm.incoming:
 			sm.processMessage(msg)
-		case block := <-sm.requestMgr.C:
-			sm.consumer.AddMessage(block)
 		}
 	}
 }
@@ -148,6 +146,11 @@ func (sm *SyncManager) processMessage(message p2ptypes.Message) {
 			"message": message,
 		}).Panic("Received unknown message")
 	}
+}
+
+// PassdownMessage passes message through to the consumer.
+func (sm *SyncManager) PassdownMessage(msg interface{}) {
+	sm.consumer.AddMessage(msg)
 }
 
 func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
