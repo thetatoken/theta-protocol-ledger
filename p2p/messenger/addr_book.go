@@ -164,7 +164,7 @@ func (a *AddrBook) OurAddresses() []*nu.NetAddress {
 func (a *AddrBook) AddAddress(addr *nu.NetAddress, src *nu.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	// log.Infof("[p2p] Add address to book, addr: %v, src: %v", addr, src)
+	log.Infof("[p2p] Add address to book, addr: %v, src: %v", addr, src)
 	a.addAddress(addr, src)
 }
 
