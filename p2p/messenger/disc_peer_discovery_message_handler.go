@@ -38,7 +38,7 @@ const (
 type PeerDiscoveryMessage struct {
 	Type         PeerDiscoveryMessageType
 	SourcePeerID string
-	Addresses    []*netutil.NetAddress
+	Addresses    []pr.PeerIDAddress
 }
 
 //
@@ -64,7 +64,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg: &sync.WaitGroup{},
+		wg:                         &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -161,37 +161,30 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	addresses := pdmh.discMgr.addrBook.GetSelection()
-	pdmh.sendAddresses(peer, addresses)
+	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
+	pdmh.sendAddresses(peer, peerIDAddrs)
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
-	var validAddresses []*netutil.NetAddress
-	allPeers := *(pdmh.discMgr.peerTable.GetAllPeers())
+	validAddressMap := make(map[*netutil.NetAddress]bool)
 
-	for _, addr := range message.Addresses {
-		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			srcAddr := netutil.NewNetAddress(peer.GetConnection().GetNetconn().RemoteAddr())
-			pdmh.discMgr.addrBook.AddAddress(addr, srcAddr)
-
-			isExisting := false
-			for _, existingPeer := range allPeers {
-				if existingPeer.NetAddress().Equals(addr) {
-					isExisting = true
-					break
-				}
-			}
-			if !isExisting {
-				validAddresses = append(validAddresses, addr)
+	for _, idAddr := range message.Addresses {
+		if idAddr.Addr.Valid() && !pdmh.selfNetAddress.Equals(idAddr.Addr) {
+			if !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
+				validAddressMap[idAddr.Addr] = true
 			}
 		}
 	}
-	if len(validAddresses) > 0 {
+	if len(validAddressMap) > 0 {
+		var validAddresses []*netutil.NetAddress
+		for addr := range validAddressMap {
+			validAddresses = append(validAddresses, addr)
+		}
 		pdmh.connectToOutboundPeers(validAddresses)
 	}
 }
 
-// SetDiscoveryCallback sets the inbound callback function
+// SetDiscoveryCallback sets the discovery callback function
 func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCallback) {
 	pdmh.discoveryCallback = disccb
 }
@@ -267,10 +260,10 @@ func (pdmh *PeerDiscoveryMessageHandler) requestAddresses(peer *pr.Peer) {
 	peer.Send(common.ChannelIDPeerDiscovery, message)
 }
 
-func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, addresses []*netutil.NetAddress) {
+func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDAddrs []pr.PeerIDAddress) {
 	message := PeerDiscoveryMessage{
 		Type:      peerAddressesReplyType,
-		Addresses: addresses,
+		Addresses: peerIDAddrs,
 	}
 	peer.Send(common.ChannelIDPeerDiscovery, message)
 }

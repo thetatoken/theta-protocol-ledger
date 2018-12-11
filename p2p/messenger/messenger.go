@@ -53,12 +53,12 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey),
+		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey, uint16(port)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}
 
-	localNetAddress := "127.0.0.1:" + strconv.Itoa(port)
+	localNetAddress := "0.0.0.0:" + strconv.Itoa(port)
 	discMgrConfig := GetDefaultPeerDiscoveryManagerConfig()
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,

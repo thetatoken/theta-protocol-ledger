@@ -127,7 +127,8 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		log.Errorf("[p2p] Error during handshake/recv: %v", recvError)
 		return recvError
 	}
-	peer.connection.GetNetconn().SetDeadline(time.Time{})
+	netconn := peer.connection.GetNetconn()
+	netconn.SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
 		log.Errorf("[p2p] Error during handshake/recv: %v", err)
@@ -135,6 +136,10 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
+
+	if !peer.isOutbound {
+		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
+	}
 
 	log.Infof("[p2p] Handshake completed, target address: %v, target public key: %v",
 		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
@@ -185,6 +190,11 @@ func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
 }
 
+// SetNetAddress sets the network address of the peer
+func (peer *Peer) SetNetAddress(netAddr *nu.NetAddress) {
+	peer.netAddress = netAddr
+}
+
 // NetAddress returns the network address of the peer
 func (peer *Peer) NetAddress() *nu.NetAddress {
 	return peer.netAddress
@@ -212,10 +222,14 @@ func createPeer(netconn net.Conn, isOutbound bool,
 		log.Errorf("[p2p] Failed to create connection")
 		return nil
 	}
+	var netAddress *nu.NetAddress
+	if isOutbound {
+		netAddress = nu.NewNetAddress(netconn.RemoteAddr())
+	}
 	peer := &Peer{
 		connection: connection,
 		isOutbound: isOutbound,
-		netAddress: nu.NewNetAddress(netconn.RemoteAddr()),
+		netAddress: netAddress,
 		config:     peerConfig,
 		wg:         &sync.WaitGroup{},
 	}

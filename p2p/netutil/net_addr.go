@@ -26,6 +26,11 @@ type NetAddress struct {
 // using 0.0.0.0:0. When normal run, other net.Addr (except TCP) will
 // panic.
 func NewNetAddress(addr net.Addr) *NetAddress {
+	netAddr := NewNetAddressWithEnforcedPort(addr, -1)
+	return netAddr
+}
+
+func NewNetAddressWithEnforcedPort(addr net.Addr, enforcedPort int) *NetAddress {
 	tcpAddr, ok := addr.(*net.TCPAddr)
 	if !ok {
 		if flag.Lookup("test.v") == nil { // normal run
@@ -35,7 +40,13 @@ func NewNetAddress(addr net.Addr) *NetAddress {
 		}
 	}
 	ip := tcpAddr.IP
-	port := uint16(tcpAddr.Port)
+
+	var port uint16
+	if enforcedPort >= 0 {
+		port = uint16(enforcedPort)
+	} else {
+		port = uint16(tcpAddr.Port)
+	}
 	return NewNetAddressIPPort(ip, port)
 }
 
