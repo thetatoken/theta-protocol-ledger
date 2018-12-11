@@ -58,7 +58,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 		wg:            &sync.WaitGroup{},
 	}
 
-	localNetAddress := "127.0.0.1:" + strconv.Itoa(port)
+	localNetAddress := "0.0.0.0:" + strconv.Itoa(port)
 	discMgrConfig := GetDefaultPeerDiscoveryManagerConfig()
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
