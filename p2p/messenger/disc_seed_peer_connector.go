@@ -58,8 +58,6 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 		spc.seedPeerNetAddresses = append(spc.seedPeerNetAddresses, *seedNetAddress)
 	}
 
-	spc.discMgr.addrBook.Save()
-
 	return spc, nil
 }
 

@@ -13,7 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p/netutil"
-	nu "github.com/thetatoken/ukulele/p2p/netutil"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
 	"github.com/thetatoken/ukulele/p2p/types"
 )
@@ -39,8 +38,7 @@ const (
 type PeerDiscoveryMessage struct {
 	Type         PeerDiscoveryMessageType
 	SourcePeerID string
-	IDs          []string
-	Addresses    []*nu.NetAddress
+	Addresses    []pr.PeerIDAddress
 }
 
 //
@@ -163,23 +161,25 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	peerIDs, peerAddrs := pdmh.discMgr.peerTable.GetSelection()
-	pdmh.sendAddresses(peer, peerIDs, peerAddrs)
+	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
+	pdmh.sendAddresses(peer, peerIDAddrs)
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
-	var validAddresses []*netutil.NetAddress
+	validAddressMap := make(map[*netutil.NetAddress]bool)
 
-	for i := 0; i < len(message.Addresses); i++ {
-		id := message.IDs[i]
-		addr := message.Addresses[i]
-		if addr.Valid() && !pdmh.selfNetAddress.Equals(addr) {
-			if !pdmh.discMgr.peerTable.PeerExists(id) {
-				validAddresses = append(validAddresses, addr)
+	for _, idAddr := range message.Addresses {
+		if idAddr.Addr.Valid() && !pdmh.selfNetAddress.Equals(idAddr.Addr) {
+			if !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
+				validAddressMap[idAddr.Addr] = true
 			}
 		}
 	}
-	if len(validAddresses) > 0 {
+	if len(validAddressMap) > 0 {
+		var validAddresses []*netutil.NetAddress
+		for addr := range validAddressMap {
+			validAddresses = append(validAddresses, addr)
+		}
 		pdmh.connectToOutboundPeers(validAddresses)
 	}
 }
@@ -260,11 +260,10 @@ func (pdmh *PeerDiscoveryMessageHandler) requestAddresses(peer *pr.Peer) {
 	peer.Send(common.ChannelIDPeerDiscovery, message)
 }
 
-func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDs []string, peerAddrs []*nu.NetAddress) {
+func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDAddrs []pr.PeerIDAddress) {
 	message := PeerDiscoveryMessage{
 		Type:      peerAddressesReplyType,
-		IDs:       peerIDs,
-		Addresses: peerAddrs,
+		Addresses: peerIDAddrs,
 	}
 	peer.Send(common.ChannelIDPeerDiscovery, message)
 }

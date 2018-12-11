@@ -29,6 +29,11 @@ type PeerTable struct {
 	peers   []*Peer          // For iteration with deterministic order
 }
 
+type PeerIDAddress struct {
+	ID   string
+	Addr *nu.NetAddress
+}
+
 // CreatePeerTable creates an instance of the PeerTable
 func CreatePeerTable() PeerTable {
 	return PeerTable{
@@ -107,12 +112,12 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
-func (pt *PeerTable) GetSelection() (peerIDs []string, peerAddrs []*nu.NetAddress) {
+func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	if len(pt.peers) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	peers := make([]*Peer, len(pt.peers))
@@ -134,8 +139,11 @@ func (pt *PeerTable) GetSelection() (peerIDs []string, peerAddrs []*nu.NetAddres
 	// slice off the limit we are willing to share.
 	peers = peers[:numPeers]
 	for _, peer := range peers {
-		peerIDs = append(peerIDs, peer.ID())
-		peerAddrs = append(peerAddrs, peer.netAddress)
+		peerIDAddr := PeerIDAddress{
+			ID:   peer.ID(),
+			Addr: peer.netAddress,
+		}
+		peerIDAddrs = append(peerIDAddrs, peerIDAddr)
 	}
 	return
 }
