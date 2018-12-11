@@ -316,17 +316,28 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	}
 	numDiscAddresses := len(discAddresses)
 
-	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
+	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
 		if err == nil {
 			_, ok := discAddresses[peer.NetAddress().String()]
 			if ok {
-				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+				t.Logf("Inbound peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
 				delete(discAddresses, peer.NetAddress().String())
 				discDetectedChan <- true
 			}
 		} else {
-			t.Logf("failed to Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-			discDetectedChan <- false
+			t.Logf("Inbound peer listener error: %v", err)
+		}
+	})
+	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
+		if err == nil {
+			_, ok := discAddresses[peer.NetAddress().String()]
+			if ok {
+				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
+				delete(discAddresses, peer.NetAddress().String())
+				discDetectedChan <- true
+			}
+		} else {
+			t.Logf("failed to Discovery peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
 		}
 	})
 	discMgr.Start()

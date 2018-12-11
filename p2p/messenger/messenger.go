@@ -53,7 +53,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey),
+		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey, uint16(port)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}

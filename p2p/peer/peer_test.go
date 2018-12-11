@@ -40,7 +40,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	go func() {
 		outboundPeer := newOutboundPeer("127.0.0.1:" + strconv.Itoa(port))
 		randPeerPubKey := p2ptypes.GetTestRandPubKey()
-		peerANodeInfo := p2ptypes.CreateNodeInfo(randPeerPubKey)
+		peerANodeInfo := p2ptypes.CreateNodeInfo(randPeerPubKey, uint16(port))
 		err := outboundPeer.Handshake(&peerANodeInfo) // send out PeerA's node info
 		assert.Nil(err)
 		assert.True(outboundPeer.IsOutbound())
@@ -75,7 +75,7 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 	// Handshake checks
 	inboundPeer := newInboundPeer(netconn)
 	peerBPubKey := p2ptypes.GetTestRandPubKey()
-	peerBNodeInfo := p2ptypes.CreateNodeInfo(peerBPubKey)
+	peerBNodeInfo := p2ptypes.CreateNodeInfo(peerBPubKey, uint16(port))
 	err = inboundPeer.Handshake(&peerBNodeInfo) // send out PeerB's node info
 	assert.Nil(err)
 	assert.False(inboundPeer.IsOutbound())

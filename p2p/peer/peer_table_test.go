@@ -3,6 +3,8 @@ package peer
 import (
 	"fmt"
 	"net"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -149,7 +151,10 @@ func newSimulatedInboundPeer(netconn net.Conn, pubKey *crypto.PublicKey) *Peer {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create outbound peer: %v", err))
 	}
-	inboundPeer.nodeInfo = p2ptypes.CreateNodeInfo(pubKey)
+
+	portStr := strings.Split(netconn.LocalAddr().String(), ":")[1]
+	port, _ := strconv.ParseUint(portStr, 16, 16)
+	inboundPeer.nodeInfo = p2ptypes.CreateNodeInfo(pubKey, uint16(port))
 	return inboundPeer
 }
 

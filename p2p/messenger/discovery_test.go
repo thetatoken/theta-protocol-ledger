@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -297,17 +298,28 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	}
 	numDiscAddresses := len(discAddresses)
 
-	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
+	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
 		if err == nil {
 			_, ok := discAddresses[peer.NetAddress().String()]
 			if ok {
-				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+				t.Logf("Inbound peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
 				delete(discAddresses, peer.NetAddress().String())
 				discDetectedChan <- true
 			}
 		} else {
-			t.Logf("failed to Discovery peer added, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-			discDetectedChan <- false
+			t.Logf("Inbound peer listener error: %v", err)
+		}
+	})
+	discMgr.peerDiscMsgHandler.SetDiscoveryCallback(func(peer *pr.Peer, err error) {
+		if err == nil {
+			_, ok := discAddresses[peer.NetAddress().String()]
+			if ok {
+				t.Logf("Discovery peer added, ID: %v, from: %v", peer.ID(), peer.NetAddress())
+				delete(discAddresses, peer.NetAddress().String())
+				discDetectedChan <- true
+			}
+		} else {
+			t.Logf("Failed to connect to discovery peer, error: %v", err)
 		}
 	})
 	discMgr.Start(ctx)
@@ -327,7 +339,6 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 	assert.Equal(numDiscAddresses+2, len(*allPeers))
 	t.Logf("---------------- All peers ----------------")
 	for _, peer := range *allPeers {
-		assert.True(peer.IsOutbound())
 		peerID := peer.ID()
 		t.Logf("ID: %v, isOutbound: %v", peer.ID(), peer.IsOutbound())
 		_, ok := peerIds[peerID]
@@ -343,7 +354,9 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 func newTestPeerDiscoveryManager(seedPeerNetAddressStrs []string, localNetworkAddress string) *PeerDiscoveryManager {
 	messenger := (*Messenger)(nil) // not important for the test
 	peerPubKey := p2ptypes.GetTestRandPubKey()
-	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey)
+	portStr := strings.Split(localNetworkAddress, ":")[1]
+	port, _ := strconv.ParseUint(portStr, 16, 16)
+	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey, uint16(port))
 	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"
 	routabilityRestrict := false
 	networkProtocol := "tcp"
