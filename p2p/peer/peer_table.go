@@ -112,7 +112,7 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
-func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
+func (pt *PeerTable) GetSelection(inquirer *Peer) (peerIDAddrs []PeerIDAddress) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
@@ -139,11 +139,13 @@ func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
 	// slice off the limit we are willing to share.
 	peers = peers[:numPeers]
 	for _, peer := range peers {
-		peerIDAddr := PeerIDAddress{
-			ID:   peer.ID(),
-			Addr: peer.netAddress,
+		if inquirer.ID() != peer.ID() {
+			peerIDAddr := PeerIDAddress{
+				ID:   peer.ID(),
+				Addr: peer.netAddress,
+			}
+			peerIDAddrs = append(peerIDAddrs, peerIDAddr)
 		}
-		peerIDAddrs = append(peerIDAddrs, peerIDAddr)
 	}
 	return
 }

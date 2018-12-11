@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -354,7 +353,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 func newTestPeerDiscoveryManager(seedPeerNetAddressStrs []string, localNetworkAddress string) *PeerDiscoveryManager {
 	messenger := (*Messenger)(nil) // not important for the test
 	peerPubKey := p2ptypes.GetTestRandPubKey()
-	portStr := strings.Split(localNetworkAddress, ":")[1]
+	_, portStr, _ := net.SplitHostPort(localNetworkAddress)
 	port, _ := strconv.ParseUint(portStr, 16, 16)
 	peerNodeInfo := p2ptypes.CreateNodeInfo(peerPubKey, uint16(port))
 	addrbookPath := "./.addrbooks/addrbook_" + localNetworkAddress + ".json"

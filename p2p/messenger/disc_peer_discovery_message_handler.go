@@ -161,7 +161,7 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
+	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection(peer)
 	pdmh.sendAddresses(peer, peerIDAddrs)
 }
 
