@@ -36,6 +36,12 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 		return res
 	}
 
+	numAccountsAffected := uint64(len(tx.Inputs) + len(tx.Outputs))
+	if numAccountsAffected > types.MaxAccountsAffectedPerTx {
+		return result.Error("Trasaction modifying too many accounts. At most %v accounts are allowed per transaction.",
+			types.MaxAccountsAffectedPerTx)
+	}
+
 	// Get inputs
 	accounts, res := getInputs(view, tx.Inputs)
 	if res.IsError() {
@@ -102,7 +108,8 @@ func (exec *SendTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.SendTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasSendTx)
+	numAccountsAffected := uint64(len(tx.Inputs) + len(tx.Outputs))
+	gas := new(big.Int).SetUint64(types.GasSendTxPerAccount * numAccountsAffected)
 	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
 	return effectiveGasPrice
 }

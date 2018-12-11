@@ -30,7 +30,7 @@ Transaction Types:
 
 // Gas of regular transactions
 const (
-	GasSendTx             uint64 = 10000
+	GasSendTxPerAccount   uint64 = 5000
 	GasReserveFundTx      uint64 = 10000
 	GasReleaseFundTx      uint64 = 10000
 	GasServicePaymentTx   uint64 = 10000

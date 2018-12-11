@@ -146,6 +146,10 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	ledger.mempool.Lock()
+	defer ledger.mempool.Unlock()
+
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
@@ -177,7 +181,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 	ledger.state.Commit() // commit to persistent storage
 
-	ledger.mempool.Update(blockRawTxs) // clear txs from the mempool
+	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 
 	return result.OK
 }

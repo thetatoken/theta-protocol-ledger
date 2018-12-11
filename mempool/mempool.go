@@ -292,7 +292,12 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
+	return mp.UpdateUnsafe(committedRawTxs)
+}
 
+// UpdateUnsafe is the non-locking version of Update. Caller must call Mempool.Lock() before
+// calling this method.
+func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) bool {
 	committedRawTxMap := make(map[string]bool)
 	for _, rawtx := range committedRawTxs {
 		committedRawTxMap[string(rawtx)] = true
