@@ -80,9 +80,9 @@ func TestSyncManager(t *testing.T) {
 	valSet := core.NewValidatorSet()
 	valMgr := consensus.NewFixedValidatorManager(valSet)
 	db := kvstore.NewKVStore(backend.NewMemDatabase())
-	consensus := consensus.NewConsensusEngine(nil, db, initChain, net1, valMgr)
-	mockMsgConsumer := NewMockMessageConsumer()
 	dispatch := dispatcher.NewDispatcher(net1)
+	consensus := consensus.NewConsensusEngine(nil, db, initChain, dispatch, valMgr)
+	mockMsgConsumer := NewMockMessageConsumer()
 
 	sm := NewSyncManager(initChain, consensus, net1, dispatch, mockMsgConsumer)
 	sm.Start(context.Background())
