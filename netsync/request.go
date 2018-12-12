@@ -17,8 +17,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const RequestOutputChannelSize = 128
-const WorkerPoolSize = 4
 const RequestTimeout = 10 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const RequestQuotaPerSecond = 1000
@@ -58,12 +56,8 @@ func (pb *PendingBlock) UpdateTimestamp() {
 type RequestManager struct {
 	logger *log.Entry
 
-	C chan *core.Block
-
-	ticker   *time.Ticker
-	quota    int
-	workBell chan struct{}
-	work     chan *PendingBlock
+	ticker *time.Ticker
+	quota  int
 
 	wg      *sync.WaitGroup
 	ctx     context.Context
@@ -86,12 +80,8 @@ type RequestManager struct {
 
 func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 	rm := &RequestManager{
-		C: make(chan *core.Block, RequestOutputChannelSize),
-
-		ticker: time.NewTicker(2 * time.Second),
+		ticker: time.NewTicker(1 * time.Second),
 		quota:  RequestQuotaPerSecond,
-		// workBell: make(chan struct{}),
-		work: make(chan *PendingBlock, WorkerPoolSize),
 
 		wg: &sync.WaitGroup{},
 
