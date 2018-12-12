@@ -213,8 +213,8 @@ func (e *ConsensusEngine) AddMessage(msg interface{}) {
 
 func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
-	case *core.Vote:
-		return e.handleVote(*m)
+	case core.Vote:
+		return e.handleVote(m)
 	case *core.Block:
 		e.handleBlock(m)
 	default:
