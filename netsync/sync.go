@@ -336,9 +336,12 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 	sm.requestMgr.AddBlock(block)
 }
 
-func (sm *SyncManager) handleVote(vote *core.Vote) {
-	if !vote.Block.IsEmpty() {
-		sm.requestMgr.AddHash(vote.Block, []string{})
-	}
-	sm.consumer.AddMessage(vote)
+func (sm *SyncManager) handleVote(vote core.Vote) {
+	sm.logger.WithFields(log.Fields{
+		"vote.Hash":  vote.Block.Hex(),
+		"vote.ID":    vote.ID.Hex(),
+		"vote.Epoch": vote.Epoch,
+	}).Debug("Received vote")
+
+	sm.PassdownMessage(vote)
 }

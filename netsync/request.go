@@ -20,17 +20,14 @@ import (
 const RequestOutputChannelSize = 128
 const WorkerPoolSize = 4
 const RequestTimeout = 10 * time.Second
-const RequestQuotaPerSecond = 100
+const MinInventoryRequestInterval = 3 * time.Second
+const RequestQuotaPerSecond = 1000
 
 type RequestState uint8
 
 const (
-	RequestCreated = iota
-	RequestToSendInvReq
-	RequestWaitingInvResp
-	RequestToSendDataReq
+	RequestToSendDataReq = iota
 	RequestWaitingDataResp
-	RequestWaitingParent
 )
 
 type PendingBlock struct {
@@ -46,7 +43,7 @@ func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
 		hash:       x,
 		lastUpdate: time.Now(),
 		peers:      peerIds,
-		status:     RequestCreated,
+		status:     RequestToSendDataReq,
 	}
 }
 
@@ -57,53 +54,6 @@ func (pb *PendingBlock) HasTimedOut() bool {
 func (pb *PendingBlock) UpdateTimestamp() {
 	pb.lastUpdate = time.Now()
 }
-
-// type RequestWorker struct {
-// 	work chan *PendingBlock
-
-// 	wg      *sync.WaitGroup
-// 	ctx     context.Context
-// 	cancel  context.CancelFunc
-// 	stopped bool
-// }
-
-// func NewRequestWorker(work chan *PendingBlock) *RequestWorker {
-// 	return &RequestWorker{
-// 		work: work,
-// 		wg:   &sync.WaitGroup{},
-// 	}
-// }
-
-// func (w *RequestWorker) mainLoop() {
-// 	defer w.wg.Done()
-
-// 	for {
-// 		select {
-// 		case <-w.ctx.Done():
-// 			w.stopped = true
-// 			return
-// 		case pb := <-w.work:
-// 			w.consensus.AddMessage(block)
-// 		}
-// 	}
-// }
-
-// func (w *RequestWorker) Start(ctx context.Context) {
-// 	c, cancel := context.WithCancel(ctx)
-// 	w.ctx = c
-// 	w.cancel = cancel
-
-// 	w.wg.Add(1)
-// 	go w.mainLoop()
-// }
-
-// func (w *RequestWorker) Stop() {
-// 	w.cancel()
-// }
-
-// func (w *RequestWorker) Wait() {
-// 	w.wg.Wait()
-// }
 
 type RequestManager struct {
 	logger *log.Entry
@@ -124,9 +74,11 @@ type RequestManager struct {
 	chain      *blockchain.Chain
 	dispatcher *dispatcher.Dispatcher
 
+	lastInventoryRequest time.Time
+
 	pendingBlocks         *list.List
 	pendingBlocksByHash   map[string]*list.Element
-	pendingBlocksByParent map[string][]*list.Element
+	pendingBlocksByParent map[string][]*core.Block
 
 	endHashCache      []common.Bytes
 	blockRequestCache []common.Bytes
@@ -136,12 +88,14 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 	rm := &RequestManager{
 		C: make(chan *core.Block, RequestOutputChannelSize),
 
-		ticker: time.NewTicker(1 * time.Second),
+		ticker: time.NewTicker(2 * time.Second),
 		quota:  RequestQuotaPerSecond,
 		// workBell: make(chan struct{}),
 		work: make(chan *PendingBlock, WorkerPoolSize),
 
 		wg: &sync.WaitGroup{},
+
+		lastInventoryRequest: time.Now(),
 
 		syncMgr:    syncMgr,
 		chain:      syncMgr.chain,
@@ -149,7 +103,7 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 
 		pendingBlocks:         list.New(),
 		pendingBlocksByHash:   make(map[string]*list.Element),
-		pendingBlocksByParent: make(map[string][]*list.Element),
+		pendingBlocksByParent: make(map[string][]*core.Block),
 	}
 
 	logger := util.GetLoggerForModule("request")
@@ -195,20 +149,31 @@ func (rm *RequestManager) Wait() {
 }
 
 func (rm *RequestManager) tryToDownload() {
+	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
+	if hasUndownloadedBlocks && time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval {
+		rm.logger.WithFields(log.Fields{
+			"pendingBlocks":     rm.pendingBlocks.Len(),
+			"orghaned blocks":   len(rm.pendingBlocksByParent),
+			"current chain tip": rm.syncMgr.consensus.GetTip().Hash().Hex(),
+		}).Info("Fast sync in progress")
+
+		rm.lastInventoryRequest = time.Now()
+		tip := rm.syncMgr.consensus.GetTip()
+		req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash().String()}
+		rm.logger.WithFields(log.Fields{
+			"channelID": req.ChannelID,
+			"startHash": req.Start,
+			"endHash":   req.End,
+		}).Debug("Sending inventory request")
+		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
+	}
+
 	for curr := rm.pendingBlocks.Front(); rm.quota != 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
-		if pendingBlock.status == RequestToSendInvReq ||
-			(pendingBlock.status == RequestWaitingInvResp && pendingBlock.HasTimedOut()) {
-			tip := rm.syncMgr.consensus.GetTip()
-			req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash().String()}
-			rm.logger.WithFields(log.Fields{
-				"channelID": req.ChannelID,
-				"startHash": req.Start,
-				"endHash":   req.End,
-			}).Debug("Sending inventory request")
-			rm.syncMgr.dispatcher.GetInventory([]string{}, req)
-			pendingBlock.status = RequestWaitingInvResp
-			rm.quota--
+		if pendingBlock.block != nil {
+			continue
+		}
+		if len(pendingBlock.peers) == 0 {
 			continue
 		}
 		if pendingBlock.status == RequestToSendDataReq ||
@@ -224,6 +189,7 @@ func (rm *RequestManager) tryToDownload() {
 				"peer":            randomPeerID,
 			}).Debug("Sending data request")
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
+			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingDataResp
 			rm.quota--
 			continue
@@ -232,16 +198,8 @@ func (rm *RequestManager) tryToDownload() {
 }
 
 func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
-	rm.processHash(x, nil, peerIDs)
-}
-
-func (rm *RequestManager) AddBlock(b *core.Block) {
-	rm.processHash(b.Hash(), b, []string{})
-}
-
-func (rm *RequestManager) processHash(x common.Hash, block *core.Block, peerIDs []string) (isAdded bool) {
 	if _, err := rm.chain.FindBlock(x); err == nil {
-		return true
+		return
 	}
 
 	var pendingBlockEl *list.Element
@@ -251,88 +209,77 @@ func (rm *RequestManager) processHash(x common.Hash, block *core.Block, peerIDs 
 		pendingBlock = NewPendingBlock(x, peerIDs)
 		pendingBlockEl = rm.pendingBlocks.PushBack(pendingBlock)
 		rm.pendingBlocksByHash[x.String()] = pendingBlockEl
-	} else {
-		// Add peerIDs to pendingBlock.peers
-		pendingBlock = pendingBlockEl.Value.(*PendingBlock)
-		if len(peerIDs) > 0 && pendingBlock.status == RequestWaitingInvResp {
-			pendingBlock.status = RequestToSendDataReq
-		}
-		for _, xid := range peerIDs {
-			found := false
-			for _, id := range pendingBlock.peers {
-				if id == xid {
-					found = true
-					break
-				}
-			}
-			if !found {
-				pendingBlock.peers = append(pendingBlock.peers, xid)
-			}
-		}
 	}
-
-	if pendingBlock.block == nil {
-		if block == nil {
-			if len(pendingBlock.peers) == 0 {
-				if pendingBlock.status != RequestWaitingInvResp {
-					pendingBlock.status = RequestToSendInvReq
-				}
-				return false
-			}
-
-			if pendingBlock.status != RequestWaitingDataResp {
-				pendingBlock.status = RequestToSendDataReq
-			}
-			return false
-		} else {
-			pendingBlock.block = block
-		}
+	// Add peerIDs to pendingBlock.peers
+	pendingBlock = pendingBlockEl.Value.(*PendingBlock)
+	if pendingBlock.block != nil {
+		return
 	}
-	block = pendingBlock.block
-	parent := block.Parent
-	if !rm.processHash(parent, nil, []string{}) {
-		pendingBlock.status = RequestWaitingParent
-		byParents, ok := rm.pendingBlocksByParent[parent.String()]
-		if !ok {
-			byParents = []*list.Element{}
-		}
+	for _, xid := range peerIDs {
 		found := false
-		for _, child := range byParents {
-			if child.Value.(*PendingBlock).hash == pendingBlock.hash {
+		for _, id := range pendingBlock.peers {
+			if id == xid {
 				found = true
 				break
 			}
 		}
 		if !found {
-			byParents = append(byParents, pendingBlockEl)
+			pendingBlock.peers = append(pendingBlock.peers, xid)
 		}
-		rm.pendingBlocksByParent[parent.String()] = byParents
-		return false
 	}
-
-	rm.dumpReadyBlocks(pendingBlockEl)
-	return true
 }
 
-func (rm *RequestManager) dumpReadyBlocks(x *list.Element) {
-	queue := []*list.Element{x}
-	for len(queue) > 0 {
-		pendingBlockEl := queue[0]
+func (rm *RequestManager) AddBlock(block *core.Block) {
+	if _, err := rm.chain.FindBlock(block.Hash()); err == nil {
+		return
+	}
+	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
-		hash := pendingBlock.hash
+		pendingBlock.block = block
+	}
+	parent := block.Parent
+	if _, err := rm.chain.FindBlock(parent); err == nil {
+		rm.dumpReadyBlocks(block)
+		return
+	}
+	byParents, ok := rm.pendingBlocksByParent[parent.String()]
+	if !ok {
+		byParents = []*core.Block{}
+	}
+	found := false
+	for _, child := range byParents {
+		if child.Hash() == block.Hash() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		byParents = append(byParents, block)
+	}
+	rm.pendingBlocksByParent[parent.String()] = byParents
+}
+
+func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
+	queue := []*core.Block{block}
+	for len(queue) > 0 {
+		block := queue[0]
+		hash := block.Hash().String()
 		queue = queue[1:]
-		if pendingBlock.block != nil {
-			if children, ok := rm.pendingBlocksByParent[hash.String()]; ok {
-				queue = append(queue, children...)
-			}
+
+		if children, ok := rm.pendingBlocksByParent[hash]; ok {
+			queue = append(queue, children...)
+			delete(rm.pendingBlocksByParent, hash)
 		}
 
-		_, err := rm.chain.AddBlock(pendingBlock.block)
+		if pendingBlockEl, ok := rm.pendingBlocksByHash[hash]; ok {
+			rm.pendingBlocks.Remove(pendingBlockEl)
+			delete(rm.pendingBlocksByHash, hash)
+		}
+
+		_, err := rm.chain.AddBlock(block)
 		if err != nil {
 			rm.logger.Panic(err)
 		}
-		delete(rm.pendingBlocksByHash, hash.String())
-		rm.pendingBlocks.Remove(pendingBlockEl)
-		rm.syncMgr.PassdownMessage(pendingBlock.block)
+		rm.syncMgr.PassdownMessage(block)
 	}
 }

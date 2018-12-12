@@ -118,13 +118,6 @@ func TestSyncManager(t *testing.T) {
 		},
 	})
 
-	// node1 should send DataRequest for A2, A3
-	res = <-mockMsgHandler.C
-	msg2, ok := res.(dispatcher.DataRequest)
-	assert.True(ok)
-	assert.Equal(common.ChannelIDBlock, msg2.ChannelID)
-	// assert.Equal([]string{"A3"}, msg2.Entries)
-
 	// node2 replies with A3 first
 	payload, _ = rlp.EncodeToBytes(core.CreateTestBlock("A3", "A2"))
 	net2.Broadcast(types.Message{
@@ -134,12 +127,6 @@ func TestSyncManager(t *testing.T) {
 			Payload:   payload,
 		},
 	})
-
-	res = <-mockMsgHandler.C
-	msg3, ok := res.(dispatcher.DataRequest)
-	assert.True(ok)
-	assert.Equal(common.ChannelIDBlock, msg3.ChannelID)
-	// assert.Equal([]string{"A2"}, msg3.Entries)
 
 	time.Sleep(1 * time.Second)
 
