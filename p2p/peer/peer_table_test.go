@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"strconv"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -152,7 +151,7 @@ func newSimulatedInboundPeer(netconn net.Conn, pubKey *crypto.PublicKey) *Peer {
 		panic(fmt.Sprintf("Failed to create outbound peer: %v", err))
 	}
 
-	portStr := strings.Split(netconn.LocalAddr().String(), ":")[1]
+	_, portStr, _ := net.SplitHostPort(netconn.LocalAddr().String())
 	port, _ := strconv.ParseUint(portStr, 16, 16)
 	inboundPeer.nodeInfo = p2ptypes.CreateNodeInfo(pubKey, uint16(port))
 	return inboundPeer

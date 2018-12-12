@@ -169,10 +169,8 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	validAddressMap := make(map[*netutil.NetAddress]bool)
 
 	for _, idAddr := range message.Addresses {
-		if idAddr.Addr.Valid() && !pdmh.selfNetAddress.Equals(idAddr.Addr) {
-			if !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
-				validAddressMap[idAddr.Addr] = true
-			}
+		if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
+			validAddressMap[idAddr.Addr] = true
 		}
 	}
 	if len(validAddressMap) > 0 {
