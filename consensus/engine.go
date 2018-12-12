@@ -185,6 +185,7 @@ func (e *ConsensusEngine) enterEpoch() {
 		e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
 	} else {
 		e.proposalTimer = time.NewTimer(math.MaxInt64)
+		e.proposalTimer.Stop()
 	}
 }
 
