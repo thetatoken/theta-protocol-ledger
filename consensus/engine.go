@@ -228,14 +228,6 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
 
-	if block.Epoch != e.GetEpoch() {
-		e.logger.WithFields(log.Fields{
-			"block.Epoch": block.Epoch,
-			"block.Hash":  block.Hash().Hex(),
-			"e.epoch":     e.GetEpoch(),
-		}).Debug("Received block from another epoch")
-	}
-
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
 		e.logger.WithFields(log.Fields{
@@ -261,6 +253,16 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"block":           block.Hash().Hex(),
 			"block.StateHash": block.StateHash.Hex(),
 		}).Error("Failed to apply block Txs")
+		return
+	}
+
+	// Skip voting for block older than current best known epoch.
+	if block.Epoch < e.GetEpoch() {
+		e.logger.WithFields(log.Fields{
+			"block.Epoch": block.Epoch,
+			"block.Hash":  block.Hash().Hex(),
+			"e.epoch":     e.GetEpoch(),
+		}).Debug("Skipping voting for block from previous epoch")
 		return
 	}
 
@@ -358,6 +360,18 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
 		return
 	}
+
+	// Ingore outdated votes.
+	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
+	if block.Height < highestCCBlockHeight {
+		e.logger.WithFields(log.Fields{
+			"vote":                 vote,
+			"vote.Block.Height":    block.Height,
+			"HeightCCBlock.Height": highestCCBlockHeight,
+		}).Debug("Ignoring outdated vote")
+		return
+	}
+
 	votes, err := e.state.GetVoteSetByBlock(vote.Block)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
