@@ -116,7 +116,6 @@ func (s *State) Load() (err error) {
 			"stub.Root":  stub.Root,
 			"chain.Root": s.chain.Root.Hash,
 		}).Warn("Ignoring previous consensus state since it is on a different root")
-		s.SetTip()
 		return
 	}
 
@@ -134,7 +133,6 @@ func (s *State) Load() (err error) {
 			s.highestCCBlock = highestCCBlock
 		}
 	}
-	s.SetTip()
 	return
 }
 
@@ -198,23 +196,13 @@ func (s *State) SetLastFinalizedBlock(block *core.ExtendedBlock) error {
 	return s.commit()
 }
 
-// SetTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
-// descendants as the fork-choice rule.
-func (s *State) SetTip() *core.ExtendedBlock {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	ret, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash())
-	s.tip = ret
-	return ret
-}
-
 // GetTip return the block to be extended from.
 func (s *State) GetTip() *core.ExtendedBlock {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.tip
+	tip, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash())
+	return tip
 }
 
 func (s *State) AddVote(vote *core.Vote) error {

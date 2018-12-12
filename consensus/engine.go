@@ -268,11 +268,10 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 }
 
 func (e *ConsensusEngine) vote() {
-	previousTip := e.state.GetTip()
-	tip := e.state.SetTip()
+	tip := e.state.GetTip()
 
 	var vote core.Vote
-	if previousTip.Hash() == tip.Hash() || e.state.GetLastVoteHeight() >= tip.Height {
+	if e.state.GetLastVoteHeight() >= tip.Height {
 		e.logger.WithFields(log.Fields{
 			"lastVoteHeight": e.state.GetLastVoteHeight(),
 			"tip.Hash":       tip.Hash().Hex(),
@@ -368,15 +367,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	}
 
 	return
-}
-
-// setTip sets the block to extended from by next proposal. Currently we use the highest block among highestCCBlock's
-// descendants as the fork-choice rule.
-func (e *ConsensusEngine) setTip() *core.ExtendedBlock {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-
-	return e.state.SetTip()
 }
 
 // GetTip return the block to be extended from.
