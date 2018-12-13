@@ -17,8 +17,6 @@ import (
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/p2p"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store"
 )
@@ -34,7 +32,7 @@ type ConsensusEngine struct {
 	privateKey *crypto.PrivateKey
 
 	chain            *blockchain.Chain
-	network          p2p.Network
+	dispatcher       *dispatcher.Dispatcher
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
 
@@ -57,10 +55,10 @@ type ConsensusEngine struct {
 }
 
 // NewConsensusEngine creates a instance of ConsensusEngine.
-func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *blockchain.Chain, network p2p.Network, validatorManager core.ValidatorManager) *ConsensusEngine {
+func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *blockchain.Chain, dispatcher *dispatcher.Dispatcher, validatorManager core.ValidatorManager) *ConsensusEngine {
 	e := &ConsensusEngine{
-		chain:   chain,
-		network: network,
+		chain:      chain,
+		dispatcher: dispatcher,
 
 		privateKey: privateKey,
 
@@ -76,9 +74,6 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 	}
 
 	logger = util.GetLoggerForModule("consensus")
-	if viper.GetBool(common.CfgLogPrintSelfID) {
-		logger = logger.WithFields(log.Fields{"id": network.ID()})
-	}
 	e.logger = logger
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
@@ -105,11 +100,6 @@ func (e *ConsensusEngine) PrivateKey() *crypto.PrivateKey {
 // Chain return a pointer to the underlying chain store.
 func (e *ConsensusEngine) Chain() *blockchain.Chain {
 	return e.chain
-}
-
-// Network returns a pointer to the underlying network.
-func (e *ConsensusEngine) Network() p2p.Network {
-	return e.network
 }
 
 // GetEpoch returns the current epoch
@@ -195,6 +185,7 @@ func (e *ConsensusEngine) enterEpoch() {
 		e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
 	} else {
 		e.proposalTimer = time.NewTimer(math.MaxInt64)
+		e.proposalTimer.Stop()
 	}
 }
 
@@ -291,16 +282,12 @@ func (e *ConsensusEngine) vote() {
 		e.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
 		return
 	}
-	data := dispatcher.DataResponse{
+	voteMsg := dispatcher.DataResponse{
 		ChannelID: common.ChannelIDVote,
 		Payload:   payload,
 	}
-	voteMsg := p2ptypes.Message{
-		ChannelID: common.ChannelIDVote,
-		Content:   data,
-	}
 	e.handleVote(vote)
-	e.network.Broadcast(voteMsg)
+	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
 func (e *ConsensusEngine) createVote(block common.Hash) core.Vote {
@@ -515,18 +502,14 @@ func (e *ConsensusEngine) propose() {
 		e.logger.WithFields(log.Fields{"proposal": proposal}).Error("Failed to encode proposal")
 		return
 	}
-	data := dispatcher.DataResponse{
+	proposalMsg := dispatcher.DataResponse{
 		ChannelID: common.ChannelIDProposal,
 		Payload:   payload,
-	}
-	proposalMsg := p2ptypes.Message{
-		ChannelID: common.ChannelIDProposal,
-		Content:   data,
 	}
 	_, err = e.chain.AddBlock(block)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Error("Failed to add proposed block to chain")
 	}
 	e.handleBlock(block)
-	e.network.Broadcast(proposalMsg)
+	e.dispatcher.SendData([]string{}, proposalMsg)
 }
