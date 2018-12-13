@@ -32,10 +32,10 @@ func doExportCmd(cmd *cobra.Command, args []string) {
 
 	res, err := client.Call("theta.GenSnapshot", rpc.GenSnapshotArgs{})
 	if err != nil {
-		utils.Error("Failed to get export snapshot details: %v\n", err)
+		utils.Error("Failed to get export snapshot call details: %v\n", err)
 	}
 	if res.Error != nil {
-		utils.Error("Failed to get export snapshot details: %v\n", res.Error)
+		utils.Error("Failed to get export snapshot res details: %v\n", res.Error)
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
 	if err != nil {

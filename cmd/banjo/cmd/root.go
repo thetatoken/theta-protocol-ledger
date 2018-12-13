@@ -5,6 +5,8 @@ import (
 	"os"
 	"path"
 
+	"github.com/thetatoken/ukulele/cmd/banjo/cmd/snapshot"
+
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -41,6 +43,7 @@ func init() {
 	RootCmd.AddCommand(tx.TxCmd)
 	RootCmd.AddCommand(query.QueryCmd)
 	RootCmd.AddCommand(call.CallCmd)
+	RootCmd.AddCommand(snapshot.SnapshotCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
