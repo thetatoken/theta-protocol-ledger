@@ -81,8 +81,8 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		if err != nil {
 			return nil, err
 		}
-		theta, _ := types.ParseCoinAmount("1e5")
-		gamma, _ := types.ParseCoinAmount("1e5")
+		theta, _ := types.ParseCoinAmount("250000000")
+		gamma, _ := types.ParseCoinAmount("1250000000")
 		acc := &types.Account{
 			Address: pubKey.Address(),
 			Balance: types.Coins{
