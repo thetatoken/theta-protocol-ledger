@@ -350,7 +350,7 @@ func (conn *Connection) recvRoutine() {
 		var packet Packet
 		err := rlp.Decode(conn.bufReader, &packet)
 		if err != nil {
-			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v", packet)
+			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return
 		}
 		conn.recvMonitor.Update(int(1))
