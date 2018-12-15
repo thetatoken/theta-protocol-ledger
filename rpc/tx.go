@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"net/http"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/crypto"
 )
 
@@ -25,6 +27,8 @@ func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request, args *Broadcas
 
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
+
+	log.Infof("[rpc] broadcast raw transaction: %v", hex.EncodeToString(txBytes))
 
 	return t.mempool.InsertTransaction(txBytes)
 }
