@@ -18,6 +18,10 @@ import (
 	"github.com/thetatoken/ukulele/store/treestore"
 )
 
+const (
+	LatestSnapshot = "theta_snapshot-latest"
+)
+
 type snapshotRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
@@ -37,11 +41,12 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	}
 	s := t.consensus.GetSummary()
 	currentTime := time.Now().UTC()
-	f, err := os.Create("theta_snapshot-" + s.Root.String() + "-" + strconv.Itoa(int(s.LastVoteHeight)) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_snapshot-" + s.Root.String() + "-" + strconv.Itoa(int(s.LastVoteHeight)) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
-	writer := bufio.NewWriter(f)
+	defer file.Close()
+	writer := bufio.NewWriter(file)
 
 	db := t.ledger.State().DB()
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
@@ -69,12 +74,14 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 }
 
 func (t *ThetaRPCServer) LoadSnapshot(r *http.Request, args *GenSnapshotArgs, result *GenSnapshotResult) (err error) {
-	// sess := session.Must(session.NewSession())
-
+	file, err := os.Open(LatestSnapshot)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	reader := bufio.NewReader(file)
 	db := t.ledger.State().DB()
 	store := treestore.NewTreeStore(common.Hash{}, db)
-	f, _ := os.Create("theta_snapshot-latest")
-	reader := bufio.NewReader(f)
 	sizeBytes := make([]byte, 4)
 	var account *types.Account
 	accountStorage := treestore.NewTreeStore(common.Hash{}, db)
@@ -82,11 +89,17 @@ func (t *ThetaRPCServer) LoadSnapshot(r *http.Request, args *GenSnapshotArgs, re
 		record, err := readRecord(reader, sizeBytes)
 		if err != nil {
 			if err == io.EOF {
+				_, err := store.Commit()
+				if err != nil {
+					log.Errorf("Failed to commit store")
+					return err
+				}
 				break
 			}
-			panic("Failed to read snapshot record")
+			log.Errorf("Failed to read snapshot record")
+			return err
 		}
-		if record.R == nil {
+		if len(record.R) == 0 {
 			store.Set(record.K, record.V)
 		} else {
 			if account == nil || !bytes.Equal(account.Root.Bytes(), record.R) {
@@ -95,8 +108,8 @@ func (t *ThetaRPCServer) LoadSnapshot(r *http.Request, args *GenSnapshotArgs, re
 					log.Errorf("Failed to commit account storage %v", account.Root)
 					return err
 				}
-				if bytes.Compare(account.Root.Bytes(), root.Bytes()) != 0 {
-					log.Errorf("Account storage root doesn't match %v", account.Root)
+				if account != nil && bytes.Compare(account.Root.Bytes(), root.Bytes()) != 0 {
+					log.Errorf("Account storage root doesn't match %v, %v", account.Root, root)
 					panic("Account storage root doesn't match")
 				}
 
@@ -115,9 +128,11 @@ func (t *ThetaRPCServer) LoadSnapshot(r *http.Request, args *GenSnapshotArgs, re
 	return
 }
 
-func readRecord(reader *bufio.Reader, sizeBytes []byte) (record snapshotRecord, err error) {
-	sizeBytes = sizeBytes[:0]
-	_, err = reader.Read(sizeBytes)
+func readRecord(reader *bufio.Reader, sizeBytes []byte) (*snapshotRecord, error) {
+	record := &snapshotRecord{}
+	// sizeBytes = sizeBytes[:0]
+	sizeBytes = make([]byte, 4)
+	_, err := reader.Read(sizeBytes)
 	if err != nil {
 		return record, err
 	}
