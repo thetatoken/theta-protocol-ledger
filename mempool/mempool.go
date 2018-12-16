@@ -173,13 +173,13 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	defer mp.mutex.Unlock()
 
 	if mp.txBookeepper.hasSeen(rawTx) {
-		log.Info("[mempool] Transaction already seen: %v", hex.EncodeToString(rawTx))
+		log.Infof("[mempool] Transaction already seen: %v", hex.EncodeToString(rawTx))
 		return DuplicateTxError
 	}
 
 	txInfo, checkTxRes := mp.ledger.ScreenTx(rawTx)
 	if !checkTxRes.IsOK() {
-		log.Info("[mempool] Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
+		log.Infof("[mempool] Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
 		return errors.New(checkTxRes.Message)
 	}
 
