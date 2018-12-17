@@ -291,6 +291,7 @@ func (conn *Connection) sendRoutine() {
 func (conn *Connection) sendPingSignal() error {
 	if conn.pendingPings >= conn.config.MaxPendingPings {
 		conn.onError(nil)
+		log.Infof("Peer not responding to ping", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping")
 	}
 	pingPacket := Packet{
