@@ -103,6 +103,10 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	ledger.mempool.Lock()
+	defer ledger.mempool.Unlock()
+
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
@@ -113,7 +117,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 	ledger.addSpecialTransactions(view, &rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
-	regularRawTxs := ledger.mempool.Reap(core.MaxNumRegularTxsPerBlock)
+	regularRawTxs := ledger.mempool.ReapUnsafe(core.MaxNumRegularTxsPerBlock)
 	for _, regularRawTx := range regularRawTxs {
 		rawTxCandidates = append(rawTxCandidates, regularRawTx)
 	}

@@ -255,6 +255,11 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
+	return mp.ReapUnsafe(maxNumTxs)
+}
+
+// ReapUnsafe is the non-locking version of Reap.
+func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
 	if maxNumTxs == 0 {
 		return []common.Bytes{}
 	} else if maxNumTxs < 0 {
