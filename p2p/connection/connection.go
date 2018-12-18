@@ -362,7 +362,7 @@ func (conn *Connection) recvRoutine() {
 			conn.handleReceivedPacket(&packet)
 		}
 
-		conn.pingTimer.Reset()
+		//conn.pingTimer.Reset() // TODO: replace with lightweight Reset()
 		conn.pendingPings = 0
 	}
 }
