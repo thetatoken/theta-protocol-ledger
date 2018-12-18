@@ -207,8 +207,10 @@ func (e *ConsensusEngine) AddMessage(msg interface{}) {
 func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Vote:
+		e.logger.WithFields(log.Fields{"vote": m}).Debug("Received vote")
 		return e.handleVote(m)
 	case *core.Block:
+		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
 	default:
 		log.Errorf("Unknown message type: %v", m)
@@ -219,8 +221,6 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
-	e.logger.WithFields(log.Fields{"block": block}).Debug("Received block")
-
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
 		e.logger.WithFields(log.Fields{
@@ -329,8 +329,6 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 }
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
-	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
-
 	if !e.validateVote(vote) {
 		e.logger.Warn("Ignoring invalid vote")
 		return
@@ -368,7 +366,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	}
 
 	if vote.Block.IsEmpty() {
-		e.logger.WithFields(log.Fields{"vote": vote}).Debug("Vote with empty block hash received")
 		return
 	}
 	block, err := e.Chain().FindBlock(vote.Block)
@@ -418,11 +415,10 @@ func (e *ConsensusEngine) FinalizedBlocks() chan *core.Block {
 }
 
 func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
-	e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.state.GetEpoch()}).Debug("Start processing ccBlock")
-	defer e.logger.WithFields(log.Fields{"ccBlock": ccBlock, "c.epoch": e.state.GetEpoch()}).Debug("Done processing ccBlock")
+	e.logger.WithFields(log.Fields{"ccBlock.Hash": ccBlock.Hash().Hex(), "c.epoch": e.state.GetEpoch()}).Debug("Start processing ccBlock")
 
 	if ccBlock.Height > e.state.GetHighestCCBlock().Height {
-		e.logger.WithFields(log.Fields{"ccBlock": ccBlock}).Debug("Updating highestCCBlock since ccBlock.Height > e.highestCCBlock.Height")
+		e.logger.Debug("Updating highestCCBlock")
 		e.state.SetHighestCCBlock(ccBlock)
 	}
 
@@ -449,7 +445,6 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	}
 
 	e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex()}).Info("Finalizing block")
-	defer e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex()}).Info("Done Finalized block")
 
 	e.state.SetLastFinalizedBlock(block)
 	e.ledger.FinalizeState(block.Height, block.StateHash)
