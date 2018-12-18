@@ -1,14 +1,45 @@
 package core
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
-func TestEncoding(t *testing.T) {
+func TestVoteEncoding(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, _, _ := crypto.GenerateKeyPair()
+
+	v1 := Vote{
+		Block: CreateTestBlock("", "").Hash(),
+		ID:    common.HexToAddress("A1"),
+		Epoch: 1,
+	}
+
+	sig, err := privKey.Sign(v1.SignBytes())
+	assert.Nil(err)
+
+	v1.SetSignature(sig)
+
+	v2 := Vote{}
+	b, err := rlp.EncodeToBytes(v1)
+	assert.Nil(err)
+	err = rlp.DecodeBytes(b, &v2)
+	assert.Nil(err)
+
+	assert.Equal(v1.Block, v2.Block)
+	assert.Equal(v1.Epoch, v2.Epoch)
+	assert.NotNil(v1.Signature)
+	assert.NotNil(v2.Signature)
+	assert.True(bytes.Equal(v1.Signature.ToBytes(), v2.Signature.ToBytes()))
+}
+
+func TestVoteSetEncoding(t *testing.T) {
 	assert := assert.New(t)
 
 	votes := NewVoteSet()

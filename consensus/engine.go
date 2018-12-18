@@ -162,7 +162,9 @@ func (e *ConsensusEngine) mainLoop() {
 				}
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
-				e.vote()
+				if e.shouldVote(e.GetEpoch()) {
+					e.vote()
+				}
 				break Epoch
 			case <-e.proposalTimer.C:
 				e.propose()
@@ -257,7 +259,19 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
-	e.vote()
+	if e.shouldVote(e.GetEpoch()) {
+		e.vote()
+	}
+}
+
+func (e *ConsensusEngine) shouldVote(epoch uint64) bool {
+	return e.shouldVoteByID(epoch, e.privateKey.PublicKey().Address())
+}
+
+func (e *ConsensusEngine) shouldVoteByID(epoch uint64, id common.Address) bool {
+	validators := e.validatorManager.GetValidatorSetForEpoch(epoch)
+	_, err := validators.GetValidator(id)
+	return err == nil
 }
 
 func (e *ConsensusEngine) vote() {
@@ -304,8 +318,23 @@ func (e *ConsensusEngine) createVote(block common.Hash) core.Vote {
 	return vote
 }
 
+func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
+	if res := vote.Validate(); res.IsError() {
+		return false
+	}
+	if !e.shouldVoteByID(vote.Epoch, vote.ID) {
+		return false
+	}
+	return true
+}
+
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	e.logger.WithFields(log.Fields{"vote": vote}).Debug("Received vote")
+
+	if !e.validateVote(vote) {
+		e.logger.Warn("Ignoring invalid vote")
+		return
+	}
 
 	validators := e.validatorManager.GetValidatorSetForEpoch(e.state.GetEpoch())
 	err := e.state.AddVote(&vote)
