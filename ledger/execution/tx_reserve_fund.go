@@ -41,7 +41,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	// Get input account
 	sourceAccount, success := getInput(view, tx.Source)
 	if success.IsError() {
-		return result.Error("Failed to get the source account")
+		return result.Error("Failed to get the source account: %v", tx.Source.Address)
 	}
 
 	// Validate input, advanced
