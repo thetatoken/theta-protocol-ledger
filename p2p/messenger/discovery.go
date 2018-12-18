@@ -142,8 +142,25 @@ func (discMgr *PeerDiscoveryManager) Wait() {
 // If the peer is persistent, it will attempt to reconnect to the
 // peer. Otherwise, it disconnects from that peer
 func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
+	peerRemoteAddress := peer.GetConnection().GetNetconn().RemoteAddr().String()
+	lookedUpPeer := discMgr.peerTable.GetPeer(peer.ID())
+	if lookedUpPeer == nil {
+		log.Errorf("[p2p] HandlePeerWithErrors cannot find the peer: %v", peer.ID())
+		return // Should not happen
+	}
+	lookedUpPeerRemoteAddress := lookedUpPeer.GetConnection().GetNetconn().RemoteAddr().String()
+
+	log.Infof("[p2p] HandlePeerWithErrors, peerRemoteAddress: %v", peerRemoteAddress)
+	log.Infof("[p2p] HandlePeerWithErrors, lookedUpPeerRemoteAddress: %v", lookedUpPeerRemoteAddress)
+	if peerRemoteAddress != lookedUpPeerRemoteAddress {
+		return
+		// lookedUpPeer might be created by the inbound connection. A senario is that
+		// the peer restarted and established a new connection with us. In this case,
+		// we should not proceed to reconnect
+	}
+
 	discMgr.peerTable.DeletePeer(peer.ID())
-	peer.Stop()
+	peer.Stop() // TODO: may need to stop peer regardless of the remote address comparison
 
 	if peer.IsPersistent() {
 		var err error
@@ -151,7 +168,9 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 			if peer.IsOutbound() {
 				_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
 			} else {
-				_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+				// For now not to retry connecting to the inbound peer, since that peer will
+				// retry to etablish the connection
+				//_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
 			}
 			if err == nil {
 				log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())

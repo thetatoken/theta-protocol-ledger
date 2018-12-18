@@ -104,6 +104,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
@@ -146,6 +147,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
