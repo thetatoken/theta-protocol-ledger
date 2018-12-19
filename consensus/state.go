@@ -15,7 +15,8 @@ type StateStub struct {
 	Root               common.Hash
 	HighestCCBlock     common.Hash
 	LastFinalizedBlock common.Hash
-	LastVoteHeight     uint64
+	LastProposal       core.Proposal
+	LastVote           core.Vote
 	Epoch              uint64
 }
 
@@ -34,8 +35,10 @@ type State struct {
 	highestCCBlock     *core.ExtendedBlock
 	lastFinalizedBlock *core.ExtendedBlock
 	tip                *core.ExtendedBlock
-	lastVoteHeight     uint64
-	epoch              uint64
+
+	LastProposal core.Proposal
+	LastVote     core.Vote
+	epoch        uint64
 }
 
 func NewState(db store.Store, chain *blockchain.Chain) *State {
@@ -73,8 +76,8 @@ func (s *State) String() string {
 	if s.tip != nil {
 		tipStr = s.tip.Hash().Hex()
 	}
-	return fmt.Sprintf("State{highestCCBlock: %v, lastFinalizedBlock: %v, tip: %v, lastVoteHeight: %d, epoch: %d}",
-		highestCCBlockStr, lastFinalizedBlockStr, tipStr, s.lastVoteHeight, s.epoch)
+	return fmt.Sprintf("State{highestCCBlock: %v, lastFinalizedBlock: %v, tip: %v, epoch: %d, LastProposal: %v, LastVote: %v}",
+		highestCCBlockStr, lastFinalizedBlockStr, tipStr, s.epoch, s.LastProposal, s.LastVote)
 }
 
 func (s *State) GetSummary() *StateStub {
@@ -86,9 +89,10 @@ func (s *State) GetSummary() *StateStub {
 
 func (s *State) getSummary() *StateStub {
 	stub := &StateStub{
-		LastVoteHeight: s.lastVoteHeight,
-		Epoch:          s.epoch,
-		Root:           s.chain.Root.Hash(),
+		LastVote:     s.LastVote,
+		LastProposal: s.LastProposal,
+		Epoch:        s.epoch,
+		Root:         s.chain.Root.Hash(),
 	}
 	if s.highestCCBlock != nil {
 		stub.HighestCCBlock = s.highestCCBlock.Hash()
@@ -119,7 +123,8 @@ func (s *State) Load() (err error) {
 		return
 	}
 
-	s.lastVoteHeight = stub.LastVoteHeight
+	s.LastProposal = stub.LastProposal
+	s.LastVote = stub.LastVote
 	s.epoch = stub.Epoch
 	if !stub.LastFinalizedBlock.IsEmpty() {
 		lastFinalizedBlock, err := s.chain.FindBlock(stub.LastFinalizedBlock)
@@ -151,18 +156,33 @@ func (s *State) SetEpoch(epoch uint64) error {
 	return s.commit()
 }
 
-func (s *State) GetLastVoteHeight() uint64 {
+func (s *State) GetLastProposal() core.Proposal {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lastVoteHeight
+	return s.LastProposal
 }
 
-func (s *State) SetLastVoteHeight(height uint64) error {
+func (s *State) SetLastProposal(p core.Proposal) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.lastVoteHeight = height
+	s.LastProposal = p
+	return s.commit()
+}
+
+func (s *State) GetLastVote() core.Vote {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.LastVote
+}
+
+func (s *State) SetLastVote(v core.Vote) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.LastVote = v
 	return s.commit()
 }
 
