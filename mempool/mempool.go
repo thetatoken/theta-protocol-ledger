@@ -17,6 +17,8 @@ import (
 	dp "github.com/thetatoken/ukulele/dispatcher"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "mempool"})
+
 type MempoolError string
 
 func (m MempoolError) Error() string {
@@ -106,7 +108,7 @@ func (mtg *mempoolTransactionGroup) RemoveTxs(committedRawTxMap map[string]bool)
 		rawTx := mptx.rawTransaction
 		if _, exists := committedRawTxMap[string(rawTx[:])]; exists {
 			elemsTobeRemoved = append(elemsTobeRemoved, elem)
-			log.Debugf("[mempool] tx to be removed: %v, txInfo: %v", hex.EncodeToString(rawTx), mptx.txInfo)
+			logger.Debugf("tx to be removed: %v, txInfo: %v", hex.EncodeToString(rawTx), mptx.txInfo)
 		}
 	}
 	for _, elem := range elemsTobeRemoved {
@@ -173,17 +175,17 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	defer mp.mutex.Unlock()
 
 	if mp.txBookeepper.hasSeen(rawTx) {
-		log.Infof("[mempool] Transaction already seen: %v", hex.EncodeToString(rawTx))
+		logger.Infof("[mempool] Transaction already seen: %v", hex.EncodeToString(rawTx))
 		return DuplicateTxError
 	}
 
 	txInfo, checkTxRes := mp.ledger.ScreenTx(rawTx)
 	if !checkTxRes.IsOK() {
-		log.Infof("[mempool] Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
+		logger.Infof("[mempool] Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
 		return errors.New(checkTxRes.Message)
 	}
 
-	log.Infof("[mempool] Insert tx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
+	logger.Infof("[mempool] Insert tx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
 
 	// only record the transactions that passed the screening. This is because that
 	// an invalid transaction could becoume valid later on. For example, assume expected
@@ -283,7 +285,7 @@ func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
 			mp.candidateTxs.Push(txGroup)
 		}
 
-		log.Debugf("[mempool] Reap tx: %v, txInfo: %v",
+		logger.Debugf("[mempool] Reap tx: %v, txInfo: %v",
 			hex.EncodeToString(rawTx), txInfo)
 	}
 

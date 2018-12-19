@@ -70,7 +70,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 
 	// Verify target
 	if targetAccount.Sequence+1 != tx.Target.Sequence {
-		return result.Error("Got %v, expected %v. (acc.seq=%v)",
+		return result.Error("ServicePayment: Got %v, expected %v. (acc.seq=%v)",
 			tx.Target.Sequence, targetAccount.Sequence+1, targetAccount.Sequence)
 	}
 
