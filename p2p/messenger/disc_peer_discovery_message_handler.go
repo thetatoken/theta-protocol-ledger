@@ -10,7 +10,6 @@ import (
 
 	"github.com/thetatoken/ukulele/rlp"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
@@ -64,11 +63,11 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg:                         &sync.WaitGroup{},
+		wg: &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
-		log.Errorf("[p2p] Failed to parse the self network address: %v", selfNetAddressStr)
+		logger.Errorf("Failed to parse the self network address: %v", selfNetAddressStr)
 		return pdmh, err
 	}
 	pdmh.selfNetAddress = *selfNetAddress
@@ -122,7 +121,7 @@ func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(peerID string,
 		Content:   discMsg,
 	}
 	if err != nil {
-		log.Errorf("[p2p] Error decoding PeerDiscoveryMessage: %v", err)
+		logger.Errorf("Error decoding PeerDiscoveryMessage: %v", err)
 		return message, err
 	}
 
@@ -132,16 +131,16 @@ func (pdmh *PeerDiscoveryMessageHandler) ParseMessage(peerID string,
 // HandleMessage implements the p2p.MessageHandler interface
 func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error {
 	if msg.ChannelID != common.ChannelIDPeerDiscovery {
-		errMsg := fmt.Sprintf("[p2p] Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
-		log.Errorf(errMsg)
+		errMsg := fmt.Sprintf("Invalid channelID for the PeerDiscoveryMessageHandler: %v", msg.ChannelID)
+		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 
 	peerID := msg.PeerID
 	peer := pdmh.discMgr.peerTable.GetPeer(peerID)
 	if peer == nil {
-		errMsg := fmt.Sprintf("[p2p] Cannot find peer %v in the peer table", peerID)
-		log.Errorf(errMsg)
+		errMsg := fmt.Sprintf("Cannot find peer %v in the peer table", peerID)
+		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 
@@ -152,8 +151,8 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 	case peerAddressesReplyType:
 		pdmh.handlePeerAddressReply(peer, discMsg)
 	default:
-		errMsg := "[p2p] Invalid PeerDiscoveryMessageType"
-		log.Errorf(errMsg)
+		errMsg := "Invalid PeerDiscoveryMessageType"
+		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 
@@ -169,10 +168,8 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 	validAddressMap := make(map[*netutil.NetAddress]bool)
 
 	for _, idAddr := range message.Addresses {
-		if idAddr.Addr.Valid() && !pdmh.selfNetAddress.Equals(idAddr.Addr) {
-			if !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
-				validAddressMap[idAddr.Addr] = true
-			}
+		if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
+			validAddressMap[idAddr.Addr] = true
 		}
 	}
 	if len(validAddressMap) > 0 {
@@ -207,9 +204,9 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				peerNetAddress := addresses[j]
 				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
 				if err != nil {
-					log.Errorf("[p2p] Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
+					logger.Errorf("Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
 				} else {
-					log.Infof("[p2p] Successfully connected to discovery peer %v", peerNetAddress.String())
+					logger.Infof("Successfully connected to discovery peer %v", peerNetAddress.String())
 				}
 				if pdmh.discoveryCallback != nil {
 					pdmh.discoveryCallback(peer, err)

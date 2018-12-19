@@ -26,5 +26,7 @@ func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request, args *Broadcas
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
+	logger.Infof("[rpc] broadcast raw transaction: %v", hex.EncodeToString(txBytes))
+
 	return t.mempool.InsertTransaction(txBytes)
 }

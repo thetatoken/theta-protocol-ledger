@@ -31,6 +31,8 @@ import (
 	"github.com/thetatoken/ukulele/wallet/types"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "wallet"})
+
 // LedgerScheme is the protocol scheme prefixing account and wallet URLs.
 const LedgerScheme = "ledger"
 
@@ -178,7 +180,7 @@ func (hub *Hub) refreshWallets() {
 			}
 
 			wallets = append(wallets, wallet)
-			log.Infof("Added new cold wallet: %v", wallet.info.Path)
+			logger.Infof("Added new cold wallet: %v", wallet.info.Path)
 
 			continue
 		}

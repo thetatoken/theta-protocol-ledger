@@ -1,7 +1,6 @@
 package blockchain
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 )
@@ -22,7 +21,7 @@ func (ch *Chain) AddVoteToIndex(vote core.Vote) {
 	voteSet.AddVote(vote)
 	err := ch.store.Put(key, voteSet)
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 }
 

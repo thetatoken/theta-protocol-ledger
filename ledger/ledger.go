@@ -17,6 +17,8 @@ import (
 	"github.com/thetatoken/ukulele/store/database"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
+
 var _ core.Ledger = (*Ledger)(nil)
 
 //
@@ -108,6 +110,11 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
 func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
+	ledger.mempool.Lock()
+	defer ledger.mempool.Unlock()
+
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
@@ -118,7 +125,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 	ledger.addSpecialTransactions(view, &rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
-	regularRawTxs := ledger.mempool.Reap(core.MaxNumRegularTxsPerBlock)
+	regularRawTxs := ledger.mempool.ReapUnsafe(core.MaxNumRegularTxsPerBlock)
 	for _, regularRawTx := range regularRawTxs {
 		rawTxCandidates = append(rawTxCandidates, regularRawTx)
 	}
@@ -131,7 +138,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 		}
 		_, res := ledger.executor.CheckTx(tx)
 		if res.IsError() {
-			log.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
+			logger.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
 			continue
 		}
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
@@ -147,6 +154,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
 func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
+	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
@@ -208,7 +216,7 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 
 // resetState sets the ledger state with the designated root
 func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
-	log.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
+	logger.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
 
 	res := ledger.state.ResetState(height, rootHash)
 	if res.IsError() {
@@ -273,18 +281,18 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 
 	signature, err := ledger.signTransaction(coinbaseTx)
 	if err != nil {
-		log.Errorf("Failed to add coinbase transaction: %v", err)
+		logger.Errorf("Failed to add coinbase transaction: %v", err)
 		return
 	}
 	coinbaseTx.SetSignature(proposerAddress, signature)
 	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
 	if err != nil {
-		log.Errorf("Failed to add coinbase transaction: %v", err)
+		logger.Errorf("Failed to add coinbase transaction: %v", err)
 		return
 	}
 
 	*rawTxs = append(*rawTxs, coinbaseTxBytes)
-	log.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
+	logger.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
 }
 
 // addsSlashTx adds Slash transactions
@@ -305,18 +313,18 @@ func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, 
 
 		signature, err := ledger.signTransaction(slashTx)
 		if err != nil {
-			log.Errorf("Failed to add slash transaction: %v", err)
+			logger.Errorf("Failed to add slash transaction: %v", err)
 			continue
 		}
 		slashTx.SetSignature(proposerAddress, signature)
 		slashTxBytes, err := types.TxToBytes(slashTx)
 		if err != nil {
-			log.Errorf("Failed to add slash transaction: %v", err)
+			logger.Errorf("Failed to add slash transaction: %v", err)
 			continue
 		}
 
 		*rawTxs = append(*rawTxs, slashTxBytes)
-		log.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))
+		logger.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))
 	}
 	view.ClearSlashIntents()
 }

@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
@@ -59,7 +58,7 @@ func (t *Trie) Prove(key []byte, fromLevel uint, proofDb database.Putter) error 
 			var err error
 			tn, err = t.resolveHash(n, nil)
 			if err != nil {
-				log.Errorf("Unhandled trie error: %v", err)
+				logger.Errorf("Unhandled trie error: %v", err)
 				return err
 			}
 		default:

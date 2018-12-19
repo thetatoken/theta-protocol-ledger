@@ -284,8 +284,8 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 		}
 		m.handleBlock(block)
 	case common.ChannelIDVote:
-		vote := &core.Vote{}
-		err := rlp.DecodeBytes(data.Payload, vote)
+		vote := core.Vote{}
+		err := rlp.DecodeBytes(data.Payload, &vote)
 		if err != nil {
 			m.logger.WithFields(log.Fields{
 				"channelID": data.ChannelID,
@@ -321,7 +321,7 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 	if p.Votes != nil {
 		for _, vote := range p.Votes.Votes() {
-			sm.handleVote(&vote)
+			sm.handleVote(vote)
 		}
 	}
 	sm.handleBlock(p.Block)
@@ -336,9 +336,12 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 	sm.requestMgr.AddBlock(block)
 }
 
-func (sm *SyncManager) handleVote(vote *core.Vote) {
-	if !vote.Block.IsEmpty() {
-		sm.requestMgr.AddHash(vote.Block, []string{})
-	}
-	sm.consumer.AddMessage(vote)
+func (sm *SyncManager) handleVote(vote core.Vote) {
+	sm.logger.WithFields(log.Fields{
+		"vote.Hash":  vote.Block.Hex(),
+		"vote.ID":    vote.ID.Hex(),
+		"vote.Epoch": vote.Epoch,
+	}).Debug("Received vote")
+
+	sm.PassdownMessage(vote)
 }

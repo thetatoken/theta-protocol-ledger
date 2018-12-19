@@ -51,10 +51,10 @@ func (cc *CommitCertificate) IsValid() bool {
 
 // Vote represents a vote on a block by a validaor.
 type Vote struct {
-	Block     common.Hash       // Hash of the tip as seen by the voter.
-	Epoch     uint64            // Voter's current epoch. It doesn't need to equal the epoch in the block above.
-	ID        common.Address    // Voter's address.
-	Signature *crypto.Signature `rlp:"nil"`
+	Block     common.Hash    // Hash of the tip as seen by the voter.
+	Epoch     uint64         // Voter's current epoch. It doesn't need to equal the epoch in the block above.
+	ID        common.Address // Voter's address.
+	Signature *crypto.Signature
 }
 
 func (v Vote) String() string {
@@ -73,7 +73,7 @@ func (v Vote) SignBytes() common.Bytes {
 }
 
 // SetSignature sets given signature in vote.
-func (v Vote) SetSignature(sig *crypto.Signature) {
+func (v *Vote) SetSignature(sig *crypto.Signature) {
 	v.Signature = sig
 }
 
@@ -82,7 +82,7 @@ func (v Vote) Validate() result.Result {
 	if v.ID.IsEmpty() {
 		return result.Error("Voter is not specified")
 	}
-	if v.Signature.IsEmpty() {
+	if v.Signature == nil || v.Signature.IsEmpty() {
 		return result.Error("Vote is not signed")
 	}
 	if !v.Signature.Verify(v.SignBytes(), v.ID) {

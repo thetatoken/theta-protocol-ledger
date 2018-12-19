@@ -18,7 +18,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	mm "github.com/thetatoken/ukulele/common/math"
 	"github.com/thetatoken/ukulele/crypto"
@@ -148,7 +147,7 @@ func (a *AddrBook) Wait() {
 func (a *AddrBook) AddOurAddress(addr *nu.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Infof("[p2p] Add our address to book: %v", addr)
+	logger.Infof("Add our address to book: %v", addr)
 	a.ourAddrs[addr.String()] = addr
 }
 
@@ -164,7 +163,7 @@ func (a *AddrBook) OurAddresses() []*nu.NetAddress {
 func (a *AddrBook) AddAddress(addr *nu.NetAddress, src *nu.NetAddress) {
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
-	log.Infof("[p2p] Add address to book, addr: %v, src: %v", addr, src)
+	logger.Infof("Add address to book, addr: %v, src: %v", addr, src)
 	a.addAddress(addr, src)
 }
 
@@ -215,7 +214,7 @@ func (a *AddrBook) PickAddress(newBias int) *nu.NetAddress {
 			}
 			randIndex--
 		}
-		panic("[p2p] Should not happen")
+		panic("Should not happen")
 	} else {
 		// pick random New bucket.
 		var bucket map[string]*knownAddress = nil
@@ -230,7 +229,7 @@ func (a *AddrBook) PickAddress(newBias int) *nu.NetAddress {
 			}
 			randIndex--
 		}
-		panic("[p2p] Should not happen")
+		panic("Should not happen")
 	}
 	return nil
 }
@@ -272,7 +271,7 @@ func (a *AddrBook) RemoveAddress(addr *nu.NetAddress) {
 	if ka == nil {
 		return
 	}
-	log.Infof("[p2p] Remove address from book, addr: %v", addr)
+	logger.Infof("Remove address from book, addr: %v", addr)
 	a.removeFromAllBuckets(ka)
 }
 
@@ -319,7 +318,7 @@ type addrBookJSON struct {
 }
 
 func (a *AddrBook) saveToFile(filePath string) {
-	log.Infof("[p2p] Saving AddrBook to file, size: %v", a.Size())
+	logger.Infof("Saving AddrBook to file, size: %v", a.Size())
 
 	a.mtx.Lock()
 	defer a.mtx.Unlock()
@@ -336,12 +335,12 @@ func (a *AddrBook) saveToFile(filePath string) {
 
 	jsonBytes, err := json.MarshalIndent(aJSON, "", "\t")
 	if err != nil {
-		log.Errorf("[p2p] Failed to save AddrBook to file: %v", err)
+		logger.Errorf("Failed to save AddrBook to file: %v", err)
 		return
 	}
 	err = common.WriteFileAtomic(filePath, jsonBytes, 0644)
 	if err != nil {
-		log.Errorf("[p2p] Failed to save AddrBook to file: %v, error: %v", filePath, err)
+		logger.Errorf("Failed to save AddrBook to file: %v, error: %v", filePath, err)
 	}
 }
 
@@ -357,14 +356,14 @@ func (a *AddrBook) loadFromFile(filePath string) bool {
 	// Load addrBookJSON{}
 	r, err := os.Open(filePath)
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Error opening file %s: %v", filePath, err))
+		panic(fmt.Sprintf("Error opening file %s: %v", filePath, err))
 	}
 	defer r.Close()
 	aJSON := &addrBookJSON{}
 	dec := json.NewDecoder(r)
 	err = dec.Decode(aJSON)
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Error reading file %s: %v", filePath, err))
+		panic(fmt.Sprintf("Error reading file %s: %v", filePath, err))
 	}
 
 	// Restore all the fields...
@@ -388,7 +387,7 @@ func (a *AddrBook) loadFromFile(filePath string) bool {
 
 // Save saves the book.
 func (a *AddrBook) Save() {
-	log.Infof("[p2p] Saving AddrBook to file, size: %v", a.Size())
+	logger.Infof("Saving AddrBook to file, size: %v", a.Size())
 	a.saveToFile(a.filePath)
 }
 
@@ -408,7 +407,7 @@ func (a *AddrBook) saveRoutine() {
 	dumpAddressTicker.Stop()
 	a.saveToFile(a.filePath)
 	a.wg.Done()
-	log.Infof("[p2p] Address handler done")
+	logger.Infof("Address handler done")
 }
 
 func (a *AddrBook) getBucket(bucketType byte, bucketIdx int) map[string]*knownAddress {
@@ -418,7 +417,7 @@ func (a *AddrBook) getBucket(bucketType byte, bucketIdx int) map[string]*knownAd
 	case bucketTypeOld:
 		return a.addrOld[bucketIdx]
 	default:
-		panic("[p2p] Should not happen")
+		panic("Should not happen")
 		return nil
 	}
 }
@@ -428,7 +427,7 @@ func (a *AddrBook) getBucket(bucketType byte, bucketIdx int) map[string]*knownAd
 func (a *AddrBook) addToNewBucket(ka *knownAddress, bucketIdx int) bool {
 	// Sanity check
 	if ka.isOld() {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot add address already in old bucket to a new bucket: %v", ka))
+		logger.Errorf(fmt.Sprintf("Cannot add address already in old bucket to a new bucket: %v", ka))
 		return false
 	}
 
@@ -442,7 +441,7 @@ func (a *AddrBook) addToNewBucket(ka *knownAddress, bucketIdx int) bool {
 
 	// Enforce max addresses.
 	if len(bucket) > newBucketSize {
-		log.Infof("[p2p] new bucket is full, expiring old")
+		logger.Infof("New bucket is full, expiring old")
 		a.expireNew(bucketIdx)
 	}
 
@@ -462,11 +461,11 @@ func (a *AddrBook) addToNewBucket(ka *knownAddress, bucketIdx int) bool {
 func (a *AddrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 	// Sanity check
 	if ka.isNew() {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot add new address to old bucket: %v", ka))
+		logger.Errorf(fmt.Sprintf("Cannot add new address to old bucket: %v", ka))
 		return false
 	}
 	if len(ka.Buckets) != 0 {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot add already old address to another old bucket: %v", ka))
+		logger.Errorf(fmt.Sprintf("Cannot add already old address to another old bucket: %v", ka))
 		return false
 	}
 
@@ -497,7 +496,7 @@ func (a *AddrBook) addToOldBucket(ka *knownAddress, bucketIdx int) bool {
 
 func (a *AddrBook) removeFromBucket(ka *knownAddress, bucketType byte, bucketIdx int) {
 	if ka.BucketType != bucketType {
-		log.Errorf(fmt.Sprintf("[p2p] Bucket type mismatch: %v", ka))
+		logger.Errorf(fmt.Sprintf("Bucket type mismatch: %v", ka))
 		return
 	}
 	bucket := a.getBucket(bucketType, bucketIdx)
@@ -539,7 +538,7 @@ func (a *AddrBook) pickOldest(bucketType byte, bucketIdx int) *knownAddress {
 
 func (a *AddrBook) addAddress(addr, src *nu.NetAddress) {
 	if a.routabilityStrict && !addr.Routable() {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot add non-routable address %v", addr))
+		logger.Errorf(fmt.Sprintf("Cannot add non-routable address %v", addr))
 		return
 	}
 	if _, ok := a.ourAddrs[addr.String()]; ok {
@@ -570,7 +569,7 @@ func (a *AddrBook) addAddress(addr, src *nu.NetAddress) {
 	bucket := a.calcNewBucket(addr, src)
 	a.addToNewBucket(ka, bucket)
 
-	log.Infof("[p2p] Added new address: %v, total: %v", addr, a.size())
+	logger.Infof("Added new address: %v, total: %v", addr, a.size())
 }
 
 // Make space in the new buckets by expiring the really bad entries.
@@ -579,7 +578,7 @@ func (a *AddrBook) expireNew(bucketIdx int) {
 	for addrStr, ka := range a.addrNew[bucketIdx] {
 		// If an entry is bad, throw it away
 		if ka.isBad() {
-			log.Infof(fmt.Sprintf("[p2p] expiring bad address %v", addrStr))
+			logger.Infof(fmt.Sprintf("expiring bad address %v", addrStr))
 			a.removeFromBucket(ka, bucketTypeNew, bucketIdx)
 			return
 		}
@@ -596,11 +595,11 @@ func (a *AddrBook) expireNew(bucketIdx int) {
 func (a *AddrBook) moveToOld(ka *knownAddress) {
 	// Sanity check
 	if ka.isOld() {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot promote address that is already old %v", ka))
+		logger.Errorf(fmt.Sprintf("Cannot promote address that is already old %v", ka))
 		return
 	}
 	if len(ka.Buckets) == 0 {
-		log.Errorf(fmt.Sprintf("[p2p] Cannot promote address that isn't in any new buckets %v", ka))
+		logger.Errorf(fmt.Sprintf("Cannot promote address that isn't in any new buckets %v", ka))
 		return
 	}
 
@@ -625,13 +624,13 @@ func (a *AddrBook) moveToOld(ka *knownAddress) {
 		if !added {
 			added := a.addToNewBucket(oldest, freedBucket)
 			if !added {
-				log.Errorf(fmt.Sprintf("[p2p] Could not migrate oldest %v to freedBucket %v", oldest, freedBucket))
+				logger.Errorf(fmt.Sprintf("Could not migrate oldest %v to freedBucket %v", oldest, freedBucket))
 			}
 		}
 		// Finally, add to bucket again.
 		added = a.addToOldBucket(ka, oldBucketIdx)
 		if !added {
-			log.Errorf(fmt.Sprintf("[p2p] Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
+			logger.Errorf(fmt.Sprintf("Could not re-add ka %v to oldBucketIdx %v", ka, oldBucketIdx))
 		}
 	}
 }
@@ -729,7 +728,7 @@ func (a *AddrBook) groupKey(na *nu.NetAddress) string {
 func (a *AddrBook) generateAddrBookKey() string {
 	_, pk, err := crypto.GenerateKeyPair()
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Unable to generate key for the address book!"))
+		panic(fmt.Sprintf("Unable to generate key for the address book!"))
 	}
 	addrBookKeyBytes := pk.Address()
 	addrBookKey := hex.EncodeToString(addrBookKeyBytes[:])

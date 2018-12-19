@@ -7,7 +7,7 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto/sha3"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 )
 
@@ -55,9 +55,8 @@ func (h *BlockHeader) Hash() common.Hash {
 		return common.Hash{}
 	}
 	if h.hash.IsEmpty() {
-		hw := sha3.NewKeccak256()
-		rlp.Encode(hw, h)
-		hw.Sum(h.hash[:0])
+		raw, _ := rlp.EncodeToBytes(h)
+		h.hash = crypto.Keccak256Hash(raw)
 	}
 	return h.hash
 }

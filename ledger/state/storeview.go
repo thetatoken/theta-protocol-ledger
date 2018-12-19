@@ -15,6 +15,8 @@ import (
 	"github.com/thetatoken/ukulele/store/treestore"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
+
 //
 // ------------------------- StoreView -------------------------
 //
@@ -247,7 +249,7 @@ func (sv *StoreView) DeleteExpiredSplitRules(currentBlockHeight uint64) bool {
 	for _, key := range expiredKeys {
 		deleted := sv.store.Delete(key)
 		if !deleted {
-			log.Errorf("Failed to delete expired split rules")
+			logger.Errorf("Failed to delete expired split rules")
 			return false
 		}
 	}
@@ -464,20 +466,20 @@ func (sv *StoreView) Prune() bool {
 		account := &types.Account{}
 		err := types.FromBytes(node, account)
 		if err != nil {
-			log.Errorf("Failed to parse account for %v", node)
+			logger.Errorf("Failed to parse account for %v", node)
 			return false
 		}
 
 		storage := sv.getAccountStorage(account)
 		err = storage.Prune(nil)
 		if err != nil {
-			log.Errorf("Failed to prune storage for account %v", account)
+			logger.Errorf("Failed to prune storage for account %v", account)
 			return false
 		}
 		return true
 	})
 	if err != nil {
-		log.Errorf("Failed to prune store view")
+		logger.Errorf("Failed to prune store view")
 		return false
 	}
 	return true
