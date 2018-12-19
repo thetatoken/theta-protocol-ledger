@@ -62,19 +62,13 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 	if !block.Parent.IsEmpty() {
 		parentBlock, err := ch.findBlock(block.Parent)
-		if err == store.ErrKeyNotFound {
-			// Parent block is not known yet, abandon block.
-			return nil, errors.Errorf("Unknown parent block: %s", block.Parent)
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to find parent block")
-		}
+		if err == nil {
+			parentBlock.Children = append(parentBlock.Children, hash)
 
-		parentBlock.Children = append(parentBlock.Children, hash)
-
-		err = ch.saveBlock(parentBlock)
-		if err != nil {
-			log.Panic(err)
+			err = ch.saveBlock(parentBlock)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 	}
 

@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
@@ -48,9 +49,16 @@ func runStart(cmd *cobra.Command, args []string) {
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-	root := checkpoint.FirstBlock
 
-	consensus.LoadCheckpointLedgerState(checkpoint, db)
+	var root *core.Block
+	extendedBlock, err := consensus.LoadSnapshot(snapshotPath, db)
+	if err == nil {
+		root = extendedBlock.Block
+	} else {
+		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
+		root = checkpoint.FirstBlock
+		consensus.LoadCheckpointLedgerState(checkpoint, db)
+	}
 
 	params := &node.Params{
 		ChainID:    root.ChainID,
