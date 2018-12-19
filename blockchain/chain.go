@@ -13,6 +13,8 @@ import (
 	"github.com/thetatoken/ukulele/store"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "blockchain"})
+
 // Chain represents the blockchain and also is the interface to underlying store.
 type Chain struct {
 	store store.Store
@@ -32,10 +34,10 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 	}
 	rootBlock, err := chain.FindBlock(root.Hash())
 	if err != nil {
-		log.WithFields(log.Fields{"Hash": root.Hash().Hex(), "error": err}).Info("Root block is not found in chain. Adding block.")
+		logger.WithFields(log.Fields{"Hash": root.Hash().Hex(), "error": err}).Info("Root block is not found in chain. Adding block.")
 		rootBlock, err = chain.AddBlock(root)
 		if err != nil {
-			log.Panic(err)
+			logger.Panic(err)
 		}
 	}
 	chain.FinalizePreviousBlocks(rootBlock.Hash())
@@ -74,7 +76,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 		err = ch.saveBlock(parentBlock)
 		if err != nil {
-			log.Panic(err)
+			logger.Panic(err)
 		}
 	}
 
@@ -82,7 +84,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 	err = ch.saveBlock(extendedBlock)
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 
 	ch.AddBlockByHeightIndex(extendedBlock.Height, extendedBlock.Hash())
@@ -123,7 +125,7 @@ func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {
 
 	err := ch.store.Put(key, blockByHeightIndexEntry)
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 }
 
@@ -159,12 +161,12 @@ func (ch *Chain) CommitBlock(hash common.Hash) {
 
 	block, err := ch.findBlock(hash)
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 	block.Status = core.BlockStatusCommitted
 	err = ch.saveBlock(block)
 	if err != nil {
-		log.Panic(err)
+		logger.Panic(err)
 	}
 }
 
@@ -180,7 +182,7 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 		block.Status = core.BlockStatusFinalized
 		err = ch.saveBlock(block)
 		if err != nil {
-			log.Panic(err)
+			logger.Panic(err)
 		}
 		hash = block.Parent
 	}

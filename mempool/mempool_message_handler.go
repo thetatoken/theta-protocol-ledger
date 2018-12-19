@@ -4,7 +4,6 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/rlp"
 
 	"github.com/thetatoken/ukulele/common"
@@ -60,7 +59,7 @@ func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 		return fmt.Errorf("Invalid channel for MempoolMessageHandler: %v", message.ChannelID)
 	}
 	rawTx := message.Content.(common.Bytes)
-	log.Infof("[mempool] Received gossiped transaction: %v", hex.EncodeToString(rawTx))
+	logger.Infof("Received gossiped transaction: %v", hex.EncodeToString(rawTx))
 
 	err := mmh.mempool.InsertTransaction(rawTx)
 	if err == DuplicateTxError {

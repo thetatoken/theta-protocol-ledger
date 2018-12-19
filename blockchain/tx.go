@@ -1,8 +1,6 @@
 package blockchain
 
 import (
-	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
@@ -42,7 +40,7 @@ func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 
 		err := ch.store.Put(key, txIndexEntry)
 		if err != nil {
-			log.Panic(err)
+			logger.Panic(err)
 		}
 	}
 }
@@ -55,14 +53,14 @@ func (ch *Chain) FindTxByHash(hash common.Hash) (tx common.Bytes, block *core.Ex
 		if err == store.ErrKeyNotFound {
 			return nil, nil, false
 		}
-		log.Panic(err)
+		logger.Panic(err)
 	}
 	block, err = ch.FindBlock(txIndexEntry.BlockHash)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return nil, nil, false
 		}
-		log.Panic(err)
+		logger.Panic(err)
 	}
 	return block.Txs[txIndexEntry.Index], block, true
 }

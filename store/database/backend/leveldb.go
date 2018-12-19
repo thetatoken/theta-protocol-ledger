@@ -36,6 +36,8 @@ import (
 	"github.com/thetatoken/ukulele/store/database"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "store"})
+
 const (
 	writePauseWarningThrottler = 1 * time.Minute
 )
@@ -68,7 +70,7 @@ func NewLDBDatabase(file string, reffile string, cache int, handles int) (*LDBDa
 	if handles < 16 {
 		handles = 16
 	}
-	log.Infof("Allocated cache and file handles, cache: %v, handles: %v", cache, handles)
+	logger.Infof("Allocated cache and file handles, cache: %v, handles: %v", cache, handles)
 
 	// Open the db and recover any potential corruptions
 	db, err := leveldb.OpenFile(file, &opt.Options{
@@ -252,16 +254,16 @@ func (db *LDBDatabase) Close() {
 		errc := make(chan error)
 		db.quitChan <- errc
 		if err := <-errc; err != nil {
-			log.Errorf("Metrics collection failed, err: %v", err)
+			logger.Errorf("Metrics collection failed, err: %v", err)
 		}
 		db.quitChan = nil
 	}
 	err := db.db.Close()
 	err = db.refdb.Close()
 	if err == nil {
-		log.Infof("Database closed")
+		logger.Infof("Database closed")
 	} else {
-		log.Errorf("Failed to close database, err: %v", err)
+		logger.Errorf("Failed to close database, err: %v", err)
 	}
 }
 
@@ -333,7 +335,7 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 		// Retrieve the database stats
 		stats, err := db.db.GetProperty("leveldb.stats")
 		if err != nil {
-			log.Errorf("Failed to read database stats, err: %v", err)
+			logger.Errorf("Failed to read database stats, err: %v", err)
 			merr = err
 			continue
 		}
@@ -343,7 +345,7 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 			lines = lines[1:]
 		}
 		if len(lines) <= 3 {
-			log.Errorf("Compaction table not found")
+			logger.Errorf("Compaction table not found")
 			merr = errors.New("compaction table not found")
 			continue
 		}
@@ -361,7 +363,7 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 			for idx, counter := range parts[3:] {
 				value, err := strconv.ParseFloat(strings.TrimSpace(counter), 64)
 				if err != nil {
-					log.Errorf("Compaction entry parsing failed, err: %v", err)
+					logger.Errorf("Compaction entry parsing failed, err: %v", err)
 					merr = err
 					continue
 				}
@@ -382,7 +384,7 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 		// Retrieve the write delay statistic
 		writedelay, err := db.db.GetProperty("leveldb.writedelay")
 		if err != nil {
-			log.Errorf("Failed to read database write delay statistic, err: %v", err)
+			logger.Errorf("Failed to read database write delay statistic, err: %v", err)
 			merr = err
 			continue
 		}
@@ -393,13 +395,13 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 			paused        bool
 		)
 		if n, err := fmt.Sscanf(writedelay, "DelayN:%d Delay:%s Paused:%t", &delayN, &delayDuration, &paused); n != 3 || err != nil {
-			log.Errorf("Write delay statistic not found")
+			logger.Errorf("Write delay statistic not found")
 			merr = err
 			continue
 		}
 		duration, err = time.ParseDuration(delayDuration)
 		if err != nil {
-			log.Errorf("Failed to parse delay duration, err: %v", err)
+			logger.Errorf("Failed to parse delay duration, err: %v", err)
 			merr = err
 			continue
 		}
@@ -413,7 +415,7 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 		// warnings will be withheld for one minute not to overwhelm the user.
 		if paused && delayN-delaystats[0] == 0 && duration.Nanoseconds()-delaystats[1] == 0 &&
 			time.Now().After(lastWritePaused.Add(writePauseWarningThrottler)) {
-			log.Warnf("Database compacting, degraded performance")
+			logger.Warnf("Database compacting, degraded performance")
 			lastWritePaused = time.Now()
 		}
 		delaystats[0], delaystats[1] = delayN, duration.Nanoseconds()
@@ -421,24 +423,24 @@ func (db *LDBDatabase) meter(refresh time.Duration) {
 		// Retrieve the database iostats.
 		ioStats, err := db.db.GetProperty("leveldb.iostats")
 		if err != nil {
-			log.Errorf("Failed to read database iostats, err: %v", err)
+			logger.Errorf("Failed to read database iostats, err: %v", err)
 			merr = err
 			continue
 		}
 		var nRead, nWrite float64
 		parts := strings.Split(ioStats, " ")
 		if len(parts) < 2 {
-			log.Errorf("Bad syntax of ioStats, ioStats: %v", ioStats)
+			logger.Errorf("Bad syntax of ioStats, ioStats: %v", ioStats)
 			merr = fmt.Errorf("bad syntax of ioStats %s", ioStats)
 			continue
 		}
 		if n, err := fmt.Sscanf(parts[0], "Read(MB):%f", &nRead); n != 1 || err != nil {
-			log.Errorf("Bad syntax of read entry, entry: %v", parts[0])
+			logger.Errorf("Bad syntax of read entry, entry: %v", parts[0])
 			merr = err
 			continue
 		}
 		if n, err := fmt.Sscanf(parts[1], "Write(MB):%f", &nWrite); n != 1 || err != nil {
-			log.Errorf("Bad syntax of write entry, entry: %v", parts[1])
+			logger.Errorf("Bad syntax of write entry, entry: %v", parts[1])
 			merr = err
 			continue
 		}

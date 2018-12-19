@@ -24,7 +24,6 @@ import (
 
 	"github.com/thetatoken/ukulele/store"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/metrics"
 	"github.com/thetatoken/ukulele/crypto"
@@ -137,7 +136,7 @@ func (t *Trie) NodeIterator(start []byte) NodeIterator {
 func (t *Trie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 	return res
 }
@@ -200,7 +199,7 @@ func (t *Trie) tryGet(origNode node, key []byte, pos int) (value []byte, newnode
 // stored in the trie.
 func (t *Trie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 }
 
@@ -302,7 +301,7 @@ func (t *Trie) insert(n node, prefix, key []byte, value node) (bool, node, error
 // Delete removes any existing value for key from the trie.
 func (t *Trie) Delete(key []byte) {
 	if err := t.TryDelete(key); err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 }
 

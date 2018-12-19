@@ -1,12 +1,16 @@
 package execution
 
 import (
+	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
 	st "github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
 
 //
 // TxExecutor defines the interface of the transaction executors

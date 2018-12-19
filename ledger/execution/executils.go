@@ -173,7 +173,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	// Check sequence/coins
 	seq, balance := acc.Sequence, acc.Balance
 	if seq+1 != in.Sequence {
-		return result.Error("Got %v, expected %v. (acc.seq=%v)",
+		return result.Error("ValidateInputAdvanced: Got %v, expected %v. (acc.seq=%v)",
 			in.Sequence, seq+1, acc.Sequence).WithErrorCode(result.CodeInvalidSequence)
 	}
 
