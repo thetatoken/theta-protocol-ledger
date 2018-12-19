@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -48,7 +46,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
 	if res.IsError() {
-		log.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
+		logger.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 
@@ -59,7 +57,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 
 	minimalBalance := tx.Fee
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
-		log.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.Source.Address.Hex()))
+		logger.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.Source.Address.Hex()))
 		return result.Error("Source balance is %v, but required minimal balance is %v",
 			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}

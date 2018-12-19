@@ -6,7 +6,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 )
 
@@ -41,7 +40,7 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
-		log.Errorf("[p2p] Failed to parse the self network address: %v", selfNetAddressStr)
+		logger.Errorf("Failed to parse the self network address: %v", selfNetAddressStr)
 		return spc, err
 	}
 	spc.selfNetAddress = *selfNetAddress
@@ -49,7 +48,7 @@ func createSeedPeerConnector(discMgr *PeerDiscoveryManager,
 	for _, seedPeerNetAddressStr := range seedPeerNetAddressStrs {
 		seedNetAddress, err := netutil.NewNetAddressString(seedPeerNetAddressStr)
 		if err != nil {
-			log.Errorf("[p2p] Failed to parse the seed network address: %v", seedPeerNetAddressStr)
+			logger.Errorf("Failed to parse the seed network address: %v", seedPeerNetAddressStr)
 			return spc, err
 		}
 		if seedNetAddress.Equals(selfNetAddress) {
@@ -94,10 +93,10 @@ func (spc *SeedPeerConnector) connectToSeedPeers() {
 			_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
 			if err != nil {
 				spc.Connected <- false
-				log.Errorf("[p2p] Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
+				logger.Errorf("Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
 			} else {
 				spc.Connected <- true
-				log.Infof("[p2p] Successfully connected to seed peer %v", peerNetAddress.String())
+				logger.Infof("Successfully connected to seed peer %v", peerNetAddress.String())
 			}
 		}(i)
 	}

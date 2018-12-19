@@ -19,6 +19,8 @@ import (
 	"github.com/thetatoken/ukulele/rlp"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
+
 //
 // Connection models the connection between the current node and a peer node.
 // A connection has a ChannelGroup which can contain multiple Channels
@@ -207,13 +209,13 @@ func (conn *Connection) SetErrorHandler(errorHandler ErrorHandler) {
 func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
-		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
+		logger.Errorf("Failed to get channel for ID: %v", channelID)
 		return false
 	}
 
 	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v, err: %v", message, err)
+		logger.Errorf("Failed to encode message to bytes: %v, err: %v", message, err)
 		return false
 	}
 	success := channel.enqueueMessage(msgBytes)
@@ -229,13 +231,13 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, message interface{}) bool {
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
-		log.Errorf("[p2p] Failed to get channel for ID: %v", channelID)
+		logger.Errorf("Failed to get channel for ID: %v", channelID)
 		return false
 	}
 
 	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
-		log.Errorf("[p2p] Failed to encode message to bytes: %v, error: %v", message, err)
+		logger.Errorf("Failed to encode message to bytes: %v, error: %v", message, err)
 		return false
 	}
 	success := channel.attemptToEnqueueMessage(msgBytes)
@@ -281,7 +283,7 @@ func (conn *Connection) sendRoutine() {
 			return
 		}
 		if err != nil {
-			log.Errorf("[p2p] sendRoutine error: %v", err)
+			logger.Errorf("sendRoutine error: %v", err)
 			conn.stopForError(err)
 			return
 		}
@@ -291,7 +293,7 @@ func (conn *Connection) sendRoutine() {
 func (conn *Connection) sendPingSignal() error {
 	if conn.pendingPings >= conn.config.MaxPendingPings {
 		conn.onError(nil)
-		log.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
+		logger.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 	}
 	pingPacket := Packet{
@@ -351,7 +353,7 @@ func (conn *Connection) recvRoutine() {
 		var packet Packet
 		err := rlp.Decode(conn.bufReader, &packet)
 		if err != nil {
-			log.Errorf("[p2p] recvRoutine: failed to decode packet: %v, error: %v", packet, err)
+			logger.Errorf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return
 		}
 		conn.recvMonitor.Update(int(1))
@@ -369,11 +371,11 @@ func (conn *Connection) recvRoutine() {
 
 func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
 	if packet.ChannelID != common.ChannelIDPing {
-		log.Errorf("[p2p] Invalid channel for Ping/Pong signal")
+		logger.Errorf("Invalid channel for Ping/Pong signal")
 		return false
 	}
 	if len(packet.Bytes) != 1 {
-		log.Errorf("[p2p] Invalid Ping/Pong packet")
+		logger.Errorf("Invalid Ping/Pong packet")
 		return false
 	}
 
@@ -384,7 +386,7 @@ func (conn *Connection) handlePingPong(packet *Packet) (success bool) {
 	case p2ptypes.PongSignal:
 		// do nothing for now
 	default:
-		log.Errorf("[p2p] Invalid Ping/Pong signal")
+		logger.Errorf("Invalid Ping/Pong signal")
 		return false
 	}
 
@@ -409,13 +411,13 @@ func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
 
 	message, err := conn.onParse(packet.ChannelID, aggregatedBytes)
 	if err != nil {
-		log.Errorf("[p2p] Error parsing packet: %v, err: %v", packet, err)
+		logger.Errorf("Error parsing packet: %v, err: %v", packet, err)
 		return false
 	}
 
 	err = conn.onReceive(message)
 	if err != nil {
-		log.Errorf("[p2p] Error handling message: %v, err: %v", message, err)
+		logger.Errorf("Error handling message: %v, err: %v", message, err)
 		return false
 	}
 
@@ -438,7 +440,7 @@ func (conn *Connection) sendPacketBatch() (success bool, exhausted bool) {
 	for i := int64(0); i < packetBatchSize; i++ {
 		success, exhausted := conn.sendPacket()
 		if !success {
-			log.Errorf("[p2p] sendPacketBatch: failed to send out packet")
+			logger.Errorf("sendPacketBatch: failed to send out packet")
 			return false, exhausted
 		}
 		if exhausted {
@@ -481,7 +483,7 @@ func (conn *Connection) GetNetconn() net.Conn {
 }
 
 func (conn *Connection) stopForError(r interface{}) {
-	log.Errorf("[p2p] Connection error: %v", r)
+	logger.Errorf("Connection error: %v", r)
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {
 		conn.Stop()
 		if conn.onError != nil {

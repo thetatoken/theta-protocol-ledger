@@ -14,6 +14,8 @@ import (
 	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
+
 //
 // Messenger implements the Network interface
 //
@@ -65,7 +67,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
 		seedPeerNetAddresses, msgrConfig.networkProtocol,
 		localNetAddress, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
-		log.Errorf("[p2p] Failed to create CreatePeerDiscoveryManager")
+		logger.Errorf("Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
 	}
 
@@ -114,11 +116,11 @@ func (msgr *Messenger) Wait() {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
-	log.Debugf("[p2p] Broadcasting messages...")
+	logger.Debugf("Broadcasting messages...")
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
-		log.Debugf("[p2p] Broadcasting \"%v\" to %v", message.Content, peer.ID())
+		logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success
@@ -144,7 +146,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
 	for _, channelID := range channelIDs {
 		if msgr.msgHandlerMap[channelID] != nil {
-			log.Errorf("[p2p] Message handler is already added for channelID: %v", channelID)
+			logger.Errorf("Message handler is already added for channelID: %v", channelID)
 			return
 		}
 		msgr.msgHandlerMap[channelID] = msgHandler
@@ -162,7 +164,7 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		peerID := peer.ID()
 		msgHandler := msgr.msgHandlerMap[channelID]
 		if msgHandler == nil {
-			log.Errorf("[p2p] Failed to setup message parser for channelID %v", channelID)
+			logger.Errorf("Failed to setup message parser for channelID %v", channelID)
 		}
 		message, err := msgHandler.ParseMessage(peerID, channelID, rawMessageBytes)
 		return message, err
@@ -179,7 +181,7 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		channelID := message.ChannelID
 		msgHandler := msgr.msgHandlerMap[channelID]
 		if msgHandler == nil {
-			log.Errorf("[p2p] Failed to setup message handler for peer %v on channelID %v", message.PeerID, channelID)
+			logger.Errorf("Failed to setup message handler for peer %v on channelID %v", message.PeerID, channelID)
 		}
 		err := msgHandler.HandleMessage(message)
 		return err

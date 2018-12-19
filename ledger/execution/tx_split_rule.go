@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -57,7 +55,7 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 
 	minimalBalance := tx.Fee
 	if !initiatorAccount.Balance.IsGTE(minimalBalance) {
-		log.Infof(fmt.Sprintf("the contract initiator did not have enough to cover the fee %X", tx.Initiator.Address))
+		logger.Infof(fmt.Sprintf("the contract initiator did not have enough to cover the fee %X", tx.Initiator.Address))
 		return result.Error("the contract initiator account balance is %v, but required minimal balance is %v", initiatorAccount.Balance, minimalBalance)
 	}
 

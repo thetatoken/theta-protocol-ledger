@@ -3,7 +3,6 @@ package connection
 import (
 	"sync"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 )
 
@@ -44,7 +43,7 @@ func createChannelGroup(cgConfig ChannelGroupConfig, channels []*Channel) (bool,
 	if cgConfig.selectionStrategy == channelSelectionRoundRobinStrategy {
 		channelSelector = createRoundRobinChannelSelector()
 	} else {
-		log.Errorf("[p2p] Invalid channel selection strategy")
+		logger.Errorf("Invalid channel selection strategy")
 		return false, ChannelGroup{}
 	}
 
@@ -170,7 +169,7 @@ func createRoundRobinChannelSelector() ChannelSelector {
 func (rrcs *RoundRobinChannelSelector) nextSelectedChannelIndex(cg *ChannelGroup) (success bool, index int) {
 	totalNumberOfChannels := len(*(cg.getAllChannels()))
 	if totalNumberOfChannels == 0 {
-		log.Errorf("[p2p] the channel group contains no channel")
+		logger.Errorf("The channel group contains no channel")
 		return false, -1
 	}
 	if rrcs.lastUsedChannelIndex < totalNumberOfChannels-1 {

@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	cn "github.com/thetatoken/ukulele/p2p/connection"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
@@ -78,9 +77,9 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	}
 	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
 		if err == nil {
-			log.Infof("Inbound peer connected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+			logger.Infof("Inbound peer connected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
 		} else {
-			log.Errorf("Inbound peer listener error: %v", err)
+			logger.Errorf("Inbound peer listener error: %v", err)
 		}
 	})
 
@@ -145,13 +144,13 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	peerRemoteAddress := peer.GetConnection().GetNetconn().RemoteAddr().String()
 	lookedUpPeer := discMgr.peerTable.GetPeer(peer.ID())
 	if lookedUpPeer == nil {
-		log.Errorf("[p2p] HandlePeerWithErrors cannot find the peer: %v", peer.ID())
+		logger.Errorf("HandlePeerWithErrors cannot find the peer: %v", peer.ID())
 		return // Should not happen
 	}
 	lookedUpPeerRemoteAddress := lookedUpPeer.GetConnection().GetNetconn().RemoteAddr().String()
 
-	log.Infof("[p2p] HandlePeerWithErrors, peerRemoteAddress: %v", peerRemoteAddress)
-	log.Infof("[p2p] HandlePeerWithErrors, lookedUpPeerRemoteAddress: %v", lookedUpPeerRemoteAddress)
+	logger.Infof("HandlePeerWithErrors, peerRemoteAddress: %v", peerRemoteAddress)
+	logger.Infof("HandlePeerWithErrors, lookedUpPeerRemoteAddress: %v", lookedUpPeerRemoteAddress)
 	if peerRemoteAddress != lookedUpPeerRemoteAddress {
 		return
 		// lookedUpPeer might be created by the inbound connection. A senario is that
@@ -173,22 +172,22 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 				//_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
 			}
 			if err == nil {
-				log.Infof("[p2p] Successfully re-connected to peer %v", peer.NetAddress().String())
+				logger.Infof("Successfully re-connected to peer %v", peer.NetAddress().String())
 				return
 			}
 			time.Sleep(time.Second * 3)
 		}
-		log.Errorf("[p2p] Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+		logger.Errorf("Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
 	}
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connecting to outbound peer: %v...", peerNetAddress)
+	logger.Infof("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
-		log.Errorf("[p2p] Failed to create outbound peer: %v", peerNetAddress)
+		logger.Errorf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
 	}
 	peer.SetPersistency(persistent)
@@ -197,12 +196,12 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 }
 
 func (discMgr *PeerDiscoveryManager) connectWithInboundPeer(netconn net.Conn, persistent bool) (*pr.Peer, error) {
-	log.Infof("[p2p] Connecting with inbound peer: %v...", netconn.RemoteAddr())
+	logger.Infof("Connecting with inbound peer: %v...", netconn.RemoteAddr())
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateInboundPeer(netconn, peerConfig, connConfig)
 	if err != nil {
-		log.Errorf("[p2p] Failed to create inbound peer: %v", netconn.RemoteAddr())
+		logger.Errorf("Failed to create inbound peer: %v", netconn.RemoteAddr())
 		return nil, err
 	}
 	peer.SetPersistency(persistent)
@@ -214,25 +213,25 @@ func (discMgr *PeerDiscoveryManager) connectWithInboundPeer(netconn net.Conn, pe
 // it save the peer to the peer table
 func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	if err := peer.Handshake(discMgr.nodeInfo); err != nil {
-		log.Errorf("[p2p] Failed to handshake with peer, error: %v", err)
+		logger.Errorf("Failed to handshake with peer, error: %v", err)
 		return err
 	}
 
 	if discMgr.messenger != nil {
 		discMgr.messenger.AttachMessageHandlersToPeer(peer)
 	} else {
-		log.Warnf("[p2p] discMgr.messenger not set, cannot attach message handlers")
+		logger.Warnf("discMgr.messenger not set, cannot attach message handlers")
 	}
 
 	if !peer.Start(discMgr.ctx) {
-		errMsg := "[p2p] Failed to start peer"
-		log.Errorf(errMsg)
+		errMsg := "Failed to start peer"
+		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 
 	if !discMgr.peerTable.AddPeer(peer) {
-		errMsg := "[p2p] Failed to add peer to the peerTable"
-		log.Errorf(errMsg)
+		errMsg := "Failed to add peer to the peerTable"
+		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
 

@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/p2p/netutil"
 	pr "github.com/thetatoken/ukulele/p2p/peer"
 )
@@ -56,7 +55,7 @@ func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, l
 	localAddrIP, localAddrPort := splitHostPort(localAddr)
 	netListener := initiateNetListener(protocol, localAddr)
 	netListenerIP, netListenerPort := splitHostPort(netListener.Addr().String())
-	log.Infof("[p2p] Local network listener, ip: %v, port: %v", netListenerIP, netListenerPort)
+	logger.Infof("Local network listener, ip: %v, port: %v", netListenerIP, netListenerPort)
 
 	internalNetAddr := getInternalNetAddress(localAddr)
 	externalNetAddr := getExternalNetAddress(localAddrIP, localAddrPort, netListenerPort, skipUPNP)
@@ -114,7 +113,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	for {
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {
-			panic(fmt.Sprintf("[p2p] net listener error: %v", err))
+			panic(fmt.Sprintf("net listener error: %v", err))
 		}
 
 		peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
@@ -146,11 +145,11 @@ func (ipl *InboundPeerListener) String() string {
 func splitHostPort(addr string) (host string, port int) {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] failed to split host and port for: %v, err: %v", addr, err))
+		panic(fmt.Sprintf("failed to split host and port for: %v, err: %v", addr, err))
 	}
 	port, err = strconv.Atoi(portStr)
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] failed to extract port for: %v, err: %v", addr, err))
+		panic(fmt.Sprintf("failed to extract port for: %v, err: %v", addr, err))
 	}
 	return host, port
 }
@@ -166,7 +165,7 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 		}
 	}
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Failed to initiate net listener: %v", err))
+		panic(fmt.Sprintf("Failed to initiate net listener: %v", err))
 	}
 
 	return netListener
@@ -175,7 +174,7 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 func getInternalNetAddress(localAddr string) *netutil.NetAddress {
 	internalAddr, err := netutil.NewNetAddressString(localAddr)
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Failed to get internal network address: %v", err))
+		panic(fmt.Sprintf("Failed to get internal network address: %v", err))
 	}
 	return internalAddr
 }
@@ -193,23 +192,23 @@ func getExternalNetAddress(localAddrIP string, localAddrPort int, listenerPort i
 		externalAddr = getNaiveExternalAddress(listenerPort)
 	}
 	if externalAddr == nil {
-		panic(fmt.Sprintf("[p2p] Could not determine external address!"))
+		panic(fmt.Sprintf("Could not determine external address!"))
 	}
 
 	return externalAddr
 }
 
 func getUPNPExternalAddress(externalPort, internalPort int) *netutil.NetAddress {
-	log.Infof("[p2p] Getting UPNP external address")
+	logger.Infof("Getting UPNP external address")
 	nat, err := netutil.Discover()
 	if err != nil {
-		log.Infof("[p2p] Could not perform UPNP discover: %v", err)
+		logger.Infof("Could not perform UPNP discover: %v", err)
 		return nil
 	}
 
 	ext, err := nat.GetExternalAddress()
 	if err != nil {
-		log.Infof("[p2p] Could not get UPNP external address: %v", err)
+		logger.Infof("Could not get UPNP external address: %v", err)
 		return nil
 	}
 
@@ -219,18 +218,18 @@ func getUPNPExternalAddress(externalPort, internalPort int) *netutil.NetAddress 
 
 	externalPort, err = nat.AddPortMapping("tcp", externalPort, internalPort, "theta", 0)
 	if err != nil {
-		log.Infof("[p2p] Could not add UPNP port mapping: %v", err)
+		logger.Infof("Could not add UPNP port mapping: %v", err)
 		return nil
 	}
 
-	log.Infof("[p2p] Got UPNP external address: %v", ext)
+	logger.Infof("Got UPNP external address: %v", ext)
 	return netutil.NewNetAddressIPPort(ext, uint16(externalPort))
 }
 
 func getNaiveExternalAddress(port int) *netutil.NetAddress {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		panic(fmt.Sprintf("[p2p] Could not fetch interface addresses: %v", err))
+		panic(fmt.Sprintf("Could not fetch interface addresses: %v", err))
 	}
 
 	for _, a := range addrs {

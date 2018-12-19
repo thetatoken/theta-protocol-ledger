@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -64,7 +62,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	sourceSignBytes := tx.SourceSignBytes(chainID)
 	if !tx.Source.Signature.Verify(sourceSignBytes, sourceAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
-		log.Infof(errMsg)
+		logger.Infof(errMsg)
 		return result.Error(errMsg)
 	}
 
@@ -77,7 +75,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	targetSignBytes := tx.TargetSignBytes(chainID)
 	if !tx.Target.Signature.Verify(targetSignBytes, targetAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
-		log.Infof(errMsg)
+		logger.Infof(errMsg)
 		return result.Error(errMsg)
 	}
 

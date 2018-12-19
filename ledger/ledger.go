@@ -17,6 +17,8 @@ import (
 	"github.com/thetatoken/ukulele/store/database"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
+
 var _ core.Ledger = (*Ledger)(nil)
 
 //
@@ -131,7 +133,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 		}
 		_, res := ledger.executor.CheckTx(tx)
 		if res.IsError() {
-			log.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
+			logger.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
 			continue
 		}
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
@@ -209,7 +211,7 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 
 // resetState sets the ledger state with the designated root
 func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
-	log.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
+	logger.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
 
 	res := ledger.state.ResetState(height, rootHash)
 	if res.IsError() {
@@ -274,18 +276,18 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 
 	signature, err := ledger.signTransaction(coinbaseTx)
 	if err != nil {
-		log.Errorf("Failed to add coinbase transaction: %v", err)
+		logger.Errorf("Failed to add coinbase transaction: %v", err)
 		return
 	}
 	coinbaseTx.SetSignature(proposerAddress, signature)
 	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
 	if err != nil {
-		log.Errorf("Failed to add coinbase transaction: %v", err)
+		logger.Errorf("Failed to add coinbase transaction: %v", err)
 		return
 	}
 
 	*rawTxs = append(*rawTxs, coinbaseTxBytes)
-	log.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
+	logger.Debugf("Adding coinbase transction: tx: %v, bytes: %v", coinbaseTx, hex.EncodeToString(coinbaseTxBytes))
 }
 
 // addsSlashTx adds Slash transactions
@@ -306,18 +308,18 @@ func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, 
 
 		signature, err := ledger.signTransaction(slashTx)
 		if err != nil {
-			log.Errorf("Failed to add slash transaction: %v", err)
+			logger.Errorf("Failed to add slash transaction: %v", err)
 			continue
 		}
 		slashTx.SetSignature(proposerAddress, signature)
 		slashTxBytes, err := types.TxToBytes(slashTx)
 		if err != nil {
-			log.Errorf("Failed to add slash transaction: %v", err)
+			logger.Errorf("Failed to add slash transaction: %v", err)
 			continue
 		}
 
 		*rawTxs = append(*rawTxs, slashTxBytes)
-		log.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))
+		logger.Debugf("Adding slash transction: tx: %v, bytes: %v", slashTx, hex.EncodeToString(slashTxBytes))
 	}
 	view.ClearSlashIntents()
 }

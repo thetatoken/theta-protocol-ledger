@@ -44,7 +44,7 @@ func (exec *UpdateValidatorsTxExecutor) sanityCheck(chainID string, view *st.Sto
 	// signBytes := tx.SignBytes(chainID)
 	// res = validateInputAdvanced(proposerAccount, signBytes, tx.Proposer)
 	// if res.IsError() {
-	// 	log.Infof(fmt.Sprintf("validateInputAdvanced failed on %X: %v", tx.Proposer.Address, res))
+	// 	logger.Infof(fmt.Sprintf("validateInputAdvanced failed on %X: %v", tx.Proposer.Address, res))
 	// 	return res
 	// }
 

@@ -36,6 +36,8 @@ import (
 	"github.com/thetatoken/ukulele/wallet/types"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "wallet"})
+
 // ledgerOpcode is an enumeration encoding the supported Ledger opcodes.
 type ledgerOpcode byte
 
@@ -333,7 +335,7 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes) (
 	}
 
 	sender, err := signature.RecoverSignerAddress(txrlp)
-	log.Infof("Sender address: %v", sender.Hex())
+	logger.Infof("Sender address: %v", sender.Hex())
 
 	if err != nil {
 		return common.Address{}, nil, err
@@ -400,7 +402,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 			apdu = nil
 		}
 		// Send over to the device
-		log.Debugf("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		logger.Debugf("Data chunk sent to the Ledger, chunk: %v", hexutil.Bytes(chunk))
 		if _, err := w.device.Write(chunk); err != nil {
 			return nil, err
 		}
@@ -413,7 +415,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 		if _, err := io.ReadFull(w.device, chunk); err != nil {
 			return nil, err
 		}
-		log.Debugf("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
+		logger.Debugf("Data chunk received from the Ledger, chunk: %v", hexutil.Bytes(chunk))
 
 		// Make sure the transport header matches
 		if chunk[0] != 0x01 || chunk[1] != 0x01 || chunk[2] != 0x05 {

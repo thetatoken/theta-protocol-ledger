@@ -17,6 +17,8 @@ import (
 	"github.com/thetatoken/ukulele/rlp"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
+
 //
 // Peer models a peer node in a network
 //
@@ -51,12 +53,12 @@ type PeerConfig struct {
 func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
-		log.Errorf("[p2p] Error dialing the peer: %v", peerAddr)
+		logger.Errorf("Error dialing the peer: %v", peerAddr)
 		return nil, err
 	}
 	peer := createPeer(netconn, true, peerConfig, connConfig)
 	if peer == nil {
-		return nil, errors.New("[p2p] Failed to create outbound peer")
+		return nil, errors.New("Failed to create outbound peer")
 	}
 	return peer, nil
 }
@@ -65,7 +67,7 @@ func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConf
 func CreateInboundPeer(netconn net.Conn, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	peer := createPeer(netconn, false, peerConfig, connConfig)
 	if peer == nil {
-		return nil, errors.New("[p2p] Failed to create inbound peer")
+		return nil, errors.New("Failed to create inbound peer")
 	}
 	return peer, nil
 }
@@ -108,7 +110,7 @@ func (peer *Peer) Stop() {
 // NOTE: need to call peer.Handshake() before peer.Start()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	remoteAddr := peer.connection.GetNetconn().RemoteAddr()
-	log.Infof("[p2p] Handshake with %v...", remoteAddr)
+	logger.Infof("Handshake with %v...", remoteAddr)
 
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
@@ -120,18 +122,18 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		func() { recvError = rlp.Decode(peer.connection.GetNetconn(), &targetPeerNodeInfo) },
 	)
 	if sendError != nil {
-		log.Errorf("[p2p] Error during handshake/send: %v", sendError)
+		logger.Errorf("Error during handshake/send: %v", sendError)
 		return sendError
 	}
 	if recvError != nil {
-		log.Errorf("[p2p] Error during handshake/recv: %v", recvError)
+		logger.Errorf("Error during handshake/recv: %v", recvError)
 		return recvError
 	}
 	netconn := peer.connection.GetNetconn()
 	netconn.SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
-		log.Errorf("[p2p] Error during handshake/recv: %v", err)
+		logger.Errorf("Error during handshake/recv: %v", err)
 		return err
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
@@ -141,7 +143,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
 	}
 
-	log.Infof("[p2p] Handshake completed, target address: %v, target public key: %v",
+	logger.Infof("Handshake completed, target address: %v, target public key: %v",
 		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
 
 	return nil
@@ -219,7 +221,7 @@ func createPeer(netconn net.Conn, isOutbound bool,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
 	connection := cn.CreateConnection(netconn, connConfig)
 	if connection == nil {
-		log.Errorf("[p2p] Failed to create connection")
+		logger.Errorf("Failed to create connection")
 		return nil
 	}
 	var netAddress *nu.NetAddress

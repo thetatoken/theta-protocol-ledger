@@ -3,8 +3,6 @@ package execution
 import (
 	"math/big"
 
-	log "github.com/sirupsen/logrus"
-
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
@@ -144,7 +142,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 	if err != nil {
 		// TODO: need proper logging and error handling here.
 		//panic(fmt.Sprintf("Failed to parse overspending proof: %v\n", err))
-		log.Errorf("Failed to parse overspending proof: %v", err)
+		logger.Errorf("Failed to parse overspending proof: %v", err)
 		return false
 	}
 

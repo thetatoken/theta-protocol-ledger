@@ -18,7 +18,6 @@
 package trie
 
 import (
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 )
 
@@ -67,7 +66,7 @@ func NewSecure(root common.Hash, db *Database, cachelimit uint16) (*SecureTrie, 
 func (t *SecureTrie) Get(key []byte) []byte {
 	res, err := t.TryGet(key)
 	if err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 	return res
 }
@@ -87,7 +86,7 @@ func (t *SecureTrie) TryGet(key []byte) ([]byte, error) {
 // stored in the trie.
 func (t *SecureTrie) Update(key, value []byte) {
 	if err := t.TryUpdate(key, value); err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 }
 
@@ -112,7 +111,7 @@ func (t *SecureTrie) TryUpdate(key, value []byte) error {
 // Delete removes any existing value for key from the trie.
 func (t *SecureTrie) Delete(key []byte) {
 	if err := t.TryDelete(key); err != nil {
-		log.Errorf("Unhandled trie error: %v", err)
+		logger.Errorf("Unhandled trie error: %v", err)
 	}
 }
 
