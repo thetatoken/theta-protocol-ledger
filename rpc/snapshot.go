@@ -50,7 +50,7 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	if sv.Height() != lastFinalizedBlock.Height {
 		return fmt.Errorf("Last finalized block height don't match %v != %v", sv.Height(), lastFinalizedBlock.Height)
 	}
-	err = writeBlock(writer, lastFinalizedBlock)
+	err = writeMetadata(writer, lastFinalizedBlock)
 	if err != nil {
 		return err
 	}
@@ -59,7 +59,7 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
 		err = writeRecord(writer, k, v, nil)
 		if err != nil {
-			panic(err)
+			panic(err) //TODO replace with return err
 		}
 
 		if strings.HasPrefix(k.String(), "ls/a/") {
@@ -84,8 +84,8 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	return
 }
 
-func writeBlock(writer *bufio.Writer, block *core.ExtendedBlock) error {
-	raw, err := rlp.EncodeToBytes(&block)
+func writeMetadata(writer *bufio.Writer, block *core.ExtendedBlock) error {
+	raw, err := rlp.EncodeToBytes(*block)
 	if err != nil {
 		log.Error("Failed to encode snapshot block")
 		return err

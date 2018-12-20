@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/netsync"
 	"github.com/thetatoken/ukulele/node"
 	"github.com/thetatoken/ukulele/p2p/messenger"
 	"github.com/thetatoken/ukulele/store/database/backend"
@@ -51,7 +52,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	var root *core.Block
-	extendedBlock, err := consensus.LoadSnapshot(snapshotPath, db)
+	extendedBlock, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err == nil {
 		root = extendedBlock.Block
 	} else {
