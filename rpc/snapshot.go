@@ -85,21 +85,22 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 }
 
 func writeMetadata(writer *bufio.Writer, block *core.ExtendedBlock) error {
-	raw, err := rlp.EncodeToBytes(*block)
+	// block header
+	raw, err := rlp.EncodeToBytes(*(block.BlockHeader))
 	if err != nil {
-		log.Error("Failed to encode snapshot block")
+		log.Error("Failed to encode snapshot block header")
 		return err
 	}
 	// write length first
 	_, err = writer.Write(itobs(uint64(len(raw))))
 	if err != nil {
-		log.Error("Failed to write snapshot block length")
+		log.Error("Failed to write snapshot block header length")
 		return err
 	}
 	// write metadata itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		log.Error("Failed to write snapshot block")
+		log.Error("Failed to write snapshot block header")
 		return err
 	}
 	return nil
