@@ -46,17 +46,22 @@ func runStart(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load checkpoint")
 	}
-	validators := checkpoint.Validators
+
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	var root *core.Block
-	blockHeader, err := netsync.LoadSnapshot(snapshotPath, db)
+	var validatorSet *core.ValidatorSet
+	snapshot, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err == nil {
-		root = &core.Block{BlockHeader: blockHeader}
+		validatorSet = &core.ValidatorSet{}
+		validatorSet.SetValidators(snapshot.Validators)
+		root = &core.Block{BlockHeader: &snapshot.Blockheader}
 	} else {
 		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
+		validators := checkpoint.Validators
+		validatorSet = consensus.NewTestValidatorSet(validators)
 		root = checkpoint.FirstBlock
 		consensus.LoadCheckpointLedgerState(checkpoint, db)
 	}
@@ -65,7 +70,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		ChainID:    root.ChainID,
 		PrivateKey: privKey,
 		Root:       root,
-		Validators: consensus.NewTestValidatorSet(validators),
+		Validators: validatorSet,
 		Network:    network,
 		DB:         db,
 	}

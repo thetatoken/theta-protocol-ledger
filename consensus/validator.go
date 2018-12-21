@@ -80,7 +80,7 @@ func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint64) core.Valida
 	curr := uint64(0)
 	validators := m.validators.Validators()
 	for _, v := range validators {
-		curr += v.Stake()
+		curr += v.Stake
 		if r < curr {
 			return v
 		}

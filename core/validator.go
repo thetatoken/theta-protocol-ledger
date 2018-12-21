@@ -16,8 +16,8 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	pubKey crypto.PublicKey
-	stake  uint64
+	PubKey crypto.PublicKey
+	Stake  uint64
 }
 
 // NewValidator creates a new validator instance.
@@ -31,23 +31,23 @@ func NewValidator(pubKeyBytes common.Bytes, stake uint64) Validator {
 
 // PublicKey returns the public key of the validator.
 func (v Validator) PublicKey() crypto.PublicKey {
-	return v.pubKey
+	return v.PubKey
 }
 
 // Address returns the address of the validator.
 func (v Validator) Address() common.Address {
-	return v.pubKey.Address()
+	return v.PubKey.Address()
 }
 
 // ID returns the ID of the validator, which is the string representation of its address.
 func (v Validator) ID() common.Address {
-	return v.pubKey.Address()
+	return v.PubKey.Address()
 }
 
-// Stake returns the stake of the validator.
-func (v Validator) Stake() uint64 {
-	return v.stake
-}
+// // Stake returns the stake of the validator.
+// func (v Validator) Stake() uint64 {
+// 	return v.stake
+// }
 
 // ValidatorSet represents a set of validators.
 type ValidatorSet struct {
@@ -59,6 +59,11 @@ func NewValidatorSet() *ValidatorSet {
 	return &ValidatorSet{
 		validators: []Validator{},
 	}
+}
+
+// SetValidators sets validators
+func (s *ValidatorSet) SetValidators(validators []Validator) {
+	s.validators = validators
 }
 
 // Copy creates a copy of this validator set.
@@ -102,7 +107,7 @@ func (s *ValidatorSet) AddValidator(validator Validator) {
 func (s *ValidatorSet) TotalStake() uint64 {
 	ret := uint64(0)
 	for _, v := range s.validators {
-		ret += v.Stake()
+		ret += v.Stake
 	}
 	return ret
 }
@@ -114,7 +119,7 @@ func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
 	for _, vote := range votes.Votes() {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
-			votedStake += validator.Stake()
+			votedStake += validator.Stake
 		}
 	}
 	return votedStake >= quorum

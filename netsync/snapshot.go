@@ -18,7 +18,7 @@ import (
 	"github.com/thetatoken/ukulele/store/treestore"
 )
 
-func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
+func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -26,13 +26,13 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	defer file.Close()
 	reader := bufio.NewReader(file)
 
-	blockHeader, err := readMetadata(reader)
+	metadata, err := readMetadata(reader)
 	if err != nil {
 		log.Errorf("Failed to load snapshot block")
 		return nil, err
 	}
 
-	store := state.NewStoreView(blockHeader.Height, common.Hash{}, db)
+	store := state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
 	var account *types.Account
 	accountStorage := treestore.NewTreeStore(common.Hash{}, db)
 	for {
@@ -71,24 +71,24 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 			accountStorage.Set(record.K, record.V)
 		}
 	}
-	return blockHeader, nil
+	return metadata, nil
 }
 
-func readMetadata(reader *bufio.Reader) (*core.BlockHeader, error) {
-	blockHeader := &core.BlockHeader{}
+func readMetadata(reader *bufio.Reader) (*core.SnapshotMetadata, error) {
+	metadata := &core.SnapshotMetadata{}
 	sizeBytes := make([]byte, 8)
 	_, err := reader.Read(sizeBytes)
 	if err != nil {
-		return blockHeader, err
+		return metadata, err
 	}
 	size := bstoi(sizeBytes)
-	blockBytes := make([]byte, size)
-	_, err = reader.Read(blockBytes)
+	metadataBytes := make([]byte, size)
+	_, err = reader.Read(metadataBytes)
 	if err != nil {
-		return blockHeader, err
+		return metadata, err
 	}
-	err = rlp.DecodeBytes(blockBytes, blockHeader)
-	return blockHeader, err
+	err = rlp.DecodeBytes(metadataBytes, metadata)
+	return metadata, err
 }
 
 func readRecord(reader *bufio.Reader) (*core.SnapshotRecord, error) {
