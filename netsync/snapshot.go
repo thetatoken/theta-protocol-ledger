@@ -32,6 +32,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		return nil, err
 	}
 
+	var hash common.Hash
 	store := state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
 	var account *types.Account
 	accountStorage := treestore.NewTreeStore(common.Hash{}, db)
@@ -40,7 +41,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		if err != nil {
 			if err == io.EOF {
 				accountStorage.Commit()
-				store.Save()
+				hash = store.Save()
 				break
 			}
 			log.Errorf("Failed to read snapshot record")
@@ -71,7 +72,34 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 			accountStorage.Set(record.K, record.V)
 		}
 	}
+
+	if !validateSnapshot(metadata, hash) {
+		return nil, fmt.Errorf("Snapshot validation failed")
+	}
 	return metadata, nil
+}
+
+func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash) bool {
+	// if bytes.Compare(hash.Bytes(), metadata.Blockheader.Hash().Bytes()) != 0 {
+	// 	return false
+	// }
+
+	validatorMap := make(map[common.Address]bool)
+	for _, validator := range metadata.Validators {
+		validatorMap[validator.Address()] = true
+	}
+	for _, vote := range metadata.Votes {
+		if !vote.Validate().IsOK() {
+			return false
+		}
+		if bytes.Compare(vote.Block.Bytes(), metadata.Blockheader.Hash().Bytes()) != 0 {
+			return false
+		}
+		if _, ok := validatorMap[vote.ID]; !ok {
+			return false
+		}
+	}
+	return true
 }
 
 func readMetadata(reader *bufio.Reader) (*core.SnapshotMetadata, error) {
