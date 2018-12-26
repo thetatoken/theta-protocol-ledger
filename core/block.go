@@ -41,6 +41,7 @@ type BlockHeader struct {
 	Epoch     uint64
 	Height    uint64
 	Parent    common.Hash
+	HCC       common.Hash
 	TxHash    common.Hash
 	StateHash common.Hash
 	Timestamp *big.Int

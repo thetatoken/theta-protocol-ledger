@@ -282,11 +282,22 @@ func (e *ConsensusEngine) vote() {
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
-	if lastVote.Height >= tip.Height {
+	if lastVote.Height != 0 && lastVote.Height >= tip.Height {
+		// Voting height should be monotonically increasing.
 		e.logger.WithFields(log.Fields{
 			"vote": lastVote,
 		}).Debug("Repeating vote at height")
 		vote = lastVote
+		vote.Epoch = e.GetEpoch()
+	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC != localHCC {
+		// HCC in candidate block must equal local highest CC.
+		e.logger.WithFields(log.Fields{
+			"vote":      lastVote,
+			"tip.HCC":   tip.HCC.Hex(),
+			"local.HCC": localHCC.Hex(),
+		}).Debug("Repeating vote due to mismatched HCC")
+		vote = lastVote
+		vote.Epoch = e.GetEpoch()
 	} else {
 		vote = e.createVote(tip.Block)
 		e.state.SetLastVote(vote)
@@ -325,9 +336,16 @@ func (e *ConsensusEngine) createVote(block *core.Block) core.Vote {
 
 func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 	if res := vote.Validate(); res.IsError() {
+		e.logger.WithFields(log.Fields{
+			"err": res.String(),
+		}).Warn("Ignoring invalid vote")
 		return false
 	}
 	if !e.shouldVoteByID(vote.Epoch, vote.ID) {
+		e.logger.WithFields(log.Fields{
+			"vote.Epoch": vote.Epoch,
+			"vote.ID":    vote.ID,
+		}).Warn("Ignoring invalid vote from non-validator")
 		return false
 	}
 	return true
@@ -335,7 +353,6 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	if !e.validateVote(vote) {
-		e.logger.Warn("Ignoring invalid vote")
 		return
 	}
 
@@ -500,6 +517,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Height = tip.Height + 1
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
+	block.HCC = e.state.GetHighestCCBlock().Hash()
 
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
 	if result.IsError() {
