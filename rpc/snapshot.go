@@ -100,7 +100,6 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 }
 
 func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
-	// block header
 	raw, err := rlp.EncodeToBytes(*metadata)
 	if err != nil {
 		log.Error("Failed to encode snapshot metadata")

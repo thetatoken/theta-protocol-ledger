@@ -80,9 +80,9 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 }
 
 func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash) bool {
-	// if bytes.Compare(hash.Bytes(), metadata.Blockheader.Hash().Bytes()) != 0 {
-	// 	return false
-	// }
+	if bytes.Compare(metadata.Blockheader.StateHash.Bytes(), hash.Bytes()) != 0 {
+		return false
+	}
 
 	validatorMap := make(map[common.Address]bool)
 	for _, validator := range metadata.Validators {
