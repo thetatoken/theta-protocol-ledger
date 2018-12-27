@@ -282,30 +282,42 @@ func (e *ConsensusEngine) vote() {
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
+	shouldRepeatVote := false
 	if lastVote.Height != 0 && lastVote.Height >= tip.Height {
 		// Voting height should be monotonically increasing.
 		e.logger.WithFields(log.Fields{
-			"vote": lastVote,
+			"lastVote.Height": lastVote.Height,
+			"tip.Height":      tip.Height,
 		}).Debug("Repeating vote at height")
-		vote = lastVote
-		vote.Epoch = e.GetEpoch()
+		shouldRepeatVote = true
 	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC != localHCC {
 		// HCC in candidate block must equal local highest CC.
 		e.logger.WithFields(log.Fields{
-			"vote":      lastVote,
 			"tip.HCC":   tip.HCC.Hex(),
 			"local.HCC": localHCC.Hex(),
 		}).Debug("Repeating vote due to mismatched HCC")
-		vote = lastVote
-		vote.Epoch = e.GetEpoch()
+		shouldRepeatVote = true
+	}
+
+	if shouldRepeatVote {
+		block, err := e.chain.FindBlock(lastVote.Block)
+		if err != nil {
+			log.Panic(err)
+		}
+		// Recreating vote so that it has updated epoch and signature.
+		vote = e.createVote(block.Block)
 	} else {
 		vote = e.createVote(tip.Block)
 		e.state.SetLastVote(vote)
-		e.logger.WithFields(log.Fields{
-			"vote": vote,
-		}).Debug("Sending vote")
 	}
+	e.logger.WithFields(log.Fields{
+		"vote": vote,
+	}).Debug("Sending vote")
+	e.broadcastVote(vote)
+	e.handleVote(vote)
+}
 
+func (e *ConsensusEngine) broadcastVote(vote core.Vote) {
 	payload, err := rlp.EncodeToBytes(vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
@@ -315,7 +327,6 @@ func (e *ConsensusEngine) vote() {
 		ChannelID: common.ChannelIDVote,
 		Payload:   payload,
 	}
-	e.handleVote(vote)
 	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
@@ -377,6 +388,12 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		if validators.HasMajority(currentEpochVotes) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
+			if nextEpoch > e.GetEpoch()+1 {
+				// Broadcast epoch votes when jumping epoch.
+				for _, v := range currentEpochVotes.Votes() {
+					e.broadcastVote(v)
+				}
+			}
 
 			e.logger.WithFields(log.Fields{
 				"e.epoch":      e.GetEpoch,
@@ -399,11 +416,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	// Ingore outdated votes.
 	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
 	if block.Height < highestCCBlockHeight {
-		e.logger.WithFields(log.Fields{
-			"vote":                 vote,
-			"vote.Block.Height":    block.Height,
-			"HeightCCBlock.Height": highestCCBlockHeight,
-		}).Debug("Ignoring outdated vote")
 		return
 	}
 
@@ -442,7 +454,7 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	}
 
 	e.logger.WithFields(log.Fields{"ccBlock.Hash": ccBlock.Hash().Hex(), "c.epoch": e.state.GetEpoch()}).Debug("Updating highestCCBlock")
-
+	e.state.SetHighestCCBlock(ccBlock)
 	e.chain.CommitBlock(ccBlock.Hash())
 
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
