@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"sync"
 	"time"
@@ -104,10 +105,56 @@ type BroadcastRawTransactionArgs struct {
 }
 
 type BroadcastRawTransactionResult struct {
+	TxHash string            `json:"hash"`
+	Block  *core.BlockHeader `json:"block",rlp:"nil"`
+}
+
+func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request,
+	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
+	txBytes, err := hex.DecodeString(args.TxBytes)
+	if err != nil {
+		return err
+	}
+
+	hash := crypto.Keccak256Hash(txBytes)
+	result.TxHash = hash.Hex()
+
+	logger.Infof("[rpc] broadcast raw transaction: %v", hex.EncodeToString(txBytes))
+
+	err = t.mempool.InsertTransaction(txBytes)
+	if err != nil {
+		return err
+	}
+
+	finalized := make(chan *core.Block)
+	timeout := time.NewTimer(txTimeout)
+	defer timeout.Stop()
+
+	txCallbackManager.AddCallback(hash, func(block *core.Block) {
+		finalized <- block
+	})
+
+	select {
+	case block := <-finalized:
+		result.Block = block.BlockHeader
+		return nil
+	case <-timeout.C:
+		return errors.New("Timed out waiting for transaction to be included")
+	}
+}
+
+// ------------------------------- BroadcastRawTransactionAsync -----------------------------------
+
+type BroadcastRawTransactionAsyncArgs struct {
+	TxBytes string `json:"tx_bytes"`
+}
+
+type BroadcastRawTransactionAsyncResult struct {
 	TxHash string `json:"hash"`
 }
 
-func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request, args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
+func (t *ThetaRPCServer) BroadcastRawTransactionAsync(r *http.Request,
+	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
 	txBytes, err := hex.DecodeString(args.TxBytes)
 	if err != nil {
 		return err
