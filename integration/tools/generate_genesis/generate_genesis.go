@@ -21,6 +21,7 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
+// Example: generate_genesis -erc20snapshot=./theta_erc20_snapshot.json -genesis=../testnet/node2/genesis
 func main() {
 	erc20SnapshotJsonFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
 	genesisCheckpointfilePathPtr := flag.String("genesis", "./genesis", "the genesis checkpoint")
