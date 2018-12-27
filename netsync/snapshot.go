@@ -83,10 +83,10 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash) bool {
 	if bytes.Compare(metadata.Blockheader.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return false
 	}
-
-	validatorMap := make(map[common.Address]bool)
-	for _, validator := range metadata.Validators {
-		validatorMap[validator.Address()] = true
+	validatorSet := &core.ValidatorSet{}
+	validatorSet.SetValidators(metadata.Validators)
+	if !validatorSet.HasMajorityVotes(metadata.Votes) {
+		return false
 	}
 	for _, vote := range metadata.Votes {
 		if !vote.Validate().IsOK() {
@@ -95,7 +95,8 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash) bool {
 		if bytes.Compare(vote.Block.Bytes(), metadata.Blockheader.Hash().Bytes()) != 0 {
 			return false
 		}
-		if _, ok := validatorMap[vote.ID]; !ok {
+		_, err := validatorSet.GetValidator(vote.ID)
+		if err != nil {
 			return false
 		}
 	}

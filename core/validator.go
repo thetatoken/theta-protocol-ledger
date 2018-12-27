@@ -114,9 +114,14 @@ func (s *ValidatorSet) TotalStake() uint64 {
 
 // HasMajority checks whether a vote set has reach majority.
 func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
+	return s.HasMajorityVotes(votes.Votes())
+}
+
+// HasMajorityVotes checks whether a vote set has reach majority.
+func (s *ValidatorSet) HasMajorityVotes(votes []Vote) bool {
 	quorum := s.TotalStake()*2/3 + 1
 	votedStake := uint64(0)
-	for _, vote := range votes.Votes() {
+	for _, vote := range votes {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
 			votedStake += validator.Stake
