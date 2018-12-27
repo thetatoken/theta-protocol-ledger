@@ -75,11 +75,14 @@ func (t *ThetaRPCServer) Start(ctx context.Context) {
 	t.ctx = c
 	t.cancel = cancel
 
+	t.wg.Add(1)
 	go t.mainLoop()
+
+	t.wg.Add(1)
+	go t.txCallback()
 }
 
 func (t *ThetaRPCServer) mainLoop() {
-	t.wg.Add(1)
 	defer t.wg.Done()
 
 	go t.serve()
