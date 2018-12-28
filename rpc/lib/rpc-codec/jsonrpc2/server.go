@@ -205,7 +205,19 @@ func (c *serverCodec) ReadRequestBody(x interface{}) error {
 		if len(arg.reqs) == 0 {
 			return errRequest
 		}
-	} else if err := json.Unmarshal(*c.req.Params, x); err != nil {
+		return nil
+	}
+
+	// Try decoding list style arguments.
+	var params [1]interface{}
+	params[0] = x
+	err := json.Unmarshal(*c.req.Params, &params)
+	if err == nil {
+		return nil
+	}
+
+	// Try decoding dictionary style arguments.
+	if err := json.Unmarshal(*c.req.Params, x); err != nil {
 		return NewError(errParams.Code, err.Error())
 	}
 	return nil
