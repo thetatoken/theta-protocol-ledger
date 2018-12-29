@@ -389,28 +389,12 @@ func TestServerJSON(t *testing.T) {
 		},
 		// Params to Map
 		{`{"jsonrpc":"2.0","id":0,"method":"Svc.MapLen"}`, jres0},
-		{
-			`{"jsonrpc":"2.0","id":0,"method":"Svc.MapLen","params":[]}`,
-			fmt.Sprintf(jerrParamsFmt, "json: cannot unmarshal array into Go value of type map[string]int"),
-		},
-		{
-			`{"jsonrpc":"2.0","id":0,"method":"Svc.MapLen","params":[3,5]}`,
-			fmt.Sprintf(jerrParamsFmt, "json: cannot unmarshal array into Go value of type map[string]int"),
-		},
 		{`{"jsonrpc":"2.0","id":0,"method":"Svc.MapLen","params":{}}`, jres0},
 		{`{"jsonrpc":"2.0","id":0,"method":"Svc.MapLen","params":{"a":3,"b":5}}`, jres2},
 		// Params to Struct
 		{
 			`{"jsonrpc":"2.0","id":0,"method":"Svc.Name"}`,
 			`{"jsonrpc":"2.0","id":0,"result":{"Name":" "}}`,
-		},
-		{
-			`{"jsonrpc":"2.0","id":0,"method":"Svc.Name","params":[]}`,
-			fmt.Sprintf(jerrParamsFmt, "json: cannot unmarshal array into Go value of type jsonrpc2.NameArg"),
-		},
-		{
-			`{"jsonrpc":"2.0","id":0,"method":"Svc.Name","params":[3,5]}`,
-			fmt.Sprintf(jerrParamsFmt, "json: cannot unmarshal array into Go value of type jsonrpc2.NameArg"),
 		},
 		{
 			`{"jsonrpc":"2.0","id":0,"method":"Svc.Name","params":{}}`,
@@ -574,10 +558,6 @@ func TestClientResponse(t *testing.T) {
 		{
 			`{"jsonrpc":"2.0","id":0,"result":"0"}`,
 			0.0, NewError(errInternal.Code, "json: cannot unmarshal string into Go value of type float64"),
-		},
-		{
-			`{"jsonrpc":"2.0","id":0,"result":[0]}`,
-			0.0, NewError(errInternal.Code, "json: cannot unmarshal array into Go value of type float64"),
 		},
 		{
 			`{"jsonrpc":"2.0","id":0,"result":{}}`,
@@ -892,7 +872,6 @@ func TestCall(t *testing.T) {
 		{"Svc.Name", NameArg{"John", "Smith"}, map[string]interface{}{"Name": "John Smith"}, nil},
 
 		{"Svc.Err", struct{}{}, struct{}{}, NewError(-32000, "some issue")},
-		{"Svc.Err", []struct{}{}, struct{}{}, NewError(-32602, "json: cannot unmarshal array into Go value of type struct {}")},
 
 		{"Svc.Err2", struct{}{}, struct{}{}, NewError(42, "some issue")},
 	}

@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/powerman/rpc-codec/jsonrpc2"
+	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
 )
 
 // Svc is an RPC service for testing.
@@ -47,8 +47,6 @@ func TestHTTPServer(t *testing.T) {
 		reply       string
 	}{
 		{"GET", "", "", "", http.StatusMethodNotAllowed, ""},
-		{"POST", contentType, "", jSum, http.StatusUnsupportedMediaType, ""},
-		{"POST", "text/json", contentType, jSum, http.StatusUnsupportedMediaType, ""},
 		{"PUT", contentType, contentType, jSum, http.StatusMethodNotAllowed, ""},
 		{"POST", contentType, contentType, jNotify, http.StatusNoContent, ""},
 		{"POST", contentType, contentType, jSum, http.StatusOK, jRes},

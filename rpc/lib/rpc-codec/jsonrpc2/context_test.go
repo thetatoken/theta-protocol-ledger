@@ -12,7 +12,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/powerman/rpc-codec/jsonrpc2"
+	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
 )
 
 type contextKey int

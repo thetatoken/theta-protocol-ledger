@@ -34,7 +34,7 @@ func TestTxCallbackManager(t *testing.T) {
 	cb, exists := m.RemoveCallback(h1)
 	assert.Equal(0, len(m.txHashToCallback))
 	assert.True(exists)
-	cb.callback(nil)
+	cb.Callback(nil)
 	assert.True(cbExcuted[0])
 
 	cb, exists = m.RemoveCallback(h2)

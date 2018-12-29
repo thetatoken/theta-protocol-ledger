@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"net/rpc"
 
-	"github.com/powerman/rpc-codec/jsonrpc2"
+	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
 )
 
 // A server wishes to export an object of type ExampleSvc:
