@@ -69,7 +69,7 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	mediaType, _, _ := mime.ParseMediaType(req.Header.Get("Content-Type"))
-	if mediaType != contentType || req.Header.Get("Accept") != contentType {
+	if mediaType != contentType {
 		w.WriteHeader(http.StatusUnsupportedMediaType)
 		return
 	}
