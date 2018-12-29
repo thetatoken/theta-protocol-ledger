@@ -3,7 +3,6 @@ package rpc
 import (
 	"encoding/hex"
 	"errors"
-	"net/http"
 	"sync"
 	"time"
 
@@ -74,7 +73,7 @@ func (m *TxCallbackManager) Trim() {
 
 var txCallbackManager = NewTxCallbackManager()
 
-func (t *ThetaRPCServer) txCallback() {
+func (t *ThetaRPCService) txCallback() {
 	defer t.wg.Done()
 
 	timer := time.NewTicker(1 * time.Second)
@@ -109,7 +108,7 @@ type BroadcastRawTransactionResult struct {
 	Block  *core.BlockHeader `json:"block",rlp:"nil"`
 }
 
-func (t *ThetaRPCServer) BroadcastRawTransaction(r *http.Request,
+func (t *ThetaRPCService) BroadcastRawTransaction(
 	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
 	txBytes, err := hex.DecodeString(args.TxBytes)
 	if err != nil {
@@ -153,7 +152,7 @@ type BroadcastRawTransactionAsyncResult struct {
 	TxHash string `json:"hash"`
 }
 
-func (t *ThetaRPCServer) BroadcastRawTransactionAsync(r *http.Request,
+func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
 	txBytes, err := hex.DecodeString(args.TxBytes)
 	if err != nil {
