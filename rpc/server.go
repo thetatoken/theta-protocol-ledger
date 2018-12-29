@@ -20,6 +20,7 @@ import (
 	"github.com/thetatoken/ukulele/mempool"
 	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
 	"golang.org/x/net/netutil"
+	"golang.org/x/net/websocket"
 )
 
 var logger *log.Entry
@@ -67,6 +68,9 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *b
 
 	t.router = mux.NewRouter()
 	t.router.Handle("/rpc", jsonrpc2.HTTPHandler(s))
+	t.router.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
+		s.ServeCodec(jsonrpc2.NewServerCodec(ws, s))
+	}))
 
 	t.server = &http.Server{
 		Handler: t.router,
