@@ -8,7 +8,6 @@ import (
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 )
@@ -24,7 +23,8 @@ Transaction Types:
  - ReleaseFundTx        Release fund reserved for service payments
  - ServicePaymentTx     Payments for service
  - SplitRuleTx          Payment split rule
- - UpdateValidatorsTx   Update validator set
+ - DepositStakeTx       Deposit stake to a target address (e.g. a validator)
+ - WithdrawStakeTx      Withdraw stake from a target address (e.g. a validator)
  - SmartContractTx      Execute smart contract
 */
 
@@ -36,6 +36,8 @@ const (
 	GasServicePaymentTx   uint64 = 10000
 	GasSplitRuleTx        uint64 = 10000
 	GasUpdateValidatorsTx uint64 = 10000
+	GasDepositStakeTx     uint64 = 10000
+	GasWidthdrawStakeTx   uint64 = 10000
 )
 
 type Tx interface {
@@ -716,40 +718,6 @@ func (tx *SplitRuleTx) String() string {
 
 //-----------------------------------------------------------------------------
 
-type UpdateValidatorsTx struct {
-	Fee        Coins             `json:"fee"`        // Fee
-	Validators []*core.Validator `json:"validators"` // validators diff
-	Proposer   TxInput           `json:"source"`     // source account
-}
-
-func (_ *UpdateValidatorsTx) AssertIsTx() {}
-
-func (tx *UpdateValidatorsTx) SignBytes(chainID string) []byte {
-	signBytes := encodeToBytes(chainID)
-	for _, v := range tx.Validators {
-		bytes, err := rlp.EncodeToBytes(v)
-		if err != nil {
-			signBytes = append(signBytes, bytes...)
-		}
-	}
-	signBytes = addPrefixForSignBytes(signBytes)
-	return signBytes
-}
-
-func (tx *UpdateValidatorsTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
-	if tx.Proposer.Address == addr {
-		tx.Proposer.Signature = sig
-		return true
-	}
-	return false
-}
-
-func (tx *UpdateValidatorsTx) String() string {
-	return fmt.Sprintf("UpdateValidatorsTx{%v}", tx.Validators)
-}
-
-//-----------------------------------------------------------------------------
-
 type SmartContractTx struct {
 	From     TxInput
 	To       TxOutput
@@ -824,6 +792,74 @@ func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 func (tx *SmartContractTx) String() string {
 	return fmt.Sprintf("SmartContractTx{%v -> %v, value: %v, gas_limit: %v, gas_price: %v, data: %v}",
 		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.From.Coins.GammaWei, tx.GasLimit, tx.GasPrice, tx.Data)
+}
+
+//-----------------------------------------------------------------------------
+
+type DepositStakeTx struct {
+	Fee    Coins    `json:"fee"`    // Fee
+	Source TxInput  `json:"source"` // source staker account
+	Target TxOutput `json:"target"` // target validator account
+}
+
+func (_ *DepositStakeTx) AssertIsTx() {}
+
+func (tx *DepositStakeTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	sig := tx.Source.Signature
+	tx.Source.Signature = nil
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
+	tx.Source.Signature = sig
+	return signBytes
+}
+
+func (tx *DepositStakeTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.Source.Address == addr {
+		tx.Source.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *DepositStakeTx) String() string {
+	return fmt.Sprintf("DepositStakeTx{%v -> %v, %s stake}", tx.Source.Address, tx.Target.Address, tx.Source.Coins)
+}
+
+//-----------------------------------------------------------------------------
+
+type WithdrawStakeTx struct {
+	Fee    Coins    `json:"fee"`    // Fee
+	Source TxInput  `json:"source"` // source staker account
+	Target TxOutput `json:"target"` // target validator account
+}
+
+func (_ *WithdrawStakeTx) AssertIsTx() {}
+
+func (tx *WithdrawStakeTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	sig := tx.Source.Signature
+	tx.Source.Signature = nil
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
+	tx.Source.Signature = sig
+	return signBytes
+}
+
+func (tx *WithdrawStakeTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.Source.Address == addr {
+		tx.Source.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *WithdrawStakeTx) String() string {
+	return fmt.Sprintf("DepositStakeTx{%v <- %v, %s stake}", tx.Source.Address, tx.Target.Address, tx.Source.Coins)
 }
 
 // --------------- Utils --------------- //

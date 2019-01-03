@@ -162,7 +162,9 @@ const (
 	TxTypeReleaseFund
 	TxTypeServicePayment
 	TxTypeSplitRule
-	TxUpdateValidators
+	TxTypeSmartContract
+	TxTypeDepositStake
+	TxTypeWithdrawStake
 )
 
 func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -214,8 +216,12 @@ func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *G
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,
@@ -291,8 +297,12 @@ func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeigh
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,
