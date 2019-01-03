@@ -1,11 +1,20 @@
-package types
+package core
 
 import (
 	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/thetatoken/ukulele/common"
 )
+
+var (
+	Zero *big.Int
+)
+
+func init() {
+	Zero = big.NewInt(0)
+}
 
 //
 // ------- Stake ------- //
@@ -13,10 +22,10 @@ import (
 
 type Stake struct {
 	Source common.Address
-	Amount Coins
+	Amount *big.Int
 }
 
-func newStake(source common.Address, amount Coins) *Stake {
+func newStake(source common.Address, amount *big.Int) *Stake {
 	return &Stake{
 		Source: source,
 		Amount: amount,
@@ -39,22 +48,22 @@ func newStakeHolder(holder common.Address, stakes []*Stake) *StakeHolder {
 	}
 }
 
-func (sh *StakeHolder) totalStake() Coins {
-	totalAmount := NewCoins(0, 0)
+func (sh *StakeHolder) totalStake() *big.Int {
+	totalAmount := new(big.Int).SetUint64(0)
 	for _, stake := range sh.Stakes {
-		totalAmount = totalAmount.Plus(stake.Amount)
+		totalAmount = new(big.Int).Add(totalAmount, stake.Amount)
 	}
 	return totalAmount
 }
 
-func (sh *StakeHolder) depositStake(source common.Address, amount Coins) error {
-	if !amount.IsNonnegative() {
+func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) error {
+	if amount.Cmp(Zero) < 0 {
 		return fmt.Errorf("Invalid stake: %v", amount)
 	}
 
 	for _, stake := range sh.Stakes {
 		if stake.Source == source {
-			stake.Amount = stake.Amount.Plus(amount)
+			stake.Amount = new(big.Int).Add(stake.Amount, amount)
 			return nil
 		}
 	}
@@ -65,20 +74,20 @@ func (sh *StakeHolder) depositStake(source common.Address, amount Coins) error {
 	return nil
 }
 
-func (sh *StakeHolder) withdrawStake(source common.Address, amount Coins) (withdrawnAmount Coins, err error) {
-	withdrawnAmount = NewCoins(0, 0)
-	if !amount.IsNonnegative() {
+func (sh *StakeHolder) withdrawStake(source common.Address, amount *big.Int) (withdrawnAmount *big.Int, err error) {
+	withdrawnAmount = new(big.Int).SetUint64(0)
+	if amount.Cmp(Zero) < 0 {
 		return withdrawnAmount, fmt.Errorf("Invalid stake: %v", amount)
 	}
 
 	for idx, stake := range sh.Stakes {
 		if stake.Source == source {
-			if amount.IsGTE(stake.Amount) { // considered as full withdrawal
+			if amount.Cmp(stake.Amount) >= 0 { // considered as full withdrawal
 				withdrawnAmount = stake.Amount
 				sh.Stakes = append(sh.Stakes[:idx], sh.Stakes[idx+1:]...)
 			} else {
 				withdrawnAmount = amount
-				stake.Amount = stake.Amount.Minus(amount)
+				stake.Amount = new(big.Int).Sub(stake.Amount, amount)
 			}
 			return withdrawnAmount, nil
 		}
@@ -95,8 +104,8 @@ type StakeHolderSet struct {
 	SortedStakeHolders []*StakeHolder
 }
 
-func (shs *StakeHolderSet) DepositStake(source common.Address, holder common.Address, amount Coins) (err error) {
-	if !amount.IsNonnegative() {
+func (shs *StakeHolderSet) DepositStake(source common.Address, holder common.Address, amount *big.Int) (err error) {
+	if amount.Cmp(Zero) < 0 {
 		return fmt.Errorf("Invalid stake: %v", amount)
 	}
 
@@ -118,15 +127,15 @@ func (shs *StakeHolderSet) DepositStake(source common.Address, holder common.Add
 	}
 
 	sort.Slice(shs.SortedStakeHolders[:], func(i, j int) bool { // descending order
-		return shs.SortedStakeHolders[i].totalStake().IsGTE(shs.SortedStakeHolders[j].totalStake())
+		return shs.SortedStakeHolders[i].totalStake().Cmp(shs.SortedStakeHolders[j].totalStake()) >= 0
 	})
 
 	return nil
 }
 
-func (shs *StakeHolderSet) WithdrawStake(source common.Address, holder common.Address, amount Coins) (withdrawnAmount Coins, err error) {
-	withdrawnAmount = NewCoins(0, 0)
-	if !amount.IsNonnegative() {
+func (shs *StakeHolderSet) WithdrawStake(source common.Address, holder common.Address, amount *big.Int) (withdrawnAmount *big.Int, err error) {
+	withdrawnAmount = new(big.Int).SetUint64(0)
+	if amount.Cmp(Zero) < 0 {
 		return withdrawnAmount, fmt.Errorf("Invalid stake: %v", amount)
 	}
 
@@ -147,7 +156,7 @@ func (shs *StakeHolderSet) WithdrawStake(source common.Address, holder common.Ad
 	}
 
 	sort.Slice(shs.SortedStakeHolders[:], func(i, j int) bool { // descending order
-		return shs.SortedStakeHolders[i].totalStake().IsGTE(shs.SortedStakeHolders[j].totalStake())
+		return shs.SortedStakeHolders[i].totalStake().Cmp(shs.SortedStakeHolders[j].totalStake()) >= 0
 	})
 
 	return withdrawnAmount, nil

@@ -28,6 +28,9 @@ func NewWithdrawStakeExecutor(valMgr core.ValidatorManager) *WithdrawStakeExecut
 
 func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	//tx := transaction.(*types.WithdrawStakeTx)
+
+	// 1. Minimum stake withdrawal requirement to avoid spamming
+
 	return result.OK
 }
 

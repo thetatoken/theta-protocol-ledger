@@ -29,6 +29,9 @@ func NewDepositStakeExecutor(valMgr core.ValidatorManager) *DepositStakeExecutor
 // TODO: implementation
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	//tx := transaction.(*types.DepositStakeTx)
+
+	// 1. Minimum stake deposit requirement to avoid spamming
+
 	return result.OK
 }
 
