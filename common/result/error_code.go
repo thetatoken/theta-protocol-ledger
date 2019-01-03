@@ -33,4 +33,10 @@ const (
 	CodeInvalidValueToTransfer ErrorCode = 105002
 	CodeInvalidGasPrice        ErrorCode = 105003
 	CodeFeeLimitTooHigh        ErrorCode = 105004
+
+	// Stake Deposit/Withdrawal Errors
+	CodeInvalidStakePurpose     ErrorCode = 106001
+	CodeInvalidStake            ErrorCode = 106002
+	CodeInsufficientStake       ErrorCode = 106003
+	CodeNotEnoughBalanceToStake ErrorCode = 106004
 )

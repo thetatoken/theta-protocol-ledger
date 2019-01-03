@@ -257,6 +257,31 @@ func (sv *StoreView) DeleteExpiredSplitRules(currentBlockHeight uint64) bool {
 	return true
 }
 
+// GetValidatorCandidatePool gets the validator candidate pool.
+func (sv *StoreView) GetValidatorCandidatePool() *core.ValidatorCandidatePool {
+	data := sv.Get(ValidatorCandidatePoolKey())
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+	vcp := &core.ValidatorCandidatePool{}
+	err := types.FromBytes(data, vcp)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading validator candidate pool %X, error: %v",
+			data, err.Error()))
+	}
+	return vcp
+}
+
+// UpdateValidatorCandidatePool updates the validator candidate pool.
+func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePool) {
+	vcpBytes, err := types.ToBytes(vcp)
+	if err != nil {
+		panic(fmt.Sprintf("Error writing validator candidate pool %v, error: %v",
+			vcp, err.Error()))
+	}
+	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
+}
+
 func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }

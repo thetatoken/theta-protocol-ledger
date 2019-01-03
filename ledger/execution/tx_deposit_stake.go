@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
@@ -26,19 +27,106 @@ func NewDepositStakeExecutor(valMgr core.ValidatorManager) *DepositStakeExecutor
 	}
 }
 
-// TODO: implementation
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
-	//tx := transaction.(*types.DepositStakeTx)
+	tx := transaction.(*types.DepositStakeTx)
 
-	// 1. Minimum stake deposit requirement to avoid spamming
+	res := tx.Source.ValidateBasic()
+	if res.IsError() {
+		return res
+	}
+
+	sourceAccount, success := getInput(view, tx.Source)
+	if success.IsError() {
+		return result.Error("Failed to get the source account: %v", tx.Source.Address)
+	}
+
+	signBytes := tx.SignBytes(chainID)
+	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
+	if res.IsError() {
+		logger.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
+		return res
+	}
+
+	if !sanityCheckForFee(tx.Fee) {
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
+			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+	}
+
+	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
+		return result.Error("Invalid stake purpose!").
+			WithErrorCode(result.CodeInvalidStakePurpose)
+	}
+
+	stake := tx.Source.Coins.NoNil()
+	if !stake.IsValid() || !stake.IsNonnegative() {
+		return result.Error("Invalid stake for stake deposit!").
+			WithErrorCode(result.CodeInvalidStake)
+	}
+
+	if stake.GammaWei.Cmp(types.Zero) != 0 {
+		return result.Error("Gamma has to be zero for stake deposit!").
+			WithErrorCode(result.CodeInvalidStake)
+	}
+
+	// Minimum stake deposit requirement to avoid spamming
+	if stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
+		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required", core.MinValidatorStakeDeposit).
+			WithErrorCode(result.CodeInsufficientStake)
+	}
+
+	minimalBalance := stake.Plus(tx.Fee)
+	if !sourceAccount.Balance.IsGTE(minimalBalance) {
+		logger.Infof(fmt.Sprintf("DepositStake: Source did not have enough balance %v", tx.Source.Address.Hex()))
+		return result.Error("DepositStake: Source balance is %v, but required minimal balance is %v",
+			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientStake)
+	}
 
 	return result.OK
 }
 
-// TODO: implementation
 func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
-	//tx := transaction.(*types.DepositStakeTx)
-	return common.Hash{}, result.OK
+	tx := transaction.(*types.DepositStakeTx)
+
+	sourceAccount, success := getInput(view, tx.Source)
+	if success.IsError() {
+		return common.Hash{}, result.Error("Failed to get the source account")
+	}
+
+	if !chargeFee(sourceAccount, tx.Fee) {
+		return common.Hash{}, result.Error("Failed to charge transaction fee")
+	}
+
+	stake := tx.Source.Coins.NoNil()
+	if !sourceAccount.Balance.IsGTE(stake) {
+		return common.Hash{}, result.Error("Not enough balance to stake").WithErrorCode(result.CodeNotEnoughBalanceToStake)
+	}
+
+	sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
+	sourceAddress := tx.Source.Address
+	holderAddress := tx.Holder.Address
+
+	if tx.Purpose == core.StakeForValidator {
+		stakeAmount := stake.ThetaWei
+		vcp := view.GetValidatorCandidatePool()
+		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
+		if err != nil {
+			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
+		}
+		view.UpdateValidatorCandidatePool(vcp)
+
+		// TODO: acknowledge the consensus engine about the potential validator set change
+
+	} else if tx.Purpose == core.StakeForGuardian {
+		return common.Hash{}, result.Error("Staking for guardian not supported yet")
+	} else {
+		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
+	}
+
+	sourceAccount.Sequence++
+	view.SetAccount(sourceAddress, sourceAccount)
+
+	txHash := types.TxID(chainID, tx)
+	return txHash, result.OK
 }
 
 func (exec *DepositStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {

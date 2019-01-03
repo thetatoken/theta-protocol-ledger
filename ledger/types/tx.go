@@ -797,9 +797,10 @@ func (tx *SmartContractTx) String() string {
 //-----------------------------------------------------------------------------
 
 type DepositStakeTx struct {
-	Fee    Coins    `json:"fee"`    // Fee
-	Source TxInput  `json:"source"` // source staker account
-	Target TxOutput `json:"target"` // target validator account
+	Fee     Coins    `json:"fee"`     // Fee
+	Source  TxInput  `json:"source"`  // source staker account
+	Holder  TxOutput `json:"holder"`  // stake holder account
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
 }
 
 func (_ *DepositStakeTx) AssertIsTx() {}
@@ -825,15 +826,17 @@ func (tx *DepositStakeTx) SetSignature(addr common.Address, sig *crypto.Signatur
 }
 
 func (tx *DepositStakeTx) String() string {
-	return fmt.Sprintf("DepositStakeTx{%v -> %v, %s stake}", tx.Source.Address, tx.Target.Address, tx.Source.Coins)
+	return fmt.Sprintf("DepositStakeTx{%v -> %v, stake: %v, purpose: %v}",
+		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
 }
 
 //-----------------------------------------------------------------------------
 
 type WithdrawStakeTx struct {
-	Fee    Coins    `json:"fee"`    // Fee
-	Source TxInput  `json:"source"` // source staker account
-	Target TxOutput `json:"target"` // target validator account
+	Fee     Coins    `json:"fee"`     // Fee
+	Source  TxInput  `json:"source"`  // source staker account
+	Holder  TxOutput `json:"holder"`  // stake holder account
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
 }
 
 func (_ *WithdrawStakeTx) AssertIsTx() {}
@@ -859,7 +862,8 @@ func (tx *WithdrawStakeTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *WithdrawStakeTx) String() string {
-	return fmt.Sprintf("DepositStakeTx{%v <- %v, %s stake}", tx.Source.Address, tx.Target.Address, tx.Source.Coins)
+	return fmt.Sprintf("DepositStakeTx{%v <- %v, stake: %v, purpose: %v}",
+		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
 }
 
 // --------------- Utils --------------- //

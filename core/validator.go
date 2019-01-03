@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/thetatoken/ukulele/common"
@@ -122,4 +124,76 @@ func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
 // Validators returns a slice of validators.
 func (s *ValidatorSet) Validators() []Validator {
 	return s.validators
+}
+
+//
+// ------- ValidatorCandidatePool ------- //
+//
+
+var (
+	MinValidatorStakeDeposit *big.Int
+)
+
+func init() {
+	// Each stake deposit needs to be at least 1,000,000 Theta
+	MinValidatorStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(1000000), new(big.Int).SetUint64(1000000000000000000))
+}
+
+type ValidatorCandidatePool struct {
+	SortedCandidates []*StakeHolder
+}
+
+func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int) (err error) {
+	if amount.Cmp(MinValidatorStakeDeposit) < 0 {
+		return fmt.Errorf("Insufficient stake: %v", amount)
+	}
+
+	matchedHolderFound := false
+	for _, candidate := range vcp.SortedCandidates {
+		if candidate.Holder == holder {
+			matchedHolderFound = true
+			err = candidate.depositStake(source, amount)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		newCandidate := newStakeHolder(holder, []*Stake{newStake(source, amount)})
+		vcp.SortedCandidates = append(vcp.SortedCandidates, newCandidate)
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+	})
+
+	return nil
+}
+
+func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder common.Address) (withdrawnAmount *big.Int, err error) {
+	withdrawnAmount = new(big.Int).SetUint64(0)
+
+	matchedHolderFound := false
+	for _, candidate := range vcp.SortedCandidates {
+		if candidate.Holder == holder {
+			matchedHolderFound = true
+			withdrawnAmount, err = candidate.withdrawStake(source)
+			if err != nil {
+				return withdrawnAmount, err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		return withdrawnAmount, fmt.Errorf("No matched stake holder address found: %v", holder)
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+	})
+
+	return withdrawnAmount, nil
 }
