@@ -103,7 +103,7 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 	result.BlockHash = block.Hash()
 	result.BlockHeight = common.JSONUint64(block.Height)
 
-	if block.Status == core.BlockStatusFinalized {
+	if block.Status.IsFinalized() {
 		result.Status = TxStatusFinalized
 	} else {
 		result.Status = TxStatusPending
@@ -248,7 +248,7 @@ func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeigh
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
-		if b.Status == core.BlockStatusFinalized {
+		if b.Status.IsFinalized() {
 			block = b
 			break
 		}

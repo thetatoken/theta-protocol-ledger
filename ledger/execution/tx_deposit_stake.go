@@ -106,16 +106,13 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 	holderAddress := tx.Holder.Address
 
 	if tx.Purpose == core.StakeForValidator {
-		stakeAmount := stake.ThetaWei
 		vcp := view.GetValidatorCandidatePool()
+		stakeAmount := stake.ThetaWei
 		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
 		view.UpdateValidatorCandidatePool(vcp)
-
-		// TODO: acknowledge the consensus engine about the potential validator set change
-
 	} else if tx.Purpose == core.StakeForGuardian {
 		return common.Hash{}, result.Error("Staking for guardian not supported yet")
 	} else {

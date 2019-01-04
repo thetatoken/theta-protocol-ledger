@@ -462,7 +462,7 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
-	if parent.Status == core.BlockStatusCommitted {
+	if parent.Status.IsCommitted() {
 		e.finalizeBlock(parent)
 	}
 }

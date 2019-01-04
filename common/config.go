@@ -14,6 +14,8 @@ const (
 	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
+	// CfgConsensusMaxNumValidators defines the max number validators allowed
+	CfgConsensusMaxNumValidators = "consensus.maxNumValidators"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -54,6 +56,7 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxEpochLength, 5)
 	viper.SetDefault(CfgConsensusMinProposalWait, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
+	viper.SetDefault(CfgConsensusMaxNumValidators, 7)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 
