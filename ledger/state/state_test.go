@@ -57,8 +57,8 @@ func TestLedgerStateBasics(t *testing.T) {
 	assert.Nil(err)
 	_, va2PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("va2")
 	assert.Nil(err)
-	va1 := core.NewValidator(va1PubKey.ToBytes(), uint64(100))
-	va2 := core.NewValidator(va2PubKey.ToBytes(), uint64(999))
+	va1 := core.NewValidator(va1PubKey.Address().String(), new(big.Int).SetUint64(100))
+	va2 := core.NewValidator(va2PubKey.Address().String(), new(big.Int).SetUint64(999))
 	vaDiff := []*core.Validator{&va1, &va2}
 	ls.Delivered().SetValidatorDiff(vaDiff)
 	assert.Equal(2, len(ls.Delivered().GetAndClearValidatorDiff()))

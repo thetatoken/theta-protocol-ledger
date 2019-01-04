@@ -27,4 +27,8 @@ var (
 	Big32  = big.NewInt(32)
 	Big256 = big.NewInt(256)
 	Big257 = big.NewInt(257)
+
+	BigMaxUint16 = new(big.Int).SetUint64(1<<16 - 1)
+	BigMaxUint32 = new(big.Int).SetUint64(1<<32 - 1)
+	BigMaxUint64 = new(big.Int).SetUint64(1<<64 - 1)
 )

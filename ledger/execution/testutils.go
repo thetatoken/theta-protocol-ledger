@@ -88,8 +88,8 @@ func (et *execTest) reset() {
 
 	consensus := NewTestConsensusEngine("localseed")
 
-	propser := core.NewValidator(et.accProposer.PrivKey.PublicKey().ToBytes(), uint64(999))
-	val2 := core.NewValidator(et.accVal2.PrivKey.PublicKey().ToBytes(), uint64(100))
+	propser := core.NewValidator(et.accProposer.PrivKey.PublicKey().Address().String(), new(big.Int).SetUint64(999))
+	val2 := core.NewValidator(et.accVal2.PrivKey.PublicKey().Address().String(), new(big.Int).SetUint64(100))
 	valSet := core.NewValidatorSet()
 	valSet.AddValidator(propser)
 	valSet.AddValidator(val2)

@@ -1,8 +1,10 @@
 package consensus
 
 import (
+	"math/big"
 	"math/rand"
 
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 )
 
@@ -68,19 +70,32 @@ func randUint64(rnd *rand.Rand, max uint64) uint64 {
 	}
 }
 
+func scaleDown(x *big.Int, scalingFactor *big.Int) uint64 {
+	if scalingFactor.Cmp(common.Big0) == 0 {
+		panic("scalingFactor is zero")
+	}
+	scaledX := new(big.Int).Div(x, scalingFactor)
+	scaledXUint64 := scaledX.Uint64()
+	return scaledXUint64
+}
+
 // GetProposerForEpoch implements ValidatorManager interface.
 func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator {
 	if m.validators.Size() == 0 {
 		panic("No validators have been added")
 	}
+	totalStake := m.validators.TotalStake()
+	scalingFactor := new(big.Int).Div(totalStake, common.BigMaxUint32)
+	scalingFactor = new(big.Int).Add(scalingFactor, common.Big1)
+	scaledTotalStake := scaleDown(totalStake, scalingFactor)
+
 	// TODO: replace with more secure randomness.
 	rnd := rand.New(rand.NewSource(int64(epoch)))
-	totalStake := m.validators.TotalStake()
-	r := randUint64(rnd, totalStake)
+	r := randUint64(rnd, scaledTotalStake)
 	curr := uint64(0)
 	validators := m.validators.Validators()
 	for _, v := range validators {
-		curr += v.Stake()
+		curr += scaleDown(v.Stake(), scalingFactor)
 		if r < curr {
 			return v
 		}

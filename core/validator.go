@@ -8,7 +8,6 @@ import (
 	"sort"
 
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 )
 
 var (
@@ -18,36 +17,28 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	pubKey crypto.PublicKey
-	stake  uint64
+	address common.Address
+	stake   *big.Int
 }
 
 // NewValidator creates a new validator instance.
-func NewValidator(pubKeyBytes common.Bytes, stake uint64) Validator {
-	pubKey, err := crypto.PublicKeyFromBytes(pubKeyBytes)
-	if err != nil {
-		panic(err)
-	}
-	return Validator{*pubKey, stake}
-}
-
-// PublicKey returns the public key of the validator.
-func (v Validator) PublicKey() crypto.PublicKey {
-	return v.pubKey
+func NewValidator(addressStr string, stake *big.Int) Validator {
+	address := common.HexToAddress(addressStr)
+	return Validator{address, stake}
 }
 
 // Address returns the address of the validator.
 func (v Validator) Address() common.Address {
-	return v.pubKey.Address()
+	return v.address
 }
 
 // ID returns the ID of the validator, which is the string representation of its address.
 func (v Validator) ID() common.Address {
-	return v.pubKey.Address()
+	return v.address
 }
 
 // Stake returns the stake of the validator.
-func (v Validator) Stake() uint64 {
+func (v Validator) Stake() *big.Int {
 	return v.stake
 }
 
@@ -101,24 +92,31 @@ func (s *ValidatorSet) AddValidator(validator Validator) {
 }
 
 // TotalStake returns the total stake of the validators in the set.
-func (s *ValidatorSet) TotalStake() uint64 {
-	ret := uint64(0)
+func (s *ValidatorSet) TotalStake() *big.Int {
+	ret := new(big.Int).SetUint64(0)
 	for _, v := range s.validators {
-		ret += v.Stake()
+		ret = new(big.Int).Add(ret, v.Stake())
 	}
 	return ret
 }
 
 // HasMajority checks whether a vote set has reach majority.
 func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
-	votedStake := uint64(0)
+	votedStake := new(big.Int).SetUint64(0)
 	for _, vote := range votes.Votes() {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
-			votedStake += validator.Stake()
+			votedStake = new(big.Int).Add(votedStake, validator.Stake())
 		}
 	}
-	return votedStake*3 > s.TotalStake()*2
+
+	three := new(big.Int).SetUint64(3)
+	two := new(big.Int).SetUint64(2)
+	lhs := new(big.Int)
+	rhs := new(big.Int)
+
+	//return votedStake*3 > s.TotalStake()*2
+	return lhs.Mul(votedStake, three).Cmp(rhs.Mul(s.TotalStake(), two)) > 0
 }
 
 // Validators returns a slice of validators.
