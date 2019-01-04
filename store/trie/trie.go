@@ -501,7 +501,19 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	return t.pruneNode(t.root, cb)
+	hash, _ := t.root.cache()
+	for {
+		_, err := t.db.diskdb.Get(hash[:])
+		if err == store.ErrKeyNotFound {
+			break
+		}
+		err = t.pruneNode(t.root, cb)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+
 }
 
 func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {
