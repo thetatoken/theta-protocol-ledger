@@ -19,14 +19,14 @@ func walletUnlock(cmd *cobra.Command, addressStr string) (wtypes.Wallet, common.
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft {
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, address, err = softWalletUnlock(cfgPath, addressStr)
+		wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
 	} else {
-		wallet, address, err = coldWalletUnlock()
+		wallet, address, err = ColdWalletUnlock()
 	}
 	return wallet, address, err
 }
 
-func coldWalletUnlock() (wtypes.Wallet, common.Address, error) {
+func ColdWalletUnlock() (wtypes.Wallet, common.Address, error) {
 	wallet, err := wallet.OpenWallet("", wtypes.WalletTypeCold, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
@@ -57,7 +57,7 @@ func coldWalletUnlock() (wtypes.Wallet, common.Address, error) {
 	return wallet, address, nil
 }
 
-func softWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address, error) {
+func SoftWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address, error) {
 	wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
