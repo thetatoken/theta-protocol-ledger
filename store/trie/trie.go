@@ -513,7 +513,6 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 		}
 	}
 	return nil
-
 }
 
 func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {

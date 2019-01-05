@@ -126,6 +126,8 @@ func mustDecodeNode(hash, buf []byte, cachegen uint16) node {
 	return n
 }
 
+var DecodeNode = decodeNode
+
 // decodeNode parses the RLP encoding of a trie node.
 func decodeNode(hash, buf []byte, cachegen uint16) (node, error) {
 	if len(buf) == 0 {
