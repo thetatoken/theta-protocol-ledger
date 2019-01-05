@@ -88,6 +88,11 @@ func (e *ConsensusEngine) SetLedger(ledger core.Ledger) {
 	e.ledger = ledger
 }
 
+// GetLedger returns the ledger instance attached to the consensus engine
+func (e *ConsensusEngine) GetLedger() core.Ledger {
+	return e.ledger
+}
+
 // ID returns the identifier of current node.
 func (e *ConsensusEngine) ID() string {
 	return e.privateKey.PublicKey().Address().Hex()
@@ -163,7 +168,7 @@ func (e *ConsensusEngine) mainLoop() {
 				}
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
-				if e.shouldVote(e.GetEpoch()) {
+				if e.shouldVote() {
 					e.vote()
 				}
 				break Epoch
@@ -250,7 +255,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
-	if !e.shouldVote(e.GetEpoch()) {
+	if !e.shouldVote() {
 		return
 	}
 
@@ -267,12 +272,13 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	e.vote()
 }
 
-func (e *ConsensusEngine) shouldVote(epoch uint64) bool {
-	return e.shouldVoteByID(epoch, e.privateKey.PublicKey().Address())
+func (e *ConsensusEngine) shouldVote() bool {
+	return e.shouldVoteByID(e.privateKey.PublicKey().Address())
 }
 
-func (e *ConsensusEngine) shouldVoteByID(epoch uint64, id common.Address) bool {
-	validators := e.validatorManager.GetValidatorSetForEpoch(epoch)
+func (e *ConsensusEngine) shouldVoteByID(id common.Address) bool {
+	block := e.state.GetLastFinalizedBlock()
+	validators := e.validatorManager.GetValidatorSet(block.Hash())
 	_, err := validators.GetValidator(id)
 	return err == nil
 }
@@ -352,7 +358,7 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 		}).Warn("Ignoring invalid vote")
 		return false
 	}
-	if !e.shouldVoteByID(vote.Epoch, vote.ID) {
+	if !e.shouldVoteByID(vote.ID) {
 		e.logger.WithFields(log.Fields{
 			"vote.Epoch": vote.Epoch,
 			"vote.ID":    vote.ID,
@@ -367,7 +373,8 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		return
 	}
 
-	validators := e.validatorManager.GetValidatorSetForEpoch(e.state.GetEpoch())
+	extBlk := e.state.GetLastFinalizedBlock()
+	validators := e.validatorManager.GetValidatorSet(extBlk.Hash())
 	err := e.state.AddVote(&vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to add vote")
@@ -448,6 +455,11 @@ func (e *ConsensusEngine) FinalizedBlocks() chan *core.Block {
 	return e.finalizedBlocks
 }
 
+// GetLastFinalizedBlock returns the last finalized block.
+func (e *ConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock {
+	return e.state.GetLastFinalizedBlock()
+}
+
 func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	if ccBlock.Height <= e.state.GetHighestCCBlock().Height {
 		return
@@ -502,7 +514,8 @@ func (e *ConsensusEngine) randHex() []byte {
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
-	proposer := e.validatorManager.GetProposerForEpoch(epoch)
+	extBlk := e.state.GetLastFinalizedBlock()
+	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
 	if proposer.ID().Hex() != e.ID() {
 		return false
 	}

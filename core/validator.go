@@ -145,6 +145,14 @@ type ValidatorCandidatePool struct {
 	SortedCandidates []*StakeHolder
 }
 
+func (vcp *ValidatorCandidatePool) GetTopStakeHolders(maxNumStakeHolders int) []*StakeHolder {
+	n := len(vcp.SortedCandidates)
+	if n > maxNumStakeHolders {
+		n = maxNumStakeHolders
+	}
+	return vcp.SortedCandidates[:n]
+}
+
 func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int) (err error) {
 	if amount.Cmp(MinValidatorStakeDeposit) < 0 {
 		return fmt.Errorf("Insufficient stake: %v", amount)
@@ -168,7 +176,7 @@ func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder co
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
 	})
 
 	return nil
@@ -192,7 +200,7 @@ func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder c
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
 	})
 
 	return nil
@@ -214,7 +222,7 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
 	})
 
 	return returnedStakes

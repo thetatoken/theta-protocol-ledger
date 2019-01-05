@@ -27,7 +27,6 @@ type StoreView struct {
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
-	validatorsUpdate            []*core.Validator
 	refund                      uint64 // Gas refund during smart contract execution
 }
 
@@ -39,11 +38,10 @@ func NewStoreView(height uint64, root common.Hash, db database.Database) *StoreV
 	}
 
 	sv := &StoreView{
-		height:           height,
-		store:            store,
-		slashIntents:     []types.SlashIntent{},
-		validatorsUpdate: []*core.Validator{},
-		refund:           0,
+		height:       height,
+		store:        store,
+		slashIntents: []types.SlashIntent{},
+		refund:       0,
 	}
 	return sv
 }
@@ -55,11 +53,10 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 		return nil, err
 	}
 	copiedStoreView := &StoreView{
-		height:           sv.height,
-		store:            copiedStore,
-		slashIntents:     []types.SlashIntent{},
-		validatorsUpdate: []*core.Validator{},
-		refund:           0,
+		height:       sv.height,
+		store:        copiedStore,
+		slashIntents: []types.SlashIntent{},
+		refund:       0,
 	}
 	return copiedStoreView, nil
 }
@@ -127,18 +124,6 @@ func (sv *StoreView) CoinbaseTransactinProcessed() bool {
 // SetCoinbaseTransactionProcessed sets whether the coinbase transaction for the current block has been processed
 func (sv *StoreView) SetCoinbaseTransactionProcessed(processed bool) {
 	sv.coinbaseTransactinProcessed = processed
-}
-
-// GetAndClearValidatorDiff retrives and clear validator diff
-func (sv *StoreView) GetAndClearValidatorDiff() []*core.Validator {
-	res := sv.validatorsUpdate
-	sv.validatorsUpdate = nil
-	return res
-}
-
-// SetValidatorDiff set validator diff
-func (sv *StoreView) SetValidatorDiff(diff []*core.Validator) {
-	sv.validatorsUpdate = diff
 }
 
 // GetAccount returns an account.

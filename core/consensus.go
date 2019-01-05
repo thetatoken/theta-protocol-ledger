@@ -1,6 +1,7 @@
 package core
 
 import (
+	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 )
 
@@ -10,12 +11,15 @@ type ConsensusEngine interface {
 	PrivateKey() *crypto.PrivateKey
 	GetTip() *ExtendedBlock
 	GetEpoch() uint64
+	GetLedger() Ledger
 	AddMessage(msg interface{})
 	FinalizedBlocks() chan *Block
+	GetLastFinalizedBlock() *ExtendedBlock
 }
 
 // ValidatorManager is the component for managing validator related logic for consensus engine.
 type ValidatorManager interface {
-	GetProposerForEpoch(epoch uint64) Validator
-	GetValidatorSetForEpoch(epoch uint64) *ValidatorSet
+	SetConsensusEngine(consensus ConsensusEngine)
+	GetProposer(blockHash common.Hash, epoch uint64) Validator
+	GetValidatorSet(blockHash common.Hash) *ValidatorSet
 }

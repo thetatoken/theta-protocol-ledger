@@ -58,7 +58,7 @@ func newStakeHolder(holder common.Address, stakes []*Stake) *StakeHolder {
 	}
 }
 
-func (sh *StakeHolder) totalStake() *big.Int {
+func (sh *StakeHolder) TotalStake() *big.Int {
 	totalAmount := new(big.Int).SetUint64(0)
 	for _, stake := range sh.Stakes {
 		if !stake.Withdrawn {

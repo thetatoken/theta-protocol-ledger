@@ -1,9 +1,11 @@
 package consensus
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 )
@@ -15,27 +17,32 @@ var _ core.ValidatorManager = &FixedValidatorManager{}
 
 // FixedValidatorManager is an implementation of ValidatorManager interface that selects a fixed validator as the proposer.
 type FixedValidatorManager struct {
-	validators *core.ValidatorSet
+	consensus core.ConsensusEngine
 }
 
 // NewFixedValidatorManager creates an instance of FixedValidatorManager.
-func NewFixedValidatorManager(validators *core.ValidatorSet) *FixedValidatorManager {
-	m := &FixedValidatorManager{}
-	m.validators = validators.Copy()
+func NewFixedValidatorManager() *FixedValidatorManager {
+	m := &FixedValidatorManager{
+		consensus: nil,
+	}
 	return m
 }
 
-// GetProposerForEpoch implements ValidatorManager interface.
-func (m *FixedValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator {
-	if m.validators.Size() == 0 {
-		panic("No validators have been added")
-	}
-	return m.validators.Validators()[0]
+// SetConsensusEngine mplements ValidatorManager interface.
+func (m *FixedValidatorManager) SetConsensusEngine(consensus core.ConsensusEngine) {
+	m.consensus = consensus
 }
 
-// GetValidatorSetForEpoch returns the validator set for given epoch.
-func (m *FixedValidatorManager) GetValidatorSetForEpoch(_ uint64) *core.ValidatorSet {
-	return m.validators
+// GetProposer implements ValidatorManager interface.
+func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) core.Validator {
+	valSet := m.GetValidatorSet(blockHash)
+	return valSet.Validators()[0]
+}
+
+// GetValidatorSet returns the validator set for given block hash.
+func (m *FixedValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	return valSet
 }
 
 //
@@ -46,14 +53,76 @@ var _ core.ValidatorManager = &RotatingValidatorManager{}
 // RotatingValidatorManager is an implementation of ValidatorManager interface that selects a random validator as
 // the proposer using validator's stake as weight.
 type RotatingValidatorManager struct {
-	validators *core.ValidatorSet
+	consensus core.ConsensusEngine
 }
 
 // NewRotatingValidatorManager creates an instance of RotatingValidatorManager.
-func NewRotatingValidatorManager(validators *core.ValidatorSet) *RotatingValidatorManager {
+func NewRotatingValidatorManager() *RotatingValidatorManager {
 	m := &RotatingValidatorManager{}
-	m.validators = validators.Copy()
 	return m
+}
+
+// SetConsensusEngine mplements ValidatorManager interface.
+func (m *RotatingValidatorManager) SetConsensusEngine(consensus core.ConsensusEngine) {
+	m.consensus = consensus
+}
+
+// GetProposer implements ValidatorManager interface.
+func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint64) core.Validator {
+	valSet := m.GetValidatorSet(blockHash)
+	if valSet.Size() == 0 {
+		panic("No validators have been added")
+	}
+
+	totalStake := valSet.TotalStake()
+	scalingFactor := new(big.Int).Div(totalStake, common.BigMaxUint32)
+	scalingFactor = new(big.Int).Add(scalingFactor, common.Big1)
+	scaledTotalStake := scaleDown(totalStake, scalingFactor)
+
+	// TODO: replace with more secure randomness.
+	rnd := rand.New(rand.NewSource(int64(epoch)))
+	r := randUint64(rnd, scaledTotalStake)
+	curr := uint64(0)
+	validators := valSet.Validators()
+	for _, v := range validators {
+		curr += scaleDown(v.Stake(), scalingFactor)
+		if r < curr {
+			return v
+		}
+	}
+
+	// Should not reach here.
+	panic("Failed to randomly select a validator")
+}
+
+// GetValidatorSet returns the validator set for given epoch.
+func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	return valSet
+}
+
+//
+// -------------------------------- Utilities ----------------------------------
+//
+
+func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
+	vcp, err := consensus.GetLedger().GetValidatorCandidatePool(blockHash)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
+	}
+
+	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
+	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
+
+	valSet := core.NewValidatorSet()
+	for _, stakeHolder := range topStakeHolders {
+		valAddr := stakeHolder.Holder.Hex()
+		valStake := stakeHolder.TotalStake()
+		validator := core.NewValidator(valAddr, valStake)
+		valSet.AddValidator(validator)
+	}
+
+	return valSet
 }
 
 // Generate a random uint64 in [0, max)
@@ -77,34 +146,4 @@ func scaleDown(x *big.Int, scalingFactor *big.Int) uint64 {
 	scaledX := new(big.Int).Div(x, scalingFactor)
 	scaledXUint64 := scaledX.Uint64()
 	return scaledXUint64
-}
-
-// GetProposerForEpoch implements ValidatorManager interface.
-func (m *RotatingValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator {
-	if m.validators.Size() == 0 {
-		panic("No validators have been added")
-	}
-	totalStake := m.validators.TotalStake()
-	scalingFactor := new(big.Int).Div(totalStake, common.BigMaxUint32)
-	scalingFactor = new(big.Int).Add(scalingFactor, common.Big1)
-	scaledTotalStake := scaleDown(totalStake, scalingFactor)
-
-	// TODO: replace with more secure randomness.
-	rnd := rand.New(rand.NewSource(int64(epoch)))
-	r := randUint64(rnd, scaledTotalStake)
-	curr := uint64(0)
-	validators := m.validators.Validators()
-	for _, v := range validators {
-		curr += scaleDown(v.Stake(), scalingFactor)
-		if r < curr {
-			return v
-		}
-	}
-	// Should not reach here.
-	panic("Failed to randomly select a validator")
-}
-
-// GetValidatorSetForEpoch returns the validator set for given epoch.
-func (m *RotatingValidatorManager) GetValidatorSetForEpoch(_ uint64) *core.ValidatorSet {
-	return m.validators
 }

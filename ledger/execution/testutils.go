@@ -25,12 +25,14 @@ type TestConsensusEngine struct {
 	privKey *crypto.PrivateKey
 }
 
-func (tce *TestConsensusEngine) ID() string                        { return tce.privKey.PublicKey().Address().Hex() }
-func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey    { return tce.privKey }
-func (tce *TestConsensusEngine) GetTip() *core.ExtendedBlock       { return nil }
-func (tce *TestConsensusEngine) GetEpoch() uint64                  { return 100 }
-func (tce *TestConsensusEngine) AddMessage(msg interface{})        {}
-func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block { return nil }
+func (tce *TestConsensusEngine) ID() string                                 { return tce.privKey.PublicKey().Address().Hex() }
+func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey             { return tce.privKey }
+func (tce *TestConsensusEngine) GetTip() *core.ExtendedBlock                { return nil }
+func (tce *TestConsensusEngine) GetEpoch() uint64                           { return 100 }
+func (tce *TestConsensusEngine) AddMessage(msg interface{})                 {}
+func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block          { return nil }
+func (tce *TestConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock { return nil }
+func (tce *TestConsensusEngine) GetLedger() core.Ledger                     { return nil }
 
 func NewTestConsensusEngine(seed string) *TestConsensusEngine {
 	privKey, _, _ := crypto.TEST_GenerateKeyPairWithSeed(seed)
@@ -42,8 +44,13 @@ type TestValidatorManager struct {
 	valSet   *core.ValidatorSet
 }
 
-func (tvm *TestValidatorManager) GetProposerForEpoch(epoch uint64) core.Validator { return tvm.proposer }
-func (tvm *TestValidatorManager) GetValidatorSetForEpoch(epoch uint64) *core.ValidatorSet {
+func (tvm *TestValidatorManager) SetConsensusEngine(consensus core.ConsensusEngine) {}
+
+func (tvm *TestValidatorManager) GetProposer(blockHash common.Hash, epoch uint64) core.Validator {
+	return tvm.proposer
+}
+
+func (tvm *TestValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
 	return tvm.valSet
 }
 

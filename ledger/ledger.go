@@ -2,7 +2,11 @@ package ledger
 
 import (
 	"encoding/hex"
+	"fmt"
 	"sync"
+
+	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/kvstore"
 
 	log "github.com/sirupsen/logrus"
 
@@ -71,6 +75,40 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 	defer ledger.mu.RUnlock()
 
 	return ledger.state.Finalized().Copy()
+}
+
+// GetValidatorCandidatePool returns the validator candidate pool of the latest DIRECTLY finalized block
+func (ledger *Ledger) GetValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
+	db := ledger.state.DB()
+	store := kvstore.NewKVStore(db)
+
+	for !blockHash.IsEmpty() {
+		block, err := findBlock(store, blockHash)
+		if err != nil {
+			return nil, err
+		}
+		if block == nil {
+			return nil, fmt.Errorf("Block is nil for hash %v", blockHash)
+		}
+		if block.Status.IsDirectlyFinalized() { // the latest DIRECTLY finalized block found
+			stateRoot := block.BlockHeader.StateHash
+			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			vcp := storeView.GetValidatorCandidatePool()
+			return vcp, nil
+		}
+		blockHash = block.Parent
+	}
+
+	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
+}
+
+func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, error) {
+	var block core.ExtendedBlock
+	err := store.Get(blockHash[:], &block)
+	if err != nil {
+		return nil, err
+	}
+	return &block, nil
 }
 
 // ScreenTx screens the given transaction
@@ -236,9 +274,10 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]common.Bytes) {
+	extBlk := ledger.consensus.GetLastFinalizedBlock()
 	epoch := ledger.consensus.GetEpoch()
-	proposer := ledger.valMgr.GetProposerForEpoch(epoch)
-	validators := ledger.valMgr.GetValidatorSetForEpoch(epoch).Validators()
+	proposer := ledger.valMgr.GetProposer(extBlk.Hash(), epoch)
+	validators := ledger.valMgr.GetValidatorSet(extBlk.Hash()).Validators()
 
 	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
 	ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
