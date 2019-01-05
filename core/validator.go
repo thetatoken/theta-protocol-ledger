@@ -7,8 +7,12 @@ import (
 	"math/big"
 	"sort"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "core"})
 
 var (
 	// ErrValidatorNotFound for ID is not found in validator set.
@@ -170,28 +174,48 @@ func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder co
 	return nil
 }
 
-func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder common.Address) (withdrawnAmount *big.Int, err error) {
-	withdrawnAmount = new(big.Int).SetUint64(0)
-
+func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) error {
 	matchedHolderFound := false
 	for _, candidate := range vcp.SortedCandidates {
 		if candidate.Holder == holder {
 			matchedHolderFound = true
-			withdrawnAmount, err = candidate.withdrawStake(source)
+			err := candidate.withdrawStake(source, currentHeight)
 			if err != nil {
-				return withdrawnAmount, err
+				return err
 			}
 			break
 		}
 	}
 
 	if !matchedHolderFound {
-		return withdrawnAmount, fmt.Errorf("No matched stake holder address found: %v", holder)
+		return fmt.Errorf("No matched stake holder address found: %v", holder)
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
 		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
 	})
 
-	return withdrawnAmount, nil
+	return nil
+}
+
+func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
+	returnedStakes := []*Stake{}
+	for _, candidate := range vcp.SortedCandidates {
+		for _, stake := range candidate.Stakes {
+			if (stake.Withdrawn) && (stake.ReturnHeight >= currentHeight) {
+				returnedStake, err := candidate.returnStake(stake.Source, currentHeight)
+				if err != nil {
+					logger.Errorf("Failed to return stake: %v, error: %v", stake, err)
+					continue
+				}
+				returnedStakes = append(returnedStakes, returnedStake)
+			}
+		}
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].totalStake().Cmp(vcp.SortedCandidates[j].totalStake()) >= 0
+	})
+
+	return returnedStakes
 }

@@ -17,13 +17,13 @@ var _ TxExecutor = (*WithdrawStakeExecutor)(nil)
 
 // WithdrawStakeExecutor implements the TxExecutor interface
 type WithdrawStakeExecutor struct {
-	valMgr core.ValidatorManager
+	state *st.LedgerState
 }
 
 // NewWithdrawStakeExecutor creates a new instance of WithdrawStakeExecutor
-func NewWithdrawStakeExecutor(valMgr core.ValidatorManager) *WithdrawStakeExecutor {
+func NewWithdrawStakeExecutor(state *st.LedgerState) *WithdrawStakeExecutor {
 	return &WithdrawStakeExecutor{
-		valMgr: valMgr,
+		state: state,
 	}
 }
 
@@ -84,17 +84,12 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 
 	if tx.Purpose == core.StakeForValidator {
 		vcp := view.GetValidatorCandidatePool()
-		withdrawnAmount, err := vcp.WithdrawStake(sourceAddress, holderAddress)
+		currentHeight := exec.state.Height()
+		err := vcp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
-		withdrawnStake := types.NewCoins(0, 0)
-		withdrawnStake.ThetaWei = withdrawnAmount
-		sourceAccount.Balance = sourceAccount.Balance.Plus(withdrawnStake)
 		view.UpdateValidatorCandidatePool(vcp)
-
-		// TODO: acknowledge the consensus engine about the potential validator set change
-
 	} else if tx.Purpose == core.StakeForGuardian {
 		return common.Hash{}, result.Error("Withdraw stake for guardian not supported yet")
 	} else {

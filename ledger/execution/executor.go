@@ -57,8 +57,8 @@ func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr c
 		servicePaymentTxExec: NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:      NewSplitRuleTxExecutor(state),
 		smartContractTxExec:  NewSmartContractTxExecutor(state),
-		depositStakeTxExec:   NewDepositStakeExecutor(valMgr),
-		withdrawStakeTxExec:  NewWithdrawStakeExecutor(valMgr),
+		depositStakeTxExec:   NewDepositStakeExecutor(),
+		withdrawStakeTxExec:  NewWithdrawStakeExecutor(state),
 		skipSanityCheck:      false,
 	}
 

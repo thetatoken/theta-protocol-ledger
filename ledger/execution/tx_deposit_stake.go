@@ -17,14 +17,11 @@ var _ TxExecutor = (*DepositStakeExecutor)(nil)
 
 // DepositStakeExecutor implements the TxExecutor interface
 type DepositStakeExecutor struct {
-	valMgr core.ValidatorManager
 }
 
 // NewDepositStakeExecutor creates a new instance of DepositStakeExecutor
-func NewDepositStakeExecutor(valMgr core.ValidatorManager) *DepositStakeExecutor {
-	return &DepositStakeExecutor{
-		valMgr: valMgr,
-	}
+func NewDepositStakeExecutor() *DepositStakeExecutor {
+	return &DepositStakeExecutor{}
 }
 
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {

@@ -36,9 +36,13 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 		return res
 	}
 
+	if len(tx.Inputs) == 0 || len(tx.Outputs) == 0 {
+		return result.Error("Invalid sendTx, Inputs and/or Outputs are empty")
+	}
+
 	numAccountsAffected := uint64(len(tx.Inputs) + len(tx.Outputs))
 	if numAccountsAffected > types.MaxAccountsAffectedPerTx {
-		return result.Error("Trasaction modifying too many accounts. At most %v accounts are allowed per transaction.",
+		return result.Error("Trasaction modifying too many accounts. At most %v accounts are allowed per transaction",
 			types.MaxAccountsAffectedPerTx)
 	}
 
@@ -109,7 +113,11 @@ func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *bi
 	tx := transaction.(*types.SendTx)
 	fee := tx.Fee
 	numAccountsAffected := uint64(len(tx.Inputs) + len(tx.Outputs))
-	gas := new(big.Int).SetUint64(types.GasSendTxPerAccount * numAccountsAffected)
+	gasUint64 := types.GasSendTxPerAccount * numAccountsAffected
+	if gasUint64 < 2*types.GasSendTxPerAccount {
+		gasUint64 = 2 * types.GasSendTxPerAccount // to prevent spamming with invalid transactions, e.g. empty inputs/outputs
+	}
+	gas := new(big.Int).SetUint64(gasUint64)
 	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
 	return effectiveGasPrice
 }
