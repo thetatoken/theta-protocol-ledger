@@ -6,9 +6,10 @@ import (
 	"net/http"
 	"sync"
 
+	"net/rpc"
+
 	"github.com/gorilla/mux"
-	"github.com/gorilla/rpc/v2"
-	json "github.com/gorilla/rpc/v2/json2"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/blockchain"
@@ -17,22 +18,18 @@ import (
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/ledger"
 	"github.com/thetatoken/ukulele/mempool"
+	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
 	"golang.org/x/net/netutil"
+	"golang.org/x/net/websocket"
 )
 
 var logger *log.Entry
 
-// ThetaRPCServer is an instance of RPC service.
-type ThetaRPCServer struct {
+type ThetaRPCService struct {
 	mempool   *mempool.Mempool
 	ledger    *ledger.Ledger
 	chain     *blockchain.Chain
 	consensus *consensus.ConsensusEngine
-
-	server   *http.Server
-	handler  *rpc.Server
-	router   *mux.Router
-	listener net.Listener
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -41,10 +38,22 @@ type ThetaRPCServer struct {
 	stopped bool
 }
 
+// ThetaRPCServer is an instance of RPC service.
+type ThetaRPCServer struct {
+	*ThetaRPCService
+
+	server   *http.Server
+	handler  *rpc.Server
+	router   *mux.Router
+	listener net.Listener
+}
+
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
 func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *blockchain.Chain, consensus *consensus.ConsensusEngine) *ThetaRPCServer {
 	t := &ThetaRPCServer{
-		wg: &sync.WaitGroup{},
+		ThetaRPCService: &ThetaRPCService{
+			wg: &sync.WaitGroup{},
+		},
 	}
 
 	t.mempool = mempool
@@ -52,13 +61,16 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *b
 	t.chain = chain
 	t.consensus = consensus
 
-	t.handler = rpc.NewServer()
-	t.handler.RegisterCodec(json.NewCodec(), "application/json")
-	t.handler.RegisterCodec(json.NewCodec(), "application/json;charset=UTF-8")
-	t.handler.RegisterService(t, "theta")
+	s := rpc.NewServer()
+	s.RegisterName("theta", t.ThetaRPCService)
+
+	t.handler = s
 
 	t.router = mux.NewRouter()
-	t.router.Handle("/rpc", t.handler)
+	t.router.Handle("/rpc", jsonrpc2.HTTPHandler(s))
+	t.router.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
+		s.ServeCodec(jsonrpc2.NewServerCodec(ws, s))
+	}))
 
 	t.server = &http.Server{
 		Handler: t.router,

@@ -1,0 +1,72 @@
+linters-settings:
+    errcheck:
+        check-type-assertions: false
+        check-blank: false
+    govet:
+        check-shadowing: true
+    golint:
+        min-confidence: 0 # 0.8
+    gocyclo:
+        min-complexity: 25 # 30
+    maligned:
+        suggest-new: false
+    dupl:
+        threshold: 150
+    goconst:
+        min-len: 3
+        min-occurrences: 3
+    unused:
+        check-exported: false
+    unparam:
+        algo: cha
+        check-exported: false
+    nakedret:
+        max-func-lines: 30
+    prealloc:
+        simple: true
+        range-loops: true
+        for-loops: false
+    gocritic:
+        enabled-checks:
+            - appendAssign
+            - appendCombine
+            - assignOp
+            - boolExprSimplify
+            - caseOrder
+            - defaultCaseOrder
+            - deprecatedComment
+            - dupArg
+            - dupBranchBody
+            - dupCase
+            - flagDeref
+            - ifElseChain
+            - indexAlloc
+            - methodExprCall
+            - rangeExprCopy
+            # - rangeValCopy
+            - regexpMust
+            - singleCaseSwitch
+            - sloppyLen
+            # - switchTrue
+            - typeSwitchVar
+            - underef
+            # - unlabelStmt
+            - unlambda
+            - unslice
+
+linters:
+    enable-all: true
+    disable:
+        - gofmt
+        - goimports
+        - depguard
+        - dupl
+        - gochecknoglobals
+        - gochecknoinits
+        - lll
+        - scopelint
+
+issues:
+    exclude-use-default: true
+    exclude:
+        - "declaration of \"err\" shadows"
