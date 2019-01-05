@@ -3,7 +3,6 @@ package rpc
 import (
 	"encoding/hex"
 	"fmt"
-	"net/http"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/ledger/types"
@@ -26,7 +25,7 @@ type CallSmartContractResult struct {
 // CallSmartContract calls the smart contract. However, calling a smart contract does NOT modify
 // the globally consensus state. It can be used for dry run, or for retrieving info from smart contracts
 // without actually spending gas.
-func (t *ThetaRPCServer) CallSmartContract(r *http.Request, args *CallSmartContractArgs, result *CallSmartContractResult) (err error) {
+func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result *CallSmartContractResult) (err error) {
 	sctxBytes, err := hex.DecodeString(args.SctxBytes)
 	if err != nil {
 		return err
