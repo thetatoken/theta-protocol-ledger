@@ -77,7 +77,7 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 	for _, name := range []string{"a0", "a1", "a2", "a3"} {
 		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
 		assert.Nil(err)
-		assert.Equal(block.Status.IsFinalized())
+		assert.True(block.Status.IsFinalized())
 	}
 
 	for _, name := range []string{"b2", "b3", "c1", "a4", "a5"} {

@@ -141,7 +141,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	//
 
 	// Validator balance
-	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
 		valAddr := val.Address()
 		valAcc := ledger.state.Delivered().GetAccount(valAddr)
@@ -222,7 +222,7 @@ func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
 
 func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
 	txFee := getMinimumTxFee()
-	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
 		valAccount := &types.Account{
 			Address:                val.Address(),
@@ -248,7 +248,7 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 }
 
 func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes {
-	vaList := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	vaList := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	if len(vaList) < 2 {
 		panic("Insufficient number of validators")
 	}
