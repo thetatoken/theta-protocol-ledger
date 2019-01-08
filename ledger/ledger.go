@@ -77,8 +77,8 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 	return ledger.state.Finalized().Copy()
 }
 
-// GetValidatorCandidatePool returns the validator candidate pool of the latest DIRECTLY finalized block
-func (ledger *Ledger) GetValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
+// GetFinalizedValidatorCandidatePool returns the validator candidate pool of the latest DIRECTLY finalized block
+func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 

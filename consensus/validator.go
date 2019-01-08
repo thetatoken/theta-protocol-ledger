@@ -110,7 +110,7 @@ func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.
 //
 
 func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
-	vcp, err := consensus.GetLedger().GetValidatorCandidatePool(blockHash)
+	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
 	}
