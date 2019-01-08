@@ -124,6 +124,11 @@ func testTreeStore(db database.Database, t *testing.T) {
 	key6677 := common.Bytes("test/6677")
 	value6677 := common.Bytes("6677")
 	treestore.Set(key6677, value6677)
+	// for further use
+	key66776 := common.Bytes("test/66776")
+	value66776 := common.Bytes("66776")
+	key33 := common.Bytes("test/33")
+	value33 := common.Bytes("33")
 
 	var cnt int
 
@@ -191,6 +196,7 @@ func testTreeStore(db database.Database, t *testing.T) {
 	treestore1.Set(key333, nil)
 	treestore1.Set(key66, common.Bytes("zzz"))
 	treestore1.Set(key667, nil)
+	treestore1.Set(key66776, value3)
 
 	treestore1.Commit()
 	// root1, _ := treestore1.Commit()
@@ -210,17 +216,21 @@ func testTreeStore(db database.Database, t *testing.T) {
 	treestore2.Commit()
 	// root2, _ := treestore2.Commit()
 	// treestore2.GetDB().Commit(root2, true)
-
 	//////////////////////////////
 
 	treestore3 := NewTreeStore(treestore.Hash(), db)
+	treestore3.Set(key66776, value66776)
+	treestore3.Set(key33, value33)
 	treestore3.Commit()
+	assert.Equal(value66776, treestore3.Get(key66776))
+	assert.Equal(value33, treestore3.Get(key33))
 
 	//////////////////////////////
 
 	hashMap := make(map[common.Hash]bool)
 	hashMap1 := make(map[common.Hash]bool)
 	hashMap2 := make(map[common.Hash]bool)
+	hashMap3 := make(map[common.Hash]bool)
 
 	for it := treestore.NodeIterator(nil); it.Next(true); {
 		if it.Hash() != (common.Hash{}) {
@@ -240,14 +250,22 @@ func testTreeStore(db database.Database, t *testing.T) {
 		}
 	}
 
+	for it := treestore3.NodeIterator(nil); it.Next(true); {
+		if it.Hash() != (common.Hash{}) {
+			hashMap3[it.Hash()] = true
+		}
+	}
+
 	pruneStore := NewTreeStore(treestore.Hash(), db)
 	pruneStore.Prune(nil)
 	pruneStore = NewTreeStore(treestore1.Hash(), db)
 	pruneStore.Prune(nil)
+	pruneStore = NewTreeStore(treestore2.Hash(), db)
+	pruneStore.Prune(nil)
 
 	for hash := range hashMap {
 		has, _ := db.Has(hash[:])
-		if _, ok := hashMap2[hash]; ok {
+		if _, ok := hashMap3[hash]; ok {
 			assert.True(has)
 		} else {
 			assert.False(has)
@@ -256,14 +274,23 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	for hash := range hashMap1 {
 		has, _ := db.Has(hash[:])
-		if _, ok := hashMap2[hash]; ok {
+		if _, ok := hashMap3[hash]; ok {
 			assert.True(has)
 		} else {
 			assert.False(has)
 		}
 	}
 
-	for it := treestore2.NodeIterator(nil); it.Next(true); {
+	for hash := range hashMap2 {
+		has, _ := db.Has(hash[:])
+		if _, ok := hashMap3[hash]; ok {
+			assert.True(has)
+		} else {
+			assert.False(has)
+		}
+	}
+
+	for it := treestore3.NodeIterator(nil); it.Next(true); {
 		if it.Hash() != (common.Hash{}) {
 			hash := it.Hash()
 			ref, _ := db.CountReference(hash[:])
@@ -273,6 +300,6 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	//////////////////////////////
 
-	pruneStore = NewTreeStore(treestore2.Hash(), db)
+	pruneStore = NewTreeStore(treestore3.Hash(), db)
 	pruneStore.Prune(nil)
 }
