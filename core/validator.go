@@ -210,7 +210,7 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	returnedStakes := []*Stake{}
 	for _, candidate := range vcp.SortedCandidates {
 		for _, stake := range candidate.Stakes {
-			if (stake.Withdrawn) && (stake.ReturnHeight >= currentHeight) {
+			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
 				returnedStake, err := candidate.returnStake(stake.Source, currentHeight)
 				if err != nil {
 					logger.Errorf("Failed to return stake: %v, error: %v", stake, err)

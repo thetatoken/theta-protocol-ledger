@@ -11,7 +11,8 @@ const (
 	StakeForValidator uint8 = 0
 	StakeForGuardian  uint8 = 1
 
-	ReturnLockingPeriod uint64 = 28800 // number of blocks, approximately 2 days with 6 second block time
+	ReturnLockingPeriod uint64 = 28800      // number of blocks, approximately 2 days with 6 second block time
+	InvalidReturnHeight uint64 = ^uint64(0) // max uint64
 )
 
 var (
@@ -38,7 +39,7 @@ func newStake(source common.Address, amount *big.Int) *Stake {
 		Source:       source,
 		Amount:       amount,
 		Withdrawn:    false,
-		ReturnHeight: 0,
+		ReturnHeight: InvalidReturnHeight,
 	}
 }
 

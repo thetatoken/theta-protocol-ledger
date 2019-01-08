@@ -285,17 +285,17 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 	if vcp == nil {
 		return
 	}
-	height := view.Height()
-	returnedStakes := vcp.ReturnStakes(height)
+	currentHeight := view.Height()
+	returnedStakes := vcp.ReturnStakes(currentHeight)
 	for _, returnedStake := range returnedStakes {
-		sourceAddress := returnedStake.Source
-		sourceAccount := view.GetAccount(returnedStake.Source)
-		if sourceAccount == nil {
-			logger.Errorf("Failed to retrieve source account for stake return: %v", sourceAddress)
-			continue
+		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
+			panic(fmt.Sprintf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight))
 		}
-		if returnedStake.ReturnHeight > height {
-			continue
+		sourceAddress := returnedStake.Source
+		sourceAccount := view.GetAccount(sourceAddress)
+		if sourceAccount == nil {
+			panic(fmt.Sprintf("Failed to retrieve source account for stake return: %v", sourceAddress))
 		}
 		returnedCoins := types.Coins{
 			ThetaWei: returnedStake.Amount,
