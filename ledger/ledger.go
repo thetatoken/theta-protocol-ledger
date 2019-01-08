@@ -294,6 +294,9 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 			logger.Errorf("Failed to retrieve source account for stake return: %v", sourceAddress)
 			continue
 		}
+		if returnedStake.ReturnHeight > height {
+			continue
+		}
 		returnedCoins := types.Coins{
 			ThetaWei: returnedStake.Amount,
 			GammaWei: types.Zero,
