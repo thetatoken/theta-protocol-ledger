@@ -227,6 +227,11 @@ func testTreeStore(db database.Database, t *testing.T) {
 
 	//////////////////////////////
 
+	treestore4 := NewTreeStore(treestore.Hash(), db)
+	treestore4.Commit()
+
+	//////////////////////////////
+
 	hashMap := make(map[common.Hash]bool)
 	hashMap1 := make(map[common.Hash]bool)
 	hashMap2 := make(map[common.Hash]bool)
