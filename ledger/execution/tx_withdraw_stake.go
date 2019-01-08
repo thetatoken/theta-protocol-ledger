@@ -67,6 +67,9 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 	return result.OK
 }
 
+// NOTE: WithdrawStakeExecutor.process() does NOT return the stake to the source. Instead, it updates
+//       the ReturnHeight of the withdrawn stake. The stake will be returned to the source when
+//       the block height reaches the ReturnHeigth
 func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.WithdrawStakeTx)
 

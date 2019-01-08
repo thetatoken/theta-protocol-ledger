@@ -67,7 +67,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 
 	// Minimum stake deposit requirement to avoid spamming
 	if stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
-		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required", core.MinValidatorStakeDeposit).
+		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each deposit", core.MinValidatorStakeDeposit).
 			WithErrorCode(result.CodeInsufficientStake)
 	}
 
@@ -98,13 +98,13 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		return common.Hash{}, result.Error("Not enough balance to stake").WithErrorCode(result.CodeNotEnoughBalanceToStake)
 	}
 
-	sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 	sourceAddress := tx.Source.Address
 	holderAddress := tx.Holder.Address
 
 	if tx.Purpose == core.StakeForValidator {
-		vcp := view.GetValidatorCandidatePool()
+		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.ThetaWei
+		vcp := view.GetValidatorCandidatePool()
 		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)

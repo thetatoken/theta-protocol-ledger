@@ -36,6 +36,10 @@ func (m *FixedValidatorManager) SetConsensusEngine(consensus core.ConsensusEngin
 // GetProposer implements ValidatorManager interface.
 func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) core.Validator {
 	valSet := m.GetValidatorSet(blockHash)
+	if valSet.Size() == 0 {
+		panic("No validators have been added")
+	}
+
 	return valSet.Validators()[0]
 }
 

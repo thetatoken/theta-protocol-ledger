@@ -220,6 +220,8 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 			hex.EncodeToString(expectedStateRoot[:]))
 	}
 
+	ledger.handleDelayedStateUpdates(view)
+
 	ledger.state.Commit() // commit to persistent storage
 
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
@@ -270,6 +272,36 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 	default:
 		return false
 	}
+}
+
+// handleDelayedStateUpdates handles delayed state updates, e.g. stake return, where the stake
+// is returned only after X blocks of its corresponding StakeWithdraw transaction
+func (ledger *Ledger) handleDelayedStateUpdates(view *st.StoreView) {
+	ledger.handleStakeReturn(view)
+}
+
+func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
+	vcp := view.GetValidatorCandidatePool()
+	if vcp == nil {
+		return
+	}
+	height := view.Height()
+	returnedStakes := vcp.ReturnStakes(height)
+	for _, returnedStake := range returnedStakes {
+		sourceAddress := returnedStake.Source
+		sourceAccount := view.GetAccount(returnedStake.Source)
+		if sourceAccount == nil {
+			logger.Errorf("Failed to retrieve source account for stake return: %v", sourceAddress)
+			continue
+		}
+		returnedCoins := types.Coins{
+			ThetaWei: returnedStake.Amount,
+			GammaWei: types.Zero,
+		}
+		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
+		view.SetAccount(sourceAddress, sourceAccount)
+	}
+	view.UpdateValidatorCandidatePool(vcp)
 }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block

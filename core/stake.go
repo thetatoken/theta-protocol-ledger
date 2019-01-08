@@ -74,10 +74,11 @@ func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) erro
 	}
 
 	for _, stake := range sh.Stakes {
-		if stake.Withdrawn {
-			return fmt.Errorf("Cannot deposit during the withdrawal locking period")
-		}
 		if stake.Source == source {
+			if stake.Withdrawn {
+				return fmt.Errorf("Cannot deposit during the withdrawal locking period for: %v", source)
+			}
+
 			stake.Amount = new(big.Int).Add(stake.Amount, amount)
 			return nil
 		}

@@ -137,8 +137,8 @@ var (
 )
 
 func init() {
-	// Each stake deposit needs to be at least 10,000,000 Theta
-	MinValidatorStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(10000000), new(big.Int).SetUint64(1000000000000000000))
+	// Each stake deposit needs to be at least 5,000,000 Theta
+	MinValidatorStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(5000000), new(big.Int).SetUint64(1000000000000000000))
 }
 
 type ValidatorCandidatePool struct {
