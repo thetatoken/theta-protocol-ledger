@@ -24,15 +24,17 @@ func handleError(err error) {
 }
 
 func printUsage() {
-	fmt.Println("Usage: inspect_data -config=<path_to_config_home> -key=<key>")
+	fmt.Println("Usage: inspect_data -config=<path_to_config_home> -key=<key> -level=<level>")
 }
 
 func main() {
 	configPathPtr := flag.String("config", "", "path to ukuele config home")
 	keyPtr := flag.String("key", "", "db key")
+	levelPrt := flag.String("level", "", "level of trie to print")
 	flag.Parse()
 	configPath := *configPathPtr
 	key := *keyPtr
+	level, _ := strconv.Atoi(*levelPrt)
 
 	mainDBPath := path.Join(configPath, "db", "main")
 	refDBPath := path.Join(configPath, "db", "ref")
@@ -47,7 +49,8 @@ func main() {
 
 	node, err := trie.DecodeNode(k, value, 0)
 	if err == nil {
-		fmt.Printf("%v\n", node)
+		// fmt.Printf("%v\n", node)
+		fmt.Printf("%v\n", trie.FmtNode(node, "", level, db))
 	} else {
 		if strings.HasPrefix(err.Error(), "invalid number of list elements") {
 			block := core.ExtendedBlock{}

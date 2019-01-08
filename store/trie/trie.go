@@ -23,7 +23,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/ukulele/store/database"
 
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/metrics"
@@ -603,4 +606,83 @@ func (t *Trie) pruneChildren(nd node, cb func(n []byte) bool) error {
 	}
 
 	return nil
+}
+
+func FmtNode(node node, ind string, level int, db database.Database) string {
+	var resp string
+	switch m := node.(type) {
+	case valueNode:
+		resp += fmtValueNode(m, ind)
+	case hashNode:
+		resp += fmtHashNode(m, ind, level, db)
+	case *shortNode:
+		resp += fmtShortNode(m, ind, level, db)
+	case *fullNode:
+		resp += fmtFullNode(m, ind+"  ", level, db)
+	default:
+	}
+	return resp
+}
+
+func fmtFullNode(n *fullNode, ind string, level int, db database.Database) string {
+	if level <= 0 {
+		return fmt.Sprintf("%v", n.fstring(ind+"  "))
+	}
+	resp := fmt.Sprintf("\n%s[\n", ind)
+	for i, node := range &n.Children {
+		if node == nil {
+			resp += fmt.Sprintf("%s%s: <nil>\n", ind+"  ", indices[i])
+		} else {
+			switch m := node.(type) {
+			case valueNode:
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtValueNode(m, ind+"  "))
+			case hashNode:
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtHashNode(m, ind+"  ", level+1, db))
+			case *shortNode:
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtShortNode(m, ind+"  ", level+1, db))
+			case *fullNode:
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtFullNode(m, ind+"  ", level+1, db))
+			default:
+			}
+		}
+	}
+	return resp + fmt.Sprintf("%s]\n", ind)
+}
+
+func fmtShortNode(n *shortNode, ind string, level int, db database.Database) string {
+	if level <= 0 {
+		return fmt.Sprintf("%v", n.Val.fstring(ind+"  "))
+	}
+	return fmt.Sprintf("(%x: %v)", n.Key, FmtNode(n.Val, ind, level-1, db))
+}
+
+func fmtHashNode(n hashNode, ind string, level int, db database.Database) string {
+	if level <= 0 {
+		return fmt.Sprintf("%v", n.fstring(ind+"  "))
+	}
+	value, err := db.Get([]byte(n))
+	if err != nil {
+		panic(err)
+	}
+	nd, err := decodeNode([]byte(n), value, 0)
+	if err != nil {
+		panic(err)
+	}
+	return fmt.Sprintf("<%v>", FmtNode(nd, ind, level-1, db))
+}
+
+func fmtValueNode(n valueNode, ind string) string {
+	account := types.Account{}
+	err := rlp.DecodeBytes([]byte(n), &account)
+	if err == nil {
+		return fmt.Sprintf("%v", account)
+	}
+
+	splitRule := types.SplitRule{}
+	err = rlp.DecodeBytes([]byte(n), &splitRule)
+	if err == nil {
+		return fmt.Sprintf("%v", splitRule)
+	}
+
+	return fmt.Sprintf("%v", []byte(n))
 }
