@@ -208,17 +208,35 @@ func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder c
 
 func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	returnedStakes := []*Stake{}
-	for _, candidate := range vcp.SortedCandidates {
+
+	idxDeleted := []int{}
+	for idx, candidate := range vcp.SortedCandidates {
+		withdrawnSources := []common.Address{}
 		for _, stake := range candidate.Stakes {
 			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
-				returnedStake, err := candidate.returnStake(stake.Source, currentHeight)
-				if err != nil {
-					logger.Errorf("Failed to return stake: %v, error: %v", stake, err)
-					continue
-				}
-				returnedStakes = append(returnedStakes, returnedStake)
+				logger.Printf("Stake to be returned: source = %v, amount = %v", stake.Source, stake.Amount)
+				withdrawnSources = append(withdrawnSources, stake.Source)
 			}
 		}
+
+		for _, withdrawnSource := range withdrawnSources {
+			returnedStake, err := candidate.returnStake(withdrawnSource, currentHeight)
+			if err != nil {
+				logger.Errorf("Failed to return stake: %v, error: %v", withdrawnSource, err)
+				continue
+			}
+			returnedStakes = append(returnedStakes, returnedStake)
+		}
+
+		if len(candidate.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
+			idxDeleted = append(idxDeleted, idx)
+		}
+	}
+
+	// may need to delete multiple candidates
+	for k := len(idxDeleted) - 1; k >= 0; k-- { // need to delete in the reversed order
+		idx := idxDeleted[k]
+		vcp.SortedCandidates = append(vcp.SortedCandidates[:idx], vcp.SortedCandidates[idx+1:]...)
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order

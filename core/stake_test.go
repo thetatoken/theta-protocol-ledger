@@ -81,6 +81,7 @@ func TestStakeWithdraw(t *testing.T) {
 	assert.True(stakeHolder.TotalStake().Cmp(new(big.Int).SetUint64(9000)) == 0)
 
 	assert.Nil(stakeHolder.withdrawStake(sourceAddr1, currentHeight))
+	assert.NotNil(stakeHolder.withdrawStake(sourceAddr1, currentHeight)) // cannot withdraw twice
 	assert.True(stakeHolder.TotalStake().Cmp(new(big.Int).SetUint64(8000)) == 0)
 
 	assert.NotNil(stakeHolder.depositStake(sourceAddr1, stake1Amount2)) // sourceAddr1 cannot deposit more stake since it is is in the withdrawal locking period

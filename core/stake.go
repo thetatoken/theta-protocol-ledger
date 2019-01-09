@@ -94,6 +94,9 @@ func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) erro
 func (sh *StakeHolder) withdrawStake(source common.Address, currentHeight uint64) error {
 	for _, stake := range sh.Stakes {
 		if stake.Source == source {
+			if stake.Withdrawn {
+				return fmt.Errorf("Already withdrawn, cannot withdraw again for source: %v", source)
+			}
 			stake.Withdrawn = true
 			stake.ReturnHeight = currentHeight + ReturnLockingPeriod
 			return nil
