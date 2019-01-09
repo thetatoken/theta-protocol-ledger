@@ -24,6 +24,7 @@ func TestStakeDeposit(t *testing.T) {
 	assert := assert.New(t)
 
 	sourceAddr1 := common.HexToAddress("0x111")
+	stake1AmountInvalid := new(big.Int).SetInt64(-1)
 	stake1Amount1 := new(big.Int).SetUint64(1000)
 	stake1Amount2 := new(big.Int).SetUint64(4000)
 
@@ -40,6 +41,7 @@ func TestStakeDeposit(t *testing.T) {
 	assert.True(stakeHolder.TotalStake().Cmp(stake1Amount1) == 0)
 	assert.Equal(len(stakeHolder.Stakes), 1)
 
+	assert.NotNil(stakeHolder.depositStake(sourceAddr1, stake1AmountInvalid)) // negative stake not allowed
 	assert.Nil(stakeHolder.depositStake(sourceAddr2, stake2Amount1))
 	assert.Nil(stakeHolder.depositStake(sourceAddr1, stake1Amount2))
 	assert.Equal(len(stakeHolder.Stakes), 2)
@@ -100,6 +102,8 @@ func TestStakeReturn(t *testing.T) {
 	sourceAddr2 := common.HexToAddress("0x222")
 	stake2Amount1 := new(big.Int).SetUint64(8000)
 
+	sourceAddr3 := common.HexToAddress("0x333")
+
 	initHeight := uint64(10000)
 
 	holderAddr := common.HexToAddress("0xabc")
@@ -132,4 +136,12 @@ func TestStakeReturn(t *testing.T) {
 
 	assert.True(stakeHolder.TotalStake().Cmp(new(big.Int).SetUint64(8000)) == 0)
 	assert.Equal(1, len(stakeHolder.Stakes))
+
+	returnedStake, err = stakeHolder.returnStake(sourceAddr2, Height3)
+	assert.Nil(returnedStake) // sourceAddr2's stake not withdrawn yet, cannot return
+	assert.NotNil(err)
+
+	returnedStake, err = stakeHolder.returnStake(sourceAddr3, Height3)
+	assert.Nil(returnedStake) // sourceAddr3 never deposited any stake, so cannot return
+	assert.NotNil(err)
 }
