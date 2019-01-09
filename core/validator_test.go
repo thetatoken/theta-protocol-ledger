@@ -115,6 +115,9 @@ func TestValidatorCandidatePool(t *testing.T) {
 	stake6Amount4 := new(big.Int).Mul(new(big.Int).SetUint64(222), MinValidatorStakeDeposit)
 	stake6Amount5 := new(big.Int).Mul(new(big.Int).SetUint64(333), MinValidatorStakeDeposit)
 
+	invalidStakeAmount := new(big.Int).Mul(new(big.Int).SetInt64(-10), MinValidatorStakeDeposit)
+	insufficientStakeAmount := new(big.Int).SetInt64(1000)
+
 	holderAddr1 := common.HexToAddress("0xf01")
 	holderAddr2 := common.HexToAddress("0xf02")
 	holderAddr3 := common.HexToAddress("0xf03")
@@ -146,6 +149,9 @@ func TestValidatorCandidatePool(t *testing.T) {
 	assert.Nil(vcp.DepositStake(sourceAddr3, holderAddr4, stake3Amount3))
 	assert.Nil(vcp.DepositStake(sourceAddr4, holderAddr4, stake4Amount1))
 
+	assert.NotNil(vcp.DepositStake(sourceAddr4, holderAddr2, invalidStakeAmount))
+	assert.NotNil(vcp.DepositStake(sourceAddr3, holderAddr6, insufficientStakeAmount))
+
 	assert.True(len(vcp.SortedCandidates) == 4)
 	assert.True(vcp.SortedCandidates[0].TotalStake().Cmp(new(big.Int).Mul(new(big.Int).SetUint64(13200), MinValidatorStakeDeposit)) == 0)
 	checkAndPrintAllSortedCandidates(t, assert, vcp)
@@ -160,6 +166,7 @@ func TestValidatorCandidatePool(t *testing.T) {
 	log.Infof("")
 
 	height1 := uint64(100000)
+	assert.NotNil(vcp.WithdrawStake(sourceAddr4, holderAddr6, height1)) // no one deposited to holderAddr6 yet
 	assert.NotNil(vcp.WithdrawStake(sourceAddr4, holderAddr1, height1)) // sourceAddr4 never deposited to holderAddr1, should fail
 	assert.Nil(vcp.WithdrawStake(sourceAddr1, holderAddr2, height1))
 	assert.Nil(vcp.WithdrawStake(sourceAddr2, holderAddr2, height1))
@@ -212,7 +219,8 @@ func TestValidatorCandidatePool(t *testing.T) {
 
 	assert.NotNil(vcp.WithdrawStake(sourceAddr5, holderAddr6, height2)) // sourceAddr5 never deposited to holderAddr6, so cannot withraw from holderAddr6
 	assert.Nil(vcp.WithdrawStake(sourceAddr6, holderAddr6, height2))
-	assert.True(len(vcp.SortedCandidates) == 6) // holderAddr6's stake not returned yet, should it should still be in the candidate list
+	assert.NotNil(vcp.DepositStake(sourceAddr6, holderAddr6, stake6Amount2)) // cannot deposit during the withdrawal locking period
+	assert.True(len(vcp.SortedCandidates) == 6)                              // holderAddr6's stake not returned yet, should it should still be in the candidate list
 	assert.True(vcp.SortedCandidates[5].Holder == holderAddr6)
 	assert.True(vcp.SortedCandidates[5].TotalStake().Cmp(Zero) == 0) // All stakes are withdrawn
 	checkAndPrintAllSortedCandidates(t, assert, vcp)
@@ -258,6 +266,39 @@ func TestValidatorCandidatePool(t *testing.T) {
 	assert.True(len(vcp.SortedCandidates) == 4)
 	checkAndPrintAllSortedCandidates(t, assert, vcp)
 	checkAndPrintTopCandidates(t, assert, vcp, 3)
+
+	log.Infof("")
+	log.Infof("----- The following source addresses withdraw stakes ---")
+	log.Infof("   addr: %v", sourceAddr1)
+	log.Infof("   addr: %v", sourceAddr2)
+	log.Infof("--------------------------------------------------------")
+	log.Infof("")
+
+	assert.Nil(vcp.WithdrawStake(sourceAddr1, holderAddr1, height6))
+	assert.Nil(vcp.WithdrawStake(sourceAddr2, holderAddr1, height6))
+	assert.NotNil(vcp.DepositStake(sourceAddr2, holderAddr1, stake2Amount2)) // cannot deposit during the withdrawal locking period
+	assert.True(len(vcp.SortedCandidates) == 4)
+	assert.True(len(vcp.SortedCandidates[3].Stakes) == 3)
+	assert.True(vcp.SortedCandidates[3].TotalStake().Cmp(stake3Amount2) == 0) // Both sourceAddr1 and sourceAddr2 have withdrawn, only sourceAddr3's deposited stake is still effective
+	checkAndPrintAllSortedCandidates(t, assert, vcp)
+	checkAndPrintTopCandidates(t, assert, vcp, 3)
+
+	height7 := height6 + ReturnLockingPeriod - 1
+	returnedStakes = vcp.ReturnStakes(height7)
+	assert.True(len(returnedStakes) == 0)
+
+	height8 := height6 + ReturnLockingPeriod
+	returnedStakes = vcp.ReturnStakes(height8)
+	assert.True(len(returnedStakes) == 2)
+	assert.True(returnedStakes[0].Amount.Cmp(stake1Amount1) == 0)
+	assert.True(returnedStakes[1].Amount.Cmp(stake2Amount1) == 0)
+	for _, rs := range returnedStakes {
+		log.Infof("Stake returned to Source: %v, Stake: %v", rs.Source, rs.Amount)
+	}
+	assert.True(len(vcp.SortedCandidates) == 4)
+	assert.True(len(vcp.SortedCandidates[3].Stakes) == 1)
+	checkAndPrintAllSortedCandidates(t, assert, vcp)
+	checkAndPrintTopCandidates(t, assert, vcp, 3)
 }
 
 // ------------------------- Utilities -------------------------
@@ -285,5 +326,4 @@ func checkAndPrintTopCandidates(t *testing.T, assert *assert.Assertions, vcp *Va
 		assert.True(prevStake.Cmp(stake) > 0) // Should be sorted in the descending order
 		prevStake = stake
 	}
-
 }
