@@ -70,7 +70,6 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		return err
 	}
 
-	// db := t.ledger.State().DB()
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
 		err = writeRecord(writer, k, v, nil)
 		if err != nil {
