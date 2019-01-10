@@ -47,6 +47,9 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	if sv.Height() != lastFinalizedBlock.Height {
 		return fmt.Errorf("Last finalized block height don't match %v != %v", sv.Height(), lastFinalizedBlock.Height)
 	}
+	if sv.Hash() != lastFinalizedBlock.StateHash {
+		return fmt.Errorf("Last finalized block state hash don't match %v != %v", sv.Hash(), lastFinalizedBlock.StateHash)
+	}
 	metadata.Blockheader = *(lastFinalizedBlock.BlockHeader)
 
 	db := t.ledger.State().DB()
