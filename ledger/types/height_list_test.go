@@ -22,7 +22,7 @@ func TestHeightListRLPEncoding(t *testing.T) {
 
 	var decodedHl *HeightList
 	rlp.DecodeBytes(encodedHlBytes, &decodedHl)
-	for idx, h := range decodedHl.Heights() {
+	for idx, h := range decodedHl.Heights {
 		assert.Equal(heights[idx], h)
 	}
 
@@ -37,7 +37,7 @@ func TestHeightListRLPEncoding(t *testing.T) {
 
 	var decodedHl2 *HeightList
 	rlp.DecodeBytes(encodedHlBytes, &decodedHl2)
-	for idx, h := range decodedHl2.Heights() {
+	for idx, h := range decodedHl2.Heights {
 		assert.Equal(heights[idx], h)
 	}
 }
