@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store"
@@ -682,6 +683,12 @@ func fmtValueNode(n valueNode, ind string) string {
 	err = rlp.DecodeBytes([]byte(n), &splitRule)
 	if err == nil {
 		return fmt.Sprintf("%v", splitRule)
+	}
+
+	vcp := core.ValidatorCandidatePool{}
+	err = rlp.DecodeBytes([]byte(n), &vcp)
+	if err == nil {
+		return fmt.Sprintf("%v", vcp)
 	}
 
 	return fmt.Sprintf("%v", []byte(n))
