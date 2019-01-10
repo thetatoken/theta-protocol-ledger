@@ -30,8 +30,9 @@ const (
 	TxReleaseFund
 	TxServicePayment
 	TxSplitRule
-	TxUpdateValidators
 	TxSmartContract
+	TxDepositStake
+	TxWithdrawStake
 )
 
 func TxFromBytes(raw []byte) (Tx, error) {
@@ -69,12 +70,16 @@ func TxFromBytes(raw []byte) (Tx, error) {
 		data := &SplitRuleTx{}
 		err = rlp.Decode(buff, data)
 		return data, err
-	} else if txType == TxUpdateValidators {
-		data := &UpdateValidatorsTx{}
-		err = rlp.Decode(buff, data)
-		return data, err
 	} else if txType == TxSmartContract {
 		data := &SmartContractTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxDepositStake {
+		data := &DepositStakeTx{}
+		err = rlp.Decode(buff, data)
+		return data, err
+	} else if txType == TxWithdrawStake {
+		data := &WithdrawStakeTx{}
 		err = rlp.Decode(buff, data)
 		return data, err
 	} else {
@@ -100,10 +105,12 @@ func TxToBytes(t Tx) ([]byte, error) {
 		txType = TxServicePayment
 	case *SplitRuleTx:
 		txType = TxSplitRule
-	case *UpdateValidatorsTx:
-		txType = TxUpdateValidators
 	case *SmartContractTx:
 		txType = TxSmartContract
+	case *DepositStakeTx:
+		txType = TxDepositStake
+	case *WithdrawStakeTx:
+		txType = TxWithdrawStake
 	default:
 		return nil, errors.New("Unsupported message type")
 	}

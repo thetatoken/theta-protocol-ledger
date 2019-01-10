@@ -1,8 +1,7 @@
 package consensus
 
 import (
-	"encoding/hex"
-	"fmt"
+	"math/big"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/core"
@@ -41,14 +40,11 @@ func AssertFinalizedBlocksNotConflicting(assert *assert.Assertions, c1 []string,
 	}
 }
 
-func NewTestValidatorSet(pubKeyStrs []string) *core.ValidatorSet {
+func NewTestValidatorSet(addressStrs []string) *core.ValidatorSet {
 	s := core.NewValidatorSet()
-	for _, pubKeyStr := range pubKeyStrs {
-		pubkeyBytes, err := hex.DecodeString(pubKeyStr)
-		if err != nil {
-			panic(fmt.Sprintf("Unable to decode public key: %v", pubKeyStr))
-		}
-		v := core.NewValidator(pubkeyBytes, 1)
+	for _, addressStr := range addressStrs {
+		stake := new(big.Int).SetUint64(1)
+		v := core.NewValidator(addressStr, stake)
 		s.AddValidator(v)
 	}
 	return s

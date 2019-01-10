@@ -52,6 +52,7 @@ func (cc *CommitCertificate) IsValid() bool {
 // Vote represents a vote on a block by a validaor.
 type Vote struct {
 	Block     common.Hash    // Hash of the tip as seen by the voter.
+	Height    uint64         // Height of the tip
 	Epoch     uint64         // Voter's current epoch. It doesn't need to equal the epoch in the block above.
 	ID        common.Address // Voter's address.
 	Signature *crypto.Signature

@@ -5,11 +5,11 @@ INCLUDE = -I=. -I=${GOPATH}/src -I=${GOPATH}/src/github.com/gogo/protobuf/protob
 
 all: get_vendor_deps install test
 
-build:
+build: gen_version
 	go build ./cmd/...
 	go build ./integration/...
 
-install:
+install: gen_version
 	go install ./cmd/...
 	go install ./integration/...
 
@@ -38,5 +38,16 @@ clean:
 
 gen_doc:
 	cd ./docs/commands/;go build -o generator.exe; ./generator.exe
+
+BUILD_DATE := `date -u`
+GIT_HASH := `git rev-parse HEAD`
+VERSIONFILE := version/version_generated.go
+
+gen_version:
+	@echo "package version" > $(VERSIONFILE)
+	@echo "const (" >> $(VERSIONFILE)
+	@echo "  Timestamp = \"$(BUILD_DATE)\"" >> $(VERSIONFILE)
+	@echo "  GitHash = \"$(GIT_HASH)\"" >> $(VERSIONFILE)
+	@echo ")" >> $(VERSIONFILE)
 
 .PHONY: all build install test test_unit get_vendor_deps clean tools

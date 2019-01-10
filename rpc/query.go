@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/http"
 	"time"
 
 	"github.com/thetatoken/ukulele/common"
@@ -25,7 +24,7 @@ type GetAccountResult struct {
 	Address string `json:"address"`
 }
 
-func (t *ThetaRPCServer) GetAccount(r *http.Request, args *GetAccountArgs, result *GetAccountResult) (err error) {
+func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountResult) (err error) {
 	if args.Address == "" {
 		return errors.New("Address must be specified")
 	}
@@ -54,7 +53,7 @@ type GetSplitRuleResult struct {
 	*types.SplitRule
 }
 
-func (t *ThetaRPCServer) GetSplitRule(r *http.Request, args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
+func (t *ThetaRPCService) GetSplitRule(args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
@@ -89,7 +88,7 @@ const (
 	TxStatusFinalized = "finalized"
 )
 
-func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArgs, result *GetTransactionResult) (err error) {
+func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTransactionResult) (err error) {
 	if args.Hash == "" {
 		return errors.New("Transanction hash must be specified")
 	}
@@ -103,7 +102,7 @@ func (t *ThetaRPCServer) GetTransaction(r *http.Request, args *GetTransactionArg
 	result.BlockHash = block.Hash()
 	result.BlockHeight = common.JSONUint64(block.Height)
 
-	if block.Status == core.BlockStatusFinalized {
+	if block.Status.IsFinalized() {
 		result.Status = TxStatusFinalized
 	} else {
 		result.Status = TxStatusPending
@@ -162,10 +161,12 @@ const (
 	TxTypeReleaseFund
 	TxTypeServicePayment
 	TxTypeSplitRule
-	TxUpdateValidators
+	TxTypeSmartContract
+	TxTypeDepositStake
+	TxTypeWithdrawStake
 )
 
-func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *GetBlockResult) (err error) {
+func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
 	if args.Hash.IsEmpty() {
 		return errors.New("Block hash must be specified")
 	}
@@ -214,8 +215,12 @@ func (t *ThetaRPCServer) GetBlock(r *http.Request, args *GetBlockArgs, result *G
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,
@@ -233,7 +238,7 @@ type GetBlockByHeightArgs struct {
 	Height common.JSONUint64 `json:"height"`
 }
 
-func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
+func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
 	if args.Height == 0 {
 		return errors.New("Block height must be specified")
 	}
@@ -242,7 +247,7 @@ func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeigh
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
-		if b.Status == core.BlockStatusFinalized {
+		if b.Status.IsFinalized() {
 			block = b
 			break
 		}
@@ -291,8 +296,12 @@ func (t *ThetaRPCServer) GetBlockByHeight(r *http.Request, args *GetBlockByHeigh
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,
@@ -317,7 +326,7 @@ type GetStatusResult struct {
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 }
 
-func (t *ThetaRPCServer) GetStatus(r *http.Request, args *GetStatusArgs, result *GetStatusResult) (err error) {
+func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
 	s := t.consensus.GetSummary()
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {

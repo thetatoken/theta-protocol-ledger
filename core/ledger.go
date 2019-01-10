@@ -33,4 +33,5 @@ type Ledger interface {
 	ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result
 	ResetState(height uint64, rootHash common.Hash) result.Result
 	FinalizeState(height uint64, rootHash common.Hash) result.Result
+	GetFinalizedValidatorCandidatePool(blockHash common.Hash) (*ValidatorCandidatePool, error)
 }

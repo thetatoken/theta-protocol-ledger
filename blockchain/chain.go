@@ -168,12 +168,14 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
+	status := core.BlockStatusDirectlyFinalized
 	for !hash.IsEmpty() {
 		block, err := ch.findBlock(hash)
-		if err != nil || block.Status == core.BlockStatusFinalized {
+		if err != nil || block.Status.IsFinalized() {
 			return
 		}
-		block.Status = core.BlockStatusFinalized
+		block.Status = status
+		status = core.BlockStatusIndirectlyFinalized // Only the first block is marked as directly finalized
 		err = ch.saveBlock(block)
 		if err != nil {
 			logger.Panic(err)

@@ -22,15 +22,18 @@ func TestConsensusStateBasic(t *testing.T) {
 	})
 	cc, _ := chain.FindBlock(core.GetTestBlock("A1").Hash())
 
+	vote := core.Vote{
+		Height: 10,
+	}
 	state1 := NewState(db, chain)
 	state1.SetEpoch(3)
-	state1.SetLastVoteHeight(10)
+	state1.SetLastVote(vote)
 	state1.SetHighestCCBlock(cc)
 
 	state2 := NewState(db, chain)
 	state2.Load()
 	assert.Equal(uint64(3), state2.GetEpoch())
-	assert.Equal(uint64(10), state2.GetLastVoteHeight())
+	assert.Equal(uint64(10), state2.GetLastVote().Height)
 	assert.NotNil(state2.GetHighestCCBlock())
 	assert.Equal(core.GetTestBlock("A1").Hash(), state2.GetHighestCCBlock().Hash())
 	assert.NotNil(state2.GetTip())

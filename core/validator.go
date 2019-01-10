@@ -3,11 +3,16 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"math/big"
 	"sort"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "core"})
 
 var (
 	// ErrValidatorNotFound for ID is not found in validator set.
@@ -16,38 +21,30 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	PubKey crypto.PublicKey
-	Stake  uint64
+	address common.Address
+	stake   *big.Int
 }
 
 // NewValidator creates a new validator instance.
-func NewValidator(pubKeyBytes common.Bytes, stake uint64) Validator {
-	pubKey, err := crypto.PublicKeyFromBytes(pubKeyBytes)
-	if err != nil {
-		panic(err)
-	}
-	return Validator{*pubKey, stake}
-}
-
-// PublicKey returns the public key of the validator.
-func (v Validator) PublicKey() crypto.PublicKey {
-	return v.PubKey
+func NewValidator(addressStr string, stake *big.Int) Validator {
+	address := common.HexToAddress(addressStr)
+	return Validator{address, stake}
 }
 
 // Address returns the address of the validator.
 func (v Validator) Address() common.Address {
-	return v.PubKey.Address()
+	return v.address
 }
 
 // ID returns the ID of the validator, which is the string representation of its address.
 func (v Validator) ID() common.Address {
-	return v.PubKey.Address()
+	return v.address
 }
 
-// // Stake returns the stake of the validator.
-// func (v Validator) Stake() uint64 {
-// 	return v.stake
-// }
+// Stake returns the stake of the validator.
+func (v Validator) Stake() *big.Int {
+	return v.stake
+}
 
 // ValidatorSet represents a set of validators.
 type ValidatorSet struct {
@@ -104,33 +101,152 @@ func (s *ValidatorSet) AddValidator(validator Validator) {
 }
 
 // TotalStake returns the total stake of the validators in the set.
-func (s *ValidatorSet) TotalStake() uint64 {
-	ret := uint64(0)
+func (s *ValidatorSet) TotalStake() *big.Int {
+	ret := new(big.Int).SetUint64(0)
 	for _, v := range s.validators {
-		ret += v.Stake
+		ret = new(big.Int).Add(ret, v.Stake())
 	}
 	return ret
 }
 
 // HasMajority checks whether a vote set has reach majority.
 func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
-	return s.HasMajorityVotes(votes.Votes())
-}
-
-// HasMajorityVotes checks whether a vote set has reach majority.
-func (s *ValidatorSet) HasMajorityVotes(votes []Vote) bool {
-	quorum := s.TotalStake()*2/3 + 1
-	votedStake := uint64(0)
-	for _, vote := range votes {
+	votedStake := new(big.Int).SetUint64(0)
+	for _, vote := range votes.Votes() {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
-			votedStake += validator.Stake
+			votedStake = new(big.Int).Add(votedStake, validator.Stake())
 		}
 	}
-	return votedStake >= quorum
+
+	three := new(big.Int).SetUint64(3)
+	two := new(big.Int).SetUint64(2)
+	lhs := new(big.Int)
+	rhs := new(big.Int)
+
+	//return votedStake*3 > s.TotalStake()*2
+	return lhs.Mul(votedStake, three).Cmp(rhs.Mul(s.TotalStake(), two)) > 0
 }
 
 // Validators returns a slice of validators.
 func (s *ValidatorSet) Validators() []Validator {
 	return s.validators
+}
+
+//
+// ------- ValidatorCandidatePool ------- //
+//
+
+var (
+	MinValidatorStakeDeposit *big.Int
+)
+
+func init() {
+	// Each stake deposit needs to be at least 5,000,000 Theta
+	MinValidatorStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(5000000), new(big.Int).SetUint64(1000000000000000000))
+}
+
+type ValidatorCandidatePool struct {
+	SortedCandidates []*StakeHolder
+}
+
+func (vcp *ValidatorCandidatePool) GetTopStakeHolders(maxNumStakeHolders int) []*StakeHolder {
+	n := len(vcp.SortedCandidates)
+	if n > maxNumStakeHolders {
+		n = maxNumStakeHolders
+	}
+	return vcp.SortedCandidates[:n]
+}
+
+func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int) (err error) {
+	if amount.Cmp(MinValidatorStakeDeposit) < 0 {
+		return fmt.Errorf("Insufficient stake: %v", amount)
+	}
+
+	matchedHolderFound := false
+	for _, candidate := range vcp.SortedCandidates {
+		if candidate.Holder == holder {
+			matchedHolderFound = true
+			err = candidate.depositStake(source, amount)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		newCandidate := newStakeHolder(holder, []*Stake{newStake(source, amount)})
+		vcp.SortedCandidates = append(vcp.SortedCandidates, newCandidate)
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
+	})
+
+	return nil
+}
+
+func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) error {
+	matchedHolderFound := false
+	for _, candidate := range vcp.SortedCandidates {
+		if candidate.Holder == holder {
+			matchedHolderFound = true
+			err := candidate.withdrawStake(source, currentHeight)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		return fmt.Errorf("No matched stake holder address found: %v", holder)
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
+	})
+
+	return nil
+}
+
+func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
+	returnedStakes := []*Stake{}
+
+	idxDeleted := []int{}
+	for idx, candidate := range vcp.SortedCandidates {
+		withdrawnSources := []common.Address{}
+		for _, stake := range candidate.Stakes {
+			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
+				logger.Printf("Stake to be returned: source = %v, amount = %v", stake.Source, stake.Amount)
+				withdrawnSources = append(withdrawnSources, stake.Source)
+			}
+		}
+
+		for _, withdrawnSource := range withdrawnSources {
+			returnedStake, err := candidate.returnStake(withdrawnSource, currentHeight)
+			if err != nil {
+				logger.Errorf("Failed to return stake: %v, error: %v", withdrawnSource, err)
+				continue
+			}
+			returnedStakes = append(returnedStakes, returnedStake)
+		}
+
+		if len(candidate.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
+			idxDeleted = append(idxDeleted, idx)
+		}
+	}
+
+	// may need to delete multiple candidates
+	for k := len(idxDeleted) - 1; k >= 0; k-- { // need to delete in the reversed order
+		idx := idxDeleted[k]
+		vcp.SortedCandidates = append(vcp.SortedCandidates[:idx], vcp.SortedCandidates[idx+1:]...)
+	}
+
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
+		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
+	})
+
+	return returnedStakes
 }

@@ -484,6 +484,10 @@ func (tl *TestLedger) FinalizeState(height uint64, rootHash common.Hash) result.
 	return result.OK
 }
 
+func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
+	return nil, nil
+}
+
 type TestNetworkMessageInterceptor struct {
 	lock             *sync.Mutex
 	ReceivedMessages chan p2ptypes.Message

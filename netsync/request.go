@@ -140,10 +140,11 @@ func (rm *RequestManager) Wait() {
 
 func (rm *RequestManager) tryToDownload() {
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
-	if hasUndownloadedBlocks && time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval {
+	inventoryRequestIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
+	if hasUndownloadedBlocks && inventoryRequestIntervalPassed {
 		rm.logger.WithFields(log.Fields{
 			"pendingBlocks":     rm.pendingBlocks.Len(),
-			"orghaned blocks":   len(rm.pendingBlocksByParent),
+			"orphan blocks":     len(rm.pendingBlocksByParent),
 			"current chain tip": rm.syncMgr.consensus.GetTip().Hash().Hex(),
 		}).Info("Fast sync in progress")
 

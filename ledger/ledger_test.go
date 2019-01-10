@@ -141,10 +141,9 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	//
 
 	// Validator balance
-	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
-		valPk := val.PublicKey()
-		valAddr := (&valPk).Address()
+		valAddr := val.Address()
 		valAcc := ledger.state.Delivered().GetAccount(valAddr)
 		expectedValBal := types.NewCoins(100000000000, 1000)
 		assert.NotNil(valAcc)
@@ -196,14 +195,14 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 }
 
 func newTesetValidatorManager(consensus core.ConsensusEngine) core.ValidatorManager {
-	proposerPubKeyBytes := consensus.PrivateKey().PublicKey().ToBytes()
-	propser := core.NewValidator(proposerPubKeyBytes, uint64(999))
+	proposerAddressStr := consensus.PrivateKey().PublicKey().Address().String()
+	propser := core.NewValidator(proposerAddressStr, new(big.Int).SetUint64(999))
 
 	_, val2PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("val2")
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate key pair with seed: %v", err))
 	}
-	val2 := core.NewValidator(val2PubKey.ToBytes(), uint64(100))
+	val2 := core.NewValidator(val2PubKey.Address().String(), new(big.Int).SetUint64(100))
 
 	valSet := core.NewValidatorSet()
 	valSet.AddValidator(propser)
@@ -223,15 +222,14 @@ func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
 
 func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
 	txFee := getMinimumTxFee()
-	validators := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
-		valPubKey := val.PublicKey()
 		valAccount := &types.Account{
-			Address:                valPubKey.Address(),
+			Address:                val.Address(),
 			LastUpdatedBlockHeight: 1,
 			Balance:                types.NewCoins(100000000000, 1000),
 		}
-		ledger.state.Delivered().SetAccount(valPubKey.Address(), valAccount)
+		ledger.state.Delivered().SetAccount(val.Address(), valAccount)
 	}
 
 	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
@@ -250,14 +248,13 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 }
 
 func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes {
-	vaList := ledger.valMgr.GetValidatorSetForEpoch(0).Validators()
+	vaList := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	if len(vaList) < 2 {
 		panic("Insufficient number of validators")
 	}
 	outputs := []types.TxOutput{}
 	for _, val := range vaList {
-		valPk := val.PublicKey()
-		output := types.TxOutput{(&valPk).Address(), types.NewCoins(0, 0)}
+		output := types.TxOutput{val.Address(), types.NewCoins(0, 0)}
 		outputs = append(outputs, output)
 	}
 

@@ -75,6 +75,11 @@ func (s *LedgerState) GetChainID() string {
 	return s.chainID
 }
 
+// DB returns the database instance of the ledger state
+func (s *LedgerState) DB() database.Database {
+	return s.db
+}
+
 // Height returns the block height corresponding to the ledger state
 func (s *LedgerState) Height() uint64 {
 	return s.delivered.Height()

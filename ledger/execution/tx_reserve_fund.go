@@ -74,7 +74,7 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 
 	minimalBalance := fund.Plus(collateral).Plus(tx.Fee)
 	if !sourceAccount.Balance.IsGTE(minimalBalance) {
-		logger.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.Source.Address.Hex()))
+		logger.Infof(fmt.Sprintf("ReserveFund: Source did not have enough balance %v", tx.Source.Address.Hex()))
 		return result.Error("Source balance is %v, but required minimal balance is %v",
 			sourceAccount.Balance, minimalBalance).WithErrorCode(result.CodeInsufficientFund)
 	}
