@@ -9,6 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/ukulele/store/trie"
 )
 
 const (
@@ -33,6 +34,24 @@ func (b *Block) String() string {
 		txs = append(txs, hex.EncodeToString(tx))
 	}
 	return fmt.Sprintf("Block{Header: %v, Txs: %v}", b.BlockHeader, txs)
+}
+
+// AddTxs adds transactions to the block and update transaction root hash.
+func (b *Block) AddTxs(txs []common.Bytes) {
+	b.Txs = append(b.Txs, txs...)
+	b.updateTxHash()
+}
+
+// updateTxHash calculate transaction root hash.
+func (b *Block) updateTxHash() {
+	keybuf := new(bytes.Buffer)
+	trie := new(trie.Trie)
+	for i := 0; i < len(b.Txs); i++ {
+		keybuf.Reset()
+		rlp.Encode(keybuf, uint(i))
+		trie.Update(keybuf.Bytes(), b.Txs[i])
+	}
+	b.TxHash = trie.Hash()
 }
 
 // BlockHeader contains the essential information of a block.
