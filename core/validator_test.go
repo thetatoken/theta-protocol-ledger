@@ -290,8 +290,8 @@ func TestValidatorCandidatePool(t *testing.T) {
 	height8 := height6 + ReturnLockingPeriod
 	returnedStakes = vcp.ReturnStakes(height8)
 	assert.True(len(returnedStakes) == 2)
-	assert.True(returnedStakes[0].Amount.Cmp(stake1Amount1) == 0)
-	assert.True(returnedStakes[1].Amount.Cmp(stake2Amount1) == 0)
+	assert.True(returnedStakes[1].Amount.Cmp(stake1Amount1) == 0)
+	assert.True(returnedStakes[0].Amount.Cmp(stake2Amount1) == 0)
 	for _, rs := range returnedStakes {
 		log.Infof("Stake returned to Source: %v, Stake: %v", rs.Source, rs.Amount)
 	}

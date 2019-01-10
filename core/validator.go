@@ -209,34 +209,28 @@ func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder c
 func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	returnedStakes := []*Stake{}
 
-	idxDeleted := []int{}
-	for idx, candidate := range vcp.SortedCandidates {
-		withdrawnSources := []common.Address{}
-		for _, stake := range candidate.Stakes {
+	// need to iterate in the reverse order, since we may delete elemements
+	// from the slice while iterating through it
+	for cidx := len(vcp.SortedCandidates) - 1; cidx >= 0; cidx-- {
+		candidate := vcp.SortedCandidates[cidx]
+		numStakeSources := len(candidate.Stakes)
+		for sidx := numStakeSources - 1; sidx >= 0; sidx-- { // similar to the outer loop, need to iterate in the reversed order
+			stake := candidate.Stakes[sidx]
 			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
 				logger.Printf("Stake to be returned: source = %v, amount = %v", stake.Source, stake.Amount)
-				withdrawnSources = append(withdrawnSources, stake.Source)
+				source := stake.Source
+				returnedStake, err := candidate.returnStake(source, currentHeight)
+				if err != nil {
+					logger.Errorf("Failed to return stake: %v, error: %v", source, err)
+					continue
+				}
+				returnedStakes = append(returnedStakes, returnedStake)
 			}
-		}
-
-		for _, withdrawnSource := range withdrawnSources {
-			returnedStake, err := candidate.returnStake(withdrawnSource, currentHeight)
-			if err != nil {
-				logger.Errorf("Failed to return stake: %v, error: %v", withdrawnSource, err)
-				continue
-			}
-			returnedStakes = append(returnedStakes, returnedStake)
 		}
 
 		if len(candidate.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
-			idxDeleted = append(idxDeleted, idx)
+			vcp.SortedCandidates = append(vcp.SortedCandidates[:cidx], vcp.SortedCandidates[cidx+1:]...)
 		}
-	}
-
-	// may need to delete multiple candidates
-	for k := len(idxDeleted) - 1; k >= 0; k-- { // need to delete in the reversed order
-		idx := idxDeleted[k]
-		vcp.SortedCandidates = append(vcp.SortedCandidates[:idx], vcp.SortedCandidates[idx+1:]...)
 	}
 
 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
