@@ -691,5 +691,11 @@ func fmtValueNode(n valueNode, ind string) string {
 		return fmt.Sprintf("%v", vcp)
 	}
 
+	hl := types.HeightList{}
+	err = rlp.DecodeBytes([]byte(n), &hl)
+	if err == nil {
+		return fmt.Sprintf("%v", hl)
+	}
+
 	return fmt.Sprintf("%v", []byte(n))
 }
