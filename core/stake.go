@@ -43,6 +43,11 @@ func newStake(source common.Address, amount *big.Int) *Stake {
 	}
 }
 
+func (s *Stake) String() string {
+	return fmt.Sprintf("{Source: %v, Amount: %v, Withdrawn: %v, ReturnHeight: %v}",
+		s.Source, s.Amount, s.Withdrawn, s.ReturnHeight)
+}
+
 //
 // ------- StakeHolder ------- //
 //
@@ -122,4 +127,8 @@ func (sh *StakeHolder) returnStake(source common.Address, currentHeight uint64) 
 	}
 
 	return nil, fmt.Errorf("Cannot return, no matched stake source address found: %v", source)
+}
+
+func (sh *StakeHolder) String() string {
+	return fmt.Sprintf("{holder: %v, stakes :%v}", sh.Holder, sh.Stakes)
 }

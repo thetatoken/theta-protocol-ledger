@@ -291,7 +291,7 @@ func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
 		panic(fmt.Sprintf("Error writing height list %v, error: %v",
 			hl, err.Error()))
 	}
-	sv.Set(ValidatorCandidatePoolKey(), hlBytes)
+	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
 
 func (sv *StoreView) GetStore() *treestore.TreeStore {
