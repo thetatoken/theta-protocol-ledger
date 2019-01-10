@@ -268,6 +268,32 @@ func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePo
 	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
 }
 
+// GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions
+func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
+	data := sv.Get(StakeTransactionHeightListKey())
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+
+	hl := &types.HeightList{}
+	err := types.FromBytes(data, hl)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading height list %X, error: %v",
+			data, err.Error()))
+	}
+	return hl
+}
+
+// UpdateStakeTransactionHeightList updates the heights of blocks that contain stake related transactions
+func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
+	hlBytes, err := types.ToBytes(hl)
+	if err != nil {
+		panic(fmt.Sprintf("Error writing height list %v, error: %v",
+			hl, err.Error()))
+	}
+	sv.Set(ValidatorCandidatePoolKey(), hlBytes)
+}
+
 func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }

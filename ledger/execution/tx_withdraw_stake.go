@@ -99,6 +99,13 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
 
+	hl := view.GetStakeTransactionHeightList()
+	if hl == nil {
+		hl = &types.HeightList{}
+	}
+	hl.Append(view.Height())
+	view.UpdateStakeTransactionHeightList(hl)
+
 	sourceAccount.Sequence++
 	view.SetAccount(sourceAddress, sourceAccount)
 

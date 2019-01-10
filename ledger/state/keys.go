@@ -34,5 +34,11 @@ func CodeKey(codeHash common.Bytes) common.Bytes {
 
 // ValidatorCandidatePoolKey returns the state key for the stake holder set
 func ValidatorCandidatePoolKey() common.Bytes {
-	return append(common.Bytes("ls/vcp"))
+	return common.Bytes("ls/vcp")
+}
+
+// StakeTransactionHeightListKey returns the state key the heights of blocks
+// that contain stake related transactions (i.e. StakeDeposit, StakeWithdraw, etc)
+func StakeTransactionHeightListKey() common.Bytes {
+	return common.Bytes("ls/sthl")
 }
