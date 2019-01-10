@@ -89,7 +89,7 @@ func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint
 	curr := uint64(0)
 	validators := valSet.Validators()
 	for _, v := range validators {
-		curr += scaleDown(v.Stake(), scalingFactor)
+		curr += scaleDown(v.Stake, scalingFactor)
 		if r < curr {
 			return v
 		}

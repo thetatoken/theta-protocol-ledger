@@ -325,14 +325,14 @@ func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]commo
 
 // addCoinbaseTx adds a Coinbase transaction
 func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
-	proposerAddress := proposer.Address()
+	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}
 
 	validatorAddresses := make([]common.Address, len(*validators))
 	for idx, validator := range *validators {
-		validatorAddress := validator.Address()
+		validatorAddress := validator.Address
 		validatorAddresses[idx] = validatorAddress
 	}
 	accountRewardMap := exec.CalculateReward(view, validatorAddresses)
@@ -371,7 +371,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 
 // addsSlashTx adds Slash transactions
 func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
-	proposerAddress := proposer.Address()
+	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}

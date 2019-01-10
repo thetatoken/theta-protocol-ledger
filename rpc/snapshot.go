@@ -33,7 +33,7 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	metadata := &core.SnapshotMetadata{}
 
 	stub := t.consensus.GetSummary()
-	metadata.Validators = t.consensus.GetValidatorManager().GetValidatorSetForEpoch(stub.Epoch).Validators()
+	// metadata.Validators = t.consensus.GetValidatorManager().GetValidatorSetForEpoch(stub.Epoch).Validators()
 
 	lastFinalizedBlock, err := t.chain.FindBlock(stub.LastFinalizedBlock)
 	if err != nil {

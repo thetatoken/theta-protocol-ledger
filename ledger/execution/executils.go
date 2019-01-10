@@ -40,7 +40,7 @@ func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.Validator
 	validators := valMgr.GetValidatorSet(extBlk.Hash()).Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
-		validatorAddresses[i] = v.Address()
+		validatorAddresses[i] = v.Address
 	}
 	return validatorAddresses
 }

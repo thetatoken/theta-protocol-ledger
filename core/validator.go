@@ -21,8 +21,8 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	address common.Address
-	stake   *big.Int
+	Address common.Address
+	Stake   *big.Int
 }
 
 // NewValidator creates a new validator instance.
@@ -31,19 +31,9 @@ func NewValidator(addressStr string, stake *big.Int) Validator {
 	return Validator{address, stake}
 }
 
-// Address returns the address of the validator.
-func (v Validator) Address() common.Address {
-	return v.address
-}
-
 // ID returns the ID of the validator, which is the string representation of its address.
 func (v Validator) ID() common.Address {
-	return v.address
-}
-
-// Stake returns the stake of the validator.
-func (v Validator) Stake() *big.Int {
-	return v.stake
+	return v.Address
 }
 
 // ValidatorSet represents a set of validators.
@@ -104,18 +94,18 @@ func (s *ValidatorSet) AddValidator(validator Validator) {
 func (s *ValidatorSet) TotalStake() *big.Int {
 	ret := new(big.Int).SetUint64(0)
 	for _, v := range s.validators {
-		ret = new(big.Int).Add(ret, v.Stake())
+		ret = new(big.Int).Add(ret, v.Stake)
 	}
 	return ret
 }
 
-// HasMajority checks whether a vote set has reach majority.
-func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
+// HasMajorityVotes checks whether a vote set has reach majority.
+func (s *ValidatorSet) HasMajorityVotes(votes []Vote) bool {
 	votedStake := new(big.Int).SetUint64(0)
-	for _, vote := range votes.Votes() {
+	for _, vote := range votes {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
-			votedStake = new(big.Int).Add(votedStake, validator.Stake())
+			votedStake = new(big.Int).Add(votedStake, validator.Stake)
 		}
 	}
 
@@ -126,6 +116,11 @@ func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
 
 	//return votedStake*3 > s.TotalStake()*2
 	return lhs.Mul(votedStake, three).Cmp(rhs.Mul(s.TotalStake(), two)) > 0
+}
+
+// HasMajority checks whether a vote set has reach majority.
+func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
+	return s.HasMajorityVotes(votes.Votes())
 }
 
 // Validators returns a slice of validators.
