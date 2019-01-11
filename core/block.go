@@ -17,6 +17,10 @@ const (
 	MaxNumRegularTxsPerBlock int = 1024
 )
 
+var (
+	EmptyRootHash = calculateRootHash([]common.Bytes{})
+)
+
 // Block represents a block in chain.
 type Block struct {
 	*BlockHeader
@@ -44,27 +48,33 @@ func (b *Block) AddTxs(txs []common.Bytes) {
 
 // updateTxHash calculate transaction root hash.
 func (b *Block) updateTxHash() {
+	b.TxHash = calculateRootHash(b.Txs)
+	b.ReceiptHash = EmptyRootHash
+}
+
+func calculateRootHash(items []common.Bytes) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
-	for i := 0; i < len(b.Txs); i++ {
+	for i := 0; i < len(items); i++ {
 		keybuf.Reset()
 		rlp.Encode(keybuf, uint(i))
-		trie.Update(keybuf.Bytes(), b.Txs[i])
+		trie.Update(keybuf.Bytes(), items[i])
 	}
-	b.TxHash = trie.Hash()
+	return trie.Hash()
 }
 
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
-	ChainID   string
-	Epoch     uint64
-	Height    uint64
-	Parent    common.Hash
-	HCC       common.Hash
-	TxHash    common.Hash
-	StateHash common.Hash
-	Timestamp *big.Int
-	Proposer  common.Address
+	ChainID     string
+	Epoch       uint64
+	Height      uint64
+	Parent      common.Hash
+	HCC         common.Hash
+	TxHash      common.Hash
+	ReceiptHash common.Hash
+	StateHash   common.Hash
+	Timestamp   *big.Int
+	Proposer    common.Address
 
 	hash common.Hash // Cache of calculated hash.
 }
