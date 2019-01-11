@@ -72,6 +72,7 @@ type BlockHeader struct {
 	HCC         common.Hash
 	TxHash      common.Hash
 	ReceiptHash common.Hash
+	Bloom       Bloom
 	StateHash   common.Hash
 	Timestamp   *big.Int
 	Proposer    common.Address
