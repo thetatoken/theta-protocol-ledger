@@ -139,11 +139,25 @@ func (h *BlockHeader) Validate() result.Result {
 
 type BlockStatus byte
 
+/*
+Block status transitions:
+
++-------+          +-------+                          +-------------------+
+|Pending+---+------>Invalid|                    +----->IndirectlyFinalized|
++-------+   |      +-------+                    |     +-------------------+
+            |                                   |
+            |      +-----+        +---------+   |     +-----------------+
+            +------>Valid+-------->Committed+---+----->DirectlyFinalized|
+                   +-----+        +---------+         +-----------------+
+
+*/
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
+	BlockStatusInvalid
+	BlockStatusValid
 )
 
 func (bs BlockStatus) IsPending() bool {
@@ -164,6 +178,11 @@ func (bs BlockStatus) IsDirectlyFinalized() bool {
 
 func (bs BlockStatus) IsIndirectlyFinalized() bool {
 	return bs == BlockStatusIndirectlyFinalized
+}
+
+// IsValid returns whether block has been validated.
+func (bs BlockStatus) IsValid() bool {
+	return bs != BlockStatusPending && bs != BlockStatusInvalid
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.

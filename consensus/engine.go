@@ -246,17 +246,30 @@ func (e *ConsensusEngine) validateBlock(block *core.Block) bool {
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
+		// Should not happen.
 		e.logger.WithFields(log.Fields{
 			"error":  err,
 			"parent": block.Parent.Hex(),
 			"block":  block.Hash().Hex(),
-		}).Error("Failed to find parent block")
+		}).Fatal("Failed to find parent block")
+		return
+	}
+
+	if !parent.Status.IsValid() {
+		e.logger.WithFields(log.Fields{
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Warn("Block is referring to invalid parent block")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 
 	if !e.validateBlock(block) {
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
+
+	e.chain.MarkBlockValid(block.Hash())
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
@@ -542,7 +555,7 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	extBlk := e.state.GetLastFinalizedBlock()
 	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
-	if proposer.ID().Hex() != e.ID() {
+	if proposer.ID().Hex() != id {
 		return false
 	}
 	if e.GetEpoch() == 0 {
