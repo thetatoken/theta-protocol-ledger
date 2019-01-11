@@ -142,8 +142,29 @@ type BlockStatus byte
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
 	BlockStatusCommitted
-	BlockStatusFinalized
+	BlockStatusDirectlyFinalized
+	BlockStatusIndirectlyFinalized
 )
+
+func (bs BlockStatus) IsPending() bool {
+	return bs == BlockStatusPending
+}
+
+func (bs BlockStatus) IsCommitted() bool {
+	return bs == BlockStatusCommitted
+}
+
+func (bs BlockStatus) IsFinalized() bool {
+	return (bs == BlockStatusDirectlyFinalized) || (bs == BlockStatusIndirectlyFinalized)
+}
+
+func (bs BlockStatus) IsDirectlyFinalized() bool {
+	return bs == BlockStatusDirectlyFinalized
+}
+
+func (bs BlockStatus) IsIndirectlyFinalized() bool {
+	return bs == BlockStatusIndirectlyFinalized
+}
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {

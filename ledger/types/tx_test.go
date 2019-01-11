@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thetatoken/ukulele/core"
 )
 
 var chainID string = "test_chain"
@@ -586,78 +585,6 @@ func TestSplitRuleTxProto(t *testing.T) {
 	// and make sure the sig is preserved
 	assert.Equal(tx.Initiator.Signature, tx2.Initiator.Signature)
 	assert.False(tx2.Initiator.Signature.IsEmpty())
-}
-
-func TestUpdateValidatorsTxSignable(t *testing.T) {
-	updateValidatorsTx := &UpdateValidatorsTx{
-		Validators: []*core.Validator{},
-		Proposer: TxInput{
-			Address:  getTestAddress("validator1"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
-			Sequence: 67890,
-		},
-	}
-
-	signBytes := updateValidatorsTx.SignBytes(chainID)
-	signBytesHex := fmt.Sprintf("%X", signBytes)
-	expected := "E5808080940000000000000000000000000000000000000000808B8A746573745F636861696E"
-
-	assert.Equal(t, expected, signBytesHex,
-		"Got unexpected sign string for UpdateValidatorsTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
-}
-
-func TestUpdateValidatorsTxProto(t *testing.T) {
-	assert, require := assert.New(t), require.New(t)
-
-	chainID := "test_chain_id"
-	test1PrivAcc := PrivAccountFromSecret("updatevalidatorstx")
-
-	// Construct a UpdateValidatorsTx signature
-	// idBytes, err := hex.DecodeString("id123")
-	// if err != nil {
-	// 	panic(fmt.Sprintf("Unable to decode public key: %v", id))
-	// }
-	// va := core.NewValidator(idBytes, uint64(100))
-	// tx := &UpdateValidatorsTx{
-	// 	Validators: []*core.Validator{&va},
-	// 	Proposer:   NewTxInput(test1PrivAcc.Address, Coins{{"", 10}}, 1),
-	// }
-
-	tx := &UpdateValidatorsTx{
-		Proposer: NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
-	}
-
-	// serialize this and back
-	b, err := TxToBytes(tx)
-	require.Nil(err)
-	txs, err := TxFromBytes(b)
-	require.Nil(err)
-	tx2 := txs.(*UpdateValidatorsTx)
-
-	fmt.Printf(">>> tx.Validators:  %v\n", tx.Validators)
-	fmt.Printf(">>> tx2.Validators: %v\n", tx2.Validators)
-
-	// make sure they are the same!
-	signBytes := tx.SignBytes(chainID)
-	signBytes2 := tx2.SignBytes(chainID)
-	assert.Equal(signBytes, signBytes2)
-
-	// sign this thing
-	sig := test1PrivAcc.Sign(signBytes)
-	// we handle both raw sig and wrapped sig the same
-	tx.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
-	tx2.SetSignature(test1PrivAcc.PrivKey.PublicKey().Address(), sig)
-
-	// let's marshal / unmarshal this with signature
-	b, err = TxToBytes(tx)
-	require.Nil(err)
-	txs, err = TxFromBytes(b)
-	require.Nil(err)
-	tx2 = txs.(*UpdateValidatorsTx)
-
-	// and make sure the sig is preserved
-	assert.Equal(tx.Proposer.Signature, tx2.Proposer.Signature)
-	assert.False(tx2.Proposer.Signature.IsEmpty())
 }
 
 func TestCoinbaseTxJSON(t *testing.T) {

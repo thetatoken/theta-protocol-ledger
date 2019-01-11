@@ -77,8 +77,7 @@ func TestSyncManager(t *testing.T) {
 	net2.RegisterMessageHandler(mockMsgHandler)
 	simnet.Start(context.Background())
 
-	valSet := core.NewValidatorSet()
-	valMgr := consensus.NewFixedValidatorManager(valSet)
+	valMgr := consensus.NewFixedValidatorManager()
 	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	dispatch := dispatcher.NewDispatcher(net1)
 	consensus := consensus.NewConsensusEngine(nil, db, initChain, dispatch, valMgr)

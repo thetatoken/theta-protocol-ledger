@@ -27,7 +27,6 @@ type StoreView struct {
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
-	validatorsDiff              []*core.Validator
 	refund                      uint64 // Gas refund during smart contract execution
 }
 
@@ -37,12 +36,12 @@ func NewStoreView(height uint64, root common.Hash, db database.Database) *StoreV
 	if store == nil {
 		return nil
 	}
+
 	sv := &StoreView{
-		height:         height,
-		store:          store,
-		slashIntents:   []types.SlashIntent{},
-		validatorsDiff: []*core.Validator{},
-		refund:         0,
+		height:       height,
+		store:        store,
+		slashIntents: []types.SlashIntent{},
+		refund:       0,
 	}
 	return sv
 }
@@ -54,11 +53,10 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 		return nil, err
 	}
 	copiedStoreView := &StoreView{
-		height:         sv.height,
-		store:          copiedStore,
-		slashIntents:   []types.SlashIntent{},
-		validatorsDiff: []*core.Validator{},
-		refund:         0,
+		height:       sv.height,
+		store:        copiedStore,
+		slashIntents: []types.SlashIntent{},
+		refund:       0,
 	}
 	return copiedStoreView, nil
 }
@@ -126,18 +124,6 @@ func (sv *StoreView) CoinbaseTransactinProcessed() bool {
 // SetCoinbaseTransactionProcessed sets whether the coinbase transaction for the current block has been processed
 func (sv *StoreView) SetCoinbaseTransactionProcessed(processed bool) {
 	sv.coinbaseTransactinProcessed = processed
-}
-
-// GetAndClearValidatorDiff retrives and clear validator diff
-func (sv *StoreView) GetAndClearValidatorDiff() []*core.Validator {
-	res := sv.validatorsDiff
-	sv.validatorsDiff = nil
-	return res
-}
-
-// SetValidatorDiff set validator diff
-func (sv *StoreView) SetValidatorDiff(diff []*core.Validator) {
-	sv.validatorsDiff = diff
 }
 
 // GetAccount returns an account.
@@ -255,6 +241,57 @@ func (sv *StoreView) DeleteExpiredSplitRules(currentBlockHeight uint64) bool {
 	}
 
 	return true
+}
+
+// GetValidatorCandidatePool gets the validator candidate pool.
+func (sv *StoreView) GetValidatorCandidatePool() *core.ValidatorCandidatePool {
+	data := sv.Get(ValidatorCandidatePoolKey())
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+	vcp := &core.ValidatorCandidatePool{}
+	err := types.FromBytes(data, vcp)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading validator candidate pool %X, error: %v",
+			data, err.Error()))
+	}
+	return vcp
+}
+
+// UpdateValidatorCandidatePool updates the validator candidate pool.
+func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePool) {
+	vcpBytes, err := types.ToBytes(vcp)
+	if err != nil {
+		panic(fmt.Sprintf("Error writing validator candidate pool %v, error: %v",
+			vcp, err.Error()))
+	}
+	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
+}
+
+// GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions
+func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
+	data := sv.Get(StakeTransactionHeightListKey())
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+
+	hl := &types.HeightList{}
+	err := types.FromBytes(data, hl)
+	if err != nil {
+		panic(fmt.Sprintf("Error reading height list %X, error: %v",
+			data, err.Error()))
+	}
+	return hl
+}
+
+// UpdateStakeTransactionHeightList updates the heights of blocks that contain stake related transactions
+func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
+	hlBytes, err := types.ToBytes(hl)
+	if err != nil {
+		panic(fmt.Sprintf("Error writing height list %v, error: %v",
+			hl, err.Error()))
+	}
+	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
 
 func (sv *StoreView) GetStore() *treestore.TreeStore {

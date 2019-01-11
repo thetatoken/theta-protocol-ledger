@@ -102,7 +102,7 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.BlockHash = block.Hash()
 	result.BlockHeight = common.JSONUint64(block.Height)
 
-	if block.Status == core.BlockStatusFinalized {
+	if block.Status.IsFinalized() {
 		result.Status = TxStatusFinalized
 	} else {
 		result.Status = TxStatusPending
@@ -161,7 +161,9 @@ const (
 	TxTypeReleaseFund
 	TxTypeServicePayment
 	TxTypeSplitRule
-	TxUpdateValidators
+	TxTypeSmartContract
+	TxTypeDepositStake
+	TxTypeWithdrawStake
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -213,8 +215,12 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,
@@ -241,7 +247,7 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
-		if b.Status == core.BlockStatusFinalized {
+		if b.Status.IsFinalized() {
 			block = b
 			break
 		}
@@ -290,8 +296,12 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 			t = TxTypeServicePayment
 		case *types.SplitRuleTx:
 			t = TxTypeSplitRule
-		case *types.UpdateValidatorsTx:
-			t = TxUpdateValidators
+		case *types.SmartContractTx:
+			t = TxTypeSmartContract
+		case *types.DepositStakeTx:
+			t = TxTypeDepositStake
+		case *types.WithdrawStakeTx:
+			t = TxTypeWithdrawStake
 		}
 		txw := Tx{
 			Tx:   tx,

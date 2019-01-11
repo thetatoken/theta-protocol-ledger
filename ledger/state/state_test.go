@@ -7,7 +7,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/store/database/backend"
@@ -51,18 +50,6 @@ func TestLedgerStateBasics(t *testing.T) {
 	assert.True(ls.Delivered().CoinbaseTransactinProcessed())
 	ls.Delivered().SetCoinbaseTransactionProcessed(false)
 	assert.False(ls.Delivered().CoinbaseTransactinProcessed())
-
-	// ValidatorDiff
-	_, va1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("va1")
-	assert.Nil(err)
-	_, va2PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("va2")
-	assert.Nil(err)
-	va1 := core.NewValidator(va1PubKey.ToBytes(), uint64(100))
-	va2 := core.NewValidator(va2PubKey.ToBytes(), uint64(999))
-	vaDiff := []*core.Validator{&va1, &va2}
-	ls.Delivered().SetValidatorDiff(vaDiff)
-	assert.Equal(2, len(ls.Delivered().GetAndClearValidatorDiff()))
-	assert.Equal(0, len(ls.Delivered().GetAndClearValidatorDiff()))
 }
 
 func TestLedgerStateAccountCommit(t *testing.T) {
