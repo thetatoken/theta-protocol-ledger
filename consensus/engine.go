@@ -221,6 +221,23 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
+func (e *ConsensusEngine) validateBlock(block *core.Block) bool {
+	if res := block.Validate(); res.IsError() {
+		e.logger.WithFields(log.Fields{
+			"err": res.String(),
+		}).Warn("Block is invalid")
+		return false
+	}
+	if !e.shouldProposeByID(block.Epoch, block.Proposer.Hex()) {
+		e.logger.WithFields(log.Fields{
+			"block.Epoch":    block.Epoch,
+			"block.proposer": block.Proposer.Hex(),
+		}).Warn("Invalid proposer")
+		return false
+	}
+	return true
+}
+
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
@@ -231,6 +248,11 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to find parent block")
 		return
 	}
+
+	if !e.validateBlock(block) {
+		return
+	}
+
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -502,8 +524,12 @@ func (e *ConsensusEngine) randHex() []byte {
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
+	return e.shouldProposeByID(epoch, e.ID())
+}
+
+func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	proposer := e.validatorManager.GetProposerForEpoch(epoch)
-	if proposer.ID().Hex() != e.ID() {
+	if proposer.ID().Hex() != id {
 		return false
 	}
 	if e.GetEpoch() == 0 {
