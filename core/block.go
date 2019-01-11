@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/trie"
@@ -76,6 +77,7 @@ type BlockHeader struct {
 	StateHash   common.Hash
 	Timestamp   *big.Int
 	Proposer    common.Address
+	Signature   *crypto.Signature
 
 	hash common.Hash // Cache of calculated hash.
 }
@@ -95,6 +97,44 @@ func (h *BlockHeader) Hash() common.Hash {
 func (h *BlockHeader) String() string {
 	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
 		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
+}
+
+// SignBytes returns raw bytes to be signed.
+func (h *BlockHeader) SignBytes() common.Bytes {
+	r := BlockHeader{
+		ChainID:     h.ChainID,
+		Epoch:       h.Epoch,
+		Height:      h.Height,
+		Parent:      h.Parent,
+		HCC:         h.HCC,
+		TxHash:      h.TxHash,
+		ReceiptHash: h.ReceiptHash,
+		Bloom:       h.Bloom,
+		StateHash:   h.StateHash,
+		Timestamp:   h.Timestamp,
+		Proposer:    h.Proposer,
+	}
+	raw, _ := rlp.EncodeToBytes(r)
+	return raw
+}
+
+// SetSignature sets given signature in header.
+func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
+	h.Signature = sig
+}
+
+// Validate checks the header is legitimate.
+func (h *BlockHeader) Validate() result.Result {
+	if h.Proposer.IsEmpty() {
+		return result.Error("Proposer is not specified")
+	}
+	if h.Signature == nil || h.Signature.IsEmpty() {
+		return result.Error("Block is not signed")
+	}
+	if !h.Signature.Verify(h.SignBytes(), h.Proposer) {
+		return result.Error("Signature verification failed")
+	}
+	return result.OK
 }
 
 type BlockStatus byte

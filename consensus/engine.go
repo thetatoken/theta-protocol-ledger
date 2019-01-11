@@ -522,6 +522,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		}).Panic("Failed to reset state to tip.StateHash")
 	}
 
+	// Add block.
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
 	block.Epoch = e.GetEpoch()
@@ -531,6 +532,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC = e.state.GetHighestCCBlock().Hash()
 
+	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
@@ -538,6 +540,13 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	}
 	block.AddTxs(txs)
 	block.StateHash = newRoot
+
+	// Sign block.
+	sig, err := e.privateKey.Sign(block.SignBytes())
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
+	}
+	block.SetSignature(sig)
 
 	proposal := core.Proposal{
 		Block:      block,
