@@ -114,6 +114,9 @@ func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
 	}
+	if vcp == nil {
+		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
+	}
 
 	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
@@ -122,6 +125,9 @@ func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash
 	for _, stakeHolder := range topStakeHolders {
 		valAddr := stakeHolder.Holder.Hex()
 		valStake := stakeHolder.TotalStake()
+		if valStake.Cmp(core.Zero) == 0 {
+			continue
+		}
 		validator := core.NewValidator(valAddr, valStake)
 		valSet.AddValidator(validator)
 	}

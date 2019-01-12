@@ -159,8 +159,8 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	}
 }
 
-// Test case for stake deposit, withdrawal, and return
-func TestStakeUpdate(t *testing.T) {
+// Test case for validator stake deposit, withdrawal, and return
+func TestValidatorStakeUpdate(t *testing.T) {
 	assert := assert.New(t)
 
 	chainID := "test_chain_001"
@@ -173,12 +173,12 @@ func TestStakeUpdate(t *testing.T) {
 	es := newExecSim(chainID, db, snapshot, valPrivAccs[0])
 	b0 := es.getTipBlock()
 
-	// Add block #1 with an DepositStakeTx
+	// Add block #1 with a DepositStakeTx transaction
 	b1 := core.NewBlock()
 	b1.ChainID = chainID
 	b1.Height = b0.Height + 1
+	b1.Epoch = 1
 	b1.Parent = b0.Hash()
-	es.addBlock(b1)
 
 	txFee := getMinimumTxFee()
 	depositSourcePrivAcc := srcPrivAccs[4]
@@ -205,11 +205,13 @@ func TestStakeUpdate(t *testing.T) {
 	assert.True(res.IsOK(), res.Message)
 
 	b1.StateHash = es.state.Commit()
+	es.addBlock(b1)
 
 	// Add more blocks
 	b2 := core.NewBlock()
 	b2.ChainID = chainID
 	b2.Height = b1.Height + 1
+	b2.Epoch = 2
 	b2.Parent = b1.Hash()
 	b2.StateHash = es.state.Commit()
 	es.addBlock(b2)
@@ -217,6 +219,7 @@ func TestStakeUpdate(t *testing.T) {
 	b3 := core.NewBlock()
 	b3.ChainID = chainID
 	b3.Height = b2.Height + 1
+	b3.Epoch = 3
 	b3.Parent = b2.Hash()
 	b3.StateHash = es.state.Commit()
 	es.addBlock(b3)
@@ -224,6 +227,7 @@ func TestStakeUpdate(t *testing.T) {
 	b4 := core.NewBlock()
 	b4.ChainID = chainID
 	b4.Height = b3.Height + 1
+	b4.Epoch = 4
 	b4.Parent = b3.Hash()
 	b4.StateHash = es.state.Commit()
 	es.addBlock(b4)
@@ -231,23 +235,83 @@ func TestStakeUpdate(t *testing.T) {
 	// Directly finalize block #3
 	es.finalizePreviousBlocks(b3.Hash())
 
-	valSet0 := es.consensus.GetValidatorManager().GetValidatorSet(b0.Hash())
-	log.Infof("valSet0: %v", valSet0)
-	assert.Equal(4, len(valSet0.Validators()))
+	// Add block #5 with a WithdrawStakeTx transaction
+	b5 := core.NewBlock()
+	b5.ChainID = chainID
+	b5.Height = b4.Height + 1
+	b5.Epoch = 5
+	b5.Parent = b4.Hash()
 
-	valSet1 := es.consensus.GetValidatorManager().GetValidatorSet(b1.Hash())
-	log.Infof("valSet1: %v", valSet1)
-	assert.Equal(4, len(valSet1.Validators()))
+	withdrawSourcePrivAcc := srcPrivAccs[0]
+	withdrawHolderPrivAcc := valPrivAccs[0]
+	widthrawStakeTx := &types.WithdrawStakeTx{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address:  withdrawSourcePrivAcc.Address,
+			Sequence: 1,
+		},
+		Holder: types.TxOutput{
+			Address: withdrawHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForValidator,
+	}
+	signBytes = widthrawStakeTx.SignBytes(es.chainID)
+	widthrawStakeTx.Source.Signature = withdrawSourcePrivAcc.Sign(signBytes)
+
+	_, res = es.executor.ExecuteTx(widthrawStakeTx)
+	assert.True(res.IsOK(), res.Message)
+
+	b5.StateHash = es.state.Commit()
+	es.addBlock(b5)
+
+	// Directly finalize block #5
+	es.finalizePreviousBlocks(b5.Hash())
+
+	b6 := core.NewBlock()
+	b6.ChainID = chainID
+	b6.Height = b5.Height + 1
+	b6.Epoch = 6
+	b6.Parent = b5.Hash()
+	b6.StateHash = es.state.Commit()
+	es.addBlock(b6)
+
+	// ----------------- Examine the Chain ----------------- //
+
+	for height := uint64(0); height < 7; height++ {
+		blocks := es.findBlocksByHeight(height)
+		for _, block := range blocks {
+			log.Infof("Block @height %v: %v", height, block)
+			assert.NotEqual(common.Hash{}, block.StateHash)
+		}
+	}
+
+	// -------------- Check the ValidatorSets -------------- //
+
+	// valSet0 := es.consensus.GetValidatorManager().GetValidatorSet(b0.Hash())
+	// log.Infof("valSet for block #0: %v", valSet0)
+	// assert.Equal(4, len(valSet0.Validators()))
+
+	// valSet1 := es.consensus.GetValidatorManager().GetValidatorSet(b1.Hash())
+	// log.Infof("valSet for block #1: %v", valSet1)
+	// assert.Equal(4, len(valSet1.Validators()))
 
 	valSet2 := es.consensus.GetValidatorManager().GetValidatorSet(b2.Hash())
-	log.Infof("valSet2: %v", valSet2)
+	log.Infof("valSet for block #2: %v", valSet2)
 	assert.Equal(4, len(valSet2.Validators()))
 
 	valSet3 := es.consensus.GetValidatorManager().GetValidatorSet(b3.Hash())
-	log.Infof("valSet3: %v", valSet3)
+	log.Infof("valSet for block #3: %v", valSet3)
 	assert.Equal(5, len(valSet3.Validators()))
 
 	valSet4 := es.consensus.GetValidatorManager().GetValidatorSet(b4.Hash())
-	log.Infof("valSet4: %v", valSet4)
+	log.Infof("valSet for block #4: %v", valSet4)
 	assert.Equal(5, len(valSet4.Validators()))
+
+	valSet5 := es.consensus.GetValidatorManager().GetValidatorSet(b5.Hash())
+	log.Infof("valSet for block #5: %v", valSet5)
+	assert.Equal(4, len(valSet5.Validators()))
+
+	valSet6 := es.consensus.GetValidatorManager().GetValidatorSet(b6.Hash())
+	log.Infof("valSet for block #6: %v", valSet6)
+	assert.Equal(4, len(valSet6.Validators()))
 }

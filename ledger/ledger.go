@@ -82,7 +82,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
-	for !blockHash.IsEmpty() {
+	for i := 0; !blockHash.IsEmpty(); i++ {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
@@ -90,12 +90,15 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 		if block == nil {
 			return nil, fmt.Errorf("Block is nil for hash %v", blockHash)
 		}
+
+		//if i >= 2 { // Start checking direct finalization only from the grandparent block
 		if block.Status.IsDirectlyFinalized() { // the latest DIRECTLY finalized block found
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
+		//}
 		blockHash = block.Parent
 	}
 

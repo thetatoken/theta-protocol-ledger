@@ -96,6 +96,10 @@ func (es *execSim) getTipBlock() *core.ExtendedBlock {
 	return es.consensus.GetTip()
 }
 
+func (es *execSim) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
+	return es.chain.FindBlocksByHeight(height)
+}
+
 func genSimSnapshot(chainID string, db database.Database) (snapshot mockSnapshot, srcPrivAccs []*types.PrivAccount, valPrivAccs []*types.PrivAccount) {
 	initHeight := uint64(0)
 
