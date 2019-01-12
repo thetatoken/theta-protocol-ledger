@@ -46,6 +46,11 @@ func (v Validator) Stake() *big.Int {
 	return v.stake
 }
 
+// String represents the string representation of the validator
+func (v Validator) String() string {
+	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake())
+}
+
 // ValidatorSet represents a set of validators.
 type ValidatorSet struct {
 	validators []Validator
@@ -70,6 +75,11 @@ func (s *ValidatorSet) Copy() *ValidatorSet {
 // Size returns the number of the validators in the validator set.
 func (s *ValidatorSet) Size() int {
 	return len(s.validators)
+}
+
+// String represents the string representation of the validator set
+func (s *ValidatorSet) String() string {
+	return fmt.Sprintf("{Validators: %v}", s.validators)
 }
 
 // ByID implements sort.Interface for ValidatorSet based on ID.
