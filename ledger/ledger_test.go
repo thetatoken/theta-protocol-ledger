@@ -338,12 +338,12 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	assert.Equal(balance0, balance1.Plus(types.NewCoins(0, txFee)))
 
 	heightDelta1 := core.ReturnLockingPeriod / 10
-	stateHash := common.Hash{}
 	for h := uint64(0); h < heightDelta1; h++ {
-		stateHash = es.state.Commit() // increment height
+		es.state.Commit() // increment height
 	}
-	expectedStateHash := stateHash
-	es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs()
+	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	assert.True(res.IsOK())
 
 	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
 	balance2 := srcAcc.Balance
@@ -353,10 +353,11 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	heightDelta2 := core.ReturnLockingPeriod
 	for h := uint64(0); h < heightDelta2; h++ {
-		stateHash = es.state.Commit() // increment height
+		es.state.Commit() // increment height
 	}
-	expectedStateHash = stateHash
-	es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs()
+	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	assert.True(res.IsOK())
 
 	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
 	balance3 := srcAcc.Balance

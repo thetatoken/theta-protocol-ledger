@@ -17,11 +17,11 @@ import (
 
 // withdrawStakeCmd represents the withdraw stake command
 // Example:
-//		banjo tx withdraw --chain="" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=9
+//		banjo tx withdraw --chain="" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8
 var withdrawStakeCmd = &cobra.Command{
 	Use:     "withdraw",
 	Short:   "withdraw stake to a validator or guardian",
-	Example: `banjo tx withdraw --chain="" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=9`,
+	Example: `banjo tx withdraw --chain="" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8`,
 	Run:     doWithdrawStakeCmd,
 }
 
