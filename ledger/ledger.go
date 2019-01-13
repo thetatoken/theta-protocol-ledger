@@ -180,6 +180,8 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
+	ledger.handleDelayedStateUpdates(view)
+
 	stateRootHash = view.Hash()
 
 	return stateRootHash, blockRawTxs, result.OK
@@ -215,6 +217,8 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 		}
 	}
 
+	ledger.handleDelayedStateUpdates(view)
+
 	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
 		ledger.resetState(currHeight, currStateRoot)
@@ -222,8 +226,6 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 			hex.EncodeToString(newStateRoot[:]),
 			hex.EncodeToString(expectedStateRoot[:]))
 	}
-
-	ledger.handleDelayedStateUpdates(view)
 
 	ledger.state.Commit() // commit to persistent storage
 
@@ -288,8 +290,10 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 	if vcp == nil {
 		return
 	}
+
 	currentHeight := view.Height()
 	returnedStakes := vcp.ReturnStakes(currentHeight)
+
 	for _, returnedStake := range returnedStakes {
 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
 			panic(fmt.Sprintf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
