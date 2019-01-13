@@ -9,6 +9,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 )
 
@@ -342,4 +343,47 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
 	return
+}
+
+// ------------------------------ GetVcp -----------------------------------
+
+type GetVcpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetVcpResult struct {
+	BlockHashVcpPairs []BlockHashVcpPair
+}
+
+type BlockHashVcpPair struct {
+	BlockHash common.Hash
+	Vcp       *core.ValidatorCandidatePool
+}
+
+func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVcpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashVcpPairs := []BlockHashVcpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		vcp := blockStoreView.GetValidatorCandidatePool()
+
+		blockHashVcpPairs = append(blockHashVcpPairs, BlockHashVcpPair{
+			BlockHash: blockHash,
+			Vcp:       vcp,
+		})
+	}
+
+	result.BlockHashVcpPairs = blockHashVcpPairs
+
+	return nil
 }
