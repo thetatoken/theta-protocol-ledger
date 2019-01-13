@@ -239,6 +239,13 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	// ----------------- Stake Withdrawal ----------------- //
 
+	withdrawSourcePrivAcc := srcPrivAccs[0]
+	withdrawHolderPrivAcc := valPrivAccs[0]
+
+	srcAcc := es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance0 := srcAcc.Balance
+	log.Infof("Source account balance before withdrawal : %v", balance0)
+
 	// Add block #5 with a WithdrawStakeTx transaction
 	b5 := core.NewBlock()
 	b5.ChainID = chainID
@@ -246,8 +253,6 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b5.Epoch = 5
 	b5.Parent = b4.Hash()
 
-	withdrawSourcePrivAcc := srcPrivAccs[0]
-	withdrawHolderPrivAcc := valPrivAccs[0]
 	widthrawStakeTx := &types.WithdrawStakeTx{
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
@@ -327,9 +332,10 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	// ----------------- Stake Return ----------------- //
 
-	srcAcc := es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
 	balance1 := srcAcc.Balance
 	log.Infof("Source account balance after withdrawal  : %v", balance1)
+	assert.Equal(balance0, balance1.Plus(types.NewCoins(0, txFee)))
 
 	heightDelta1 := core.ReturnLockingPeriod / 10
 	stateHash := common.Hash{}
