@@ -114,5 +114,4 @@ func init() {
 	reserveFundCmd.MarkFlagRequired("seq")
 	reserveFundCmd.MarkFlagRequired("duration")
 	reserveFundCmd.MarkFlagRequired("resource_id")
-
 }

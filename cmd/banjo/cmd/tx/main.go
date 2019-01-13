@@ -27,6 +27,10 @@ var (
 	gasLimitFlag                 uint64
 	dataFlag                     string
 	walletFlag                   string
+	stakeInThetaFlag             string
+	purposeFlag                  uint8
+	sourceFlag                   string
+	holderFlag                   string
 )
 
 // TxCmd represents the Tx command
@@ -42,4 +46,6 @@ func init() {
 	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
 	TxCmd.AddCommand(splitRuleCmd)
 	TxCmd.AddCommand(smartContractCmd)
+	TxCmd.AddCommand(depositStakeCmd)
+	TxCmd.AddCommand(withdrawStakeCmd)
 }
