@@ -163,6 +163,8 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 func TestValidatorStakeUpdate(t *testing.T) {
 	assert := assert.New(t)
 
+	// ----------------- Stake Deposit ----------------- //
+
 	chainID := "test_chain_001"
 	db := backend.NewMemDatabase()
 
@@ -235,6 +237,8 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	// Directly finalize block #3
 	es.finalizePreviousBlocks(b3.Hash())
 
+	// ----------------- Stake Withdrawal ----------------- //
+
 	// Add block #5 with a WithdrawStakeTx transaction
 	b5 := core.NewBlock()
 	b5.ChainID = chainID
@@ -282,6 +286,12 @@ func TestValidatorStakeUpdate(t *testing.T) {
 		for _, block := range blocks {
 			log.Infof("Block @height %v: %v", height, block)
 			assert.NotEqual(common.Hash{}, block.StateHash)
+
+			if block.Height == 0 || block.Height == 3 || block.Height == 5 {
+				assert.True(block.Status.IsDirectlyFinalized())
+			} else if block.Height == 1 || block.Height == 2 || block.Height == 4 {
+				assert.True(block.Status.IsIndirectlyFinalized())
+			}
 		}
 	}
 
@@ -314,4 +324,40 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	valSet6 := es.consensus.GetValidatorManager().GetValidatorSet(b6.Hash())
 	log.Infof("valSet for block #6: %v", valSet6)
 	assert.Equal(4, len(valSet6.Validators()))
+
+	// ----------------- Stake Return ----------------- //
+
+	srcAcc := es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance1 := srcAcc.Balance
+	log.Infof("Source account balance after withdrawal  : %v", balance1)
+
+	heightDelta1 := core.ReturnLockingPeriod / 10
+	stateHash := common.Hash{}
+	for h := uint64(0); h < heightDelta1; h++ {
+		stateHash = es.state.Commit() // increment height
+	}
+	expectedStateHash := stateHash
+	es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance2 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks : %v", heightDelta1, balance2)
+
+	assert.Equal(balance1, balance2) // still in the locking period, should not return stake
+
+	heightDelta2 := core.ReturnLockingPeriod
+	for h := uint64(0); h < heightDelta2; h++ {
+		stateHash = es.state.Commit() // increment height
+	}
+	expectedStateHash = stateHash
+	es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance3 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks: %v", heightDelta2, balance3)
+
+	returnedCoins := balance3.Minus(balance2)
+	assert.True(returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit)) == 0)
+	assert.True(returnedCoins.GammaWei.Cmp(core.Zero) == 0)
+	log.Infof("Returned coins: %v", returnedCoins)
 }
