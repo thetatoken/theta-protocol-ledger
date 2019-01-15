@@ -550,7 +550,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
 		return core.Proposal{}, err
 	}
-	block.Txs = txs
+	block.AddTxs(txs)
 	block.StateHash = newRoot
 
 	proposal := core.Proposal{
