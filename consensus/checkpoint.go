@@ -60,11 +60,12 @@ func WriteCheckpoint(filePath string, checkpoint *core.Checkpoint) error {
 	return common.WriteFileAtomic(filePath, raw, 0600)
 }
 
+// TODO: Deprecate this function. Should use the generate_genesis tool to generate the genesis checkpoint
 // generateGenesisCheckpoint generates the genesis checkpoint.
 func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 	genesis := &core.Checkpoint{}
 
-	genesis.Validators = []string{
+	validators := []string{
 		"042CA7FFB62122A220C72AA7CD87C252B21D72273275682386A099F0983C135659FF93E2E8756011074706E18113AA6529CD5833DD6463266980C6973895153C7C",
 		"048E8D53FD435265AD074597CC3E202F8E935CFB57925BB51316252027CB08767FB8099226414732543C4B5CBAA64B4EE8F173BA559258A0B5F633A0D11509E78B",
 		"0479188733862EBB3FE98A92315556D5214D908941CDC8D6C8700EEEAE5F90A6177A37E23B33B81B9FAC3A98EE2382AB24B1C92384FC151D07E36AC7209702D353",
@@ -75,7 +76,7 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 	vcp := &core.ValidatorCandidatePool{}
 
 	s := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
-	for _, v := range genesis.Validators {
+	for _, v := range validators {
 		raw, err := hex.DecodeString(v)
 		if err != nil {
 			return nil, err

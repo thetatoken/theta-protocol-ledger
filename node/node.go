@@ -44,7 +44,6 @@ type Params struct {
 	ChainID    string
 	PrivateKey *crypto.PrivateKey
 	Root       *core.Block
-	Validators *core.ValidatorSet
 	Network    p2p.Network
 	DB         database.Database
 }

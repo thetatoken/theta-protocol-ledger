@@ -44,7 +44,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load checkpoint")
 	}
-	validators := checkpoint.Validators
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
@@ -56,7 +55,6 @@ func runStart(cmd *cobra.Command, args []string) {
 		ChainID:    root.ChainID,
 		PrivateKey: privKey,
 		Root:       root,
-		Validators: consensus.NewTestValidatorSet(validators),
 		Network:    network,
 		DB:         db,
 	}

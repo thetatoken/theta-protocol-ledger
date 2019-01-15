@@ -107,14 +107,14 @@ make test_unit
 Open a terminal to launch the private net. For the first time, follow the setup steps below.
 ```
 cd $UKULELE_HOME
-cp -r ./integration/testnet ../testnet
+cp -r ./integration/privatenet ../privatenet
 mkdir ~/.banjo
-cp -r ./integration/testnet/banjo/* ~/.banjo/
+cp -r ./integration/privatenet/banjo/* ~/.banjo/
 chmod 700 ~/.banjo/keys/encrypted
 ```
 And then, use the following commands to launch a private net with a single validator node.
 ```
-ukulele start --config=../testnet/node2
+ukulele start --config=../privatenet/node
 ```
 In another terminal, we can use the `banjo` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
 ```
