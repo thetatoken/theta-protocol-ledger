@@ -531,7 +531,8 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":         result.Message,
-			"tip.StateHash": tip.StateHash,
+			"tip.StateHash": tip.StateHash.Hex(),
+			"tip":           tip,
 		}).Panic("Failed to reset state to tip.StateHash")
 	}
 

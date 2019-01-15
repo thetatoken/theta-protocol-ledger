@@ -71,6 +71,9 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		"0455BDC5CF697F9519DF40E837BEE3E246C8D47C1B58CD1892FD3B0F780D2C09E718FF50A5929B86B8B88C7031164BDE553E285103F1B4DF668B44AFC907264C1C",
 	}
 
+	stakeAmount := new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit)
+	vcp := &core.ValidatorCandidatePool{}
+
 	s := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
 	for _, v := range genesis.Validators {
 		raw, err := hex.DecodeString(v)
@@ -92,7 +95,12 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 			LastUpdatedBlockHeight: 0,
 		}
 		s.SetAccount(acc.Address, acc)
+
+		vcp.DepositStake(pubKey.Address(), pubKey.Address(), stakeAmount)
 	}
+
+	s.UpdateValidatorCandidatePool(vcp)
+
 	stateHash := s.Hash()
 
 	firstBlock := core.NewBlock()

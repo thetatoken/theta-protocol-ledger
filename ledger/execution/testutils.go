@@ -15,11 +15,12 @@ import (
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
 	st "github.com/thetatoken/ukulele/ledger/state"
+
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
-// --------------- Test Utilities --------------- //
+// --------------- Test Utilities with Mocked Consensus Engine --------------- //
 
 type TestConsensusEngine struct {
 	privKey *crypto.PrivateKey

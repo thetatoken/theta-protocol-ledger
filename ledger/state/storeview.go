@@ -61,6 +61,11 @@ func (sv *StoreView) Copy() (*StoreView, error) {
 	return copiedStoreView, nil
 }
 
+// GetDB returns the underlying database.
+func (sv *StoreView) GetDB() database.Database {
+	return sv.store.GetDB()
+}
+
 // Hash returns the root hash of the tree store
 func (sv *StoreView) Hash() common.Hash {
 	return sv.store.Hash()

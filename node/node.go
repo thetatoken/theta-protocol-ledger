@@ -52,7 +52,7 @@ type Params struct {
 func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
-	validatorManager := consensus.NewFixedValidatorManager()
+	validatorManager := consensus.NewRotatingValidatorManager()
 	dispatcher := dp.NewDispatcher(params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)

@@ -117,7 +117,7 @@ func (s *State) Load() (err error) {
 
 	if stub.Root != s.chain.Root.Hash() {
 		logger.WithFields(log.Fields{
-			"stub.Root":  stub.Root,
+			"stub.Root":  stub.Root.Hex(),
 			"chain.Root": s.chain.Root.Hash,
 		}).Warn("Ignoring previous consensus state since it is on a different root")
 		return

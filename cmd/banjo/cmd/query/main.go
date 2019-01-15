@@ -13,4 +13,5 @@ var QueryCmd = &cobra.Command{
 func init() {
 	QueryCmd.AddCommand(accountCmd)
 	QueryCmd.AddCommand(splitRuleCmd)
+	QueryCmd.AddCommand(vcpCmd)
 }

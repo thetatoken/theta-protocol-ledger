@@ -15,7 +15,7 @@ func NewTreeStore(root common.Hash, db database.Database) *TreeStore {
 	var err error
 	tr, err = trie.New(root, trie.NewDatabase(db))
 	if err != nil {
-		log.Errorf("Failed to create tree store for: %v: %v", root, err)
+		log.Errorf("Failed to create tree store for: %v: %v", root.Hex(), err)
 		return nil
 	}
 	return &TreeStore{tr, db}

@@ -34,7 +34,7 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 	}
 	rootBlock, err := chain.FindBlock(root.Hash())
 	if err != nil {
-		logger.WithFields(log.Fields{"Hash": root.Hash().Hex(), "error": err}).Info("Root block is not found in chain. Adding block.")
+		logger.WithFields(log.Fields{"Hash": root.Hash().Hex()}).Info("Root block is not found in chain. Adding block.")
 		rootBlock, err = chain.AddBlock(root)
 		if err != nil {
 			logger.Panic(err)

@@ -1,10 +1,8 @@
 package ledger
 
 import (
-	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"testing"
 	"time"
 
@@ -15,13 +13,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	dp "github.com/thetatoken/ukulele/dispatcher"
-	exec "github.com/thetatoken/ukulele/ledger/execution"
 	"github.com/thetatoken/ukulele/ledger/types"
-	mp "github.com/thetatoken/ukulele/mempool"
-	"github.com/thetatoken/ukulele/p2p"
-	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
 	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
@@ -167,172 +159,212 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	}
 }
 
-// ----------- Utilities ----------- //
+// Test case for validator stake deposit, withdrawal, and return
+func TestValidatorStakeUpdate(t *testing.T) {
+	assert := assert.New(t)
 
-func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
-	chainID = "test_chain_id"
-	peerID := "peer0"
-	proposerSeed := "proposer"
+	// ----------------- Stake Deposit ----------------- //
 
+	chainID := "test_chain_001"
 	db := backend.NewMemDatabase()
-	consensus := exec.NewTestConsensusEngine(proposerSeed)
-	valMgr := newTesetValidatorManager(consensus)
-	p2psimnet := p2psim.NewSimnetWithHandler(nil)
-	messenger := p2psimnet.AddEndpoint(peerID)
-	mempool = newTestMempool(peerID, messenger)
-	ledger = NewLedger(chainID, db, consensus, valMgr, mempool)
-	mempool.SetLedger(ledger)
 
-	ctx := context.Background()
-	messenger.Start(ctx)
-	mempool.Start(ctx)
+	snapshot, srcPrivAccs, valPrivAccs := genSimSnapshot(chainID, db)
+	assert.Equal(6, len(srcPrivAccs))
+	assert.Equal(6, len(valPrivAccs))
 
-	initHeight := uint64(1)
-	initRootHash := common.Hash{}
-	ledger.ResetState(initHeight, initRootHash)
+	es := newExecSim(chainID, db, snapshot, valPrivAccs[0])
+	b0 := es.getTipBlock()
 
-	return chainID, ledger, mempool
-}
+	// Add block #1 with a DepositStakeTx transaction
+	b1 := core.NewBlock()
+	b1.ChainID = chainID
+	b1.Height = b0.Height + 1
+	b1.Epoch = 1
+	b1.Parent = b0.Hash()
 
-func newTesetValidatorManager(consensus core.ConsensusEngine) core.ValidatorManager {
-	proposerAddressStr := consensus.PrivateKey().PublicKey().Address().String()
-	propser := core.NewValidator(proposerAddressStr, new(big.Int).SetUint64(999))
-
-	_, val2PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("val2")
-	if err != nil {
-		panic(fmt.Sprintf("Failed to generate key pair with seed: %v", err))
-	}
-	val2 := core.NewValidator(val2PubKey.Address().String(), new(big.Int).SetUint64(100))
-
-	valSet := core.NewValidatorSet()
-	valSet.AddValidator(propser)
-	valSet.AddValidator(val2)
-	valMgr := exec.NewTestValidatorManager(propser, valSet)
-
-	return valMgr
-}
-
-func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
-	dispatcher := dp.NewDispatcher(messenger)
-	mempool := mp.CreateMempool(dispatcher)
-	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
-	messenger.RegisterMessageHandler(txMsgHandler)
-	return mempool
-}
-
-func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
 	txFee := getMinimumTxFee()
-	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
-	for _, val := range validators {
-		valAccount := &types.Account{
-			Address:                val.Address,
-			LastUpdatedBlockHeight: 1,
-			Balance:                types.NewCoins(100000000000, 1000),
-		}
-		ledger.state.Delivered().SetAccount(val.Address, valAccount)
-	}
-
-	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
-	ledger.state.Delivered().SetAccount(accOut.Account.Address, &accOut.Account)
-
-	for i := 0; i < numInAccs; i++ {
-		secret := "in_secret_" + strconv.FormatInt(int64(i), 16)
-		accIn := types.MakeAccWithInitBalance(secret, types.NewCoins(900000, 50000*txFee))
-		accIns = append(accIns, accIn)
-		ledger.state.Delivered().SetAccount(accIn.Account.Address, &accIn.Account)
-	}
-
-	ledger.state.Commit()
-
-	return accOut, accIns
-}
-
-func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes {
-	vaList := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
-	if len(vaList) < 2 {
-		panic("Insufficient number of validators")
-	}
-	outputs := []types.TxOutput{}
-	for _, val := range vaList {
-		output := types.TxOutput{val.Address, types.NewCoins(0, 0)}
-		outputs = append(outputs, output)
-	}
-
-	proposerSk := ledger.consensus.PrivateKey()
-	proposerPk := proposerSk.PublicKey()
-	coinbaseTx := &types.CoinbaseTx{
-		Proposer:    types.TxInput{Address: proposerPk.Address(), Sequence: uint64(sequence)},
-		Outputs:     outputs,
-		BlockHeight: 2,
-	}
-
-	signBytes := coinbaseTx.SignBytes(chainID)
-	sig, err := proposerSk.Sign(signBytes)
-	if err != nil {
-		panic("Failed to sign the coinbase transaction")
-	}
-	if !coinbaseTx.SetSignature(proposerPk.Address(), sig) {
-		panic("Failed to set signature for the coinbase transaction")
-	}
-
-	coinbaseTxBytes, err := types.TxToBytes(coinbaseTx)
-	if err != nil {
-		panic(err)
-	}
-	return coinbaseTxBytes
-}
-
-func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn types.PrivAccount, injectFeeFluctuation bool) common.Bytes {
-	delta := int64(0)
-	var err error
-	if injectFeeFluctuation {
-		// inject so fluctuation into the txFee, so later we can test whether the
-		// mempool orders the txs by txFee
-		randint, err := strconv.ParseInt(string(accIn.Address.Hex()[2:9]), 16, 64)
-		if randint < 0 {
-			randint = -randint
-		}
-		delta = randint * int64(types.GasSendTxPerAccount*2)
-		if err != nil {
-			panic(err)
-		}
-	}
-	txFee := getMinimumTxFee() + delta
-	sendTx := &types.SendTx{
+	depositSourcePrivAcc := srcPrivAccs[4]
+	depoistHolderPrivAcc := valPrivAccs[4]
+	depositStakeTx := &types.DepositStakeTx{
 		Fee: types.NewCoins(0, txFee),
-		Inputs: []types.TxInput{
-			{
-				Sequence: uint64(sequence),
-				Address:  accIn.Address,
-				Coins:    types.NewCoins(15, txFee),
+		Source: types.TxInput{
+			Address: depositSourcePrivAcc.Address,
+			Coins: types.Coins{
+				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(10), core.MinValidatorStakeDeposit),
+				GammaWei: new(big.Int).SetUint64(0),
 			},
+			Sequence: 1,
 		},
-		Outputs: []types.TxOutput{
-			{
-				Address: accOut.Address,
-				Coins:   types.NewCoins(15, 0),
-			},
+		Holder: types.TxOutput{
+			Address: depoistHolderPrivAcc.Address,
 		},
+		Purpose: core.StakeForValidator,
 	}
+	signBytes := depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 
-	signBytes := sendTx.SignBytes(chainID)
-	inAccs := []types.PrivAccount{accIn}
-	for idx, in := range sendTx.Inputs {
-		inAcc := inAccs[idx]
-		sig, err := inAcc.PrivKey.Sign(signBytes)
-		if err != nil {
-			panic("Failed to sign the coinbase transaction")
+	_, res := es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsOK(), res.Message)
+
+	b1.StateHash = es.state.Commit()
+	es.addBlock(b1)
+
+	// Add more blocks
+	b2 := core.NewBlock()
+	b2.ChainID = chainID
+	b2.Height = b1.Height + 1
+	b2.Epoch = 2
+	b2.Parent = b1.Hash()
+	b2.StateHash = es.state.Commit()
+	es.addBlock(b2)
+
+	b3 := core.NewBlock()
+	b3.ChainID = chainID
+	b3.Height = b2.Height + 1
+	b3.Epoch = 3
+	b3.Parent = b2.Hash()
+	b3.StateHash = es.state.Commit()
+	es.addBlock(b3)
+
+	b4 := core.NewBlock()
+	b4.ChainID = chainID
+	b4.Height = b3.Height + 1
+	b4.Epoch = 4
+	b4.Parent = b3.Hash()
+	b4.StateHash = es.state.Commit()
+	es.addBlock(b4)
+
+	// Directly finalize block #3
+	es.finalizePreviousBlocks(b3.Hash())
+
+	// ----------------- Stake Withdrawal ----------------- //
+
+	withdrawSourcePrivAcc := srcPrivAccs[0]
+	withdrawHolderPrivAcc := valPrivAccs[0]
+
+	srcAcc := es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance0 := srcAcc.Balance
+	log.Infof("Source account balance before withdrawal : %v", balance0)
+
+	// Add block #5 with a WithdrawStakeTx transaction
+	b5 := core.NewBlock()
+	b5.ChainID = chainID
+	b5.Height = b4.Height + 1
+	b5.Epoch = 5
+	b5.Parent = b4.Hash()
+
+	widthrawStakeTx := &types.WithdrawStakeTx{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address:  withdrawSourcePrivAcc.Address,
+			Sequence: 1,
+		},
+		Holder: types.TxOutput{
+			Address: withdrawHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForValidator,
+	}
+	signBytes = widthrawStakeTx.SignBytes(es.chainID)
+	widthrawStakeTx.Source.Signature = withdrawSourcePrivAcc.Sign(signBytes)
+
+	_, res = es.executor.ExecuteTx(widthrawStakeTx)
+	assert.True(res.IsOK(), res.Message)
+
+	b5.StateHash = es.state.Commit()
+	es.addBlock(b5)
+
+	// Directly finalize block #5
+	es.finalizePreviousBlocks(b5.Hash())
+
+	b6 := core.NewBlock()
+	b6.ChainID = chainID
+	b6.Height = b5.Height + 1
+	b6.Epoch = 6
+	b6.Parent = b5.Hash()
+	b6.StateHash = es.state.Commit()
+	es.addBlock(b6)
+
+	// ----------------- Examine the Chain ----------------- //
+
+	for height := uint64(0); height < 7; height++ {
+		blocks := es.findBlocksByHeight(height)
+		for _, block := range blocks {
+			log.Infof("Block @height %v: %v", height, block)
+			assert.NotEqual(common.Hash{}, block.StateHash)
+
+			if block.Height == 0 || block.Height == 3 || block.Height == 5 {
+				assert.True(block.Status.IsDirectlyFinalized())
+			} else if block.Height == 1 || block.Height == 2 || block.Height == 4 {
+				assert.True(block.Status.IsIndirectlyFinalized())
+			}
 		}
-		sendTx.SetSignature(in.Address, sig)
 	}
 
-	sendTxBytes, err := types.TxToBytes(sendTx)
-	if err != nil {
-		panic(err)
-	}
-	return sendTxBytes
-}
+	// -------------- Check the ValidatorSets -------------- //
 
-func getMinimumTxFee() int64 {
-	return int64(types.MinimumTransactionFeeGammaWei)
+	// valSet0 := es.consensus.GetValidatorManager().GetValidatorSet(b0.Hash())
+	// log.Infof("valSet for block #0: %v", valSet0)
+	// assert.Equal(4, len(valSet0.Validators()))
+
+	// valSet1 := es.consensus.GetValidatorManager().GetValidatorSet(b1.Hash())
+	// log.Infof("valSet for block #1: %v", valSet1)
+	// assert.Equal(4, len(valSet1.Validators()))
+
+	valSet2 := es.consensus.GetValidatorManager().GetValidatorSet(b2.Hash())
+	log.Infof("valSet for block #2: %v", valSet2)
+	assert.Equal(4, len(valSet2.Validators()))
+
+	valSet3 := es.consensus.GetValidatorManager().GetValidatorSet(b3.Hash())
+	log.Infof("valSet for block #3: %v", valSet3)
+	assert.Equal(5, len(valSet3.Validators()))
+
+	valSet4 := es.consensus.GetValidatorManager().GetValidatorSet(b4.Hash())
+	log.Infof("valSet for block #4: %v", valSet4)
+	assert.Equal(5, len(valSet4.Validators()))
+
+	valSet5 := es.consensus.GetValidatorManager().GetValidatorSet(b5.Hash())
+	log.Infof("valSet for block #5: %v", valSet5)
+	assert.Equal(4, len(valSet5.Validators()))
+
+	valSet6 := es.consensus.GetValidatorManager().GetValidatorSet(b6.Hash())
+	log.Infof("valSet for block #6: %v", valSet6)
+	assert.Equal(4, len(valSet6.Validators()))
+
+	// ----------------- Stake Return ----------------- //
+
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance1 := srcAcc.Balance
+	log.Infof("Source account balance after withdrawal  : %v", balance1)
+	assert.Equal(balance0, balance1.Plus(types.NewCoins(0, txFee)))
+
+	heightDelta1 := core.ReturnLockingPeriod / 10
+	for h := uint64(0); h < heightDelta1; h++ {
+		es.state.Commit() // increment height
+	}
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs()
+	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	assert.True(res.IsOK())
+
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance2 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks : %v", heightDelta1, balance2)
+
+	assert.Equal(balance1, balance2) // still in the locking period, should not return stake
+
+	heightDelta2 := core.ReturnLockingPeriod
+	for h := uint64(0); h < heightDelta2; h++ {
+		es.state.Commit() // increment height
+	}
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs()
+	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	assert.True(res.IsOK())
+
+	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
+	balance3 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks: %v", heightDelta2, balance3)
+
+	returnedCoins := balance3.Minus(balance2)
+	assert.True(returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit)) == 0)
+	assert.True(returnedCoins.GammaWei.Cmp(core.Zero) == 0)
+	log.Infof("Returned coins: %v", returnedCoins)
 }
