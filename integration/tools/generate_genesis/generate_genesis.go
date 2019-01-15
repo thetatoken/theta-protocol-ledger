@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/hex"
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -24,16 +24,16 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
 // Example: generate_genesis -erc20snapshot=./theta_erc20_snapshot.json -stake_deposit=./stake_deposit.json -genesis=../testnet/node2/genesis
 func main() {
-	erc20SnapshotJsonFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
+	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
 	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
 	genesisCheckpointfilePathPtr := flag.String("genesis", "./genesis", "the genesis checkpoint")
 	flag.Parse()
 
-	erc20SnapshotJsonFilePath := *erc20SnapshotJsonFilePathPtr
+	erc20SnapshotJSONFilePath := *erc20SnapshotJSONFilePathPtr
 	stakeDepositFilePath := *stakeDepositFilePathPtr
 	genesisCheckpointfilePath := *genesisCheckpointfilePathPtr
 
-	writeGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath, genesisCheckpointfilePath)
+	writeGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisCheckpointfilePath)
 }
 
 type StakeDeposit struct {
@@ -43,8 +43,8 @@ type StakeDeposit struct {
 }
 
 // writeGenesisCheckpoint writes genesis checkpoint to file system.
-func writeGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFPath, genesisCheckpointfilePath string) error {
-	genesis, err := generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFPath)
+func writeGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFPath, genesisCheckpointfilePath string) error {
+	genesis, err := generateGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFPath)
 	if err != nil {
 		return err
 	}
@@ -60,7 +60,7 @@ func writeGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFPath, genesi
 }
 
 // generateGenesisCheckpoint generates the genesis checkpoint.
-func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
+func generateGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
 	genesis := &core.Checkpoint{}
 
 	initGammaToThetaRatio := new(big.Int).SetUint64(5)
@@ -68,14 +68,14 @@ func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath s
 
 	// --------------- Load initial balances --------------- //
 
-	erc20SnapshotJsonFile, err := os.Open(erc20SnapshotJsonFilePath)
+	erc20SnapshotJSONFile, err := os.Open(erc20SnapshotJSONFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("failed to open the ERC20 balance snapshot: %v", err))
 	}
-	defer erc20SnapshotJsonFile.Close()
+	defer erc20SnapshotJSONFile.Close()
 
 	var erc20BalanceMap map[string]string
-	erc20BalanceMapByteValue, err := ioutil.ReadAll(erc20SnapshotJsonFile)
+	erc20BalanceMapByteValue, err := ioutil.ReadAll(erc20SnapshotJSONFile)
 	if err != nil {
 		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
 	}
@@ -102,7 +102,7 @@ func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath s
 		}
 		s.SetAccount(acc.Address, acc)
 
-		//fmt.Println(fmt.Sprintf("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma))
+		//logger.Infof("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma))
 	}
 
 	// --------------- Perform initial stake deposit --------------- //
@@ -153,10 +153,15 @@ func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath s
 
 	s.UpdateValidatorCandidatePool(vcp)
 
+	genesisHeight := uint64(0)
+	hl := &types.HeightList{}
+	hl.Append(genesisHeight)
+	s.UpdateStakeTransactionHeightList(hl)
+
 	stateHash := s.Hash()
 
 	firstBlock := core.NewBlock()
-	firstBlock.Height = 0
+	firstBlock.Height = genesisHeight
 	firstBlock.Epoch = 0
 	firstBlock.Parent = common.Hash{}
 	firstBlock.StateHash = stateHash
@@ -166,9 +171,6 @@ func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath s
 
 	s.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
 		genesis.LedgerState = append(genesis.LedgerState, core.KVPair{Key: k, Value: v})
-
-		logger.Infof("key: %v, val: %v", string(k), hex.EncodeToString(v))
-
 		return false
 	})
 
@@ -183,9 +185,72 @@ func generateGenesisCheckpoint(erc20SnapshotJsonFilePath, stakeDepositFilePath s
 }
 
 func sanityChecks(genesis *core.Checkpoint) error {
-	// Check #1: Sum(ThetaWei) + Sum(Stake) == 1 * 10^9 * 10^18
+	thetaWeiTotal := new(big.Int).SetUint64(0)
+	gammaWeiTotal := new(big.Int).SetUint64(0)
 
-	// Check #2: Sum(GammaWei) == 5 * 10^9 * 10^18
+	vcpAnalyzed := false
+	for _, kvpair := range genesis.LedgerState {
+		key := kvpair.Key
+		val := kvpair.Value
+
+		if bytes.Compare(key, state.ValidatorCandidatePoolKey()) == 0 {
+			var vcp core.ValidatorCandidatePool
+			err := rlp.DecodeBytes(val, &vcp)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to decode VCP: %v", err))
+			}
+			for _, sc := range vcp.SortedCandidates {
+				logger.Infof("--------------------------------------------------------")
+				logger.Infof("Validator Candidate: %v, totalStake  = %v", sc.Holder, sc.TotalStake())
+				for _, stake := range sc.Stakes {
+					thetaWeiTotal = new(big.Int).Add(thetaWeiTotal, stake.Amount)
+					logger.Infof("     Stake: source = %v, stakeAmount = %v", stake.Source, stake.Amount)
+				}
+				logger.Infof("--------------------------------------------------------")
+			}
+			vcpAnalyzed = true
+		} else if bytes.Compare(key, state.StakeTransactionHeightListKey()) == 0 {
+			continue
+		} else { // regular account
+			var account types.Account
+			err := rlp.DecodeBytes(val, &account)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to decode Account: %v", err))
+			}
+
+			thetaWei := account.Balance.ThetaWei
+			gammaWei := account.Balance.GammaWei
+			thetaWeiTotal = new(big.Int).Add(thetaWeiTotal, thetaWei)
+			gammaWeiTotal = new(big.Int).Add(gammaWeiTotal, gammaWei)
+
+			logger.Infof("Account: %v, ThetaWei = %v, GammaWei = %v", account.Address, thetaWei, gammaWei)
+		}
+	}
+
+	// Check #1: VCP analyzed
+	if !vcpAnalyzed {
+		return fmt.Errorf("VCP not detected in the genesis file")
+	}
+
+	// Check #2: Sum(ThetaWei) + Sum(Stake) == 1 * 10^9 * 10^18
+	oneBillion := new(big.Int).SetUint64(1000000000)
+	fiveBillion := new(big.Int).Mul(new(big.Int).SetUint64(5), oneBillion)
+	ten18 := new(big.Int).SetUint64(1000000000000000000)
+
+	expectedThetaWeiTotal := new(big.Int).Mul(oneBillion, ten18)
+	if expectedThetaWeiTotal.Cmp(thetaWeiTotal) != 0 {
+		return fmt.Errorf("Unmatched ThetaWei total: expected = %v, calculated = %v", expectedThetaWeiTotal, thetaWeiTotal)
+	}
+	logger.Infof("Expected   ThetaWei total = %v", expectedThetaWeiTotal)
+	logger.Infof("Calculated ThetaWei total = %v", thetaWeiTotal)
+
+	// Check #3: Sum(GammaWei) == 5 * 10^9 * 10^18
+	expectedGammaWeiTotal := new(big.Int).Mul(fiveBillion, ten18)
+	if expectedGammaWeiTotal.Cmp(gammaWeiTotal) != 0 {
+		return fmt.Errorf("Unmatched GammaWei total: expected = %v, calculated = %v", expectedGammaWeiTotal, gammaWeiTotal)
+	}
+	logger.Infof("Expected   GammaWei total = %v", expectedGammaWeiTotal)
+	logger.Infof("Calculated GammaWei total = %v", gammaWeiTotal)
 
 	return nil
 }

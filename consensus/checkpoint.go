@@ -106,10 +106,15 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 
 	s.UpdateValidatorCandidatePool(vcp)
 
+	genesisHeight := uint64(0)
+	hl := &types.HeightList{}
+	hl.Append(genesisHeight)
+	s.UpdateStakeTransactionHeightList(hl)
+
 	stateHash := s.Hash()
 
 	firstBlock := core.NewBlock()
-	firstBlock.Height = 0
+	firstBlock.Height = genesisHeight
 	firstBlock.Epoch = 0
 	firstBlock.Parent = common.Hash{}
 	firstBlock.StateHash = stateHash
