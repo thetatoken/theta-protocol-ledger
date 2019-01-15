@@ -8,10 +8,16 @@ type SnapshotRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
 	R common.Bytes // account root, if any
+	S int          // sequence of storeviews
+}
+
+type DirectlyFinalizedBlockPair struct {
+	First  ExtendedBlock
+	Second ExtendedBlock
 }
 
 type SnapshotMetadata struct {
-	Blockheader BlockHeader
-	Validators  []Validator
-	Votes       []Vote
+	Blockheader               BlockHeader
+	Votes                     []Vote
+	BlocksWithValidatorChange []DirectlyFinalizedBlockPair
 }

@@ -9,10 +9,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thetatoken/ukulele/store/database"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/kvstore"
@@ -33,8 +36,6 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	metadata := &core.SnapshotMetadata{}
 
 	stub := t.consensus.GetSummary()
-	// metadata.Validators = t.consensus.GetValidatorManager().GetValidatorSetForEpoch(stub.Epoch).Validators()
-
 	lastFinalizedBlock, err := t.chain.FindBlock(stub.LastFinalizedBlock)
 	if err != nil {
 		log.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
@@ -52,14 +53,47 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	}
 	metadata.Blockheader = *(lastFinalizedBlock.BlockHeader)
 
+	metadata.Votes = []core.Vote{}
 	db := t.ledger.State().DB()
-	state := consensus.NewState(kvstore.NewKVStore(db), t.chain)
-	voteSet, err := state.GetVoteSetByBlock(metadata.Blockheader.Hash())
-	if err != nil {
-		log.Errorf("Failed to get vote set for block %v, %v", metadata.Blockheader.Hash(), err)
-		return err
+	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+	addVotes(st, metadata, metadata.Blockheader.Hash())
+
+	hl := sv.GetStakeTransactionHeightList().Heights
+	var currBlock *core.ExtendedBlock
+	for _, height := range hl {
+		if currBlock == nil || height > currBlock.Height {
+			blocks := t.chain.FindBlocksByHeight(height)
+			for _, block := range blocks {
+				if block.Status.IsFinalized() {
+					var finalizedChind *core.ExtendedBlock
+					for {
+						for _, h := range block.Children {
+							b, err := t.chain.FindBlock(h)
+							if err != nil {
+								log.Errorf("Failed to get block %v", err)
+								return err
+							}
+							if b.Status.IsFinalized() {
+								finalizedChind = b
+								break
+							}
+						}
+						if block.Status == core.BlockStatusDirectlyFinalized {
+							metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockPair{First: *block, Second: *finalizedChind})
+							addVotes(st, metadata, block.Hash())
+							addVotes(st, metadata, finalizedChind.Hash())
+
+							currBlock = block
+							break
+						} else {
+							block = finalizedChind
+						}
+					}
+					break
+				}
+			}
+		}
 	}
-	metadata.Votes = voteSet.Votes()
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))
@@ -73,13 +107,35 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		return err
 	}
 
+	for i, blockPair := range metadata.BlocksWithValidatorChange {
+		storeView := state.NewStoreView(blockPair.First.Height, blockPair.First.StateHash, db)
+		writeStoreView(storeView, false, writer, db, 2*i)
+		storeView = state.NewStoreView(blockPair.Second.Height, blockPair.Second.StateHash, db)
+		writeStoreView(storeView, false, writer, db, 2*i+1)
+	}
+
+	writeStoreView(sv, true, writer, db, len(metadata.BlocksWithValidatorChange))
+	return
+}
+
+func addVotes(st *consensus.State, metadata *core.SnapshotMetadata, hash common.Hash) error {
+	voteSet, err := st.GetVoteSetByBlock(hash)
+	if err != nil {
+		log.Errorf("Failed to get vote set for block %v, %v", hash, err)
+		return err
+	}
+	metadata.Votes = append(metadata.Votes, voteSet.Votes()...)
+	return nil
+}
+
+func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database, sequence int) {
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err = writeRecord(writer, k, v, nil)
+		err := writeRecord(writer, k, v, nil, sequence)
 		if err != nil {
-			panic(err) //TODO replace with return err
+			panic(err)
 		}
 
-		if strings.HasPrefix(k.String(), "ls/a/") {
+		if needAccountStorage && strings.HasPrefix(k.String(), "ls/a/") {
 			account := &types.Account{}
 			err := types.FromBytes([]byte(v), account)
 			if err != nil {
@@ -88,7 +144,7 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 			}
 			storage := treestore.NewTreeStore(account.Root, db)
 			storage.Traverse(nil, func(ak, av common.Bytes) bool {
-				err = writeRecord(writer, ak, av, account.Root.Bytes())
+				err = writeRecord(writer, ak, av, account.Root.Bytes(), sequence)
 				if err != nil {
 					panic(err)
 				}
@@ -98,7 +154,6 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		return true
 	})
 	writer.Flush()
-	return
 }
 
 func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
@@ -126,8 +181,8 @@ func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error 
 	return nil
 }
 
-func writeRecord(writer *bufio.Writer, k, v, r common.Bytes) error {
-	raw, err := rlp.EncodeToBytes(core.SnapshotRecord{K: k, V: v, R: r})
+func writeRecord(writer *bufio.Writer, k, v, r common.Bytes, s int) error {
+	raw, err := rlp.EncodeToBytes(core.SnapshotRecord{K: k, V: v, R: r, S: s})
 	if err != nil {
 		log.Error("Failed to encode storage record")
 		return err

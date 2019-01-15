@@ -9,6 +9,7 @@ import (
 	"os"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/ledger/state"
@@ -33,22 +34,38 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	}
 
 	var hash common.Hash
-	store := state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
+	var sv *state.StoreView
 	var account *types.Account
-	accountStorage := treestore.NewTreeStore(common.Hash{}, db)
+	var accountStorage *treestore.TreeStore
+	svSeq := -1
+	// svHashes := make(map[common.Hash]bool)
 	for {
 		record, err := readRecord(reader)
 		if err != nil {
 			if err == io.EOF {
-				accountStorage.Commit()
-				hash = store.Save()
+				if accountStorage != nil {
+					accountStorage.Commit()
+				}
+				if sv != nil {
+					hash = sv.Save()
+				}
 				break
 			}
 			log.Errorf("Failed to read snapshot record")
 			return nil, err
 		}
+
 		if len(record.R) == 0 {
-			store.Set(record.K, record.V)
+			if record.S != svSeq {
+				if sv != nil {
+					sv.Save()
+					// h := sv.Save()
+					// svHashes[h] = true
+				}
+				sv = state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
+				svSeq = record.S
+			}
+			sv.Set(record.K, record.V)
 		} else {
 			if account == nil || !bytes.Equal(account.Root.Bytes(), record.R) {
 				root, err := accountStorage.Commit()
@@ -73,26 +90,70 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		}
 	}
 
-	if !validateSnapshot(metadata, hash) {
+	// for _, block := range metadata.BlocksWithValidatorChange {
+	// 	_, ok := svHashes[block.StateHash]
+	// 	if ok {
+	// 		delete(svHashes, block.StateHash)
+	// 		// } else {
+	// 		// 	return nil, fmt.Errorf("Storeview missing for block %v", block.StateHash)
+	// 	}
+	// }
+	// if len(svHashes) != 0 {
+	// 	return nil, fmt.Errorf("Can't find matching state hash for storeview")
+	// }
+
+	if !validateSnapshot(metadata, hash, db) {
 		return nil, fmt.Errorf("Snapshot validation failed")
 	}
 	return metadata, nil
 }
 
-func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash) bool {
+func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) bool {
 	if bytes.Compare(metadata.Blockheader.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return false
 	}
-	validatorSet := &core.ValidatorSet{}
-	validatorSet.SetValidators(metadata.Validators)
-	if !validatorSet.HasMajorityVotes(metadata.Votes) {
+
+	voteSetMap := map[common.Hash]*core.VoteSet{}
+	for _, vote := range metadata.Votes {
+		if _, ok := voteSetMap[vote.Block]; !ok {
+			voteSetMap[vote.Block] = core.NewVoteSet()
+		}
+		voteSetMap[vote.Block].AddVote(vote)
+	}
+
+	for _, blockPair := range metadata.BlocksWithValidatorChange {
+		if !blockPair.First.Status.IsDirectlyFinalized() || !blockPair.Second.Status.IsDirectlyFinalized() || blockPair.Second.Parent != blockPair.First.Hash() {
+			return false
+		}
+		validateBlock(blockPair.First.BlockHeader, voteSetMap, db)
+		validateBlock(blockPair.Second.BlockHeader, voteSetMap, db)
+	}
+	validateBlock(&metadata.Blockheader, voteSetMap, db)
+
+	return true
+}
+
+func validateBlock(block *core.BlockHeader, voteSetMap map[common.Hash]*core.VoteSet, db database.Database) bool {
+	sv := state.NewStoreView(block.Height, block.StateHash, db)
+	vcp := sv.GetValidatorCandidatePool()
+	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
+	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
+
+	validatorSet := core.NewValidatorSet()
+	for _, stakeHolder := range topStakeHolders {
+		valAddr := stakeHolder.Holder.Hex()
+		valStake := stakeHolder.TotalStake()
+		validator := core.NewValidator(valAddr, valStake)
+		validatorSet.AddValidator(validator)
+	}
+	if !validatorSet.HasMajority(voteSetMap[block.Hash()]) {
 		return false
 	}
-	for _, vote := range metadata.Votes {
+	for _, vote := range voteSetMap[block.Hash()].Votes() {
 		if !vote.Validate().IsOK() {
 			return false
 		}
-		if bytes.Compare(vote.Block.Bytes(), metadata.Blockheader.Hash().Bytes()) != 0 {
+		if bytes.Compare(vote.Block.Bytes(), block.Hash().Bytes()) != 0 {
 			return false
 		}
 		_, err := validatorSet.GetValidator(vote.ID)

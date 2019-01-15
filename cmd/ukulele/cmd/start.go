@@ -56,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	snapshot, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err == nil {
 		validatorSet = &core.ValidatorSet{}
-		validatorSet.SetValidators(snapshot.Validators)
+		// validatorSet.SetValidators(snapshot.Validators)
 		root = &core.Block{BlockHeader: &snapshot.Blockheader}
 	} else {
 		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
