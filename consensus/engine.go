@@ -226,7 +226,35 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *ConsensusEngine) validateBlock(block *core.Block) bool {
+func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+	if parent.Height+1 != block.Height {
+		e.logger.WithFields(log.Fields{
+			"parent":        block.Parent.Hex(),
+			"parent.Height": parent.Height,
+			"block":         block.Hash().Hex(),
+			"block.Height":  block.Height,
+		}).Warn("Block.Height != parent.Height + 1")
+		return false
+	}
+
+	if parent.Epoch >= block.Epoch {
+		e.logger.WithFields(log.Fields{
+			"parent":       block.Parent.Hex(),
+			"parent.Epoch": parent.Epoch,
+			"block":        block.Hash().Hex(),
+			"block.Epoch":  block.Epoch,
+		}).Warn("Block.Epoch <= parent.Epoch")
+		return false
+	}
+
+	if !parent.Status.IsValid() {
+		e.logger.WithFields(log.Fields{
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Warn("Block is referring to invalid parent block")
+		return false
+	}
+
 	if res := block.Validate(); res.IsError() {
 		e.logger.WithFields(log.Fields{
 			"err": res.String(),
@@ -255,38 +283,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
-	if parent.Height+1 != block.Height {
-		e.logger.WithFields(log.Fields{
-			"parent":        block.Parent.Hex(),
-			"parent.Height": parent.Height,
-			"block":         block.Hash().Hex(),
-			"block.Height":  block.Height,
-		}).Warn("Block.Height != parent.Height + 1")
-		e.chain.MarkBlockInvalid(block.Hash())
-		return
-	}
-
-	if parent.Epoch >= block.Epoch {
-		e.logger.WithFields(log.Fields{
-			"parent":       block.Parent.Hex(),
-			"parent.Epoch": parent.Epoch,
-			"block":        block.Hash().Hex(),
-			"block.Epoch":  block.Epoch,
-		}).Warn("Block.Epoch <= parent.Epoch")
-		e.chain.MarkBlockInvalid(block.Hash())
-		return
-	}
-
-	if !parent.Status.IsValid() {
-		e.logger.WithFields(log.Fields{
-			"parent": block.Parent.Hex(),
-			"block":  block.Hash().Hex(),
-		}).Warn("Block is referring to invalid parent block")
-		e.chain.MarkBlockInvalid(block.Hash())
-		return
-	}
-
-	if !e.validateBlock(block) {
+	if !e.validateBlock(block, parent) {
 		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
