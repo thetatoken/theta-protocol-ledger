@@ -109,15 +109,7 @@ func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.
 // -------------------------------- Utilities ----------------------------------
 //
 
-func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
-	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
-	}
-	if vcp == nil {
-		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
-	}
-
+func GetValidatorSetFromVCP(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
 	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
 
@@ -133,6 +125,18 @@ func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash
 	}
 
 	return valSet
+}
+
+func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
+	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
+	}
+	if vcp == nil {
+		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
+	}
+
+	return GetValidatorSetFromVCP(vcp)
 }
 
 // Generate a random uint64 in [0, max)

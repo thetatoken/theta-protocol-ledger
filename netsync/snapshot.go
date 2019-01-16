@@ -3,20 +3,32 @@ package netsync
 import (
 	"bufio"
 	"bytes"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/treestore"
+)
+
+var (
+	genesisValidatorAddrs = []string{
+		"042CA7FFB62122A220C72AA7CD87C252B21D72273275682386A099F0983C135659FF93E2E8756011074706E18113AA6529CD5833DD6463266980C6973895153C7C",
+		"048E8D53FD435265AD074597CC3E202F8E935CFB57925BB51316252027CB08767FB8099226414732543C4B5CBAA64B4EE8F173BA559258A0B5F633A0D11509E78B",
+		"0479188733862EBB3FE98A92315556D5214D908941CDC8D6C8700EEEAE5F90A6177A37E23B33B81B9FAC3A98EE2382AB24B1C92384FC151D07E36AC7209702D353",
+		"0455BDC5CF697F9519DF40E837BEE3E246C8D47C1B58CD1892FD3B0F780D2C09E718FF50A5929B86B8B88C7031164BDE553E285103F1B4DF668B44AFC907264C1C",
+	}
 )
 
 func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata, error) {
@@ -38,7 +50,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	var account *types.Account
 	var accountStorage *treestore.TreeStore
 	svSeq := -1
-	// svHashes := make(map[common.Hash]bool)
+	svHashes := make(map[common.Hash]bool)
 	for {
 		record, err := readRecord(reader)
 		if err != nil {
@@ -58,9 +70,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		if len(record.R) == 0 {
 			if record.S != svSeq {
 				if sv != nil {
-					sv.Save()
-					// h := sv.Save()
-					// svHashes[h] = true
+					h := sv.Save()
+					svHashes[h] = true
 				}
 				sv = state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
 				svSeq = record.S
@@ -90,17 +101,17 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		}
 	}
 
-	// for _, block := range metadata.BlocksWithValidatorChange {
-	// 	_, ok := svHashes[block.StateHash]
-	// 	if ok {
-	// 		delete(svHashes, block.StateHash)
-	// 		// } else {
-	// 		// 	return nil, fmt.Errorf("Storeview missing for block %v", block.StateHash)
-	// 	}
-	// }
-	// if len(svHashes) != 0 {
-	// 	return nil, fmt.Errorf("Can't find matching state hash for storeview")
-	// }
+	for _, blockPair := range metadata.BlocksWithValidatorChange {
+		_, ok := svHashes[blockPair.First.StateHash]
+		if ok {
+			delete(svHashes, blockPair.First.StateHash)
+		} else {
+			return nil, fmt.Errorf("Storeview missing for block %v", blockPair.First.StateHash)
+		}
+	}
+	if len(svHashes) != 0 {
+		return nil, fmt.Errorf("Can't find matching state hash for storeview")
+	}
 
 	if !validateSnapshot(metadata, hash, db) {
 		return nil, fmt.Errorf("Snapshot validation failed")
@@ -121,31 +132,46 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 		voteSetMap[vote.Block].AddVote(vote)
 	}
 
-	for _, blockPair := range metadata.BlocksWithValidatorChange {
-		if !blockPair.First.Status.IsDirectlyFinalized() || !blockPair.Second.Status.IsDirectlyFinalized() || blockPair.Second.Parent != blockPair.First.Hash() {
+	var validatorSet *core.ValidatorSet
+	for i, blockPair := range metadata.BlocksWithValidatorChange {
+		if !blockPair.First.Status.IsDirectlyFinalized() || !blockPair.Second.Status.IsFinalized() || blockPair.Second.Parent != blockPair.First.Hash() {
 			return false
 		}
-		validateBlock(blockPair.First.BlockHeader, voteSetMap, db)
-		validateBlock(blockPair.Second.BlockHeader, voteSetMap, db)
+
+		var block *core.BlockHeader
+		if i > 0 {
+			block = metadata.BlocksWithValidatorChange[i-1].First.BlockHeader
+		}
+		validatorSet = getValidatorSet(block, db)
+		validateBlock(blockPair.First.BlockHeader, validatorSet, voteSetMap)
+		validateBlock(blockPair.Second.BlockHeader, validatorSet, voteSetMap)
 	}
-	validateBlock(&metadata.Blockheader, voteSetMap, db)
+	validateBlock(&metadata.Blockheader, nil, voteSetMap)
 
 	return true
 }
 
-func validateBlock(block *core.BlockHeader, voteSetMap map[common.Hash]*core.VoteSet, db database.Database) bool {
+func getValidatorSet(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
+	if block == nil {
+		validators := []core.Validator{}
+		for _, addr := range genesisValidatorAddrs {
+			raw, _ := hex.DecodeString(addr)
+			pubKey, _ := crypto.PublicKeyFromBytes(raw)
+			address := pubKey.Address()
+			stake := new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit) //TODO: decide stake
+			validators = append(validators, core.Validator{Address: address, Stake: stake})
+		}
+		validatorSet := core.NewValidatorSet()
+		validatorSet.SetValidators(validators)
+		return validatorSet
+	}
+
 	sv := state.NewStoreView(block.Height, block.StateHash, db)
 	vcp := sv.GetValidatorCandidatePool()
-	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
-	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
+	return consensus.GetValidatorSetFromVCP(vcp)
+}
 
-	validatorSet := core.NewValidatorSet()
-	for _, stakeHolder := range topStakeHolders {
-		valAddr := stakeHolder.Holder.Hex()
-		valStake := stakeHolder.TotalStake()
-		validator := core.NewValidator(valAddr, valStake)
-		validatorSet.AddValidator(validator)
-	}
+func validateBlock(block *core.BlockHeader, validatorSet *core.ValidatorSet, voteSetMap map[common.Hash]*core.VoteSet) bool {
 	if !validatorSet.HasMajority(voteSetMap[block.Hash()]) {
 		return false
 	}

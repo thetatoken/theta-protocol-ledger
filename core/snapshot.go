@@ -8,7 +8,7 @@ type SnapshotRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
 	R common.Bytes // account root, if any
-	S int          // sequence of storeviews
+	S int          // sequence of storeview
 }
 
 type DirectlyFinalizedBlockPair struct {

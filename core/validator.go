@@ -38,7 +38,7 @@ func (v Validator) ID() common.Address {
 
 // String represents the string representation of the validator
 func (v Validator) String() string {
-	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake())
+	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake)
 }
 
 // ValidatorSet represents a set of validators.

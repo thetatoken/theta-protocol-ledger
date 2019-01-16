@@ -77,6 +77,10 @@ func runStart(cmd *cobra.Command, args []string) {
 	n := node.NewNode(params)
 	n.Start(context.Background())
 
+	// if netsync.ValidateSnapshot(snapshot, db) {
+
+	// }
+
 	n.Wait()
 }
 

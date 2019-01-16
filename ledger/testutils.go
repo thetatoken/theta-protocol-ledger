@@ -241,11 +241,11 @@ func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAcc
 	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
 		valAccount := &types.Account{
-			Address:                val.Address(),
+			Address:                val.Address,
 			LastUpdatedBlockHeight: 1,
 			Balance:                types.NewCoins(100000000000, 1000),
 		}
-		ledger.state.Delivered().SetAccount(val.Address(), valAccount)
+		ledger.state.Delivered().SetAccount(val.Address, valAccount)
 	}
 
 	accOut = types.MakeAccWithInitBalance("accOut", types.NewCoins(700000, 3))
@@ -270,7 +270,7 @@ func newRawCoinbaseTx(chainID string, ledger *Ledger, sequence int) common.Bytes
 	}
 	outputs := []types.TxOutput{}
 	for _, val := range vaList {
-		output := types.TxOutput{val.Address(), types.NewCoins(0, 0)}
+		output := types.TxOutput{val.Address, types.NewCoins(0, 0)}
 		outputs = append(outputs, output)
 	}
 

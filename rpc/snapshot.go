@@ -78,7 +78,10 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 								break
 							}
 						}
-						if block.Status == core.BlockStatusDirectlyFinalized {
+						if finalizedChind == nil {
+							break
+						}
+						if block.Status.IsDirectlyFinalized() {
 							metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockPair{First: *block, Second: *finalizedChind})
 							addVotes(st, metadata, block.Hash())
 							addVotes(st, metadata, finalizedChind.Hash())
@@ -107,11 +110,9 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		return err
 	}
 
-	for i, blockPair := range metadata.BlocksWithValidatorChange {
-		storeView := state.NewStoreView(blockPair.First.Height, blockPair.First.StateHash, db)
-		writeStoreView(storeView, false, writer, db, 2*i)
-		storeView = state.NewStoreView(blockPair.Second.Height, blockPair.Second.StateHash, db)
-		writeStoreView(storeView, false, writer, db, 2*i+1)
+	for i, pair := range metadata.BlocksWithValidatorChange {
+		storeView := state.NewStoreView(pair.First.Height, pair.First.StateHash, db)
+		writeStoreView(storeView, false, writer, db, i)
 	}
 
 	writeStoreView(sv, true, writer, db, len(metadata.BlocksWithValidatorChange))
