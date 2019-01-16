@@ -255,6 +255,17 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
+	if parent.Height+1 != block.Height {
+		e.logger.WithFields(log.Fields{
+			"parent":        block.Parent.Hex(),
+			"parent.Height": parent.Height,
+			"block":         block.Hash().Hex(),
+			"block.Height":  block.Height,
+		}).Warn("Block.height != parent.height + 1")
+		e.chain.MarkBlockInvalid(block.Hash())
+		return
+	}
+
 	if !parent.Status.IsValid() {
 		e.logger.WithFields(log.Fields{
 			"parent": block.Parent.Hex(),
