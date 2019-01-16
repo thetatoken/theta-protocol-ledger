@@ -255,6 +255,14 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
+	if !e.chain.IsDescendant(block.HCC, block.Hash()) {
+		e.logger.WithFields(log.Fields{
+			"block.HCC": block.HCC.Hex(),
+			"block":     block.Hash().Hex(),
+		}).Fatal("Invalid HCC")
+		return false
+	}
+
 	if res := block.Validate(); res.IsError() {
 		e.logger.WithFields(log.Fields{
 			"err": res.String(),

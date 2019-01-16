@@ -13,6 +13,8 @@ import (
 	"github.com/thetatoken/ukulele/store"
 )
 
+const maxDistance = 200
+
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "blockchain"})
 
 // Chain represents the blockchain and also is the interface to underlying store.
@@ -274,7 +276,7 @@ func (ch *Chain) findBlock(hash common.Hash) (*core.ExtendedBlock, error) {
 }
 
 // IsDescendant determines whether one block is the ascendant of another block.
-func (ch *Chain) IsDescendant(ascendantHash common.Hash, descendantHash common.Hash, maxDistance int) bool {
+func (ch *Chain) IsDescendant(ascendantHash common.Hash, descendantHash common.Hash) bool {
 	hash := descendantHash
 	for i := 0; i < maxDistance; i++ {
 		if hash == ascendantHash {
