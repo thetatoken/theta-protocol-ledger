@@ -155,6 +155,36 @@ func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
 	return ret
 }
 
+func (ch *Chain) MarkBlockValid(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	block, err := ch.findBlock(hash)
+	if err != nil {
+		logger.Panic(err)
+	}
+	block.Status = core.BlockStatusValid
+	err = ch.saveBlock(block)
+	if err != nil {
+		logger.Panic(err)
+	}
+}
+
+func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	block, err := ch.findBlock(hash)
+	if err != nil {
+		logger.Panic(err)
+	}
+	block.Status = core.BlockStatusInvalid
+	err = ch.saveBlock(block)
+	if err != nil {
+		logger.Panic(err)
+	}
+}
+
 func (ch *Chain) CommitBlock(hash common.Hash) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
@@ -201,7 +231,7 @@ func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock,
 func (ch *Chain) findDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
 	// TODO: replace recursive implementation with stack-based implementation.
 	n, err := ch.findBlock(hash)
-	if err != nil {
+	if err != nil || !n.Status.IsValid() {
 		return nil, -1
 	}
 	depth = 0

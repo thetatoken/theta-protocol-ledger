@@ -7,6 +7,7 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/common/result"
 	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/trie"
@@ -15,6 +16,10 @@ import (
 const (
 	// MaxNumRegularTxsPerBlock represents the max number of regular transaction can be inclulded in one block
 	MaxNumRegularTxsPerBlock int = 1024
+)
+
+var (
+	EmptyRootHash = calculateRootHash([]common.Bytes{})
 )
 
 // Block represents a block in chain.
@@ -44,27 +49,35 @@ func (b *Block) AddTxs(txs []common.Bytes) {
 
 // updateTxHash calculate transaction root hash.
 func (b *Block) updateTxHash() {
+	b.TxHash = calculateRootHash(b.Txs)
+	b.ReceiptHash = EmptyRootHash
+}
+
+func calculateRootHash(items []common.Bytes) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
-	for i := 0; i < len(b.Txs); i++ {
+	for i := 0; i < len(items); i++ {
 		keybuf.Reset()
 		rlp.Encode(keybuf, uint(i))
-		trie.Update(keybuf.Bytes(), b.Txs[i])
+		trie.Update(keybuf.Bytes(), items[i])
 	}
-	b.TxHash = trie.Hash()
+	return trie.Hash()
 }
 
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
-	ChainID   string
-	Epoch     uint64
-	Height    uint64
-	Parent    common.Hash
-	HCC       common.Hash
-	TxHash    common.Hash
-	StateHash common.Hash
-	Timestamp *big.Int
-	Proposer  common.Address
+	ChainID     string
+	Epoch       uint64
+	Height      uint64
+	Parent      common.Hash
+	HCC         common.Hash
+	TxHash      common.Hash
+	ReceiptHash common.Hash
+	Bloom       Bloom
+	StateHash   common.Hash
+	Timestamp   *big.Int
+	Proposer    common.Address
+	Signature   *crypto.Signature
 
 	hash common.Hash // Cache of calculated hash.
 }
@@ -86,13 +99,65 @@ func (h *BlockHeader) String() string {
 		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
+// SignBytes returns raw bytes to be signed.
+func (h *BlockHeader) SignBytes() common.Bytes {
+	r := BlockHeader{
+		ChainID:     h.ChainID,
+		Epoch:       h.Epoch,
+		Height:      h.Height,
+		Parent:      h.Parent,
+		HCC:         h.HCC,
+		TxHash:      h.TxHash,
+		ReceiptHash: h.ReceiptHash,
+		Bloom:       h.Bloom,
+		StateHash:   h.StateHash,
+		Timestamp:   h.Timestamp,
+		Proposer:    h.Proposer,
+	}
+	raw, _ := rlp.EncodeToBytes(r)
+	return raw
+}
+
+// SetSignature sets given signature in header.
+func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
+	h.Signature = sig
+}
+
+// Validate checks the header is legitimate.
+func (h *BlockHeader) Validate() result.Result {
+	if h.Proposer.IsEmpty() {
+		return result.Error("Proposer is not specified")
+	}
+	if h.Signature == nil || h.Signature.IsEmpty() {
+		return result.Error("Block is not signed")
+	}
+	if !h.Signature.Verify(h.SignBytes(), h.Proposer) {
+		return result.Error("Signature verification failed")
+	}
+	return result.OK
+}
+
 type BlockStatus byte
 
+/*
+Block status transitions:
+
++-------+          +-------+                          +-------------------+
+|Pending+---+------>Invalid|                    +----->IndirectlyFinalized|
++-------+   |      +-------+                    |     +-------------------+
+            |                                   |
+            |      +-----+        +---------+   |     +-----------------+
+            +------>Valid+-------->Committed+---+----->DirectlyFinalized|
+                   +-----+        +---------+         +-----------------+
+
+*/
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
+	BlockStatusInvalid
+	BlockStatusValid
 )
 
 func (bs BlockStatus) IsPending() bool {
@@ -113,6 +178,11 @@ func (bs BlockStatus) IsDirectlyFinalized() bool {
 
 func (bs BlockStatus) IsIndirectlyFinalized() bool {
 	return bs == BlockStatusIndirectlyFinalized
+}
+
+// IsValid returns whether block has been validated.
+func (bs BlockStatus) IsValid() bool {
+	return bs != BlockStatusPending && bs != BlockStatusInvalid
 }
 
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.

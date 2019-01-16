@@ -226,16 +226,51 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
+func (e *ConsensusEngine) validateBlock(block *core.Block) bool {
+	if res := block.Validate(); res.IsError() {
+		e.logger.WithFields(log.Fields{
+			"err": res.String(),
+		}).Warn("Block is invalid")
+		return false
+	}
+	if !e.shouldProposeByID(block.Epoch, block.Proposer.Hex()) {
+		e.logger.WithFields(log.Fields{
+			"block.Epoch":    block.Epoch,
+			"block.proposer": block.Proposer.Hex(),
+		}).Warn("Invalid proposer")
+		return false
+	}
+	return true
+}
+
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
+		// Should not happen.
 		e.logger.WithFields(log.Fields{
 			"error":  err,
 			"parent": block.Parent.Hex(),
 			"block":  block.Hash().Hex(),
-		}).Error("Failed to find parent block")
+		}).Fatal("Failed to find parent block")
 		return
 	}
+
+	if !parent.Status.IsValid() {
+		e.logger.WithFields(log.Fields{
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Warn("Block is referring to invalid parent block")
+		e.chain.MarkBlockInvalid(block.Hash())
+		return
+	}
+
+	if !e.validateBlock(block) {
+		e.chain.MarkBlockInvalid(block.Hash())
+		return
+	}
+
+	e.chain.MarkBlockValid(block.Hash())
+
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -514,9 +549,13 @@ func (e *ConsensusEngine) randHex() []byte {
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
+	return e.shouldProposeByID(epoch, e.ID())
+}
+
+func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	extBlk := e.state.GetLastFinalizedBlock()
 	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
-	if proposer.ID().Hex() != e.ID() {
+	if proposer.ID().Hex() != id {
 		return false
 	}
 	if e.GetEpoch() == 0 {
@@ -536,6 +575,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		}).Panic("Failed to reset state to tip.StateHash")
 	}
 
+	// Add block.
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
 	block.Epoch = e.GetEpoch()
@@ -545,6 +585,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC = e.state.GetHighestCCBlock().Hash()
 
+	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
@@ -552,6 +593,13 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	}
 	block.AddTxs(txs)
 	block.StateHash = newRoot
+
+	// Sign block.
+	sig, err := e.privateKey.Sign(block.SignBytes())
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
+	}
+	block.SetSignature(sig)
 
 	proposal := core.Proposal{
 		Block:      block,
