@@ -296,8 +296,6 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
-	e.chain.MarkBlockValid(block.Hash())
-
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -316,6 +314,8 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to apply block Txs")
 		return
 	}
+
+	e.chain.MarkBlockValid(block.Hash())
 
 	if !e.shouldVote() {
 		return
