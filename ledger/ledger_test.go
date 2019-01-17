@@ -181,6 +181,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b1.Height = b0.Height + 1
 	b1.Epoch = 1
 	b1.Parent = b0.Hash()
+	b1.HCC = b1.Parent
 
 	txFee := getMinimumTxFee()
 	depositSourcePrivAcc := srcPrivAccs[4]
@@ -216,6 +217,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
 	b2.StateHash = es.state.Commit()
+	b2.HCC = b2.Parent
 	es.addBlock(b2)
 
 	b3 := core.NewBlock()
@@ -223,19 +225,9 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b3.Height = b2.Height + 1
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
+	b3.HCC = b3.Parent
 	b3.StateHash = es.state.Commit()
 	es.addBlock(b3)
-
-	b4 := core.NewBlock()
-	b4.ChainID = chainID
-	b4.Height = b3.Height + 1
-	b4.Epoch = 4
-	b4.Parent = b3.Hash()
-	b4.StateHash = es.state.Commit()
-	es.addBlock(b4)
-
-	// Directly finalize block #3
-	es.finalizePreviousBlocks(b3.Hash())
 
 	// ----------------- Stake Withdrawal ----------------- //
 
@@ -246,12 +238,13 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	balance0 := srcAcc.Balance
 	log.Infof("Source account balance before withdrawal : %v", balance0)
 
-	// Add block #5 with a WithdrawStakeTx transaction
-	b5 := core.NewBlock()
-	b5.ChainID = chainID
-	b5.Height = b4.Height + 1
-	b5.Epoch = 5
-	b5.Parent = b4.Hash()
+	// Add block #4 with a WithdrawStakeTx transaction
+	b4 := core.NewBlock()
+	b4.ChainID = chainID
+	b4.Height = b3.Height + 1
+	b4.Epoch = 4
+	b4.Parent = b3.Hash()
+	b4.HCC = b4.Parent
 
 	widthrawStakeTx := &types.WithdrawStakeTx{
 		Fee: types.NewCoins(0, txFee),
@@ -270,35 +263,27 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	_, res = es.executor.ExecuteTx(widthrawStakeTx)
 	assert.True(res.IsOK(), res.Message)
 
-	b5.StateHash = es.state.Commit()
-	es.addBlock(b5)
+	b4.StateHash = es.state.Commit()
+	es.addBlock(b4)
 
-	// Directly finalize block #5
-	es.finalizePreviousBlocks(b5.Hash())
+	b5 := core.NewBlock()
+	b5.ChainID = chainID
+	b5.Height = b4.Height + 1
+	b5.Epoch = 5
+	b5.Parent = b4.Hash()
+	b5.HCC = b5.Parent
+	b5.StateHash = es.state.Commit()
+
+	es.addBlock(b5)
 
 	b6 := core.NewBlock()
 	b6.ChainID = chainID
 	b6.Height = b5.Height + 1
 	b6.Epoch = 6
 	b6.Parent = b5.Hash()
+	b6.HCC = b6.Parent
 	b6.StateHash = es.state.Commit()
 	es.addBlock(b6)
-
-	// ----------------- Examine the Chain ----------------- //
-
-	for height := uint64(0); height < 7; height++ {
-		blocks := es.findBlocksByHeight(height)
-		for _, block := range blocks {
-			log.Infof("Block @height %v: %v", height, block)
-			assert.NotEqual(common.Hash{}, block.StateHash)
-
-			if block.Height == 0 || block.Height == 3 || block.Height == 5 {
-				assert.True(block.Status.IsDirectlyFinalized())
-			} else if block.Height == 1 || block.Height == 2 || block.Height == 4 {
-				assert.True(block.Status.IsIndirectlyFinalized())
-			}
-		}
-	}
 
 	// -------------- Check the ValidatorSets -------------- //
 
@@ -324,7 +309,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	valSet5 := es.consensus.GetValidatorManager().GetValidatorSet(b5.Hash())
 	log.Infof("valSet for block #5: %v", valSet5)
-	assert.Equal(4, len(valSet5.Validators()))
+	assert.Equal(5, len(valSet5.Validators()))
 
 	valSet6 := es.consensus.GetValidatorManager().GetValidatorSet(b6.Hash())
 	log.Infof("valSet for block #6: %v", valSet6)

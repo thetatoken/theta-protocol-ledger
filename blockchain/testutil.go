@@ -27,10 +27,12 @@ func CreateTestChainByBlocks(pairs []string) *Chain {
 	chain := CreateTestChain()
 	for i := 0; i < len(pairs); i += 2 {
 		block := core.CreateTestBlock(pairs[i], pairs[i+1])
-		_, err := chain.AddBlock(block)
+		b, err := chain.AddBlock(block)
 		if err != nil {
 			panic(err)
 		}
+		b.Status = core.BlockStatusValid
+		chain.saveBlock(b)
 	}
 	return chain
 }

@@ -25,6 +25,6 @@ func TestBlockHash(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal("0x29b9c99265a3ee1830822488517017a7018739dc2ddd1acd58059a393fdca4a7", eb.Hash().Hex())
+	assert.Equal("0xedb805da60596eba0d826be18ab375eec497ed6b59d4f17f7b9f88f434e1edbf", eb.Hash().Hex())
 
 }
