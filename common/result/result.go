@@ -2,10 +2,13 @@ package result
 
 import "fmt"
 
+type Info map[string]interface{}
+
 // Result represents the result of a function execution
 type Result struct {
 	Code    ErrorCode
 	Message string
+	Info    Info
 }
 
 // IsOK indicates if the execution succeeded
@@ -38,7 +41,22 @@ func (res Result) WithMessage(message string) Result {
 // -------------- Constructors -------------- //
 
 // OK represents the success result
-var OK = Result{Code: CodeOK}
+var OK = Result{
+	Code: CodeOK,
+	Info: make(Info),
+}
+
+// OKWith returns a success result with extra information
+func OKWith(info Info) Result {
+	res := Result{
+		Code: CodeOK,
+		Info: make(Info),
+	}
+	for k, v := range info {
+		res.Info[k] = v
+	}
+	return res
+}
 
 // Error returns an error result
 func Error(msgFormat string, a ...interface{}) Result {
@@ -46,5 +64,6 @@ func Error(msgFormat string, a ...interface{}) Result {
 	return Result{
 		Code:    CodeGenericError,
 		Message: msg,
+		Info:    make(Info),
 	}
 }
