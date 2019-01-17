@@ -203,11 +203,15 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	currHeight := view.Height()
 	currStateRoot := view.Hash()
 
+	hasValidatorUpdate := false
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
 			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		if _, ok := tx.(*types.WithdrawStakeTx); ok {
+			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
@@ -230,7 +234,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 
-	return result.OK
+	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
 // ResetState sets the ledger state with the designated root

@@ -187,6 +187,21 @@ func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
 	}
 }
 
+func (ch *Chain) MarkBlockNeedDirectConfirm(hash common.Hash) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	block, err := ch.findBlock(hash)
+	if err != nil {
+		logger.Panic(err)
+	}
+	block.NeedDirectConfirm = true
+	err = ch.saveBlock(block)
+	if err != nil {
+		logger.Panic(err)
+	}
+}
+
 func (ch *Chain) CommitBlock(hash common.Hash) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
