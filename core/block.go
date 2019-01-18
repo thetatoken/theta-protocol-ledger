@@ -153,11 +153,11 @@ Block status transitions:
 */
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
+	BlockStatusInvalid
+	BlockStatusValid
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
-	BlockStatusInvalid
-	BlockStatusValid
 )
 
 func (bs BlockStatus) IsPending() bool {
