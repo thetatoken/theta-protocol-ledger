@@ -389,7 +389,7 @@ func (e *ConsensusEngine) shouldVoteByID(id common.Address) bool {
 }
 
 func (e *ConsensusEngine) vote() {
-	tip := e.state.GetTip()
+	tip := e.GetTip()
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
@@ -544,10 +544,41 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 
 // GetTip return the block to be extended from.
 func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	hcc := e.state.GetHighestCCBlock()
+	candidate := hcc
 
-	return e.state.GetTip()
+	// DFS to find valid block with the greatest height.
+	stack := []*core.ExtendedBlock{candidate}
+	for len(stack) > 0 {
+		curr := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if !curr.Status.IsValid() {
+			continue
+		}
+		if curr.HasValidatorUpdate {
+			// A block with validator update is newer than local HCC. Proposing
+			// on this branch will violate the two direct confirmations rule for
+			// blocks with validator changes.
+			continue
+		}
+
+		if curr.Height > candidate.Height {
+			candidate = curr
+		}
+
+		for _, childHash := range curr.Children {
+			child, err := e.chain.FindBlock(childHash)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"err":       err,
+					"childHash": childHash,
+				}).Fatal("Failed to find child block")
+			}
+			stack = append(stack, child)
+		}
+	}
+	return candidate
 }
 
 // GetSummary returns a summary of consensus state.

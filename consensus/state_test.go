@@ -36,8 +36,6 @@ func TestConsensusStateBasic(t *testing.T) {
 	assert.Equal(uint64(10), state2.GetLastVote().Height)
 	assert.NotNil(state2.GetHighestCCBlock())
 	assert.Equal(core.GetTestBlock("A1").Hash(), state2.GetHighestCCBlock().Hash())
-	assert.NotNil(state2.GetTip())
-	assert.Equal(core.GetTestBlock("A2").Hash(), state2.GetTip().Hash())
 	assert.NotNil(state2.GetLastFinalizedBlock())
 	assert.Equal(core.GetTestBlock("A0").Hash(), state2.GetLastFinalizedBlock().Hash())
 }

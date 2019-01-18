@@ -32,9 +32,8 @@ type State struct {
 	db    store.Store
 	chain *blockchain.Chain
 
-	highestCCBlock     *core.ExtendedBlock
-	lastFinalizedBlock *core.ExtendedBlock
-	tip                *core.ExtendedBlock
+	highestCCBlock     common.Hash
+	lastFinalizedBlock common.Hash
 
 	LastProposal core.Proposal
 	LastVote     core.Vote
@@ -46,9 +45,8 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		mu:                 &sync.RWMutex{},
 		db:                 db,
 		chain:              chain,
-		highestCCBlock:     chain.Root,
-		lastFinalizedBlock: chain.Root,
-		tip:                chain.Root,
+		highestCCBlock:     chain.Root.Hash(),
+		lastFinalizedBlock: chain.Root.Hash(),
 		epoch:              chain.Root.Epoch,
 	}
 	err := s.Load()
@@ -62,22 +60,11 @@ func (s *State) String() string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	highestCCBlockStr := "nil"
-	if s.highestCCBlock != nil {
-		highestCCBlockStr = s.highestCCBlock.Hash().Hex()
-	}
+	highestCCBlockStr := s.highestCCBlock.Hex()
+	lastFinalizedBlockStr := s.lastFinalizedBlock.Hex()
 
-	lastFinalizedBlockStr := "nil"
-	if s.lastFinalizedBlock != nil {
-		lastFinalizedBlockStr = s.lastFinalizedBlock.Hash().Hex()
-	}
-
-	tipStr := "nil"
-	if s.tip != nil {
-		tipStr = s.tip.Hash().Hex()
-	}
-	return fmt.Sprintf("State{highestCCBlock: %v, lastFinalizedBlock: %v, tip: %v, epoch: %d, LastProposal: %v, LastVote: %v}",
-		highestCCBlockStr, lastFinalizedBlockStr, tipStr, s.epoch, s.LastProposal, s.LastVote)
+	return fmt.Sprintf("State{highestCCBlock: %v, lastFinalizedBlock: %v,  epoch: %d, LastProposal: %v, LastVote: %v}",
+		highestCCBlockStr, lastFinalizedBlockStr, s.epoch, s.LastProposal, s.LastVote)
 }
 
 func (s *State) GetSummary() *StateStub {
@@ -94,12 +81,8 @@ func (s *State) getSummary() *StateStub {
 		Epoch:        s.epoch,
 		Root:         s.chain.Root.Hash(),
 	}
-	if s.highestCCBlock != nil {
-		stub.HighestCCBlock = s.highestCCBlock.Hash()
-	}
-	if s.lastFinalizedBlock != nil {
-		stub.LastFinalizedBlock = s.lastFinalizedBlock.Hash()
-	}
+	stub.HighestCCBlock = s.highestCCBlock
+	stub.LastFinalizedBlock = s.lastFinalizedBlock
 	return stub
 }
 
@@ -126,18 +109,8 @@ func (s *State) Load() (err error) {
 	s.LastProposal = stub.LastProposal
 	s.LastVote = stub.LastVote
 	s.epoch = stub.Epoch
-	if !stub.LastFinalizedBlock.IsEmpty() {
-		lastFinalizedBlock, err := s.chain.FindBlock(stub.LastFinalizedBlock)
-		if err == nil {
-			s.lastFinalizedBlock = lastFinalizedBlock
-		}
-	}
-	if !stub.HighestCCBlock.IsEmpty() {
-		highestCCBlock, err := s.chain.FindBlock(stub.HighestCCBlock)
-		if err == nil {
-			s.highestCCBlock = highestCCBlock
-		}
-	}
+	s.lastFinalizedBlock = stub.LastFinalizedBlock
+	s.highestCCBlock = stub.HighestCCBlock
 	return
 }
 
@@ -190,14 +163,18 @@ func (s *State) GetHighestCCBlock() *core.ExtendedBlock {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.highestCCBlock
+	ret, err := s.chain.FindBlock(s.highestCCBlock)
+	if err != nil {
+		log.Fatal("Failed to load highest CC block")
+	}
+	return ret
 }
 
 func (s *State) SetHighestCCBlock(block *core.ExtendedBlock) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.highestCCBlock = block
+	s.highestCCBlock = block.Hash()
 	return s.commit()
 }
 
@@ -205,24 +182,19 @@ func (s *State) GetLastFinalizedBlock() *core.ExtendedBlock {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	return s.lastFinalizedBlock
+	ret, err := s.chain.FindBlock(s.lastFinalizedBlock)
+	if err != nil {
+		log.Fatal("Failed to load last finalized block")
+	}
+	return ret
 }
 
 func (s *State) SetLastFinalizedBlock(block *core.ExtendedBlock) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	s.lastFinalizedBlock = block
+	s.lastFinalizedBlock = block.Hash()
 	return s.commit()
-}
-
-// GetTip return the block to be extended from.
-func (s *State) GetTip() *core.ExtendedBlock {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	tip, _ := s.chain.FindDeepestDescendant(s.highestCCBlock.Hash())
-	return tip
 }
 
 func (s *State) AddVote(vote *core.Vote) error {

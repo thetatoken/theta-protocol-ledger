@@ -237,31 +237,6 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 	}
 }
 
-// FindDeepestDescendant finds the deepest descendant of given block.
-func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
-	ch.mu.RLock()
-	defer ch.mu.RUnlock()
-	return ch.findDeepestDescendant(hash)
-}
-
-// findDeepestDescendant is the non-locking version of FindDeepestDescendant.
-func (ch *Chain) findDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
-	// TODO: replace recursive implementation with stack-based implementation.
-	n, err := ch.findBlock(hash)
-	if err != nil || !n.Status.IsValid() {
-		return nil, -1
-	}
-	depth = 0
-	for _, child := range n.Children {
-		ret, retDepth := ch.findDeepestDescendant(child)
-		if retDepth+1 > depth {
-			n = ret
-			depth = retDepth + 1
-		}
-	}
-	return
-}
-
 func (ch *Chain) IsOrphan(block *core.Block) bool {
 	_, err := ch.FindBlock(block.Parent)
 	return err != nil
