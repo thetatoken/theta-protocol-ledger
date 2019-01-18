@@ -3,7 +3,6 @@ package rpc
 import (
 	"bufio"
 	"fmt"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -33,7 +32,7 @@ type GenSnapshotArgs struct {
 type GenSnapshotResult struct {
 }
 
-func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, result *GenSnapshotResult) (err error) {
+func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshotResult) (err error) {
 	metadata := &core.SnapshotMetadata{}
 
 	stub := t.consensus.GetSummary()
