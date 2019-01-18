@@ -263,6 +263,42 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
+	// Blocks with validator changes must be followed by two direct confirmation blocks.
+	if parent.HasValidatorUpdate {
+		if block.HCC != block.Parent {
+			e.logger.WithFields(log.Fields{
+				"parent":    block.Parent.Hex(),
+				"block":     block.Hash().Hex(),
+				"block.HCC": block.HCC.Hex(),
+			}).Warn("block.HCC must equal to parent when parent contains validator changes.")
+			return false
+		}
+	}
+	if !parent.HCC.IsEmpty() {
+		grandParent, err := e.chain.FindBlock(parent.HCC)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"error":      err,
+				"parent":     parent.Hash().Hex(),
+				"block":      block.Hash().Hex(),
+				"parent.HCC": parent.HCC.Hex(),
+			}).Warn("Failed to find grand parent block")
+			return false
+		}
+		if grandParent.HasValidatorUpdate {
+			if parent.Parent != parent.HCC {
+				e.logger.WithFields(log.Fields{
+					"parent":        block.Parent.Hex(),
+					"block":         block.Hash().Hex(),
+					"parent.HCC":    parent.HCC.Hex(),
+					"parent.Parent": parent.Parent.Hex(),
+				}).Warn("parent.HCC must equal to parent.Parent when parent.Parent contains validator changes.")
+				return false
+			}
+		}
+
+	}
+
 	if res := block.Validate(); res.IsError() {
 		e.logger.WithFields(log.Fields{
 			"err": res.String(),
