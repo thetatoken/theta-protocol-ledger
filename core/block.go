@@ -188,9 +188,9 @@ func (bs BlockStatus) IsValid() bool {
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Children          []common.Hash `json:"children"`
-	Status            BlockStatus   `json:"status"`
-	NeedDirectConfirm bool
+	Children           []common.Hash `json:"children"`
+	Status             BlockStatus   `json:"status"`
+	HasValidatorUpdate bool
 }
 
 // Hash of header.

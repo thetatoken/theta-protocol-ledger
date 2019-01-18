@@ -318,7 +318,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
 		hasValidatorUpdateBool := hasValidatorUpdate.(bool)
 		if hasValidatorUpdateBool {
-			e.chain.MarkBlockNeedDirectConfirm(block.Hash())
+			e.chain.MarkBlockHasValidatorUpdate(block.Hash())
 		}
 	}
 

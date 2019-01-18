@@ -187,7 +187,7 @@ func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
 	}
 }
 
-func (ch *Chain) MarkBlockNeedDirectConfirm(hash common.Hash) {
+func (ch *Chain) MarkBlockHasValidatorUpdate(hash common.Hash) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -195,7 +195,7 @@ func (ch *Chain) MarkBlockNeedDirectConfirm(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
-	block.NeedDirectConfirm = true
+	block.HasValidatorUpdate = true
 	err = ch.saveBlock(block)
 	if err != nil {
 		logger.Panic(err)
