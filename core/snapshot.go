@@ -4,20 +4,26 @@ import (
 	"github.com/thetatoken/ukulele/common"
 )
 
+const (
+	SVStart = iota
+	SVEnd
+)
+
 type SnapshotRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
-	R common.Bytes // account root, if any
-	S int          // sequence of storeview
+	B common.Bytes // boundary(start/end) record of sv
+	H common.Bytes // sv block height
 }
 
-type DirectlyFinalizedBlockPair struct {
+type DirectlyFinalizedBlockTrio struct {
 	First  ExtendedBlock
 	Second ExtendedBlock
+	Third  ExtendedBlock
 }
 
 type SnapshotMetadata struct {
 	Blockheader               BlockHeader
 	Votes                     []Vote
-	BlocksWithValidatorChange []DirectlyFinalizedBlockPair
+	BlocksWithValidatorChange []DirectlyFinalizedBlockTrio
 }

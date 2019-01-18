@@ -9,8 +9,8 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
@@ -19,7 +19,6 @@ import (
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/database"
-	"github.com/thetatoken/ukulele/store/treestore"
 )
 
 var (
@@ -31,6 +30,28 @@ var (
 	}
 )
 
+type SVStack []*state.StoreView
+
+func (s SVStack) push(sv *state.StoreView) SVStack {
+	return append(s, sv)
+}
+
+func (s SVStack) pop() (SVStack, *state.StoreView) {
+	l := len(s)
+	if l == 0 {
+		return s, nil
+	}
+	return s[:l-1], s[l-1]
+}
+
+func (s SVStack) peek() *state.StoreView {
+	l := len(s)
+	if l == 0 {
+		return nil
+	}
+	return s[l-1]
+}
+
 func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -41,75 +62,79 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 
 	metadata, err := readMetadata(reader)
 	if err != nil {
-		log.Errorf("Failed to load snapshot block")
-		return nil, err
+		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
 
 	var hash common.Hash
 	var sv *state.StoreView
 	var account *types.Account
-	var accountStorage *treestore.TreeStore
-	svSeq := -1
 	svHashes := make(map[common.Hash]bool)
+	svStack := make(SVStack, 0)
 	for {
 		record, err := readRecord(reader)
 		if err != nil {
 			if err == io.EOF {
-				if accountStorage != nil {
-					accountStorage.Commit()
-				}
-				if sv != nil {
-					hash = sv.Save()
+				if svStack.peek() != nil {
+					return nil, fmt.Errorf("Still some storeview unhandled")
 				}
 				break
 			}
-			log.Errorf("Failed to read snapshot record")
-			return nil, err
+			return nil, fmt.Errorf("Failed to read snapshot record, %v", err)
 		}
 
-		if len(record.R) == 0 {
-			if record.S != svSeq {
-				if sv != nil {
-					h := sv.Save()
-					svHashes[h] = true
+		if record.B != nil {
+			height := bstoi(record.H)
+			if record.B[0] == core.SVStart {
+				sv := state.NewStoreView(height, common.Hash{}, db)
+				svStack = svStack.push(sv)
+			} else {
+				svStack, sv = svStack.pop()
+				if sv == nil {
+					return nil, fmt.Errorf("Missing storeview to handle")
 				}
-				sv = state.NewStoreView(metadata.Blockheader.Height, common.Hash{}, db)
-				svSeq = record.S
+				if height != sv.Height() {
+					return nil, fmt.Errorf("Storeview start and end heights don't match")
+				}
+				hash = sv.Save()
+
+				if svStack.peek() != nil && height == svStack.peek().Height() {
+					// it's a storeview for account storage, verify account
+					if bytes.Compare(account.Root.Bytes(), hash.Bytes()) != 0 {
+						return nil, fmt.Errorf("Account storage root doesn't match")
+					}
+				} else {
+					svHashes[hash] = true
+				}
+				account = nil
+			}
+		} else {
+			sv := svStack.peek()
+			if sv == nil {
+				return nil, fmt.Errorf("Missing storeview to handle")
 			}
 			sv.Set(record.K, record.V)
-		} else {
-			if account == nil || !bytes.Equal(account.Root.Bytes(), record.R) {
-				root, err := accountStorage.Commit()
-				if err != nil {
-					log.Errorf("Failed to commit account storage %v", account.Root)
-					return nil, err
-				}
-				if account != nil && bytes.Compare(account.Root.Bytes(), root.Bytes()) != 0 {
-					return nil, fmt.Errorf("Account storage root doesn't match %v != %v", account.Root.Bytes(), root.Bytes())
-				}
 
-				// reset temporary account and account storage
-				account = &types.Account{}
-				err = types.FromBytes([]byte(record.V), account)
-				if err != nil {
-					log.Errorf("Failed to parse account for %v", []byte(record.V))
-					return nil, err
+			if account == nil {
+				if strings.HasPrefix(record.K.String(), "ls/a/") {
+					account = &types.Account{}
+					err = types.FromBytes([]byte(record.V), account)
+					if err != nil {
+						return nil, fmt.Errorf("Failed to parse account, %v", err)
+					}
 				}
-				accountStorage = treestore.NewTreeStore(common.Hash{}, db)
 			}
-			accountStorage.Set(record.K, record.V)
 		}
 	}
 
-	for _, blockPair := range metadata.BlocksWithValidatorChange {
-		_, ok := svHashes[blockPair.First.StateHash]
+	for _, blockTrio := range metadata.BlocksWithValidatorChange {
+		_, ok := svHashes[blockTrio.First.StateHash]
 		if ok {
-			delete(svHashes, blockPair.First.StateHash)
+			delete(svHashes, blockTrio.First.StateHash)
 		} else {
-			return nil, fmt.Errorf("Storeview missing for block %v", blockPair.First.StateHash)
+			return nil, fmt.Errorf("Storeview missing for block %v", blockTrio.First.StateHash)
 		}
 	}
-	if len(svHashes) != 0 {
+	if len(svHashes) != 0 { //TODO: should be 1 for the lastFinalizedBlock (not in height list)?
 		return nil, fmt.Errorf("Can't find matching state hash for storeview")
 	}
 
@@ -124,18 +149,16 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 		return false
 	}
 
-	voteSetMap := map[common.Hash]*core.VoteSet{}
-	for _, vote := range metadata.Votes {
-		if _, ok := voteSetMap[vote.Block]; !ok {
-			voteSetMap[vote.Block] = core.NewVoteSet()
-		}
-		voteSetMap[vote.Block].AddVote(vote)
-	}
-
 	var validatorSet *core.ValidatorSet
-	for i, blockPair := range metadata.BlocksWithValidatorChange {
-		if !blockPair.First.Status.IsDirectlyFinalized() || !blockPair.Second.Status.IsFinalized() || blockPair.Second.Parent != blockPair.First.Hash() {
+	for i, blockTrio := range metadata.BlocksWithValidatorChange {
+		if !blockTrio.First.Status.IsDirectlyFinalized() || !blockTrio.Second.Status.IsFinalized() || !blockTrio.Third.Status.IsFinalized() {
 			return false
+		}
+		if blockTrio.Second.Parent != blockTrio.First.Hash() || blockTrio.Third.Parent != blockTrio.Second.Hash() {
+			return false
+		}
+		if blockTrio.Second.HCC != blockTrio.First.Hash() || blockTrio.Third.HCC != blockTrio.Second.Hash() { //TODO: change of HCC struct
+			panic("Invalid block HCC for validator set changes")
 		}
 
 		var block *core.BlockHeader
@@ -143,10 +166,12 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 			block = metadata.BlocksWithValidatorChange[i-1].First.BlockHeader
 		}
 		validatorSet = getValidatorSet(block, db)
-		validateBlock(blockPair.First.BlockHeader, validatorSet, voteSetMap)
-		validateBlock(blockPair.Second.BlockHeader, validatorSet, voteSetMap)
+		// if block.HCC //TODO: check block.HCC.Votes
+		validateVotes(blockTrio.Second.BlockHeader, validatorSet, blockTrio.Third.BlockHeader.HCC.Votes)
 	}
-	validateBlock(&metadata.Blockheader, nil, voteSetMap)
+	block := metadata.BlocksWithValidatorChange[len(metadata.BlocksWithValidatorChange)-1].First.BlockHeader
+	validatorSet = getValidatorSet(block, db)
+	validateVotes(&metadata.Blockheader, validatorSet, metadata.Votes)
 
 	return true
 }
@@ -171,11 +196,11 @@ func getValidatorSet(block *core.BlockHeader, db database.Database) *core.Valida
 	return consensus.GetValidatorSetFromVCP(vcp)
 }
 
-func validateBlock(block *core.BlockHeader, validatorSet *core.ValidatorSet, voteSetMap map[common.Hash]*core.VoteSet) bool {
-	if !validatorSet.HasMajority(voteSetMap[block.Hash()]) {
+func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) bool {
+	if !validatorSet.HasMajorityVotes(votes) {
 		return false
 	}
-	for _, vote := range voteSetMap[block.Hash()].Votes() {
+	for _, vote := range votes {
 		if !vote.Validate().IsOK() {
 			return false
 		}

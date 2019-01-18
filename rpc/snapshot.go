@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/store/database"
 
 	log "github.com/sirupsen/logrus"
@@ -59,41 +60,39 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 	addVotes(st, metadata, metadata.Blockheader.Hash())
 
 	hl := sv.GetStakeTransactionHeightList().Heights
-	var currBlock *core.ExtendedBlock
 	for _, height := range hl {
-		if currBlock == nil || height > currBlock.Height {
-			blocks := t.chain.FindBlocksByHeight(height)
-			for _, block := range blocks {
-				if block.Status.IsFinalized() {
-					var finalizedChind *core.ExtendedBlock
-					for {
-						for _, h := range block.Children {
-							b, err := t.chain.FindBlock(h)
-							if err != nil {
-								log.Errorf("Failed to get block %v", err)
-								return err
-							}
-							if b.Status.IsFinalized() {
-								finalizedChind = b
-								break
-							}
-						}
-						if finalizedChind == nil {
-							break
-						}
-						if block.Status.IsDirectlyFinalized() {
-							metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockPair{First: *block, Second: *finalizedChind})
-							addVotes(st, metadata, block.Hash())
-							addVotes(st, metadata, finalizedChind.Hash())
-
-							currBlock = block
-							break
-						} else {
-							block = finalizedChind
-						}
-					}
-					break
+		if height >= lastFinalizedBlock.Height-1 {
+			break
+		}
+		blocks := t.chain.FindBlocksByHeight(height)
+		for _, block := range blocks {
+			if block.Status.IsDirectlyFinalized() {
+				var child, grandChild core.ExtendedBlock
+				b, err := getFinalizedChild(block, t.chain)
+				if err != nil {
+					return err
 				}
+				if b != nil {
+					child = *b
+					b, err = getFinalizedChild(b, t.chain)
+					if err != nil {
+						return err
+					}
+					if b != nil {
+						grandChild = *b
+					} else {
+						panic("Can't find finalized child block")
+					}
+				} else {
+					panic("Can't find finalized child block")
+				}
+
+				if child.HCC != block.Hash() || grandChild.HCC != child.Hash() { //TODO: change of HCC struct
+					panic("Invalid block HCC for validator set changes")
+				}
+
+				metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockTrio{First: *block, Second: child, Third: grandChild})
+				break
 			}
 		}
 	}
@@ -110,13 +109,27 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 		return err
 	}
 
-	for i, pair := range metadata.BlocksWithValidatorChange {
+	for _, pair := range metadata.BlocksWithValidatorChange {
 		storeView := state.NewStoreView(pair.First.Height, pair.First.StateHash, db)
-		writeStoreView(storeView, false, writer, db, i)
+		writeStoreView(storeView, false, writer, db)
 	}
 
-	writeStoreView(sv, true, writer, db, len(metadata.BlocksWithValidatorChange))
+	writeStoreView(sv, true, writer, db)
 	return
+}
+
+func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*core.ExtendedBlock, error) {
+	for _, h := range block.Children {
+		b, err := chain.FindBlock(h)
+		if err != nil {
+			log.Errorf("Failed to get block %v", err)
+			return nil, err
+		}
+		if b.Status.IsFinalized() {
+			return b, nil
+		}
+	}
+	return nil, nil
 }
 
 func addVotes(st *consensus.State, metadata *core.SnapshotMetadata, hash common.Hash) error {
@@ -129,14 +142,22 @@ func addVotes(st *consensus.State, metadata *core.SnapshotMetadata, hash common.
 	return nil
 }
 
-func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database, sequence int) {
+func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
+	height := itobs(sv.Height())
+	err := writeRecord(writer, nil, nil, []byte{core.SVStart}, height)
+	if err != nil {
+		panic(err)
+	}
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err := writeRecord(writer, k, v, nil, sequence)
+		err = writeRecord(writer, k, v, nil, nil)
 		if err != nil {
 			panic(err)
 		}
-
 		if needAccountStorage && strings.HasPrefix(k.String(), "ls/a/") {
+			err = writeRecord(writer, nil, nil, []byte{core.SVStart}, height)
+			if err != nil {
+				panic(err)
+			}
 			account := &types.Account{}
 			err := types.FromBytes([]byte(v), account)
 			if err != nil {
@@ -145,15 +166,23 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 			}
 			storage := treestore.NewTreeStore(account.Root, db)
 			storage.Traverse(nil, func(ak, av common.Bytes) bool {
-				err = writeRecord(writer, ak, av, account.Root.Bytes(), sequence)
+				err = writeRecord(writer, ak, av, nil, nil)
 				if err != nil {
 					panic(err)
 				}
 				return true
 			})
+			err = writeRecord(writer, nil, nil, []byte{core.SVEnd}, height)
+			if err != nil {
+				panic(err)
+			}
 		}
 		return true
 	})
+	err = writeRecord(writer, nil, nil, []byte{core.SVEnd}, height)
+	if err != nil {
+		panic(err)
+	}
 	writer.Flush()
 }
 
@@ -182,8 +211,8 @@ func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error 
 	return nil
 }
 
-func writeRecord(writer *bufio.Writer, k, v, r common.Bytes, s int) error {
-	raw, err := rlp.EncodeToBytes(core.SnapshotRecord{K: k, V: v, R: r, S: s})
+func writeRecord(writer *bufio.Writer, k, v, b, h common.Bytes) error {
+	raw, err := rlp.EncodeToBytes(core.SnapshotRecord{K: k, V: v, B: b, H: h})
 	if err != nil {
 		log.Error("Failed to encode storage record")
 		return err
