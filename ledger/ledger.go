@@ -210,7 +210,9 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		if _, ok := tx.(*types.DepositStakeTx); ok {
+			hasValidatorUpdate = true
+		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
