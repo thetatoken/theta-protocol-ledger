@@ -226,16 +226,76 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
+func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+	if parent.Height+1 != block.Height {
+		e.logger.WithFields(log.Fields{
+			"parent":        block.Parent.Hex(),
+			"parent.Height": parent.Height,
+			"block":         block.Hash().Hex(),
+			"block.Height":  block.Height,
+		}).Warn("Block.Height != parent.Height + 1")
+		return false
+	}
+
+	if parent.Epoch >= block.Epoch {
+		e.logger.WithFields(log.Fields{
+			"parent":       block.Parent.Hex(),
+			"parent.Epoch": parent.Epoch,
+			"block":        block.Hash().Hex(),
+			"block.Epoch":  block.Epoch,
+		}).Warn("Block.Epoch <= parent.Epoch")
+		return false
+	}
+
+	if !parent.Status.IsValid() {
+		e.logger.WithFields(log.Fields{
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Warn("Block is referring to invalid parent block")
+		return false
+	}
+
+	if !e.chain.IsDescendant(block.HCC, block.Hash()) {
+		e.logger.WithFields(log.Fields{
+			"block.HCC": block.HCC.Hex(),
+			"block":     block.Hash().Hex(),
+		}).Fatal("Invalid HCC")
+		return false
+	}
+
+	if res := block.Validate(); res.IsError() {
+		e.logger.WithFields(log.Fields{
+			"err": res.String(),
+		}).Warn("Block is invalid")
+		return false
+	}
+	if !e.shouldProposeByID(block.Epoch, block.Proposer.Hex()) {
+		e.logger.WithFields(log.Fields{
+			"block.Epoch":    block.Epoch,
+			"block.proposer": block.Proposer.Hex(),
+		}).Warn("Invalid proposer")
+		return false
+	}
+	return true
+}
+
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
+		// Should not happen.
 		e.logger.WithFields(log.Fields{
 			"error":  err,
 			"parent": block.Parent.Hex(),
 			"block":  block.Hash().Hex(),
-		}).Error("Failed to find parent block")
+		}).Fatal("Failed to find parent block")
 		return
 	}
+
+	if !e.validateBlock(block, parent) {
+		e.chain.MarkBlockInvalid(block.Hash())
+		return
+	}
+
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -254,6 +314,15 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to apply block Txs")
 		return
 	}
+
+	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
+		hasValidatorUpdateBool := hasValidatorUpdate.(bool)
+		if hasValidatorUpdateBool {
+			e.chain.MarkBlockNeedDirectConfirm(block.Hash())
+		}
+	}
+
+	e.chain.MarkBlockValid(block.Hash())
 
 	if !e.shouldVote() {
 		return
@@ -514,9 +583,13 @@ func (e *ConsensusEngine) randHex() []byte {
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
+	return e.shouldProposeByID(epoch, e.ID())
+}
+
+func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	extBlk := e.state.GetLastFinalizedBlock()
 	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
-	if proposer.ID().Hex() != e.ID() {
+	if proposer.ID().Hex() != id {
 		return false
 	}
 	if e.GetEpoch() == 0 {
@@ -536,6 +609,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		}).Panic("Failed to reset state to tip.StateHash")
 	}
 
+	// Add block.
 	block := core.NewBlock()
 	block.ChainID = e.chain.ChainID
 	block.Epoch = e.GetEpoch()
@@ -545,6 +619,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC = e.state.GetHighestCCBlock().Hash()
 
+	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
@@ -552,6 +627,13 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	}
 	block.AddTxs(txs)
 	block.StateHash = newRoot
+
+	// Sign block.
+	sig, err := e.privateKey.Sign(block.SignBytes())
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
+	}
+	block.SetSignature(sig)
 
 	proposal := core.Proposal{
 		Block:      block,

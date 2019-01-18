@@ -21,20 +21,28 @@ func TestBlockchain(t *testing.T) {
 
 	chain := CreateTestChain()
 	a1 := core.CreateTestBlock("a1", "a0")
-	_, err = chain.AddBlock(a1)
+	b, err := chain.AddBlock(a1)
 	assert.Nil(err)
+	b.Status = core.BlockStatusValid
+	chain.saveBlock(b)
 
 	a2 := core.CreateTestBlock("a2", "a1")
-	_, err = chain.AddBlock(a2)
+	b, err = chain.AddBlock(a2)
 	assert.Nil(err)
+	b.Status = core.BlockStatusValid
+	chain.saveBlock(b)
 
 	b2 := core.CreateTestBlock("b2", "a1")
-	_, err = chain.AddBlock(b2)
+	b, err = chain.AddBlock(b2)
 	assert.Nil(err)
+	b.Status = core.BlockStatusValid
+	chain.saveBlock(b)
 
 	c1 := core.CreateTestBlock("c1", "a0")
-	_, err = chain.AddBlock(c1)
+	b, err = chain.AddBlock(c1)
 	assert.Nil(err)
+	b.Status = core.BlockStatusValid
+	chain.saveBlock(b)
 
 	AssertChainsEqual(assert, expected, expected.Root.Hash(), chain, chain.Root.Hash())
 }

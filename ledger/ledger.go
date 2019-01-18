@@ -87,7 +87,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
-	for i := 0; !blockHash.IsEmpty(); i++ {
+	for i := 2; ; i-- {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
@@ -96,15 +96,14 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 			return nil, fmt.Errorf("Block is nil for hash %v", blockHash)
 		}
 
-		//if i >= 2 { // Start checking direct finalization only from the grandparent block
-		if block.Status.IsDirectlyFinalized() { // the latest DIRECTLY finalized block found
+		// Grandparent or root block.
+		if i == 0 || block.HCC.IsEmpty() {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
-		//}
-		blockHash = block.Parent
+		blockHash = block.HCC
 	}
 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
@@ -209,11 +208,15 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	currHeight := view.Height()
 	currStateRoot := view.Hash()
 
+	hasValidatorUpdate := false
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
 			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		if _, ok := tx.(*types.WithdrawStakeTx); ok {
+			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
@@ -236,7 +239,7 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 
-	return result.OK
+	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
 // ResetState sets the ledger state with the designated root

@@ -13,5 +13,4 @@ type Checkpoint struct {
 	SecondBlock *Block             `rlp:"nil"`
 	SecondCC    *CommitCertificate `rlp:"nil"`
 	LedgerState []KVPair
-	Validators  []string `json:"validators"`
 }
