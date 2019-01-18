@@ -81,14 +81,14 @@ func (t *ThetaRPCServer) GenSnapshot(r *http.Request, args *GenSnapshotArgs, res
 					if b != nil {
 						grandChild = *b
 					} else {
-						panic("Can't find finalized child block")
+						return fmt.Errorf("Can't find finalized child block")
 					}
 				} else {
-					panic("Can't find finalized child block")
+					return fmt.Errorf("Can't find finalized child block")
 				}
 
 				if child.HCC != block.Hash() || grandChild.HCC != child.Hash() { //TODO: change of HCC struct
-					panic("Invalid block HCC for validator set changes")
+					return fmt.Errorf("Invalid block HCC for validator set changes")
 				}
 
 				metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockTrio{First: *block, Second: child, Third: grandChild})
@@ -142,6 +142,31 @@ func addVotes(st *consensus.State, metadata *core.SnapshotMetadata, hash common.
 	return nil
 }
 
+func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
+	raw, err := rlp.EncodeToBytes(*metadata)
+	if err != nil {
+		log.Error("Failed to encode snapshot metadata")
+		return err
+	}
+	// write length first
+	_, err = writer.Write(itobs(uint64(len(raw))))
+	if err != nil {
+		log.Error("Failed to write snapshot metadata length")
+		return err
+	}
+	// write metadata itself
+	_, err = writer.Write(raw)
+	if err != nil {
+		log.Error("Failed to write snapshot metadata")
+		return err
+	}
+
+	meta := &core.SnapshotMetadata{}
+	rlp.DecodeBytes(raw, meta)
+
+	return nil
+}
+
 func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
 	height := itobs(sv.Height())
 	err := writeRecord(writer, nil, nil, []byte{core.SVStart}, height)
@@ -184,31 +209,6 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 		panic(err)
 	}
 	writer.Flush()
-}
-
-func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(*metadata)
-	if err != nil {
-		log.Error("Failed to encode snapshot metadata")
-		return err
-	}
-	// write length first
-	_, err = writer.Write(itobs(uint64(len(raw))))
-	if err != nil {
-		log.Error("Failed to write snapshot metadata length")
-		return err
-	}
-	// write metadata itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		log.Error("Failed to write snapshot metadata")
-		return err
-	}
-
-	meta := &core.SnapshotMetadata{}
-	rlp.DecodeBytes(raw, meta)
-
-	return nil
 }
 
 func writeRecord(writer *bufio.Writer, k, v, b, h common.Bytes) error {

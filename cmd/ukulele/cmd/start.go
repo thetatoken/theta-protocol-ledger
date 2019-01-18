@@ -51,16 +51,11 @@ func runStart(cmd *cobra.Command, args []string) {
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	var root *core.Block
-	var validatorSet *core.ValidatorSet
 	snapshot, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err == nil {
-		validatorSet = &core.ValidatorSet{}
-		// validatorSet.SetValidators(snapshot.Validators)
 		root = &core.Block{BlockHeader: &snapshot.Blockheader}
 	} else {
 		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
-		validators := checkpoint.Validators
-		validatorSet = consensus.NewTestValidatorSet(validators)
 		root = checkpoint.FirstBlock
 		consensus.LoadCheckpointLedgerState(checkpoint, db)
 	}
@@ -74,10 +69,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	n := node.NewNode(params)
 	n.Start(context.Background())
-
-	// if netsync.ValidateSnapshot(snapshot, db) {
-
-	// }
 
 	n.Wait()
 }

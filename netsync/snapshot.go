@@ -134,7 +134,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 			return nil, fmt.Errorf("Storeview missing for block %v", blockTrio.First.StateHash)
 		}
 	}
-	if len(svHashes) != 0 { //TODO: should be 1 for the lastFinalizedBlock (not in height list)?
+	if len(svHashes) != 1 {
 		return nil, fmt.Errorf("Can't find matching state hash for storeview")
 	}
 
@@ -158,7 +158,7 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 			return false
 		}
 		if blockTrio.Second.HCC != blockTrio.First.Hash() || blockTrio.Third.HCC != blockTrio.Second.Hash() { //TODO: change of HCC struct
-			panic("Invalid block HCC for validator set changes")
+			return false
 		}
 
 		var block *core.BlockHeader
@@ -167,7 +167,7 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 		}
 		validatorSet = getValidatorSet(block, db)
 		// if block.HCC //TODO: check block.HCC.Votes
-		validateVotes(blockTrio.Second.BlockHeader, validatorSet, blockTrio.Third.BlockHeader.HCC.Votes)
+		// validateVotes(blockTrio.Second.BlockHeader, validatorSet, blockTrio.Third.BlockHeader.HCC.Votes)
 	}
 	block := metadata.BlocksWithValidatorChange[len(metadata.BlocksWithValidatorChange)-1].First.BlockHeader
 	validatorSet = getValidatorSet(block, db)
