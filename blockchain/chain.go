@@ -163,7 +163,7 @@ func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
 	return ret
 }
 
-func (ch *Chain) MarkBlockValid(hash common.Hash) {
+func (ch *Chain) MarkBlockValid(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -176,9 +176,10 @@ func (ch *Chain) MarkBlockValid(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
-func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
+func (ch *Chain) MarkBlockInvalid(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -191,9 +192,10 @@ func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
-func (ch *Chain) MarkBlockHasValidatorUpdate(hash common.Hash) {
+func (ch *Chain) MarkBlockHasValidatorUpdate(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -206,6 +208,7 @@ func (ch *Chain) MarkBlockHasValidatorUpdate(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
 func (ch *Chain) CommitBlock(hash common.Hash) {
