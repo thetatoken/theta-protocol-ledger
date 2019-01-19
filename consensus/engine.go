@@ -274,25 +274,24 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			return false
 		}
 	}
-	if !parent.HCC.IsEmpty() {
-		grandParent, err := e.chain.FindBlock(parent.HCC)
+	if !parent.Parent.IsEmpty() {
+		grandParent, err := e.chain.FindBlock(parent.Parent)
 		if err != nil {
 			e.logger.WithFields(log.Fields{
-				"error":      err,
-				"parent":     parent.Hash().Hex(),
-				"block":      block.Hash().Hex(),
-				"parent.HCC": parent.HCC.Hex(),
+				"error":         err,
+				"parent":        parent.Hash().Hex(),
+				"block":         block.Hash().Hex(),
+				"parent.Parent": parent.Parent.Hex(),
 			}).Warn("Failed to find grand parent block")
 			return false
 		}
 		if grandParent.HasValidatorUpdate {
-			if parent.Parent != parent.HCC {
+			if block.HCC != block.Parent {
 				e.logger.WithFields(log.Fields{
-					"parent":        block.Parent.Hex(),
-					"block":         block.Hash().Hex(),
-					"parent.HCC":    parent.HCC.Hex(),
-					"parent.Parent": parent.Parent.Hex(),
-				}).Warn("parent.HCC must equal to parent.Parent when parent.Parent contains validator changes.")
+					"parent":    block.Parent.Hex(),
+					"block":     block.Hash().Hex(),
+					"block.HCC": block.HCC.Hex(),
+				}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
 				return false
 			}
 		}
@@ -657,9 +656,6 @@ func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	extBlk := e.state.GetLastFinalizedBlock()
 	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
 	if proposer.ID().Hex() != id {
-		return false
-	}
-	if e.GetEpoch() == 0 {
 		return false
 	}
 	return true
