@@ -45,9 +45,9 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		mu:                 &sync.RWMutex{},
 		db:                 db,
 		chain:              chain,
-		highestCCBlock:     chain.Root.Hash(),
-		lastFinalizedBlock: chain.Root.Hash(),
-		epoch:              chain.Root.Epoch,
+		highestCCBlock:     chain.Root().Hash(),
+		lastFinalizedBlock: chain.Root().Hash(),
+		epoch:              chain.Root().Epoch,
 	}
 	err := s.Load()
 	if err != nil {
@@ -79,7 +79,7 @@ func (s *State) getSummary() *StateStub {
 		LastVote:     s.LastVote,
 		LastProposal: s.LastProposal,
 		Epoch:        s.epoch,
-		Root:         s.chain.Root.Hash(),
+		Root:         s.chain.Root().Hash(),
 	}
 	stub.HighestCCBlock = s.highestCCBlock
 	stub.LastFinalizedBlock = s.lastFinalizedBlock
@@ -98,10 +98,10 @@ func (s *State) Load() (err error) {
 	stub := &StateStub{}
 	s.db.Get(key, stub)
 
-	if stub.Root != s.chain.Root.Hash() {
+	if stub.Root != s.chain.Root().Hash() {
 		logger.WithFields(log.Fields{
 			"stub.Root":  stub.Root.Hex(),
-			"chain.Root": s.chain.Root.Hash,
+			"chain.Root": s.chain.Root().Hash().Hex(),
 		}).Warn("Ignoring previous consensus state since it is on a different root")
 		return
 	}

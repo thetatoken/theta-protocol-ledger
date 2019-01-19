@@ -44,7 +44,7 @@ func TestBlockchain(t *testing.T) {
 	b.Status = core.BlockStatusValid
 	chain.saveBlock(b)
 
-	AssertChainsEqual(assert, expected, expected.Root.Hash(), chain, chain.Root.Hash())
+	AssertChainsEqual(assert, expected, expected.Root().Hash(), chain, chain.Root().Hash())
 }
 
 func TestFinalizePreviousBlocks(t *testing.T) {

@@ -22,7 +22,7 @@ type Chain struct {
 	store store.Store
 
 	ChainID string
-	Root    *core.ExtendedBlock `rlp:"nil"`
+	root    common.Hash
 
 	mu *sync.RWMutex
 }
@@ -43,8 +43,14 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 		}
 	}
 	chain.FinalizePreviousBlocks(rootBlock.Hash())
-	chain.Root = rootBlock
+	chain.root = rootBlock.Hash()
 	return chain
+}
+
+// Root returns the root block
+func (ch *Chain) Root() *core.ExtendedBlock {
+	ret, _ := ch.FindBlock(ch.root)
+	return ret
 }
 
 // AddBlock adds a block to the chain and underlying store.
