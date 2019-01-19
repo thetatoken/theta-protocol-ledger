@@ -125,6 +125,18 @@ func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
 
 // Validate checks the header is legitimate.
 func (h *BlockHeader) Validate() result.Result {
+	if h.ChainID == "" {
+		return result.Error("Missing Chain ID")
+	}
+	if h.Parent.IsEmpty() {
+		return result.Error("Parent is empty")
+	}
+	if h.HCC.IsEmpty() {
+		return result.Error("HCC is empty")
+	}
+	if h.Timestamp == nil {
+		return result.Error("Timestamp is missing")
+	}
 	if h.Proposer.IsEmpty() {
 		return result.Error("Proposer is not specified")
 	}
