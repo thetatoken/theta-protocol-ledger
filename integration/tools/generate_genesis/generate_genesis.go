@@ -22,18 +22,24 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
-// Example: generate_genesis -erc20snapshot=./theta_erc20_snapshot.json -stake_deposit=./stake_deposit.json -genesis=../testnet/node2/genesis
+//
+// Example:
+// cd $UKULELE/integration/privatenet/node
+// generate_genesis -chainID=private_net_001 -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
+//
 func main() {
+	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
 	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
 	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
 	genesisCheckpointfilePathPtr := flag.String("genesis", "./genesis", "the genesis checkpoint")
 	flag.Parse()
 
+	chainID := *chainIDPtr
 	erc20SnapshotJSONFilePath := *erc20SnapshotJSONFilePathPtr
 	stakeDepositFilePath := *stakeDepositFilePathPtr
 	genesisCheckpointfilePath := *genesisCheckpointfilePathPtr
 
-	writeGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisCheckpointfilePath)
+	writeGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisCheckpointfilePath)
 }
 
 type StakeDeposit struct {
@@ -43,8 +49,8 @@ type StakeDeposit struct {
 }
 
 // writeGenesisCheckpoint writes genesis checkpoint to file system.
-func writeGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFPath, genesisCheckpointfilePath string) error {
-	genesis, err := generateGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFPath)
+func writeGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath, genesisCheckpointfilePath string) error {
+	genesis, err := generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath)
 	if err != nil {
 		return err
 	}
@@ -60,7 +66,7 @@ func writeGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFPath, genesi
 }
 
 // generateGenesisCheckpoint generates the genesis checkpoint.
-func generateGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
+func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
 	genesis := &core.Checkpoint{}
 
 	initGammaToThetaRatio := new(big.Int).SetUint64(5)
@@ -161,6 +167,7 @@ func generateGenesisCheckpoint(erc20SnapshotJSONFilePath, stakeDepositFilePath s
 	stateHash := s.Hash()
 
 	firstBlock := core.NewBlock()
+	firstBlock.ChainID = chainID
 	firstBlock.Height = genesisHeight
 	firstBlock.Epoch = 0
 	firstBlock.Parent = common.Hash{}

@@ -154,7 +154,6 @@ type GetBlockResultInner struct {
 type TxType byte
 
 const (
-	_              = iota
 	TxTypeCoinbase = byte(iota)
 	TxTypeSlash
 	TxTypeSend
