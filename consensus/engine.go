@@ -261,7 +261,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		e.logger.WithFields(log.Fields{
 			"block.HCC": block.HCC.BlockHash.Hex(),
 			"block":     block.Hash().Hex(),
-		}).Warn("Invalid HCC")
+		}).Warn("HCC must be ancestor")
 		return false
 	}
 
@@ -269,7 +269,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		e.logger.WithFields(log.Fields{
 			"parent":    block.Parent.Hex(),
 			"block":     block.Hash().Hex(),
-			"block.HCC": block.HCC,
+			"block.HCC": block.HCC.String(),
 		}).Warn("Invalid HCC")
 		return false
 	}

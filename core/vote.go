@@ -41,13 +41,13 @@ func (cc *CommitCertificate) Copy() *CommitCertificate {
 }
 
 func (cc *CommitCertificate) String() string {
-	return fmt.Sprintf("CC{block: %v, votes: %v}", cc.BlockHash, cc.Votes)
+	return fmt.Sprintf("CC{BlockHash: %v, Votes: %v}", cc.BlockHash.Hex(), cc.Votes)
 }
 
 // IsValid checks if a CommitCertificate is in valid format. Note that we allow
 // CommitCertificate with nil voteset in block header.
 func (cc *CommitCertificate) IsValid(validators *ValidatorSet) bool {
-	if cc.Votes == nil {
+	if cc.Votes == nil || cc.Votes.IsEmpty() {
 		return true
 	}
 	return cc.IsProven(validators)
