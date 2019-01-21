@@ -181,7 +181,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b1.Height = b0.Height + 1
 	b1.Epoch = 1
 	b1.Parent = b0.Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 
 	txFee := getMinimumTxFee()
 	depositSourcePrivAcc := srcPrivAccs[4]
@@ -217,7 +217,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
 	b2.StateHash = es.state.Commit()
-	b2.HCC = b2.Parent
+	b2.HCC.BlockHash = b2.Parent
 	es.addBlock(b2)
 
 	b3 := core.NewBlock()
@@ -225,7 +225,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b3.Height = b2.Height + 1
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
-	b3.HCC = b3.Parent
+	b3.HCC.BlockHash = b3.Parent
 	b3.StateHash = es.state.Commit()
 	es.addBlock(b3)
 
@@ -244,7 +244,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b4.Height = b3.Height + 1
 	b4.Epoch = 4
 	b4.Parent = b3.Hash()
-	b4.HCC = b4.Parent
+	b4.HCC.BlockHash = b4.Parent
 
 	widthrawStakeTx := &types.WithdrawStakeTx{
 		Fee: types.NewCoins(0, txFee),
@@ -271,7 +271,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b5.Height = b4.Height + 1
 	b5.Epoch = 5
 	b5.Parent = b4.Hash()
-	b5.HCC = b5.Parent
+	b5.HCC.BlockHash = b5.Parent
 	b5.StateHash = es.state.Commit()
 
 	es.addBlock(b5)
@@ -281,7 +281,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	b6.Height = b5.Height + 1
 	b6.Epoch = 6
 	b6.Parent = b5.Hash()
-	b6.HCC = b6.Parent
+	b6.HCC.BlockHash = b6.Parent
 	b6.StateHash = es.state.Commit()
 	es.addBlock(b6)
 

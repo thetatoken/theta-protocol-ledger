@@ -70,7 +70,7 @@ type BlockHeader struct {
 	Epoch       uint64
 	Height      uint64
 	Parent      common.Hash
-	HCC         common.Hash
+	HCC         CommitCertificate
 	TxHash      common.Hash
 	ReceiptHash common.Hash
 	Bloom       Bloom
@@ -148,7 +148,7 @@ func (h *BlockHeader) Validate() result.Result {
 	if h.Parent.IsEmpty() {
 		return result.Error("Parent is empty")
 	}
-	if h.HCC.IsEmpty() {
+	if h.HCC.BlockHash.IsEmpty() {
 		return result.Error("HCC is empty")
 	}
 	if h.Timestamp == nil {

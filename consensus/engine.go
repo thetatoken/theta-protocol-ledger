@@ -255,9 +255,9 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
-	if !e.chain.IsDescendant(block.HCC, block.Hash()) {
+	if !e.chain.IsDescendant(block.HCC.BlockHash, block.Hash()) {
 		e.logger.WithFields(log.Fields{
-			"block.HCC": block.HCC.Hex(),
+			"block.HCC": block.HCC.BlockHash.Hex(),
 			"block":     block.Hash().Hex(),
 		}).Fatal("Invalid HCC")
 		return false
@@ -265,11 +265,11 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 
 	// Blocks with validator changes must be followed by two direct confirmation blocks.
 	if parent.HasValidatorUpdate {
-		if block.HCC != block.Parent {
+		if block.HCC.BlockHash != block.Parent {
 			e.logger.WithFields(log.Fields{
 				"parent":    block.Parent.Hex(),
 				"block":     block.Hash().Hex(),
-				"block.HCC": block.HCC.Hex(),
+				"block.HCC": block.HCC.BlockHash.Hex(),
 			}).Warn("block.HCC must equal to parent when parent contains validator changes.")
 			return false
 		}
@@ -286,11 +286,11 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			return false
 		}
 		if grandParent.HasValidatorUpdate {
-			if block.HCC != block.Parent {
+			if block.HCC.BlockHash != block.Parent {
 				e.logger.WithFields(log.Fields{
 					"parent":    block.Parent.Hex(),
 					"block":     block.Hash().Hex(),
-					"block.HCC": block.HCC.Hex(),
+					"block.HCC": block.HCC.BlockHash.Hex(),
 				}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
 				return false
 			}
@@ -400,10 +400,10 @@ func (e *ConsensusEngine) vote() {
 			"tip.Height":      tip.Height,
 		}).Debug("Repeating vote at height")
 		shouldRepeatVote = true
-	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC != localHCC {
+	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC.BlockHash != localHCC {
 		// HCC in candidate block must equal local highest CC.
 		e.logger.WithFields(log.Fields{
-			"tip.HCC":   tip.HCC.Hex(),
+			"tip.HCC":   tip.HCC.BlockHash.Hex(),
 			"local.HCC": localHCC.Hex(),
 		}).Debug("Repeating vote due to mismatched HCC")
 		shouldRepeatVote = true
@@ -680,7 +680,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Height = tip.Height + 1
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
-	block.HCC = e.state.GetHighestCCBlock().Hash()
+	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
 
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()

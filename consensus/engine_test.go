@@ -52,7 +52,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -65,7 +65,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Epoch = 2
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -77,7 +77,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Height = 1
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -90,7 +90,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 3
 	invalidBlock.Parent = common.Hash{}
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -103,7 +103,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 4
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = common.Hash{}
+	invalidBlock.HCC.BlockHash = common.Hash{}
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -116,7 +116,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 5
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = common.Address{}
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -129,7 +129,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 6
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 
@@ -144,7 +144,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 6
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC = invalidBlock.Parent
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	_, err = chain.AddBlock(invalidBlock)
@@ -171,7 +171,7 @@ func TestValidParent(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -183,7 +183,7 @@ func TestValidParent(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC = b2.Parent
+	b2.HCC.BlockHash = b2.Parent
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -203,7 +203,7 @@ func TestValidParent(t *testing.T) {
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
 	// b3's HCC is linked to b1
-	b3.HCC = b1.Hash()
+	b3.HCC.BlockHash = b1.Hash()
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -232,7 +232,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -244,7 +244,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC = b2.Parent
+	b2.HCC.BlockHash = b2.Parent
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -261,7 +261,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
 	// b3's HCC is linked to b1
-	b3.HCC = b1.Hash()
+	b3.HCC.BlockHash = b1.Hash()
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -279,7 +279,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 4
 	b3.Parent = b2.Hash()
-	b3.HCC = b2.Hash()
+	b3.HCC.BlockHash = b2.Hash()
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -307,7 +307,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -320,7 +320,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC = b2.Parent
+	b2.HCC.BlockHash = b2.Parent
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -335,7 +335,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
-	b3.HCC = b2.Hash()
+	b3.HCC.BlockHash = b2.Hash()
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -349,7 +349,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 5
 	b4.Parent = b3.Hash()
-	b4.HCC = b3.Hash()
+	b4.HCC.BlockHash = b3.Hash()
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -363,7 +363,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 6
 	b4.Parent = b3.Hash()
-	b4.HCC = b2.Hash()
+	b4.HCC.BlockHash = b2.Hash()
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -377,7 +377,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 7
 	b4.Parent = b3.Hash()
-	b4.HCC = b1.Hash()
+	b4.HCC.BlockHash = b1.Hash()
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -405,7 +405,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC = b1.Parent
+	b1.HCC.BlockHash = b1.Parent
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -418,7 +418,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC = b2.Parent
+	b2.HCC.BlockHash = b2.Parent
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -433,7 +433,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
-	b3.HCC = b2.Hash()
+	b3.HCC.BlockHash = b2.Hash()
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -446,7 +446,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 5
 	b4.Parent = b3.Hash()
-	b4.HCC = b3.Hash()
+	b4.HCC.BlockHash = b3.Hash()
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -460,7 +460,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Height = 5
 	b5.Epoch = 6
 	b5.Parent = b4.Hash()
-	b5.HCC = b4.Hash()
+	b5.HCC.BlockHash = b4.Hash()
 	b5.Proposer = privKey.PublicKey().Address()
 	b5.Timestamp = big.NewInt(time.Now().Unix())
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())
@@ -474,7 +474,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Height = 5
 	b5.Epoch = 7
 	b5.Parent = b4.Hash()
-	b5.HCC = b3.Hash()
+	b5.HCC.BlockHash = b3.Hash()
 	b5.Proposer = privKey.PublicKey().Address()
 	b5.Timestamp = big.NewInt(time.Now().Unix())
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())

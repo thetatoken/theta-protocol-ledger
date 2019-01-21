@@ -60,7 +60,7 @@ func CreateTestBlock(name string, parent string) *Block {
 
 	epoch++
 	block.Epoch = epoch
-	block.HCC = block.Parent
+	block.HCC.BlockHash = block.Parent
 	block.Proposer = DefaultSigner.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.Signature, _ = DefaultSigner.Sign(block.SignBytes())
