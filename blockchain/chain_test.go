@@ -44,22 +44,7 @@ func TestBlockchain(t *testing.T) {
 	b.Status = core.BlockStatusValid
 	chain.saveBlock(b)
 
-	AssertChainsEqual(assert, expected, expected.Root.Hash(), chain, chain.Root.Hash())
-}
-
-func TestBlockchainDeepestDescendant(t *testing.T) {
-	assert := assert.New(t)
-	core.ResetTestBlocks()
-	ch := CreateTestChainByBlocks([]string{
-		"a1", "a0",
-		"a2", "a1",
-		"b2", "a1",
-		"b3", "b2",
-		"c1", "a0"})
-
-	ret, depth := ch.FindDeepestDescendant(ch.Root.Hash())
-	assert.Equal(core.GetTestBlock("b3").Hash(), ret.Hash())
-	assert.Equal(3, depth)
+	AssertChainsEqual(assert, expected, expected.Root().Hash(), chain, chain.Root().Hash())
 }
 
 func TestFinalizePreviousBlocks(t *testing.T) {

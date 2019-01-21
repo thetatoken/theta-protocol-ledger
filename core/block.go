@@ -70,7 +70,7 @@ type BlockHeader struct {
 	Epoch       uint64
 	Height      uint64
 	Parent      common.Hash
-	HCC         common.Hash
+	HCC         CommitCertificate
 	TxHash      common.Hash
 	ReceiptHash common.Hash
 	Bloom       Bloom
@@ -88,10 +88,27 @@ func (h *BlockHeader) Hash() common.Hash {
 		return common.Hash{}
 	}
 	if h.hash.IsEmpty() {
-		raw, _ := rlp.EncodeToBytes(h)
-		h.hash = crypto.Keccak256Hash(raw)
+		h.hash = h.calculateHash()
 	}
 	return h.hash
+}
+
+// UpdateHash recalculate hash of header.
+func (h *BlockHeader) UpdateHash() common.Hash {
+	if h == nil {
+		return common.Hash{}
+	}
+	h.hash = h.calculateHash()
+	return h.hash
+}
+
+func (h *BlockHeader) calculateHash() common.Hash {
+	raw, _ := rlp.EncodeToBytes(h)
+	return crypto.Keccak256Hash(raw)
+}
+
+func (h *BlockHeader) CalculateHash() common.Hash {
+	return h.calculateHash()
 }
 
 func (h *BlockHeader) String() string {
@@ -125,6 +142,15 @@ func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
 
 // Validate checks the header is legitimate.
 func (h *BlockHeader) Validate() result.Result {
+	if h.Parent.IsEmpty() {
+		return result.Error("Parent is empty")
+	}
+	if h.HCC.BlockHash.IsEmpty() {
+		return result.Error("HCC is empty")
+	}
+	if h.Timestamp == nil {
+		return result.Error("Timestamp is missing")
+	}
 	if h.Proposer.IsEmpty() {
 		return result.Error("Proposer is not specified")
 	}
@@ -153,11 +179,11 @@ Block status transitions:
 */
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
+	BlockStatusInvalid
+	BlockStatusValid
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
-	BlockStatusInvalid
-	BlockStatusValid
 )
 
 func (bs BlockStatus) IsPending() bool {
@@ -188,9 +214,9 @@ func (bs BlockStatus) IsValid() bool {
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
-	Children          []common.Hash `json:"children"`
-	Status            BlockStatus   `json:"status"`
-	NeedDirectConfirm bool
+	Children           []common.Hash `json:"children"`
+	Status             BlockStatus   `json:"status"`
+	HasValidatorUpdate bool
 }
 
 // Hash of header.

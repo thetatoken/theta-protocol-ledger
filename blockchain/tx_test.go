@@ -20,6 +20,7 @@ func TestTxIndex(t *testing.T) {
 	block1 := core.CreateTestBlock("b1", "")
 	block1.Height = 10
 	block1.Txs = []common.Bytes{tx1, tx2, tx3}
+	block1.UpdateHash()
 
 	chain := CreateTestChain()
 	chain.AddBlock(block1)
@@ -47,6 +48,9 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	tx2 := common.Bytes("tx2")
 	tx3 := common.Bytes("tx3")
 
+	core.ResetTestBlocks()
+	chain := CreateTestChain()
+
 	block1 := core.CreateTestBlock("b1", "")
 	block1.Height = 10
 	block1.Txs = []common.Bytes{tx1, tx2}
@@ -55,7 +59,6 @@ func TestTxIndexDuplicateTx(t *testing.T) {
 	block2.Height = 20
 	block2.Txs = []common.Bytes{tx2, tx3}
 
-	chain := CreateTestChain()
 	_, err := chain.AddBlock(block1)
 	require.Nil(err)
 

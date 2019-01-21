@@ -25,6 +25,14 @@ func TestBlockHash(t *testing.T) {
 			},
 		},
 	}
-	assert.Equal("0xedb805da60596eba0d826be18ab375eec497ed6b59d4f17f7b9f88f434e1edbf", eb.Hash().Hex())
+	assert.Equal("0x87a331c1e807476de260f2dc2e4d531dc42500764587605c7574179bc4cbd5bc", eb.Hash().Hex())
+}
 
+func TestCreateTestBlock(t *testing.T) {
+	assert := assert.New(t)
+
+	b11 := CreateTestBlock("B1", "")
+	b12 := CreateTestBlock("b1", "")
+
+	assert.Equal(b11.Hash(), b12.Hash())
 }

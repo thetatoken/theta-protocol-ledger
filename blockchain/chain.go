@@ -22,7 +22,7 @@ type Chain struct {
 	store store.Store
 
 	ChainID string
-	Root    *core.ExtendedBlock `rlp:"nil"`
+	root    common.Hash
 
 	mu *sync.RWMutex
 }
@@ -43,8 +43,14 @@ func NewChain(chainID string, store store.Store, root *core.Block) *Chain {
 		}
 	}
 	chain.FinalizePreviousBlocks(rootBlock.Hash())
-	chain.Root = rootBlock
+	chain.root = rootBlock.Hash()
 	return chain
+}
+
+// Root returns the root block
+func (ch *Chain) Root() *core.ExtendedBlock {
+	ret, _ := ch.FindBlock(ch.root)
+	return ret
 }
 
 // AddBlock adds a block to the chain and underlying store.
@@ -66,8 +72,15 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 	if !block.Parent.IsEmpty() {
 		parentBlock, err := ch.findBlock(block.Parent)
-		if err == nil {
-			parentBlock.Children = append(parentBlock.Children, hash)
+		if err == store.ErrKeyNotFound {
+			// Parent block is not known yet, abandon block.
+			return nil, errors.Errorf("Unknown parent block: %v", block.Parent.Hex())
+		}
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to find parent block")
+		}
+
+		parentBlock.Children = append(parentBlock.Children, hash)
 
 			err = ch.saveBlock(parentBlock)
 			if err != nil {
@@ -151,7 +164,7 @@ func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
 	return ret
 }
 
-func (ch *Chain) MarkBlockValid(hash common.Hash) {
+func (ch *Chain) MarkBlockValid(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -164,9 +177,10 @@ func (ch *Chain) MarkBlockValid(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
-func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
+func (ch *Chain) MarkBlockInvalid(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -179,9 +193,10 @@ func (ch *Chain) MarkBlockInvalid(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
-func (ch *Chain) MarkBlockNeedDirectConfirm(hash common.Hash) {
+func (ch *Chain) MarkBlockHasValidatorUpdate(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -189,11 +204,12 @@ func (ch *Chain) MarkBlockNeedDirectConfirm(hash common.Hash) {
 	if err != nil {
 		logger.Panic(err)
 	}
-	block.NeedDirectConfirm = true
+	block.HasValidatorUpdate = true
 	err = ch.saveBlock(block)
 	if err != nil {
 		logger.Panic(err)
 	}
+	return block
 }
 
 func (ch *Chain) CommitBlock(hash common.Hash) {
@@ -229,31 +245,6 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 		}
 		hash = block.Parent
 	}
-}
-
-// FindDeepestDescendant finds the deepest descendant of given block.
-func (ch *Chain) FindDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
-	ch.mu.RLock()
-	defer ch.mu.RUnlock()
-	return ch.findDeepestDescendant(hash)
-}
-
-// findDeepestDescendant is the non-locking version of FindDeepestDescendant.
-func (ch *Chain) findDeepestDescendant(hash common.Hash) (n *core.ExtendedBlock, depth int) {
-	// TODO: replace recursive implementation with stack-based implementation.
-	n, err := ch.findBlock(hash)
-	if err != nil || !n.Status.IsValid() {
-		return nil, -1
-	}
-	depth = 0
-	for _, child := range n.Children {
-		ret, retDepth := ch.findDeepestDescendant(child)
-		if retDepth+1 > depth {
-			n = ret
-			depth = retDepth + 1
-		}
-	}
-	return
 }
 
 func (ch *Chain) IsOrphan(block *core.Block) bool {

@@ -227,6 +227,8 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+	validators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
 			"parent":        block.Parent.Hex(),
@@ -255,12 +257,63 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
-	if !e.chain.IsDescendant(block.HCC, block.Hash()) {
+	if !e.chain.IsDescendant(block.HCC.BlockHash, block.Hash()) {
 		e.logger.WithFields(log.Fields{
-			"block.HCC": block.HCC.Hex(),
+			"block.HCC": block.HCC.BlockHash.Hex(),
 			"block":     block.Hash().Hex(),
-		}).Fatal("Invalid HCC")
+		}).Warn("HCC must be ancestor")
 		return false
+	}
+
+	if !block.HCC.IsValid(validators) {
+		e.logger.WithFields(log.Fields{
+			"parent":    block.Parent.Hex(),
+			"block":     block.Hash().Hex(),
+			"block.HCC": block.HCC.String(),
+		}).Warn("Invalid HCC")
+		return false
+	}
+
+	// Blocks with validator changes must be followed by two direct confirmation blocks.
+	if parent.HasValidatorUpdate {
+		if block.HCC.BlockHash != block.Parent {
+			e.logger.WithFields(log.Fields{
+				"parent":    block.Parent.Hex(),
+				"block":     block.Hash().Hex(),
+				"block.HCC": block.HCC.BlockHash.Hex(),
+			}).Warn("block.HCC must equal to parent when parent contains validator changes.")
+			return false
+		}
+	}
+	if !parent.Parent.IsEmpty() {
+		grandParent, err := e.chain.FindBlock(parent.Parent)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"error":         err,
+				"parent":        parent.Hash().Hex(),
+				"block":         block.Hash().Hex(),
+				"parent.Parent": parent.Parent.Hex(),
+			}).Warn("Failed to find grand parent block")
+			return false
+		}
+		if grandParent.HasValidatorUpdate {
+			if block.HCC.BlockHash != block.Parent {
+				e.logger.WithFields(log.Fields{
+					"parent":    block.Parent.Hex(),
+					"block":     block.Hash().Hex(),
+					"block.HCC": block.HCC.BlockHash.Hex(),
+				}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
+				return false
+			}
+			if !block.HCC.IsProven(validators) {
+				e.logger.WithFields(log.Fields{
+					"parent":    block.Parent.Hex(),
+					"block":     block.Hash().Hex(),
+					"block.HCC": block.HCC,
+				}).Warn("block.HCC must contain valid voteset when block.Parent.Parent contains validator changes.")
+				return false
+			}
+		}
 	}
 
 	if res := block.Validate(); res.IsError() {
@@ -318,7 +371,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
 		hasValidatorUpdateBool := hasValidatorUpdate.(bool)
 		if hasValidatorUpdateBool {
-			e.chain.MarkBlockNeedDirectConfirm(block.Hash())
+			e.chain.MarkBlockHasValidatorUpdate(block.Hash())
 		}
 	}
 
@@ -353,7 +406,7 @@ func (e *ConsensusEngine) shouldVoteByID(id common.Address) bool {
 }
 
 func (e *ConsensusEngine) vote() {
-	tip := e.state.GetTip()
+	tip := e.GetTip()
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
@@ -365,10 +418,10 @@ func (e *ConsensusEngine) vote() {
 			"tip.Height":      tip.Height,
 		}).Debug("Repeating vote at height")
 		shouldRepeatVote = true
-	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC != localHCC {
+	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC.BlockHash != localHCC {
 		// HCC in candidate block must equal local highest CC.
 		e.logger.WithFields(log.Fields{
-			"tip.HCC":   tip.HCC.Hex(),
+			"tip.HCC":   tip.HCC.BlockHash.Hex(),
 			"local.HCC": localHCC.Hex(),
 		}).Debug("Repeating vote due to mismatched HCC")
 		shouldRepeatVote = true
@@ -508,10 +561,41 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 
 // GetTip return the block to be extended from.
 func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	hcc := e.state.GetHighestCCBlock()
+	candidate := hcc
 
-	return e.state.GetTip()
+	// DFS to find valid block with the greatest height.
+	stack := []*core.ExtendedBlock{candidate}
+	for len(stack) > 0 {
+		curr := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+
+		if !curr.Status.IsValid() {
+			continue
+		}
+		if curr.HasValidatorUpdate {
+			// A block with validator update is newer than local HCC. Proposing
+			// on this branch will violate the two direct confirmations rule for
+			// blocks with validator changes.
+			continue
+		}
+
+		if curr.Height > candidate.Height {
+			candidate = curr
+		}
+
+		for _, childHash := range curr.Children {
+			child, err := e.chain.FindBlock(childHash)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"err":       err,
+					"childHash": childHash,
+				}).Fatal("Failed to find child block")
+			}
+			stack = append(stack, child)
+		}
+	}
+	return candidate
 }
 
 // GetSummary returns a summary of consensus state.
@@ -592,9 +676,6 @@ func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	if proposer.ID().Hex() != id {
 		return false
 	}
-	if e.GetEpoch() == 0 {
-		return false
-	}
 	return true
 }
 
@@ -617,7 +698,18 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Height = tip.Height + 1
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
-	block.HCC = e.state.GetHighestCCBlock().Hash()
+	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
+
+	if !tip.Parent.IsEmpty() {
+		grandParent, err := e.chain.FindBlock(tip.Parent)
+		if err == nil && grandParent.HasValidatorUpdate {
+			votes, err := e.state.GetVoteSetByBlock(tip.Hash())
+			if err != nil {
+				e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
+			}
+			block.HCC.Votes = votes
+		}
+	}
 
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()

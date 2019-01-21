@@ -97,13 +97,13 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 		}
 
 		// Grandparent or root block.
-		if i == 0 || block.HCC.IsEmpty() {
+		if i == 0 || block.HCC.BlockHash.IsEmpty() {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
-		blockHash = block.HCC
+		blockHash = block.HCC.BlockHash
 	}
 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
@@ -215,7 +215,9 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 			ledger.resetState(currHeight, currStateRoot)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		if _, ok := tx.(*types.DepositStakeTx); ok {
+			hasValidatorUpdate = true
+		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
