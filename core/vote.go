@@ -44,9 +44,33 @@ func (cc *CommitCertificate) String() string {
 	return fmt.Sprintf("CC{block: %v, votes: %v}", cc.BlockHash, cc.Votes)
 }
 
-// IsValid checks if a CommitCertificate is valid.
-func (cc *CommitCertificate) IsValid() bool {
-	return cc.Votes.Size() > 0
+// IsValid checks if a CommitCertificate is in valid format. Note that we allow
+// CommitCertificate with nil voteset in block header.
+func (cc *CommitCertificate) IsValid(validators *ValidatorSet) bool {
+	if cc.Votes == nil {
+		return true
+	}
+	return cc.IsProven(validators)
+}
+
+// IsProven checks if a CommitCertificate contains supporting voteset.
+func (cc *CommitCertificate) IsProven(validators *ValidatorSet) bool {
+	if cc.Votes == nil || cc.Votes.IsEmpty() {
+		return false
+	}
+
+	filtered := cc.Votes.UniqueVoter()
+	if filtered.Size() != cc.Votes.Size() {
+		return false
+	}
+
+	for _, vote := range filtered.Votes() {
+		if vote.Block != cc.BlockHash {
+			return false
+		}
+	}
+
+	return validators.HasMajority(filtered)
 }
 
 // Vote represents a vote on a block by a validaor.
