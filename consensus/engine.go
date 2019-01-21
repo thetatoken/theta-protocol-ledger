@@ -700,6 +700,17 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
 
+	if !tip.Parent.IsEmpty() {
+		grandParent, err := e.chain.FindBlock(tip.Parent)
+		if err == nil && grandParent.HasValidatorUpdate {
+			votes, err := e.state.GetVoteSetByBlock(tip.Hash())
+			if err != nil {
+				e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
+			}
+			block.HCC.Votes = votes
+		}
+	}
+
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
 	if result.IsError() {
