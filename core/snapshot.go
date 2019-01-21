@@ -12,14 +12,12 @@ const (
 type SnapshotRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
-	B common.Bytes // boundary(start/end) record of sv
-	H common.Bytes // sv block height
 }
 
 type DirectlyFinalizedBlockTrio struct {
-	First  ExtendedBlock
-	Second ExtendedBlock
-	Third  ExtendedBlock
+	First  BlockHeader
+	Second BlockHeader
+	Third  BlockHeader
 }
 
 type SnapshotMetadata struct {

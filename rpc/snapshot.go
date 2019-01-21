@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"bufio"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"strconv"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/ukulele/store/treestore"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
@@ -19,7 +21,6 @@ import (
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/kvstore"
-	"github.com/thetatoken/ukulele/store/treestore"
 )
 
 const (
@@ -86,9 +87,9 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 					return fmt.Errorf("Can't find finalized child block")
 				}
 
-				if child.HCC != block.Hash() || grandChild.HCC != child.Hash() { //TODO: change of HCC struct
-					return fmt.Errorf("Invalid block HCC for validator set changes")
-				}
+				// if child.HCC != block.Hash() || grandChild.HCC != child.Hash() { //TODO: change of HCC struct
+				// 	return fmt.Errorf("Invalid block HCC for validator set changes")
+				// }
 
 				metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockTrio{First: *block, Second: child, Third: grandChild})
 				break
@@ -112,8 +113,8 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		storeView := state.NewStoreView(pair.First.Height, pair.First.StateHash, db)
 		writeStoreView(storeView, false, writer, db)
 	}
-
 	writeStoreView(sv, true, writer, db)
+
 	return
 }
 
@@ -168,17 +169,17 @@ func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error 
 
 func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
 	height := itobs(sv.Height())
-	err := writeRecord(writer, nil, nil, []byte{core.SVStart}, height)
+	err := writeRecord(writer, []byte{core.SVStart}, height)
 	if err != nil {
 		panic(err)
 	}
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err = writeRecord(writer, k, v, nil, nil)
+		err = writeRecord(writer, k, v)
 		if err != nil {
 			panic(err)
 		}
 		if needAccountStorage && strings.HasPrefix(k.String(), "ls/a/") {
-			err = writeRecord(writer, nil, nil, []byte{core.SVStart}, height)
+			err = writeRecord(writer, []byte{core.SVStart}, height)
 			if err != nil {
 				panic(err)
 			}
@@ -190,52 +191,55 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 			}
 			storage := treestore.NewTreeStore(account.Root, db)
 			storage.Traverse(nil, func(ak, av common.Bytes) bool {
-				err = writeRecord(writer, ak, av, nil, nil)
+				err = writeRecord(writer, ak, av)
 				if err != nil {
 					panic(err)
 				}
 				return true
 			})
-			err = writeRecord(writer, nil, nil, []byte{core.SVEnd}, height)
+			err = writeRecord(writer, []byte{core.SVEnd}, height)
 			if err != nil {
 				panic(err)
 			}
 		}
 		return true
 	})
-	err = writeRecord(writer, nil, nil, []byte{core.SVEnd}, height)
+	err = writeRecord(writer, []byte{core.SVEnd}, height)
 	if err != nil {
 		panic(err)
 	}
 	writer.Flush()
 }
 
-func writeRecord(writer *bufio.Writer, k, v, b, h common.Bytes) error {
-	raw, err := rlp.EncodeToBytes(core.SnapshotRecord{K: k, V: v, B: b, H: h})
+func writeRecord(writer *bufio.Writer, k, v common.Bytes) error {
+	record := core.SnapshotRecord{K: k, V: v}
+	raw, err := rlp.EncodeToBytes(record)
 	if err != nil {
-		log.Error("Failed to encode storage record")
-		return err
+		return fmt.Errorf("Failed to encode storage record, %v", err)
 	}
 	// write length first
 	_, err = writer.Write(itobs(uint64(len(raw))))
 	if err != nil {
-		log.Error("Failed to write storage record length")
-		return err
+		return fmt.Errorf("Failed to write storage record length, %v", err)
 	}
 	// write record itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		log.Error("Failed to write storage record")
-		return err
+		return fmt.Errorf("Failed to write storage record, %v", err)
+	}
+	err = writer.Flush()
+	if err != nil {
+		return fmt.Errorf("Failed to flush storage record, %v", err)
 	}
 	return nil
 }
 
 func itobs(val uint64) []byte {
 	arr := make([]byte, 8)
-	for i := 0; i < 8; i++ {
-		arr[i] = byte(val % 10)
-		val /= 10
-	}
+	binary.LittleEndian.PutUint64(arr, val)
+	// for i := 0; i < 8; i++ {
+	// 	arr[i] = byte(val % 10)
+	// 	val /= 10
+	// }
 	return arr
 }

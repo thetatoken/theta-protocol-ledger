@@ -1,12 +1,11 @@
 package netsync
 
 import (
-	"bufio"
 	"bytes"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"io"
-	"math"
 	"math/big"
 	"os"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
 	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 var (
@@ -58,9 +58,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		return nil, err
 	}
 	defer file.Close()
-	reader := bufio.NewReader(file)
 
-	metadata, err := readMetadata(reader)
+	metadata, err := readMetadata(file)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
@@ -71,7 +70,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	svHashes := make(map[common.Hash]bool)
 	svStack := make(SVStack, 0)
 	for {
-		record, err := readRecord(reader)
+		record, err := readRecord(file)
 		if err != nil {
 			if err == io.EOF {
 				if svStack.peek() != nil {
@@ -82,31 +81,30 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 			return nil, fmt.Errorf("Failed to read snapshot record, %v", err)
 		}
 
-		if record.B != nil {
-			height := bstoi(record.H)
-			if record.B[0] == core.SVStart {
-				sv := state.NewStoreView(height, common.Hash{}, db)
-				svStack = svStack.push(sv)
-			} else {
-				svStack, sv = svStack.pop()
-				if sv == nil {
-					return nil, fmt.Errorf("Missing storeview to handle")
-				}
-				if height != sv.Height() {
-					return nil, fmt.Errorf("Storeview start and end heights don't match")
-				}
-				hash = sv.Save()
-
-				if svStack.peek() != nil && height == svStack.peek().Height() {
-					// it's a storeview for account storage, verify account
-					if bytes.Compare(account.Root.Bytes(), hash.Bytes()) != 0 {
-						return nil, fmt.Errorf("Account storage root doesn't match")
-					}
-				} else {
-					svHashes[hash] = true
-				}
-				account = nil
+		if bytes.Equal(record.K, []byte{core.SVStart}) {
+			height := bstoi(record.V)
+			sv := state.NewStoreView(height, common.Hash{}, db)
+			svStack = svStack.push(sv)
+		} else if bytes.Equal(record.K, []byte{core.SVEnd}) {
+			svStack, sv = svStack.pop()
+			if sv == nil {
+				return nil, fmt.Errorf("Missing storeview to handle")
 			}
+			height := bstoi(record.V)
+			if height != sv.Height() {
+				return nil, fmt.Errorf("Storeview start and end heights don't match")
+			}
+			hash = sv.Save()
+
+			if svStack.peek() != nil && height == svStack.peek().Height() {
+				// it's a storeview for account storage, verify account
+				if bytes.Compare(account.Root.Bytes(), hash.Bytes()) != 0 {
+					return nil, fmt.Errorf("Account storage root doesn't match")
+				}
+			} else {
+				svHashes[hash] = true
+			}
+			account = nil
 		} else {
 			sv := svStack.peek()
 			if sv == nil {
@@ -141,6 +139,13 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	if !validateSnapshot(metadata, hash, db) {
 		return nil, fmt.Errorf("Snapshot validation failed")
 	}
+
+	kvstore := kvstore.NewKVStore(db)
+	block := core.Block{BlockHeader: &metadata.Blockheader}
+	ext := core.ExtendedBlock{Block: &block}
+	blockHash := metadata.Blockheader.Hash()
+	kvstore.Put(blockHash[:], ext)
+
 	return metadata, nil
 }
 
@@ -215,43 +220,56 @@ func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, vot
 	return true
 }
 
-func readMetadata(reader *bufio.Reader) (*core.SnapshotMetadata, error) {
+func readMetadata(file *os.File) (*core.SnapshotMetadata, error) {
 	metadata := &core.SnapshotMetadata{}
 	sizeBytes := make([]byte, 8)
-	_, err := reader.Read(sizeBytes)
+	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {
 		return metadata, err
 	}
+	if n < 8 {
+		return nil, fmt.Errorf("Failed to read metadata length")
+	}
 	size := bstoi(sizeBytes)
 	metadataBytes := make([]byte, size)
-	_, err = reader.Read(metadataBytes)
+	n, err = io.ReadAtLeast(file, metadataBytes, int(size))
 	if err != nil {
 		return metadata, err
+	}
+	if uint64(n) < size {
+		return nil, fmt.Errorf("Failed to read metadata, %v < %v", n, size)
 	}
 	err = rlp.DecodeBytes(metadataBytes, metadata)
 	return metadata, err
 }
 
-func readRecord(reader *bufio.Reader) (*core.SnapshotRecord, error) {
+func readRecord(file *os.File) (*core.SnapshotRecord, error) {
 	record := &core.SnapshotRecord{}
 	sizeBytes := make([]byte, 8)
-	_, err := reader.Read(sizeBytes)
+	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {
-		return record, err
+		return nil, err
+	}
+	if n < 8 {
+		return nil, fmt.Errorf("Failed to read record length")
 	}
 	size := bstoi(sizeBytes)
 	recordBytes := make([]byte, size)
-	_, err = reader.Read(recordBytes)
+	n, err = io.ReadAtLeast(file, recordBytes, int(size))
 	if err != nil {
-		return record, err
+		return nil, err
+	}
+	if uint64(n) < size {
+		return nil, fmt.Errorf("Failed to read record, %v < %v", n, size)
 	}
 	err = rlp.DecodeBytes(recordBytes, record)
 	return record, err
 }
 
 func bstoi(arr []byte) (val uint64) {
-	for i := 0; i < 8; i++ {
-		val = val + uint64(arr[i])*uint64(math.Pow10(i))
-	}
+	// for i := 0; i < 8; i++ {
+	// 	val = val + uint64(arr[i])*uint64(math.Pow10(i))
+	// }
+	val = binary.LittleEndian.Uint64(arr)
 	return
 }
