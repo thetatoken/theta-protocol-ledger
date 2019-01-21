@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/common"
@@ -480,4 +481,50 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	_, err = chain.AddBlock(b5)
 	require.Nil(err)
 	require.True(ce.validateBlock(b5, eb4))
+}
+
+func TestTipSelection(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, _, _ := crypto.GenerateKeyPair()
+	validatorManager := MockValidatorManager{PrivKey: privKey}
+
+	core.ResetTestBlocks()
+
+	store := kvstore.NewKVStore(backend.NewMemDatabase())
+	root := core.CreateTestBlock("root", "")
+	chain := blockchain.NewChain("testchain", store, root)
+
+	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+
+	a1 := core.CreateTestBlock("a1", "root")
+	chain.AddBlock(a1)
+
+	a2 := core.CreateTestBlock("a2", "a1")
+	chain.AddBlock(a2)
+
+	b1 := core.CreateTestBlock("b1", "root")
+	chain.AddBlock(b1)
+
+	b2 := core.CreateTestBlock("b2", "b1")
+	chain.AddBlock(b2)
+
+	b3 := core.CreateTestBlock("b3", "b2")
+	chain.AddBlock(b3)
+
+	tip := ce.GetTip()
+	assert.Equal(root.Hash(), tip.Hash(), "should not select invalid blocks")
+
+	chain.MarkBlockValid(a1.Hash())
+	chain.MarkBlockValid(a2.Hash())
+	chain.MarkBlockValid(b1.Hash())
+	chain.MarkBlockValid(b2.Hash())
+	chain.MarkBlockValid(b3.Hash())
+
+	tip = ce.GetTip()
+	assert.Equal(b3.Hash(), tip.Hash(), "should select longest branch")
+
+	chain.MarkBlockHasValidatorUpdate(b2.Hash())
+	tip = ce.GetTip()
+	assert.Equal(a2.Hash(), tip.Hash(), "should not select blocks with validator update that are higher than local HCC")
 }
