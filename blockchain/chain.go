@@ -82,10 +82,9 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 
 		parentBlock.Children = append(parentBlock.Children, hash)
 
-			err = ch.saveBlock(parentBlock)
-			if err != nil {
-				log.Panic(err)
-			}
+		err = ch.saveBlock(parentBlock)
+		if err != nil {
+			log.Panic(err)
 		}
 	}
 
