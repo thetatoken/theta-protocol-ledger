@@ -343,7 +343,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	require.Nil(err)
 	eb3 := chain.MarkBlockValid(b3.Hash())
 
-	// Valid grand child.
+	// No votes in grand child.
 	b4 := core.NewBlock()
 	b4.ChainID = chain.ChainID
 	b4.Height = 4
@@ -355,7 +355,23 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.True(ce.validateBlock(b4, eb3), "HCC is valid")
+	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
+
+	// Valid grand child.
+	b4 = core.NewBlock()
+	b4.ChainID = chain.ChainID
+	b4.Height = 4
+	b4.Epoch = 5
+	b4.Parent = b3.Hash()
+	b4.HCC.BlockHash = b3.Hash()
+	b4.HCC.Votes = core.NewVoteSet()
+	b4.HCC.Votes.AddVote(core.Vote{ID: privKey.PublicKey().Address()})
+	b4.Proposer = privKey.PublicKey().Address()
+	b4.Timestamp = big.NewInt(time.Now().Unix())
+	b4.Signature, _ = privKey.Sign(b4.SignBytes())
+	_, err = chain.AddBlock(b4)
+	require.Nil(err)
+	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
 
 	// Invalid grand child: HCC link to b2.
 	b4 = core.NewBlock()

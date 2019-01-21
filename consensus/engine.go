@@ -227,6 +227,8 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+	validators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
 			"parent":        block.Parent.Hex(),
@@ -259,7 +261,16 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		e.logger.WithFields(log.Fields{
 			"block.HCC": block.HCC.BlockHash.Hex(),
 			"block":     block.Hash().Hex(),
-		}).Fatal("Invalid HCC")
+		}).Warn("Invalid HCC")
+		return false
+	}
+
+	if !block.HCC.IsValid(validators) {
+		e.logger.WithFields(log.Fields{
+			"parent":    block.Parent.Hex(),
+			"block":     block.Hash().Hex(),
+			"block.HCC": block.HCC,
+		}).Warn("Invalid HCC")
 		return false
 	}
 
@@ -294,8 +305,15 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
 				return false
 			}
+			if !block.HCC.IsProven(validators) {
+				e.logger.WithFields(log.Fields{
+					"parent":    block.Parent.Hex(),
+					"block":     block.Hash().Hex(),
+					"block.HCC": block.HCC,
+				}).Warn("block.HCC must contain valid voteset when block.Parent.Parent contains validator changes.")
+				return false
+			}
 		}
-
 	}
 
 	if res := block.Validate(); res.IsError() {
