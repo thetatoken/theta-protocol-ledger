@@ -74,7 +74,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		parentBlock, err := ch.findBlock(block.Parent)
 		if err == store.ErrKeyNotFound {
 			// Parent block is not known yet, abandon block.
-			return nil, errors.Errorf("Unknown parent block: %s", block.Parent)
+			return nil, errors.Errorf("Unknown parent block: %v", block.Parent.Hex())
 		}
 		if err != nil {
 			return nil, errors.Wrap(err, "Failed to find parent block")

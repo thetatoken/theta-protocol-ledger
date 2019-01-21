@@ -11,9 +11,9 @@ import (
 func TestVoteIndex(t *testing.T) {
 	assert := assert.New(t)
 
+	chain := CreateTestChain()
 	block1 := core.CreateTestBlock("b1", "")
 	block1.Height = 10
-	chain := CreateTestChain()
 	chain.AddBlock(block1)
 	b1Hash := core.GetTestBlock("b1").Hash()
 

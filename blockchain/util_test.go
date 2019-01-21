@@ -6,10 +6,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/ukulele/core"
 )
 
 func TestChainUtil(t *testing.T) {
 	assert := assert.New(t)
+
+	core.ResetTestBlocks()
 
 	c1 := CreateTestChainByBlocks([]string{})
 	c2 := CreateTestChainByBlocks([]string{})

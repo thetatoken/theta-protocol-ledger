@@ -14,9 +14,6 @@ import (
 func CreateTestChain() *Chain {
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
 	root := core.CreateTestBlock("a0", "")
-	root.ChainID = "testchain"
-	root.Epoch = 0
-
 	chain := NewChain("testchain", store, root)
 	return chain
 }

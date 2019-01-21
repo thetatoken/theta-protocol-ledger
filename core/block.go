@@ -88,10 +88,27 @@ func (h *BlockHeader) Hash() common.Hash {
 		return common.Hash{}
 	}
 	if h.hash.IsEmpty() {
-		raw, _ := rlp.EncodeToBytes(h)
-		h.hash = crypto.Keccak256Hash(raw)
+		h.hash = h.calculateHash()
 	}
 	return h.hash
+}
+
+// UpdateHash recalculate hash of header.
+func (h *BlockHeader) UpdateHash() common.Hash {
+	if h == nil {
+		return common.Hash{}
+	}
+	h.hash = h.calculateHash()
+	return h.hash
+}
+
+func (h *BlockHeader) calculateHash() common.Hash {
+	raw, _ := rlp.EncodeToBytes(h)
+	return crypto.Keccak256Hash(raw)
+}
+
+func (h *BlockHeader) CalculateHash() common.Hash {
+	return h.calculateHash()
 }
 
 func (h *BlockHeader) String() string {
