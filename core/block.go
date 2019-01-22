@@ -179,8 +179,8 @@ Block status transitions:
 */
 const (
 	BlockStatusPending BlockStatus = BlockStatus(iota)
-	BlockStatusInvalid
 	BlockStatusValid
+	BlockStatusInvalid
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
