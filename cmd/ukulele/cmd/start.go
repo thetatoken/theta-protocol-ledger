@@ -51,9 +51,9 @@ func runStart(cmd *cobra.Command, args []string) {
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	var root *core.Block
-	snapshot, err := netsync.LoadSnapshot(snapshotPath, db)
+	snapshotBlockHeader, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err == nil {
-		root = &core.Block{BlockHeader: &snapshot.Blockheader}
+		root = &core.Block{BlockHeader: snapshotBlockHeader}
 	} else {
 		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
 		root = checkpoint.FirstBlock

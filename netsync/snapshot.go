@@ -52,7 +52,7 @@ func (s SVStack) peek() *state.StoreView {
 	return s[l-1]
 }
 
-func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata, error) {
+func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	blockHash = blockTrio.First.Hash()
 	kvstore.Put(blockHash[:], ext)
 
-	return metadata, nil
+	return &blockTrio.Second, nil
 }
 
 func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) bool {
