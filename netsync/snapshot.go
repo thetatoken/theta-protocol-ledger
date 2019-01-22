@@ -124,7 +124,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 		}
 	}
 
-	for _, blockTrio := range metadata.BlocksWithValidatorChange {
+	var blockTrio core.SnapshotBlockTrio
+	for _, blockTrio = range metadata.BlockTrios {
 		_, ok := svHashes[blockTrio.First.StateHash]
 		if ok {
 			delete(svHashes, blockTrio.First.StateHash)
@@ -141,42 +142,39 @@ func LoadSnapshot(filePath string, db database.Database) (*core.SnapshotMetadata
 	}
 
 	kvstore := kvstore.NewKVStore(db)
-	block := core.Block{BlockHeader: &metadata.Blockheader}
+	block := core.Block{BlockHeader: &blockTrio.First}
 	ext := core.ExtendedBlock{Block: &block}
-	blockHash := metadata.Blockheader.Hash()
+	blockHash := blockTrio.First.Hash()
+	kvstore.Put(blockHash[:], ext)
+	block = core.Block{BlockHeader: &blockTrio.Second}
+	ext = core.ExtendedBlock{Block: &block}
+	blockHash = blockTrio.First.Hash()
 	kvstore.Put(blockHash[:], ext)
 
 	return metadata, nil
 }
 
 func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) bool {
-	if bytes.Compare(metadata.Blockheader.StateHash.Bytes(), hash.Bytes()) != 0 {
+	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return false
 	}
 
 	var validatorSet *core.ValidatorSet
-	for i, blockTrio := range metadata.BlocksWithValidatorChange {
-		if !blockTrio.First.Status.IsDirectlyFinalized() || !blockTrio.Second.Status.IsFinalized() || !blockTrio.Third.Status.IsFinalized() {
+	for i, blockTrio := range metadata.BlockTrios {
+		if blockTrio.Second.Parent != blockTrio.First.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Hash() {
 			return false
 		}
-		if blockTrio.Second.Parent != blockTrio.First.Hash() || blockTrio.Third.Parent != blockTrio.Second.Hash() {
-			return false
-		}
-		if blockTrio.Second.HCC != blockTrio.First.Hash() || blockTrio.Third.HCC != blockTrio.Second.Hash() { //TODO: change of HCC struct
+		if blockTrio.Second.HCC.BlockHash != blockTrio.First.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Hash() {
 			return false
 		}
 
 		var block *core.BlockHeader
 		if i > 0 {
-			block = metadata.BlocksWithValidatorChange[i-1].First.BlockHeader
+			block = &metadata.BlockTrios[i-1].First
 		}
 		validatorSet = getValidatorSet(block, db)
-		// if block.HCC //TODO: check block.HCC.Votes
-		// validateVotes(blockTrio.Second.BlockHeader, validatorSet, blockTrio.Third.BlockHeader.HCC.Votes)
+		validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes)
 	}
-	block := metadata.BlocksWithValidatorChange[len(metadata.BlocksWithValidatorChange)-1].First.BlockHeader
-	validatorSet = getValidatorSet(block, db)
-	validateVotes(&metadata.Blockheader, validatorSet, metadata.Votes)
 
 	return true
 }
@@ -209,6 +207,7 @@ func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, vot
 		if !vote.Validate().IsOK() {
 			return false
 		}
+		// if vote.Block != block.Hash() {
 		if bytes.Compare(vote.Block.Bytes(), block.Hash().Bytes()) != 0 {
 			return false
 		}
@@ -243,8 +242,8 @@ func readMetadata(file *os.File) (*core.SnapshotMetadata, error) {
 	return metadata, err
 }
 
-func readRecord(file *os.File) (*core.SnapshotRecord, error) {
-	record := &core.SnapshotRecord{}
+func readRecord(file *os.File) (*core.SnapshotTrieRecord, error) {
+	record := &core.SnapshotTrieRecord{}
 	sizeBytes := make([]byte, 8)
 	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {

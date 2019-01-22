@@ -9,19 +9,21 @@ const (
 	SVEnd
 )
 
-type SnapshotRecord struct {
+type SnapshotTrieRecord struct {
 	K common.Bytes // key
 	V common.Bytes // value
 }
 
-type DirectlyFinalizedBlockTrio struct {
+type SnapshotBlock struct {
+	Header BlockHeader
+	Votes  []Vote
+}
+type SnapshotBlockTrio struct {
 	First  BlockHeader
 	Second BlockHeader
-	Third  BlockHeader
+	Third  SnapshotBlock
 }
 
 type SnapshotMetadata struct {
-	Blockheader               BlockHeader
-	Votes                     []Vote
-	BlocksWithValidatorChange []DirectlyFinalizedBlockTrio
+	BlockTrios []SnapshotBlockTrio
 }

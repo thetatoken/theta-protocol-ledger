@@ -11,6 +11,7 @@ import (
 
 	"github.com/thetatoken/ukulele/blockchain"
 	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/ukulele/store/kvstore"
 	"github.com/thetatoken/ukulele/store/treestore"
 
 	log "github.com/sirupsen/logrus"
@@ -20,7 +21,6 @@ import (
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
 const (
@@ -33,9 +33,10 @@ type GenSnapshotArgs struct {
 type GenSnapshotResult struct {
 }
 
-func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshotResult) (err error) {
+func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshotResult) error {
 	metadata := &core.SnapshotMetadata{}
 
+	db := t.ledger.State().DB()
 	stub := t.consensus.GetSummary()
 	lastFinalizedBlock, err := t.chain.FindBlock(stub.LastFinalizedBlock)
 	if err != nil {
@@ -52,12 +53,6 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 	if sv.Hash() != lastFinalizedBlock.StateHash {
 		return fmt.Errorf("Last finalized block state hash don't match %v != %v", sv.Hash(), lastFinalizedBlock.StateHash)
 	}
-	metadata.Blockheader = *(lastFinalizedBlock.BlockHeader)
-
-	metadata.Votes = []core.Vote{}
-	db := t.ledger.State().DB()
-	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
-	addVotes(st, metadata, metadata.Blockheader.Hash())
 
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
@@ -67,19 +62,19 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		blocks := t.chain.FindBlocksByHeight(height)
 		for _, block := range blocks {
 			if block.Status.IsDirectlyFinalized() {
-				var child, grandChild core.ExtendedBlock
+				var child, grandChild core.BlockHeader
 				b, err := getFinalizedChild(block, t.chain)
 				if err != nil {
 					return err
 				}
 				if b != nil {
-					child = *b
+					child = *b.BlockHeader
 					b, err = getFinalizedChild(b, t.chain)
 					if err != nil {
 						return err
 					}
 					if b != nil {
-						grandChild = *b
+						grandChild = *b.BlockHeader
 					} else {
 						return fmt.Errorf("Can't find finalized child block")
 					}
@@ -87,15 +82,45 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 					return fmt.Errorf("Can't find finalized child block")
 				}
 
-				// if child.HCC != block.Hash() || grandChild.HCC != child.Hash() { //TODO: change of HCC struct
-				// 	return fmt.Errorf("Invalid block HCC for validator set changes")
-				// }
+				if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
+					return fmt.Errorf("Invalid block HCC link for validator set changes")
+				}
+				if grandChild.HCC.Votes.IsEmpty() {
+					return fmt.Errorf("Missing block HCC votes for validator set changes")
+				}
+				for _, vote := range grandChild.HCC.Votes.Votes() {
+					if vote.Block != child.Hash() {
+						return fmt.Errorf("Invalid block HCC votes for validator set changes")
+					}
+				}
 
-				metadata.BlocksWithValidatorChange = append(metadata.BlocksWithValidatorChange, core.DirectlyFinalizedBlockTrio{First: *block, Second: child, Third: grandChild})
+				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: *block.BlockHeader, Second: child, Third: core.SnapshotBlock{Header: grandChild, Votes: grandChild.HCC.Votes.Votes()}})
 				break
 			}
 		}
 	}
+
+	parentBlock, err := t.chain.FindBlock(lastFinalizedBlock.Parent)
+	if err != nil {
+		return err
+	}
+	childBlock, err := getFinalizedChild(lastFinalizedBlock, t.chain)
+	if err != nil {
+		return err
+	}
+	var votes []core.Vote
+	if childBlock.BlockHeader.HCC.Votes.IsEmpty() {
+		st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+		voteSet, err := st.GetVoteSetByBlock(lastFinalizedBlock.Hash())
+		if err != nil {
+			return err
+		}
+		votes = voteSet.Votes()
+	} else {
+		votes = childBlock.BlockHeader.HCC.Votes.Votes()
+	}
+
+	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: *parentBlock.BlockHeader, Second: *lastFinalizedBlock.BlockHeader, Third: core.SnapshotBlock{Header: *childBlock.BlockHeader, Votes: votes}})
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))
@@ -109,13 +134,13 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		return err
 	}
 
-	for _, pair := range metadata.BlocksWithValidatorChange {
-		storeView := state.NewStoreView(pair.First.Height, pair.First.StateHash, db)
+	for _, trio := range metadata.BlockTrios {
+		storeView := state.NewStoreView(trio.First.Height, trio.First.StateHash, db)
 		writeStoreView(storeView, false, writer, db)
 	}
 	writeStoreView(sv, true, writer, db)
 
-	return
+	return nil
 }
 
 func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*core.ExtendedBlock, error) {
@@ -130,16 +155,6 @@ func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*cor
 		}
 	}
 	return nil, nil
-}
-
-func addVotes(st *consensus.State, metadata *core.SnapshotMetadata, hash common.Hash) error {
-	voteSet, err := st.GetVoteSetByBlock(hash)
-	if err != nil {
-		log.Errorf("Failed to get vote set for block %v, %v", hash, err)
-		return err
-	}
-	metadata.Votes = append(metadata.Votes, voteSet.Votes()...)
-	return nil
 }
 
 func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
@@ -212,7 +227,7 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 }
 
 func writeRecord(writer *bufio.Writer, k, v common.Bytes) error {
-	record := core.SnapshotRecord{K: k, V: v}
+	record := core.SnapshotTrieRecord{K: k, V: v}
 	raw, err := rlp.EncodeToBytes(record)
 	if err != nil {
 		return fmt.Errorf("Failed to encode storage record, %v", err)
