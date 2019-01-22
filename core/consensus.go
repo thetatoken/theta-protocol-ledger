@@ -9,7 +9,7 @@ import (
 type ConsensusEngine interface {
 	ID() string
 	PrivateKey() *crypto.PrivateKey
-	GetTip() *ExtendedBlock
+	GetTip(includePendingBlockingLeaf bool) *ExtendedBlock
 	GetEpoch() uint64
 	GetLedger() Ledger
 	AddMessage(msg interface{})

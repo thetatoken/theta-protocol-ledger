@@ -145,11 +145,11 @@ func (rm *RequestManager) tryToDownload() {
 		rm.logger.WithFields(log.Fields{
 			"pendingBlocks":     rm.pendingBlocks.Len(),
 			"orphan blocks":     len(rm.pendingBlocksByParent),
-			"current chain tip": rm.syncMgr.consensus.GetTip().Hash().Hex(),
+			"current chain tip": rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
 		}).Info("Fast sync in progress")
 
 		rm.lastInventoryRequest = time.Now()
-		tip := rm.syncMgr.consensus.GetTip()
+		tip := rm.syncMgr.consensus.GetTip(true)
 		req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash().String()}
 		rm.logger.WithFields(log.Fields{
 			"channelID": req.ChannelID,

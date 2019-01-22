@@ -93,7 +93,7 @@ func (es *execSim) finalizePreviousBlocks(blockHash common.Hash) {
 }
 
 func (es *execSim) getTipBlock() *core.ExtendedBlock {
-	return es.consensus.GetTip()
+	return es.consensus.GetTip(true)
 }
 
 func (es *execSim) findBlocksByHeight(height uint64) []*core.ExtendedBlock {

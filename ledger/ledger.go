@@ -88,7 +88,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) 
 			return nil, err
 		}
 		if block == nil {
-			return nil, fmt.Errorf("Block is nil for hash %v", blockHash)
+			return nil, fmt.Errorf("Block is nil for hash %v", blockHash.Hex())
 		}
 
 		// Grandparent or root block.
