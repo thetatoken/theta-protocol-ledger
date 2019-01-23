@@ -25,7 +25,7 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 //
 // Example:
 // cd $UKULELE/integration/privatenet/node
-// generate_genesis -chainID=private_net_001 -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
+// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
 //
 func main() {
 	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
