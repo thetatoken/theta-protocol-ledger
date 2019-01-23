@@ -366,7 +366,7 @@ func (tx *SendTx) SetSignature(addr common.Address, sig *crypto.Signature) bool 
 }
 
 func (tx *SendTx) String() string {
-	return fmt.Sprintf("SendTx{fee: %v, %v->%v}", tx.Inputs, tx.Outputs, tx.Fee)
+	return fmt.Sprintf("SendTx{fee: %v, %v->%v}", tx.Fee, tx.Inputs, tx.Outputs)
 }
 
 //-----------------------------------------------------------------------------
