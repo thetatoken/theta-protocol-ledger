@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"encoding/hex"
+	"math/big"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -107,18 +108,45 @@ func TestToAndFromBytes(t *testing.T) {
 func TestPrivKeyFromBytes(t *testing.T) {
 	assert := assert.New(t)
 
+	Zero := new(big.Int).SetUint64(0)
+
+	// --------------------------- Private Key #1 --------------------------- //
+
 	privKeyBytes, _ := hex.DecodeString("f3e4bfb656a98beac6931c86f48de62a7e469624d359f6b067b7f4a45a136446")
 	privKey, err := PrivateKeyFromBytes(privKeyBytes)
 	assert.Nil(err)
 
+	// the key string should always be interpreted as a positive big int
+	assert.True(privKey.D().Cmp(Zero) > 0)
+	t.Logf("privKey.D : %v", privKey.D())
+
 	pubKey := privKey.PublicKey()
 	pubKeyBytes := pubKey.ToBytes()
-	t.Logf("PublicByte    : %v", hex.EncodeToString(pubKeyBytes))
+	t.Logf("PublicByte: %v", hex.EncodeToString(pubKeyBytes))
 	assert.Equal("046adefd8a2b7a581fab692cae4160d7399bc8280972122206a968762f2898bd2376879a7430520e6477a1d6c3d07f2688d6d71a83848b5086808b2d04847bea8e", hex.EncodeToString(pubKeyBytes))
 
 	address := pubKey.Address()
-	t.Logf("Address       : %v", address.Hex())
+	t.Logf("Address   : %v", address.Hex())
 	assert.Equal("0x511f5B5aF946eDca88217EB9404477a95CB5C3F4", address.Hex())
+
+	// --------------------------- Private Key #2 --------------------------- //
+
+	privKeyBytes, _ = hex.DecodeString("93a90ea508331dfdf27fb79757d4250b4e84954927ba0073cd67454ac432c737")
+	privKey, err = PrivateKeyFromBytes(privKeyBytes)
+	assert.Nil(err)
+
+	// the key string should always be interpreted as a positive big int
+	assert.True(privKey.D().Cmp(Zero) > 0)
+	t.Logf("privKey.D : %v", privKey.D())
+
+	pubKey = privKey.PublicKey()
+	pubKeyBytes = pubKey.ToBytes()
+	t.Logf("PublicByte: %v", hex.EncodeToString(pubKeyBytes))
+	assert.Equal("048e8d53fd435265ad074597cc3e202f8e935cfb57925bb51316252027cb08767fb8099226414732543c4b5cbaa64b4ee8f173ba559258a0b5f633a0d11509e78b", hex.EncodeToString(pubKeyBytes))
+
+	address = pubKey.Address()
+	t.Logf("Address   : %v", address.Hex())
+	assert.Equal("0x2E833968E5bB786Ae419c4d13189fB081Cc43bab", address.Hex())
 }
 
 func TestAddressRecovery(t *testing.T) {
