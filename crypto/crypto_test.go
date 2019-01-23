@@ -104,6 +104,23 @@ func TestToAndFromBytes(t *testing.T) {
 	t.Logf("SignatureBytes: %v", hex.EncodeToString(sigBytes))
 }
 
+func TestPrivKeyFromBytes(t *testing.T) {
+	assert := assert.New(t)
+
+	privKeyBytes, _ := hex.DecodeString("f3e4bfb656a98beac6931c86f48de62a7e469624d359f6b067b7f4a45a136446")
+	privKey, err := PrivateKeyFromBytes(privKeyBytes)
+	assert.Nil(err)
+
+	pubKey := privKey.PublicKey()
+	pubKeyBytes := pubKey.ToBytes()
+	t.Logf("PublicByte    : %v", hex.EncodeToString(pubKeyBytes))
+	assert.Equal("046adefd8a2b7a581fab692cae4160d7399bc8280972122206a968762f2898bd2376879a7430520e6477a1d6c3d07f2688d6d71a83848b5086808b2d04847bea8e", hex.EncodeToString(pubKeyBytes))
+
+	address := pubKey.Address()
+	t.Logf("Address       : %v", address.Hex())
+	assert.Equal("0x511f5B5aF946eDca88217EB9404477a95CB5C3F4", address.Hex())
+}
+
 func TestAddressRecovery(t *testing.T) {
 	assert := assert.New(t)
 
