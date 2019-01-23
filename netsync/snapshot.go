@@ -59,7 +59,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	}
 	defer file.Close()
 
-	metadata, err := readMetadata(file)
+	metadata := core.SnapshotMetadata{}
+	err = readRecord(file, &metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
@@ -70,7 +71,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	svHashes := make(map[common.Hash]bool)
 	svStack := make(SVStack, 0)
 	for {
-		record, err := readRecord(file)
+		record := core.SnapshotTrieRecord{}
+		err := readRecord(file, &record)
 		if err != nil {
 			if err == io.EOF {
 				if svStack.peek() != nil {
@@ -137,7 +139,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 		return nil, fmt.Errorf("Can't find matching state hash for storeview")
 	}
 
-	if !validateSnapshot(metadata, hash, db) {
+	if !validateSnapshot(&metadata, hash, db) {
 		return nil, fmt.Errorf("Snapshot validation failed")
 	}
 
@@ -196,7 +198,7 @@ func getValidatorSet(block *core.BlockHeader, db database.Database) *core.Valida
 
 	sv := state.NewStoreView(block.Height, block.StateHash, db)
 	vcp := sv.GetValidatorCandidatePool()
-	return consensus.GetValidatorSetFromVCP(vcp)
+	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
 func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) bool {
@@ -207,8 +209,7 @@ func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, vot
 		if !vote.Validate().IsOK() {
 			return false
 		}
-		// if vote.Block != block.Hash() {
-		if bytes.Compare(vote.Block.Bytes(), block.Hash().Bytes()) != 0 {
+		if vote.Block != block.Hash() {
 			return false
 		}
 		_, err := validatorSet.GetValidator(vote.ID)
@@ -219,50 +220,27 @@ func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, vot
 	return true
 }
 
-func readMetadata(file *os.File) (*core.SnapshotMetadata, error) {
-	metadata := &core.SnapshotMetadata{}
+func readRecord(file *os.File, obj interface{}) error {
+	// record := &core.SnapshotTrieRecord{}
 	sizeBytes := make([]byte, 8)
 	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {
-		return metadata, err
+		return err
 	}
 	if n < 8 {
-		return nil, fmt.Errorf("Failed to read metadata length")
+		return fmt.Errorf("Failed to read record length")
 	}
 	size := bstoi(sizeBytes)
-	metadataBytes := make([]byte, size)
-	n, err = io.ReadAtLeast(file, metadataBytes, int(size))
+	bytes := make([]byte, size)
+	n, err = io.ReadAtLeast(file, bytes, int(size))
 	if err != nil {
-		return metadata, err
+		return err
 	}
 	if uint64(n) < size {
-		return nil, fmt.Errorf("Failed to read metadata, %v < %v", n, size)
+		return fmt.Errorf("Failed to read record, %v < %v", n, size)
 	}
-	err = rlp.DecodeBytes(metadataBytes, metadata)
-	return metadata, err
-}
-
-func readRecord(file *os.File) (*core.SnapshotTrieRecord, error) {
-	record := &core.SnapshotTrieRecord{}
-	sizeBytes := make([]byte, 8)
-	n, err := io.ReadAtLeast(file, sizeBytes, 8)
-	if err != nil {
-		return nil, err
-	}
-	if n < 8 {
-		return nil, fmt.Errorf("Failed to read record length")
-	}
-	size := bstoi(sizeBytes)
-	recordBytes := make([]byte, size)
-	n, err = io.ReadAtLeast(file, recordBytes, int(size))
-	if err != nil {
-		return nil, err
-	}
-	if uint64(n) < size {
-		return nil, fmt.Errorf("Failed to read record, %v < %v", n, size)
-	}
-	err = rlp.DecodeBytes(recordBytes, record)
-	return record, err
+	err = rlp.DecodeBytes(bytes, obj)
+	return nil
 }
 
 func bstoi(arr []byte) (val uint64) {

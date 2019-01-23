@@ -104,7 +104,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 	if err != nil {
 		return err
 	}
-	childBlock, err := getFinalizedChild(lastFinalizedBlock, t.chain)
+	childBlock, err := getAtLeastCommittedChild(lastFinalizedBlock, t.chain)
 	if err != nil {
 		return err
 	}
@@ -151,6 +151,20 @@ func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*cor
 			return nil, err
 		}
 		if b.Status.IsFinalized() {
+			return b, nil
+		}
+	}
+	return nil, nil
+}
+
+func getAtLeastCommittedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*core.ExtendedBlock, error) {
+	for _, h := range block.Children {
+		b, err := chain.FindBlock(h)
+		if err != nil {
+			log.Errorf("Failed to get block %v", err)
+			return nil, err
+		}
+		if b.Status.IsFinalized() || b.Status.IsCommitted() {
 			return b, nil
 		}
 	}

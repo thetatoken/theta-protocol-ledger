@@ -45,7 +45,7 @@ func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) cor
 
 // GetValidatorSet returns the validator set for given block hash.
 func (m *FixedValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
 	return valSet
 }
 
@@ -101,7 +101,7 @@ func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint
 
 // GetValidatorSet returns the validator set for given epoch.
 func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
 	return valSet
 }
 
@@ -109,7 +109,7 @@ func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.
 // -------------------------------- Utilities ----------------------------------
 //
 
-func GetValidatorSetFromVCP(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
+func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
 	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
 
@@ -127,7 +127,7 @@ func GetValidatorSetFromVCP(vcp *core.ValidatorCandidatePool) *core.ValidatorSet
 	return valSet
 }
 
-func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
+func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
 	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
@@ -136,7 +136,7 @@ func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash
 		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
 	}
 
-	return GetValidatorSetFromVCP(vcp)
+	return SelectTopStakeHoldersAsValidators(vcp)
 }
 
 // Generate a random uint64 in [0, max)
