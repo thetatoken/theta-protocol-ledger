@@ -11,7 +11,7 @@ import (
 	"github.com/thetatoken/ukulele/crypto"
 )
 
-const txTimeout = 15 * time.Second
+const txTimeout = 60 * time.Second
 
 type Callback struct {
 	txHash   string
