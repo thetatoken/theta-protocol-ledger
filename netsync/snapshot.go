@@ -148,6 +148,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	ext := core.ExtendedBlock{Block: &block}
 	blockHash := blockTrio.First.Hash()
 	kvstore.Put(blockHash[:], ext)
+
 	block = core.Block{BlockHeader: &blockTrio.Second}
 	ext = core.ExtendedBlock{Block: &block}
 	blockHash = blockTrio.First.Hash()
@@ -181,6 +182,25 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 	return true
 }
 
+func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) bool {
+	if !validatorSet.HasMajorityVotes(votes) {
+		return false
+	}
+	for _, vote := range votes {
+		if !vote.Validate().IsOK() {
+			return false
+		}
+		if vote.Block != block.Hash() {
+			return false
+		}
+		_, err := validatorSet.GetValidator(vote.ID)
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
 func getValidatorSet(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
 	if block == nil {
 		validators := []core.Validator{}
@@ -201,27 +221,7 @@ func getValidatorSet(block *core.BlockHeader, db database.Database) *core.Valida
 	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
-func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) bool {
-	if !validatorSet.HasMajorityVotes(votes) {
-		return false
-	}
-	for _, vote := range votes {
-		if !vote.Validate().IsOK() {
-			return false
-		}
-		if vote.Block != block.Hash() {
-			return false
-		}
-		_, err := validatorSet.GetValidator(vote.ID)
-		if err != nil {
-			return false
-		}
-	}
-	return true
-}
-
 func readRecord(file *os.File, obj interface{}) error {
-	// record := &core.SnapshotTrieRecord{}
 	sizeBytes := make([]byte, 8)
 	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {
@@ -243,10 +243,6 @@ func readRecord(file *os.File, obj interface{}) error {
 	return nil
 }
 
-func bstoi(arr []byte) (val uint64) {
-	// for i := 0; i < 8; i++ {
-	// 	val = val + uint64(arr[i])*uint64(math.Pow10(i))
-	// }
-	val = binary.LittleEndian.Uint64(arr)
-	return
+func bstoi(arr []byte) uint64 {
+	return binary.LittleEndian.Uint64(arr)
 }

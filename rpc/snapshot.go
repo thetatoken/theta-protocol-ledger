@@ -266,9 +266,5 @@ func writeRecord(writer *bufio.Writer, k, v common.Bytes) error {
 func itobs(val uint64) []byte {
 	arr := make([]byte, 8)
 	binary.LittleEndian.PutUint64(arr, val)
-	// for i := 0; i < 8; i++ {
-	// 	arr[i] = byte(val % 10)
-	// 	val /= 10
-	// }
 	return arr
 }
