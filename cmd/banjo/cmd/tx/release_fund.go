@@ -16,11 +16,11 @@ import (
 
 // releaseFundCmd represents the release fund command
 // Example:
-//		banjo tx release --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8
+//		banjo tx release --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8
 var releaseFundCmd = &cobra.Command{
 	Use:     "release",
 	Short:   "Release fund",
-	Example: `banjo tx release --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8`,
+	Example: `banjo tx release --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8`,
 	Run:     doReleaseFundCmd,
 }
 
