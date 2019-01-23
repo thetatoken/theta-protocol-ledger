@@ -528,7 +528,7 @@ func TestTipSelection(t *testing.T) {
 	b3 := core.CreateTestBlock("b3", "b2")
 	chain.AddBlock(b3)
 
-	tip := ce.GetTip()
+	tip := ce.GetTipToVote()
 	assert.Equal(root.Hash(), tip.Hash(), "should not select invalid blocks")
 
 	chain.MarkBlockValid(a1.Hash())
@@ -537,10 +537,10 @@ func TestTipSelection(t *testing.T) {
 	chain.MarkBlockValid(b2.Hash())
 	chain.MarkBlockValid(b3.Hash())
 
-	tip = ce.GetTip()
+	tip = ce.GetTipToVote()
 	assert.Equal(b3.Hash(), tip.Hash(), "should select longest branch")
 
 	chain.MarkBlockHasValidatorUpdate(b2.Hash())
-	tip = ce.GetTip()
+	tip = ce.GetTipToExtend()
 	assert.Equal(a2.Hash(), tip.Hash(), "should not select blocks with validator update that are higher than local HCC")
 }

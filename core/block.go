@@ -112,8 +112,8 @@ func (h *BlockHeader) CalculateHash() common.Hash {
 }
 
 func (h *BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
-		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
+	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, HCC: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
+		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.HCC.BlockHash.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
 // SignBytes returns raw bytes to be signed.
