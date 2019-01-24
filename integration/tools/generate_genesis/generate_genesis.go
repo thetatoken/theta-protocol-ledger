@@ -12,19 +12,19 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
 //
 // Example:
-// cd $UKULELE/integration/privatenet/node
+// cd $THETA/integration/privatenet/node
 // generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
 //
 func main() {

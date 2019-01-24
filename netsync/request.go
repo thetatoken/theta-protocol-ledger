@@ -8,11 +8,11 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/util"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/dispatcher"
 
 	log "github.com/sirupsen/logrus"
 )

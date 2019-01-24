@@ -22,8 +22,8 @@ import (
 	"container/heap"
 	"errors"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/rlp"
 )
 
 // Iterator is a key-value trie iterator that traverses a Trie.

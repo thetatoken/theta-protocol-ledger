@@ -3,7 +3,7 @@ package crypto
 import (
 	"crypto/ecdsa"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 //

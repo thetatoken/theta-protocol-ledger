@@ -10,10 +10,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
 )
 
 var chainID string = "test_chain"

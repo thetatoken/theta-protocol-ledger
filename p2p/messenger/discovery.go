@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
-	cn "github.com/thetatoken/ukulele/p2p/connection"
-	"github.com/thetatoken/ukulele/p2p/netutil"
-	pr "github.com/thetatoken/ukulele/p2p/peer"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	cn "github.com/thetatoken/theta/p2p/connection"
+	"github.com/thetatoken/theta/p2p/netutil"
+	pr "github.com/thetatoken/theta/p2p/peer"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
 //

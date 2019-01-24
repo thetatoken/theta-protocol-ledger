@@ -7,10 +7,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/node"
-	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/node"
+	p2psim "github.com/thetatoken/theta/p2p/simulation"
 )
 
 func testConsensus(assert *assert.Assertions, simnet *p2psim.Simnet, nodes []*node.Node, duration time.Duration, minFinalized int) {

@@ -12,14 +12,14 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/util"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "consensus"})

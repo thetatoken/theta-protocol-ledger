@@ -21,12 +21,12 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/vm"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/vm"
+	"github.com/thetatoken/theta/ledger/vm/params"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 // Config is a basic type specifying certain configuration flags for running

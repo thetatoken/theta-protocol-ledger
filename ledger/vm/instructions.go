@@ -21,11 +21,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 var (

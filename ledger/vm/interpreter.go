@@ -20,8 +20,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 // Config are the configuration options for the Interpreter

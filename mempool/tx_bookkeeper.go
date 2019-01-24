@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
 )
 
 const defaultMaxNumTxs = uint(200000)

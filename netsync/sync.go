@@ -6,14 +6,14 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/util"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/p2p"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/p2p"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/rlp"
 )
 
 type MessageConsumer interface {

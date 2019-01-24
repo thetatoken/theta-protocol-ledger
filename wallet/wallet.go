@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path"
 
-	cw "github.com/thetatoken/ukulele/wallet/coldwallet"
-	sw "github.com/thetatoken/ukulele/wallet/softwallet"
-	"github.com/thetatoken/ukulele/wallet/types"
+	cw "github.com/thetatoken/theta/wallet/coldwallet"
+	sw "github.com/thetatoken/theta/wallet/softwallet"
+	"github.com/thetatoken/theta/wallet/types"
 )
 
 func OpenWallet(cfgPath string, walletType types.WalletType, encrypted bool) (types.Wallet, error) {

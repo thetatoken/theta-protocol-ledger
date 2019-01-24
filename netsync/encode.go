@@ -5,9 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/rlp"
 )
 
 type MessageIDEnum uint8

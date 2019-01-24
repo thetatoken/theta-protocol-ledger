@@ -1,10 +1,10 @@
 package blockchain
 
 import (
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/store"
 )
 
 // txIndexKey constructs the DB key for the given transaction hash.

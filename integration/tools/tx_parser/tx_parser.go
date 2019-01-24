@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/theta/ledger/types"
 )
 
 func handleError(err error) {

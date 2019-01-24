@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/store/database/backend"
-	"github.com/thetatoken/ukulele/store/kvstore"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/kvstore"
 )
 
 // CreateTestChain creates a chain for testing.

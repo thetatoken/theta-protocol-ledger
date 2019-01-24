@@ -18,10 +18,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	mm "github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/crypto"
-	nu "github.com/thetatoken/ukulele/p2p/netutil"
+	"github.com/thetatoken/theta/common"
+	mm "github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/crypto"
+	nu "github.com/thetatoken/theta/p2p/netutil"
 )
 
 const (

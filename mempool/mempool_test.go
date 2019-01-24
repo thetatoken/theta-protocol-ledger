@@ -10,13 +10,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
-	dp "github.com/thetatoken/ukulele/dispatcher"
-	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
+	dp "github.com/thetatoken/theta/dispatcher"
+	p2psim "github.com/thetatoken/theta/p2p/simulation"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/rlp"
 )
 
 func TestMempoolBasics(t *testing.T) {

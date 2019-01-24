@@ -19,8 +19,8 @@ package runtime
 import (
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/ledger/vm"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/vm"
 )
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.

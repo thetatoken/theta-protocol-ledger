@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 )
 
 const txTimeout = 60 * time.Second

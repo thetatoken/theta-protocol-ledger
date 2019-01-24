@@ -6,13 +6,13 @@ import (
 	"math/big"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database"
-	"github.com/thetatoken/ukulele/store/treestore"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database"
+	"github.com/thetatoken/theta/store/treestore"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})

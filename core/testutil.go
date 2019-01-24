@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
 )
 
 var TestBlocks map[string]*Block = make(map[string]*Block)

@@ -20,9 +20,9 @@ package backend
 import (
 	"sync"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/store"
+	"github.com/thetatoken/theta/store/database"
 )
 
 /*

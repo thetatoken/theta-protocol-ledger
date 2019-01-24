@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/rlp"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 func TestDefaultChannelEnqueueShortMsg(t *testing.T) {

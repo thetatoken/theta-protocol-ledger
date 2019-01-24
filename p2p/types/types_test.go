@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
 )
 
 func TestNodeInfoRLPEncoding1(t *testing.T) {

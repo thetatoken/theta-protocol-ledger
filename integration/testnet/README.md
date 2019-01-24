@@ -1,6 +1,6 @@
 ### To run a node ###
 ```
-cd $UKULELE_HOME
+cd $THETA_HOME
 cp -r ./integration/testnet ../testnet
-ukulele start --config=../testnet/node2 |& tee ../node2.log
+theta start --config=../testnet/node2 |& tee ../node2.log
 ```

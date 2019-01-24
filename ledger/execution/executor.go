@@ -3,11 +3,11 @@ package execution
 import (
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
-	st "github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
+	st "github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})

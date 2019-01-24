@@ -22,11 +22,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/theta/store"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/metrics"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
+	"github.com/thetatoken/theta/crypto"
 )
 
 var (

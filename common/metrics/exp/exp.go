@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/thetatoken/ukulele/common/metrics"
+	"github.com/thetatoken/theta/common/metrics"
 )
 
 type exp struct {

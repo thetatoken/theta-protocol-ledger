@@ -22,8 +22,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/ledger/vm"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/ledger/vm"
 )
 
 // Compiler contains information about the parsed source

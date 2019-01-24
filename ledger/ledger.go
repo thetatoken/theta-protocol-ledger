@@ -5,20 +5,20 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/store/kvstore"
+	"github.com/thetatoken/theta/store"
+	"github.com/thetatoken/theta/store/kvstore"
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	exec "github.com/thetatoken/ukulele/ledger/execution"
-	st "github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	mp "github.com/thetatoken/ukulele/mempool"
-	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	exec "github.com/thetatoken/theta/ledger/execution"
+	st "github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	mp "github.com/thetatoken/theta/mempool"
+	"github.com/thetatoken/theta/store/database"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})

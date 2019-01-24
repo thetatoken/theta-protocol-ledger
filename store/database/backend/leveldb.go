@@ -31,9 +31,9 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
-	"github.com/thetatoken/ukulele/common/metrics"
-	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/theta/common/metrics"
+	"github.com/thetatoken/theta/store"
+	"github.com/thetatoken/theta/store/database"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "store"})

@@ -42,7 +42,7 @@ import (
 	"fmt"
 	"hash"
 
-	ethcrypto "github.com/thetatoken/ukulele/crypto"
+	ethcrypto "github.com/thetatoken/theta/crypto"
 )
 
 var (

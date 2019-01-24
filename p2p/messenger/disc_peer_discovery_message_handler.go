@@ -8,12 +8,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/rlp"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/p2p/netutil"
-	pr "github.com/thetatoken/ukulele/p2p/peer"
-	"github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/p2p/netutil"
+	pr "github.com/thetatoken/theta/p2p/peer"
+	"github.com/thetatoken/theta/p2p/types"
 )
 
 // PeerDiscoveryMessageType defines the types of peer discovery message

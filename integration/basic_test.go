@@ -8,16 +8,16 @@ import (
 	"time"
 
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/store/database/backend"
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/thetatoken/ukulele/consensus"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/node"
-	p2psim "github.com/thetatoken/ukulele/p2p/simulation"
+	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/node"
+	p2psim "github.com/thetatoken/theta/p2p/simulation"
 )
 
 func TestConsensusBaseCase(t *testing.T) {

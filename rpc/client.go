@@ -6,7 +6,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
+	"github.com/thetatoken/theta/rpc/lib/rpc-codec/jsonrpc2"
 	"github.com/ybbus/jsonrpc"
 	"golang.org/x/net/websocket"
 )
