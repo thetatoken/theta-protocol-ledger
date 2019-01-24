@@ -311,7 +311,7 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 		}
 		returnedCoins := types.Coins{
 			ThetaWei: returnedStake.Amount,
-			GammaWei: types.Zero,
+			TFuelWei: types.Zero,
 		}
 		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
 		view.SetAccount(sourceAddress, sourceAccount)

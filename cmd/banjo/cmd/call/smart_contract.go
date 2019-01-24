@@ -45,7 +45,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 		Address: common.HexToAddress(fromFlag),
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: new(big.Int).SetUint64(valueFlag),
+			TFuelWei: new(big.Int).SetUint64(valueFlag),
 		},
 		Sequence: seqFlag,
 	}

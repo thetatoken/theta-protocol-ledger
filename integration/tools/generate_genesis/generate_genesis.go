@@ -69,7 +69,7 @@ func writeGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFPat
 func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
 	genesis := &core.Checkpoint{}
 
-	initGammaToThetaRatio := new(big.Int).SetUint64(5)
+	initTFuelToThetaRatio := new(big.Int).SetUint64(5)
 	s := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
 
 	// --------------- Load initial balances --------------- //
@@ -97,18 +97,18 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 		if !success {
 			panic(fmt.Sprintf("Failed to parse ThetaWei amount: %v", val))
 		}
-		gamma := new(big.Int).Mul(initGammaToThetaRatio, theta)
+		tfuel := new(big.Int).Mul(initTFuelToThetaRatio, theta)
 		acc := &types.Account{
 			Address: address,
 			Balance: types.Coins{
 				ThetaWei: theta,
-				GammaWei: gamma,
+				TFuelWei: tfuel,
 			},
 			LastUpdatedBlockHeight: 0,
 		}
 		s.SetAccount(acc.Address, acc)
 
-		//logger.Infof("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma))
+		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel))
 	}
 
 	// --------------- Perform initial stake deposit --------------- //
@@ -151,7 +151,7 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 
 		stake := types.Coins{
 			ThetaWei: stakeAmount,
-			GammaWei: new(big.Int).SetUint64(0),
+			TFuelWei: new(big.Int).SetUint64(0),
 		}
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		s.SetAccount(sourceAddress, sourceAccount)
@@ -193,7 +193,7 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 
 func sanityChecks(genesis *core.Checkpoint) error {
 	thetaWeiTotal := new(big.Int).SetUint64(0)
-	gammaWeiTotal := new(big.Int).SetUint64(0)
+	tfuelWeiTotal := new(big.Int).SetUint64(0)
 
 	vcpAnalyzed := false
 	for _, kvpair := range genesis.LedgerState {
@@ -226,11 +226,11 @@ func sanityChecks(genesis *core.Checkpoint) error {
 			}
 
 			thetaWei := account.Balance.ThetaWei
-			gammaWei := account.Balance.GammaWei
+			tfuelWei := account.Balance.TFuelWei
 			thetaWeiTotal = new(big.Int).Add(thetaWeiTotal, thetaWei)
-			gammaWeiTotal = new(big.Int).Add(gammaWeiTotal, gammaWei)
+			tfuelWeiTotal = new(big.Int).Add(tfuelWeiTotal, tfuelWei)
 
-			logger.Infof("Account: %v, ThetaWei = %v, GammaWei = %v", account.Address, thetaWei, gammaWei)
+			logger.Infof("Account: %v, ThetaWei = %v, TFuelWei = %v", account.Address, thetaWei, tfuelWei)
 		}
 	}
 
@@ -251,13 +251,13 @@ func sanityChecks(genesis *core.Checkpoint) error {
 	logger.Infof("Expected   ThetaWei total = %v", expectedThetaWeiTotal)
 	logger.Infof("Calculated ThetaWei total = %v", thetaWeiTotal)
 
-	// Check #3: Sum(GammaWei) == 5 * 10^9 * 10^18
-	expectedGammaWeiTotal := new(big.Int).Mul(fiveBillion, ten18)
-	if expectedGammaWeiTotal.Cmp(gammaWeiTotal) != 0 {
-		return fmt.Errorf("Unmatched GammaWei total: expected = %v, calculated = %v", expectedGammaWeiTotal, gammaWeiTotal)
+	// Check #3: Sum(TFuelWei) == 5 * 10^9 * 10^18
+	expectedTFuelWeiTotal := new(big.Int).Mul(fiveBillion, ten18)
+	if expectedTFuelWeiTotal.Cmp(tfuelWeiTotal) != 0 {
+		return fmt.Errorf("Unmatched TFuelWei total: expected = %v, calculated = %v", expectedTFuelWeiTotal, tfuelWeiTotal)
 	}
-	logger.Infof("Expected   GammaWei total = %v", expectedGammaWeiTotal)
-	logger.Infof("Calculated GammaWei total = %v", gammaWeiTotal)
+	logger.Infof("Expected   TFuelWei total = %v", expectedTFuelWeiTotal)
+	logger.Infof("Calculated TFuelWei total = %v", tfuelWeiTotal)
 
 	return nil
 }

@@ -45,8 +45,8 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
@@ -60,8 +60,8 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 			WithErrorCode(result.CodeInvalidStake)
 	}
 
-	if stake.GammaWei.Cmp(types.Zero) != 0 {
-		return result.Error("Gamma has to be zero for stake deposit!").
+	if stake.TFuelWei.Cmp(types.Zero) != 0 {
+		return result.Error("TFuel has to be zero for stake deposit!").
 			WithErrorCode(result.CodeInvalidStake)
 	}
 
@@ -143,6 +143,6 @@ func (exec *DepositStakeExecutor) calculateEffectiveGasPrice(transaction types.T
 	tx := transaction.(*types.DepositStakeTx)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasDepositStakeTx)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

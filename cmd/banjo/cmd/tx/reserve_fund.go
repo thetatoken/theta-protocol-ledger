@@ -35,11 +35,11 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	if !ok {
 		utils.Error("Failed to parse fee")
 	}
-	fund, ok := types.ParseCoinAmount(reserveFundInGammaFlag)
+	fund, ok := types.ParseCoinAmount(reserveFundInTFuelFlag)
 	if !ok {
 		utils.Error("Failed to parse fund")
 	}
-	col, ok := types.ParseCoinAmount(reserveCollateralInGammaFlag)
+	col, ok := types.ParseCoinAmount(reserveCollateralInTFuelFlag)
 	if !ok {
 		utils.Error("Failed to parse collateral")
 	}
@@ -47,7 +47,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 		Address: fromAddress,
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: fund,
+			TFuelWei: fund,
 		},
 		Sequence: uint64(seqFlag),
 	}
@@ -57,7 +57,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	collateral := types.Coins{
 		ThetaWei: new(big.Int).SetUint64(0),
-		GammaWei: col,
+		TFuelWei: col,
 	}
 	if !collateral.IsPositive() {
 		utils.Error("Invalid input: collateral must be positive\n")
@@ -66,7 +66,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	reserveFundTx := &types.ReserveFundTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: fee,
+			TFuelWei: fee,
 		},
 		Source:      input,
 		ResourceIDs: resourceIDs,
@@ -102,9 +102,9 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	reserveFundCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	reserveFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	reserveFundCmd.Flags().StringVar(&reserveFundInGammaFlag, "fund", "0", "Gamma amount to reserve")
-	reserveFundCmd.Flags().StringVar(&reserveCollateralInGammaFlag, "collateral", "0", "Gamma amount as collateral")
-	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	reserveFundCmd.Flags().StringVar(&reserveFundInTFuelFlag, "fund", "0", "TFuel amount to reserve")
+	reserveFundCmd.Flags().StringVar(&reserveCollateralInTFuelFlag, "collateral", "0", "TFuel amount as collateral")
+	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
 	reserveFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")

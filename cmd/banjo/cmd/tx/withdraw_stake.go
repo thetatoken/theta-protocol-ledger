@@ -48,7 +48,7 @@ func doWithdrawStakeCmd(cmd *cobra.Command, args []string) {
 	withdrawStakeTx := &types.WithdrawStakeTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: fee,
+			TFuelWei: fee,
 		},
 		Source:  source,
 		Holder:  holder,
@@ -83,7 +83,7 @@ func init() {
 	withdrawStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	withdrawStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	withdrawStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
-	withdrawStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	withdrawStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	withdrawStakeCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	withdrawStakeCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	withdrawStakeCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")

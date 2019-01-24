@@ -93,12 +93,12 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		logger.Infof("Validator address: %v", pubKey.Address())
 
 		theta, _ := types.ParseCoinAmount("250000000")
-		gamma, _ := types.ParseCoinAmount("1250000000")
+		tfuel, _ := types.ParseCoinAmount("1250000000")
 		acc := &types.Account{
 			Address: pubKey.Address(),
 			Balance: types.Coins{
 				ThetaWei: theta,
-				GammaWei: gamma,
+				TFuelWei: tfuel,
 			},
 			LastUpdatedBlockHeight: 0,
 		}

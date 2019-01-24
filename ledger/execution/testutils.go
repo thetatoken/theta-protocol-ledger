@@ -176,7 +176,7 @@ func (et *execTest) SetAcc(accs ...types.PrivAccount) {
 }
 
 func getMinimumTxFee() int64 {
-	return int64(types.MinimumTransactionFeeGammaWei)
+	return int64(types.MinimumTransactionFeeTFuelWei)
 }
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
@@ -184,7 +184,7 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  source.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
 			Sequence: uint64(srcSeq),
 		},
 		Target: types.TxInput{
@@ -217,19 +217,19 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 	et = NewExecTest()
 
 	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	aliceInitBalance = types.Coins{TFuelWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
 	log.Infof("Alice's Address: %v", alice.Address.Hex())
 
 	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	bobInitBalance = types.Coins{TFuelWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
 	log.Infof("Bob's Address: %v", bob.Address.Hex())
 
 	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	carolInitBalance = types.Coins{TFuelWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
 	log.Infof("Carol's Address: %v", carol.Address.Hex())
@@ -241,10 +241,10 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  alice.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{resourceID},
 		Duration:    1000,
 	}

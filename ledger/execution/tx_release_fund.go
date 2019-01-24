@@ -51,8 +51,8 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -112,6 +112,6 @@ func (exec *ReleaseFundTxExecutor) calculateEffectiveGasPrice(transaction types.
 	tx := transaction.(*types.ReleaseFundTx)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasReleaseFundTx)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

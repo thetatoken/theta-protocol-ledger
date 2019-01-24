@@ -20,11 +20,11 @@ banjo tx reserve --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fu
 
 ```
       --chain string           Chain ID
-      --collateral string      Gamma amount as collateral (default "0")
+      --collateral string      TFuel amount as collateral (default "0")
       --duration uint          Reserve duration (default 1000)
       --fee string             Fee (default "1000000000000wei")
       --from string            Address to send from
-      --fund string            Gamma amount to reserve (default "0")
+      --fund string            TFuel amount to reserve (default "0")
   -h, --help                   help for reserve
       --resource_ids strings   Reserouce IDs
       --seq uint               Sequence number of the transaction

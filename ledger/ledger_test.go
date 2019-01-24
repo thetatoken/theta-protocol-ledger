@@ -116,7 +116,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2], false)
 	sendTx4Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[3], false)
 	sendTx5Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[4], false)
-	inAccInitGammaWei := accIns[0].Balance.GammaWei
+	inAccInitTFuelWei := accIns[0].Balance.TFuelWei
 	txFee := getMinimumTxFee()
 
 	blockRawTxs := []common.Bytes{
@@ -150,7 +150,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	// Input account balance
 	expectedAccInBal := types.Coins{
 		ThetaWei: new(big.Int).SetInt64(899985),
-		GammaWei: inAccInitGammaWei.Sub(inAccInitGammaWei, new(big.Int).SetInt64(txFee)),
+		TFuelWei: inAccInitTFuelWei.Sub(inAccInitTFuelWei, new(big.Int).SetInt64(txFee)),
 	}
 	for idx, _ := range accIns {
 		accInAddr := accIns[idx].Account.Address
@@ -192,7 +192,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 			Address: depositSourcePrivAcc.Address,
 			Coins: types.Coins{
 				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(10), core.MinValidatorStakeDeposit),
-				GammaWei: new(big.Int).SetUint64(0),
+				TFuelWei: new(big.Int).SetUint64(0),
 			},
 			Sequence: 1,
 		},
@@ -350,6 +350,6 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	returnedCoins := balance3.Minus(balance2)
 	assert.True(returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit)) == 0)
-	assert.True(returnedCoins.GammaWei.Cmp(core.Zero) == 0)
+	assert.True(returnedCoins.TFuelWei.Cmp(core.Zero) == 0)
 	log.Infof("Returned coins: %v", returnedCoins)
 }

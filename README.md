@@ -118,7 +118,7 @@ ukulele start --config=../privatenet/node
 ```
 In another terminal, we can use the `banjo` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
 ```
-banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=20 --seq=1
+banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=20 --seq=1
 ```
 The balance of an address can be retrieved with the following query command
 ```
@@ -193,7 +193,7 @@ You might have noticed that both the smart contract deployment and execution use
 ## Off-Chain Micropayment Support
 In order to handle the sheer amount of micropayments for the bandwidth sharing reward, the Theta Ledger provides native support for off-chain payment through the [resource oriented micropayment pool](https://medium.com/theta-network/building-the-theta-protocol-part-iv-d7cce583aad1) concept. The micropayment pool allows a sender to pay to multiple recipients with off-chain transactions without the sender being able to double spend.
 
-Below is an example. To get started, the sender creates a resource oriented micropayment pool for a live video stream with resource_id `rid1000001` by reserving some Gamma tokens for 1002 blocktimes. She can use this micropayment pool to pay multiple relay nodes that provides the desired video stream.
+Below is an example. To get started, the sender creates a resource oriented micropayment pool for a live video stream with resource_id `rid1000001` by reserving some TFuel tokens for 1002 blocktimes. She can use this micropayment pool to pay multiple relay nodes that provides the desired video stream.
 ```
 banjo tx reserve --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=100 --collateral=101 --duration=1002 --resource_ids=rid1000001 --seq=4
 ```
@@ -201,7 +201,7 @@ After this transaction has been processed. We can query the `from` account to co
 ```
 banjo query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 ```
-The return should look like the json below. As we can see, 100 Gamma (= 100000000000000000000 GammaWei) were reserved for the off-chain payment with 101 Gamma collateral for resourceID `rid1000001`. If the sender overspends the reserved fund, her collateral will be entirely slashed.
+The return should look like the json below. As we can see, 100 TFuel (= 100000000000000000000 TFuelWei) were reserved for the off-chain payment with 101 TFuel collateral for resourceID `rid1000001`. If the sender overspends the reserved fund, her collateral will be entirely slashed.
 ```
 {
     "address": "2E833968E5bB786Ae419c4d13189fB081Cc43bab",
@@ -209,12 +209,12 @@ The return should look like the json below. As we can see, 100 Gamma (= 10000000
     "reserved_funds": [
         {
             "collateral": {
-                "gammawei": 101000000000000000000,
+                "tfuelwei": 101000000000000000000,
                 "thetawei": 0
             },
             "end_block_height": 1588,
             "initial_fund": {
-                "gammawei": 100000000000000000000,
+                "tfuelwei": 100000000000000000000,
                 "thetawei": 0
             },
             "reserve_sequence": 4,
@@ -223,7 +223,7 @@ The return should look like the json below. As we can see, 100 Gamma (= 10000000
             ],
             "transfer_records": [],
             "used_fund": {
-                "gammawei": 0,
+                "tfuelwei": 0,
                 "thetawei": 0
             }
         }
