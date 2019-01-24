@@ -36,14 +36,14 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 		Sequence: uint64(seqFlag),
 	}
 
-	gamma, ok := types.ParseCoinAmount(feeFlag)
+	tfuel, ok := types.ParseCoinAmount(feeFlag)
 	if !ok {
-		utils.Error("Failed to parse gamma amount")
+		utils.Error("Failed to parse tfuel amount")
 	}
 	releaseFundTx := &types.ReleaseFundTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: gamma,
+			TFuelWei: tfuel,
 		},
 		Source:          input,
 		ReserveSequence: reserveSeqFlag,
@@ -77,7 +77,7 @@ func init() {
 	releaseFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	releaseFundCmd.Flags().StringVar(&fromFlag, "from", "", "Reserve owner's address")
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
-	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	releaseFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	releaseFundCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 1000, "Reserve sequence")
 	releaseFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 

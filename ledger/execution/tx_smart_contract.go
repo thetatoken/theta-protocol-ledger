@@ -58,7 +58,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	if !sanityCheckForGasPrice(tx.GasPrice) {
-		return result.Error("Insufficient gas price. Gas price needs to be at least %v GammaWei", types.MinimumGasPrice).
+		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", types.MinimumGasPrice).
 			WithErrorCode(result.CodeInvalidGasPrice)
 	}
 
@@ -71,10 +71,10 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeFeeLimitTooHigh)
 	}
 
-	value := coins.GammaWei // NoNil() already guarantees value is NOT nil
+	value := coins.TFuelWei // NoNil() already guarantees value is NOT nil
 	minimalBalance := types.Coins{
 		ThetaWei: zero,
-		GammaWei: feeLimit.Add(feeLimit, value),
+		TFuelWei: feeLimit.Add(feeLimit, value),
 	}
 	if !fromAccount.Balance.IsGTE(minimalBalance) {
 		logger.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.From.Address.Hex()))
@@ -102,7 +102,7 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	feeAmount := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(gasUsed))
 	fee := types.Coins{
 		ThetaWei: big.NewInt(int64(0)),
-		GammaWei: feeAmount,
+		TFuelWei: feeAmount,
 	}
 	if !chargeFee(fromAccount, fee) {
 		return common.Hash{}, result.Error("failed to charge transaction fee")

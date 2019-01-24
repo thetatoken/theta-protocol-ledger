@@ -25,7 +25,7 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	config := Config{}
 	evm := NewEVM(context, storeView, chainConfig, config)
 
-	value := tx.From.Coins.GammaWei
+	value := tx.From.Coins.TFuelWei
 	if value == nil {
 		value = big.NewInt(0)
 	}

@@ -27,11 +27,11 @@ func TestCoinbaseTxSignable(t *testing.T) {
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: big.NewInt(333), GammaWei: big.NewInt(0)},
+				Coins:   Coins{ThetaWei: big.NewInt(333), TFuelWei: big.NewInt(0)},
 			},
 			TxOutput{
 				Address: getTestAddress("validator1"),
-				Coins:   Coins{ThetaWei: big.NewInt(444), GammaWei: big.NewInt(0)},
+				Coins:   Coins{ThetaWei: big.NewInt(444), TFuelWei: big.NewInt(0)},
 			},
 		},
 		BlockHeight: 10,
@@ -57,7 +57,7 @@ func TestCoinbaseTxProto(t *testing.T) {
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: va2PrivAcc.PrivKey.PublicKey().Address(),
-				Coins:   Coins{ThetaWei: big.NewInt(8), GammaWei: big.NewInt(0)},
+				Coins:   Coins{ThetaWei: big.NewInt(8), TFuelWei: big.NewInt(0)},
 			},
 		},
 		BlockHeight: 10,
@@ -224,7 +224,7 @@ func TestSlashTxProto(t *testing.T) {
 
 func TestSendTxSignable(t *testing.T) {
 	sendTx := &SendTx{
-		Fee: Coins{ThetaWei: big.NewInt(111), GammaWei: big.NewInt(0)},
+		Fee: Coins{ThetaWei: big.NewInt(111), TFuelWei: big.NewInt(0)},
 		Inputs: []TxInput{
 			TxInput{
 				Address:  getTestAddress("input1"),
@@ -233,18 +233,18 @@ func TestSendTxSignable(t *testing.T) {
 			},
 			TxInput{
 				Address:  getTestAddress("input2"),
-				Coins:    Coins{ThetaWei: big.NewInt(111), GammaWei: big.NewInt(0)},
+				Coins:    Coins{ThetaWei: big.NewInt(111), TFuelWei: big.NewInt(0)},
 				Sequence: 222,
 			},
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: getTestAddress("output1"),
-				Coins:   Coins{ThetaWei: big.NewInt(333), GammaWei: big.NewInt(0)},
+				Coins:   Coins{ThetaWei: big.NewInt(333), TFuelWei: big.NewInt(0)},
 			},
 			TxOutput{
 				Address: getTestAddress("output2"),
-				Coins:   Coins{ThetaWei: big.NewInt(444), GammaWei: big.NewInt(0)},
+				Coins:   Coins{ThetaWei: big.NewInt(444), TFuelWei: big.NewInt(0)},
 			},
 		},
 	}
@@ -260,24 +260,24 @@ func TestSendTxSignable2(t *testing.T) {
 	chainID := "private_net"
 	ten18 := new(big.Int).SetUint64(1000000000000000000) // 10^18
 	thetaWei := new(big.Int).Mul(new(big.Int).SetUint64(10), ten18)
-	gammaWei := new(big.Int).Mul(new(big.Int).SetUint64(20), ten18)
-	feeInGammaWei := new(big.Int).SetUint64(1000000000000) // 10^12
+	tfuelWei := new(big.Int).Mul(new(big.Int).SetUint64(20), ten18)
+	feeInTFuelWei := new(big.Int).SetUint64(1000000000000) // 10^12
 
 	senderAddr := common.HexToAddress("2E833968E5bB786Ae419c4d13189fB081Cc43bab")
 	receiverAddr := common.HexToAddress("9F1233798E905E173560071255140b4A8aBd3Ec6")
 	sendTx := &SendTx{
-		Fee: Coins{ThetaWei: big.NewInt(0), GammaWei: feeInGammaWei},
+		Fee: Coins{ThetaWei: big.NewInt(0), TFuelWei: feeInTFuelWei},
 		Inputs: []TxInput{
 			TxInput{
 				Address:  senderAddr,
-				Coins:    Coins{ThetaWei: thetaWei, GammaWei: new(big.Int).Add(gammaWei, feeInGammaWei)},
+				Coins:    Coins{ThetaWei: thetaWei, TFuelWei: new(big.Int).Add(tfuelWei, feeInTFuelWei)},
 				Sequence: 2,
 			},
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: receiverAddr,
-				Coins:   Coins{ThetaWei: thetaWei, GammaWei: gammaWei},
+				Coins:   Coins{ThetaWei: thetaWei, TFuelWei: tfuelWei},
 			},
 		},
 	}
@@ -347,14 +347,14 @@ func TestSendTxProto(t *testing.T) {
 
 	// Construct a SendTx signature
 	tx := &SendTx{
-		Fee: Coins{GammaWei: big.NewInt(2)},
+		Fee: Coins{TFuelWei: big.NewInt(2)},
 		Inputs: []TxInput{
-			NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(10)}, 1),
+			NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: big.NewInt(0), TFuelWei: big.NewInt(10)}, 1),
 		},
 		Outputs: []TxOutput{
 			TxOutput{
 				Address: test2PrivAcc.Address,
-				Coins:   Coins{ThetaWei: big.NewInt(0), GammaWei: big.NewInt(8)},
+				Coins:   Coins{ThetaWei: big.NewInt(0), TFuelWei: big.NewInt(8)},
 			},
 		},
 	}
@@ -390,13 +390,13 @@ func TestSendTxProto(t *testing.T) {
 
 func TestReserveFundTxSignable(t *testing.T) {
 	reserveFundTx := &ReserveFundTx{
-		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, TFuelWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
-		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
+		Collateral:  Coins{ThetaWei: Zero, TFuelWei: big.NewInt(22897)},
 		ResourceIDs: []string{"rid00123"},
 		Duration:    uint64(999),
 	}
@@ -417,9 +417,9 @@ func TestReserveFundTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx transaction
 	tx := &ReserveFundTx{
-		Fee:         Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:      NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
-		Collateral:  Coins{ThetaWei: Zero, GammaWei: big.NewInt(22897)},
+		Fee:         Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
+		Source:      NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, TFuelWei: big.NewInt(10)}, 1),
+		Collateral:  Coins{ThetaWei: Zero, TFuelWei: big.NewInt(22897)},
 		ResourceIDs: []string{"rid00123"},
 		Duration:    uint64(999),
 	}
@@ -455,10 +455,10 @@ func TestReserveFundTxProto(t *testing.T) {
 
 func TestReleaseFundTxSignable(t *testing.T) {
 	releaseFundTx := &ReleaseFundTx{
-		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("input1"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, TFuelWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		ReserveSequence: 12,
@@ -480,8 +480,8 @@ func TestReleaseFundTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx transaction
 	tx := &ReleaseFundTx{
-		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Fee:             Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
+		Source:          NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, TFuelWei: big.NewInt(10)}, 1),
 		ReserveSequence: 1,
 	}
 
@@ -516,10 +516,10 @@ func TestReleaseFundTxProto(t *testing.T) {
 
 func TestServicePaymentTxSourceSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
-		Fee: Coins{GammaWei: big.NewInt(111)},
+		Fee: Coins{TFuelWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, TFuelWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
@@ -542,10 +542,10 @@ func TestServicePaymentTxSourceSignable(t *testing.T) {
 
 func TestServicePaymentTxTargetSignable(t *testing.T) {
 	servicePaymentTx := &ServicePaymentTx{
-		Fee: Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Fee: Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
 		Source: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, TFuelWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Target: TxInput{
@@ -575,8 +575,8 @@ func TestServicePaymentTxProto(t *testing.T) {
 
 	// Construct a ReserveFundTx signature
 	tx := &ServicePaymentTx{
-		Fee:             Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
-		Source:          NewTxInput(sourcePrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10000)}, 1),
+		Fee:             Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
+		Source:          NewTxInput(sourcePrivAcc.Address, Coins{ThetaWei: Zero, TFuelWei: big.NewInt(10000)}, 1),
 		Target:          NewTxInput(targetPrivAcc.Address, NewCoins(0, 0), 1),
 		PaymentSequence: 3,
 		ReserveSequence: 12,
@@ -606,11 +606,11 @@ func TestSplitRuleTxSignable(t *testing.T) {
 		Percentage: 30,
 	}
 	splitRuleTx := &SplitRuleTx{
-		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Fee:        Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
 		ResourceID: "rid00123",
 		Initiator: TxInput{
 			Address:  getTestAddress("source"),
-			Coins:    Coins{ThetaWei: Zero, GammaWei: big.NewInt(12345)},
+			Coins:    Coins{ThetaWei: Zero, TFuelWei: big.NewInt(12345)},
 			Sequence: 67890,
 		},
 		Splits:   []Split{split},
@@ -637,9 +637,9 @@ func TestSplitRuleTxProto(t *testing.T) {
 		Percentage: 30,
 	}
 	tx := &SplitRuleTx{
-		Fee:        Coins{ThetaWei: Zero, GammaWei: big.NewInt(111)},
+		Fee:        Coins{ThetaWei: Zero, TFuelWei: big.NewInt(111)},
 		ResourceID: "rid00123",
-		Initiator:  NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, GammaWei: big.NewInt(10)}, 1),
+		Initiator:  NewTxInput(test1PrivAcc.Address, Coins{ThetaWei: Zero, TFuelWei: big.NewInt(10)}, 1),
 		Splits:     []Split{split},
 		Duration:   99,
 	}

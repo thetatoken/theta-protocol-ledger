@@ -49,8 +49,8 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -155,6 +155,6 @@ func (exec *SplitRuleTxExecutor) calculateEffectiveGasPrice(transaction types.Tx
 	tx := transaction.(*types.SplitRuleTx)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasSplitRuleTx)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

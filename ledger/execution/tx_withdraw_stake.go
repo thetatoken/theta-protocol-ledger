@@ -48,8 +48,8 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
@@ -126,6 +126,6 @@ func (exec *WithdrawStakeExecutor) calculateEffectiveGasPrice(transaction types.
 	tx := transaction.(*types.WithdrawStakeTx)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasWidthdrawStakeTx)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

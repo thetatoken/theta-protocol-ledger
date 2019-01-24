@@ -11,14 +11,14 @@ var (
 	toFlag                       string
 	seqFlag                      uint64
 	thetaAmountFlag              string
-	gammaAmountFlag              string
+	tfuelAmountFlag              string
 	gasAmountFlag                uint64
 	feeFlag                      string
 	resourceIDsFlag              []string
 	resourceIDFlag               string
 	durationFlag                 uint64
-	reserveFundInGammaFlag       string
-	reserveCollateralInGammaFlag string
+	reserveFundInTFuelFlag       string
+	reserveCollateralInTFuelFlag string
 	reserveSeqFlag               uint64
 	addressesFlag                []string
 	percentagesFlag              []string

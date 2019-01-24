@@ -66,8 +66,8 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	outTotal := sumOutputs(tx.Outputs)
@@ -118,6 +118,6 @@ func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *bi
 		gasUint64 = 2 * types.GasSendTxPerAccount // to prevent spamming with invalid transactions, e.g. empty inputs/outputs
 	}
 	gas := new(big.Int).SetUint64(gasUint64)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

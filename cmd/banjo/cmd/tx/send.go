@@ -18,11 +18,11 @@ import (
 
 // sendCmd represents the send command
 // Example:
-//		banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1
+//		banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=900000 --seq=1
 var sendCmd = &cobra.Command{
 	Use:     "send",
 	Short:   "Send tokens",
-	Example: `banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1`,
+	Example: `banjo tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=900000 --seq=1`,
 	Run:     doSendCmd,
 }
 
@@ -37,9 +37,9 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	if !ok {
 		utils.Error("Failed to parse theta amount")
 	}
-	gamma, ok := types.ParseCoinAmount(gammaAmountFlag)
+	tfuel, ok := types.ParseCoinAmount(tfuelAmountFlag)
 	if !ok {
-		utils.Error("Failed to parse gamma amount")
+		utils.Error("Failed to parse tfuel amount")
 	}
 	fee, ok := types.ParseCoinAmount(feeFlag)
 	if !ok {
@@ -48,7 +48,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	inputs := []types.TxInput{{
 		Address: fromAddress,
 		Coins: types.Coins{
-			GammaWei: new(big.Int).Add(gamma, fee),
+			TFuelWei: new(big.Int).Add(tfuel, fee),
 			ThetaWei: theta,
 		},
 		Sequence: uint64(seqFlag),
@@ -56,14 +56,14 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	outputs := []types.TxOutput{{
 		Address: common.HexToAddress(toFlag),
 		Coins: types.Coins{
-			GammaWei: gamma,
+			TFuelWei: tfuel,
 			ThetaWei: theta,
 		},
 	}}
 	sendTx := &types.SendTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: fee,
+			TFuelWei: fee,
 		},
 		Inputs:  inputs,
 		Outputs: outputs,
@@ -108,8 +108,8 @@ func init() {
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
-	sendCmd.Flags().StringVar(&gammaAmountFlag, "gamma", "0", "Gamma amount")
-	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	sendCmd.Flags().StringVar(&tfuelAmountFlag, "tfuel", "0", "TFuel amount")
+	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 
 	sendCmd.MarkFlagRequired("chain")

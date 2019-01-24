@@ -13,7 +13,7 @@ banjo tx send [flags]
 ### Examples
 
 ```
-banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --gamma=900000 --seq=1
+banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=900000 --seq=1
 ```
 
 ### Options
@@ -22,7 +22,7 @@ banjo tx send --chain="" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F
       --chain string    Chain ID
       --fee string      Fee (default "1000000000000wei")
       --from string     Address to send from
-      --gamma string    Gamma amount (default "0")
+      --tfuel string    TFuel amount (default "0")
   -h, --help            help for send
       --seq uint        Sequence number of the transaction
       --theta string    Theta amount (default "0")

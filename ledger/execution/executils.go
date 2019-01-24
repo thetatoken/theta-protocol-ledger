@@ -253,8 +253,8 @@ func sanityCheckForGasPrice(gasPrice *big.Int) bool {
 
 func sanityCheckForFee(fee types.Coins) bool {
 	fee = fee.NoNil()
-	minimumFee := new(big.Int).SetUint64(types.MinimumTransactionFeeGammaWei)
-	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.GammaWei.Cmp(minimumFee) >= 0
+	minimumFee := new(big.Int).SetUint64(types.MinimumTransactionFeeTFuelWei)
+	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0
 }
 
 func chargeFee(account *types.Account, fee types.Coins) bool {

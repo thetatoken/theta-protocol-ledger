@@ -40,13 +40,13 @@ func TestGetInputs(t *testing.T) {
 	et.reset()
 	et.acc2State(et.accIn)
 
-	et.fastforwardBy(1000) // fastforward to reach a sufficient height for Gamma generation
+	et.fastforwardBy(1000) // fastforward to reach a sufficient height for TFuel generation
 
 	inputs = types.Accs2TxInputs(1, et.accIn)
 	acc, res = getInputs(et.state().Delivered(), inputs)
 	assert.True(res.IsOK(), "getInputs: expected to get input from a few block heights ago")
-	assert.True(acc[string(inputs[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
-		"getInputs: gamma amount should not change")
+	assert.True(acc[string(inputs[0].Address[:])].Balance.TFuelWei.Cmp(et.accIn.Balance.TFuelWei) == 0,
+		"getInputs: tfuel amount should not change")
 }
 
 func TestGetOrMakeOutputs(t *testing.T) {
@@ -82,7 +82,7 @@ func TestGetOrMakeOutputs(t *testing.T) {
 
 	//test calculating reward
 	et.reset()
-	et.fastforwardBy(1000) // fastforward to reach a sufficient height for Gamma generation
+	et.fastforwardBy(1000) // fastforward to reach a sufficient height for TFuel generation
 
 	outputs1 = types.Accs2TxOutputs(et.accIn)
 	outputs2 = types.Accs2TxOutputs(et.accOut)
@@ -90,13 +90,13 @@ func TestGetOrMakeOutputs(t *testing.T) {
 	et.acc2State(et.accIn)
 	mapRes1, res := getOrMakeOutputs(et.state().Delivered(), nil, outputs1)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to existing account")
-	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.GammaWei.Cmp(et.accIn.Balance.GammaWei) == 0,
-		"getOrMakeOutputs: gamma amount should not change")
+	assert.True(mapRes1[string(outputs1[0].Address[:])].Balance.TFuelWei.Cmp(et.accIn.Balance.TFuelWei) == 0,
+		"getOrMakeOutputs: tfuel amount should not change")
 
 	mapRes2, res = getOrMakeOutputs(et.state().Delivered(), nil, outputs2)
 	assert.True(res.IsOK(), "getOrMakeOutputs: error when sending to new account")
-	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.GammaWei.Cmp(types.Zero) == 0,
-		"getOrMakeOutputs: expected to not update new output account gamma balance")
+	assert.True(mapRes2[string(outputs2[0].Address[:])].Balance.TFuelWei.Cmp(types.Zero) == 0,
+		"getOrMakeOutputs: expected to not update new output account tfuel balance")
 }
 
 func TestValidateInputsBasic(t *testing.T) {
@@ -291,15 +291,15 @@ func TestCoinbaseTx(t *testing.T) {
 	et := NewExecTest()
 
 	va1 := et.accProposer
-	va1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), GammaWei: big.NewInt(0)}
+	va1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), TFuelWei: big.NewInt(0)}
 	et.acc2State(va1)
 
 	va2 := et.accVal2
-	va2.Balance = types.Coins{ThetaWei: big.NewInt(3e11), GammaWei: big.NewInt(0)}
+	va2.Balance = types.Coins{ThetaWei: big.NewInt(3e11), TFuelWei: big.NewInt(0)}
 	et.acc2State(va2)
 
 	user1 := types.MakeAcc("user 1")
-	user1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), GammaWei: big.NewInt(0)}
+	user1.Balance = types.Coins{ThetaWei: big.NewInt(1e11), TFuelWei: big.NewInt(0)}
 	et.acc2State(user1)
 
 	et.fastforwardTo(1e7)
@@ -337,7 +337,7 @@ func TestCoinbaseTx(t *testing.T) {
 	res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	assert.True(res.IsError(), res.String())
 
-	// For the initial Mainnet release, Gamma should not inflate
+	// For the initial Mainnet release, TFuel should not inflate
 	tx = &types.CoinbaseTx{
 		Proposer: types.TxInput{
 			Address: va1.Address},
@@ -365,7 +365,7 @@ func TestCoinbaseTx(t *testing.T) {
 	// res = et.executor.getTxExecutor(tx).sanityCheck(et.chainID, et.state().Delivered(), tx)
 	// assert.True(res.IsError(), res.String())
 
-	// //Error if reward Gamma amount is incorrect
+	// //Error if reward TFuel amount is incorrect
 	// tx = &types.CoinbaseTx{
 	// 	Proposer: types.TxInput{
 	// 		Address: va1.PubKey.Address(), PubKey: va1.PubKey},
@@ -438,17 +438,17 @@ func TestCoinbaseTx(t *testing.T) {
 
 	// va1balance := et.state().Delivered().GetAccount(va1.Account.PubKey.Address()).Balance
 	// assert.Equal(int64(100000000317), va1balance.ThetaWei.Int64())
-	// // validator's Gamma is also updated.
-	// assert.Equal(int64(189999981000), va1balance.GammaWei.Int64())
+	// // validator's TFuel is also updated.
+	// assert.Equal(int64(189999981000), va1balance.TFuelWei.Int64())
 
 	// va2balance := et.state().Delivered().GetAccount(va2.Account.PubKey.Address()).Balance
 	// assert.Equal(int64(300000000951), va2balance.ThetaWei.Int64())
-	// assert.Equal(int64(569999943000), va2balance.GammaWei.Int64())
+	// assert.Equal(int64(569999943000), va2balance.TFuelWei.Int64())
 
 	// user1balance := et.state().Delivered().GetAccount(user1.Account.PubKey.Address()).Balance
 	// assert.Equal(int64(100000000000), user1balance.ThetaWei.Int64())
-	// // user's Gamma is not updated.
-	// assert.Equal(int64(0), user1balance.GammaWei.Int64())
+	// // user's TFuel is not updated.
+	// assert.Equal(int64(0), user1balance.TFuelWei.Int64())
 }
 
 func TestReserveFundTx(t *testing.T) {
@@ -459,7 +459,7 @@ func TestReserveFundTx(t *testing.T) {
 
 	user1 := types.MakeAcc("user 1")
 	user1.Balance = types.Coins{
-		GammaWei: big.NewInt(6200 * txFee),
+		TFuelWei: big.NewInt(6200 * txFee),
 		ThetaWei: big.NewInt(10000 * 1e6),
 	}
 	et.acc2State(user1)
@@ -476,7 +476,7 @@ func TestReserveFundTx(t *testing.T) {
 			Address:  user1.PrivKey.PublicKey().Address(),
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
@@ -490,10 +490,10 @@ func TestReserveFundTx(t *testing.T) {
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.PrivKey.PublicKey().Address(),
-			Coins:    types.Coins{GammaWei: big.NewInt(50000 * txFee), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(50000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(50001 * txFee), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(50001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
@@ -507,10 +507,10 @@ func TestReserveFundTx(t *testing.T) {
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(5000 * txFee), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(5000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
@@ -524,10 +524,10 @@ func TestReserveFundTx(t *testing.T) {
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  user1.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * txFee), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(1000 * txFee), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
@@ -540,7 +540,7 @@ func TestReserveFundTx(t *testing.T) {
 	retrievedUserAcc := et.state().Delivered().GetAccount(user1.Address)
 	assert.Equal(1, len(retrievedUserAcc.ReservedFunds))
 	assert.Equal([]string{"rid001"}, retrievedUserAcc.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedUserAcc.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedUserAcc.ReservedFunds[0].ReserveSequence)
 }
 
@@ -550,7 +550,7 @@ func TestReleaseFundTx(t *testing.T) {
 
 	user1 := types.MakeAcc("user 1")
 	user1.Balance = types.Coins{
-		GammaWei: big.NewInt(50 * getMinimumTxFee()),
+		TFuelWei: big.NewInt(50 * getMinimumTxFee()),
 		ThetaWei: big.NewInt(10000 * 1e6),
 	}
 	et.acc2State(user1)
@@ -565,10 +565,10 @@ func TestReleaseFundTx(t *testing.T) {
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  user1.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(1000 * 1e6), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * 1e6), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{"rid001"},
 		Duration:    1000,
 	}
@@ -667,7 +667,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	retrievedAliceAcc0 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(1, len(retrievedAliceAcc0.ReservedFunds))
 	assert.Equal([]string{resourceID}, retrievedAliceAcc0.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc0.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc0.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bob
@@ -686,9 +686,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.Address)
 
-	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].UsedFund)
 	retrievedBobAcc1 := et.state().Delivered().GetAccount(bob.Address)
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - txFee: need to account for tx fee
+	assert.Equal(bobInitBalance.Plus(types.Coins{TFuelWei: big.NewInt(payAmount1 - txFee), ThetaWei: big.NewInt(0)}), retrievedBobAcc1.Balance) // payAmount1 - txFee: need to account for tx fee
 
 	// Simulate micropayment #2 between Alice and Bob
 	payAmount2 := int64(50 * txFee)
@@ -704,9 +704,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.Address)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(payAmount1 + payAmount2), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.Address)
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 - 2*txFee)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2*txFee: need to account for tx fee
+	assert.Equal(bobInitBalance.Plus(types.Coins{TFuelWei: big.NewInt(payAmount1 + payAmount2 - 2*txFee)}), retrievedBobAcc2.Balance) // payAmount1 + payAmount2 - 2*txFee: need to account for tx fee
 
 	// Simulate micropayment #3 between Alice and Carol
 	payAmount3 := int64(120 * txFee)
@@ -722,9 +722,9 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc3 := et.state().Delivered().GetAccount(alice.Address)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(payAmount1 + payAmount2 + payAmount3), ThetaWei: big.NewInt(0)}, retrievedAliceAcc3.ReservedFunds[0].UsedFund)
 	retrievedCarolAcc3 := et.state().Delivered().GetAccount(carol.Address)
-	assert.Equal(carolInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount3 - txFee)}), retrievedCarolAcc3.Balance) // payAmount3 - txFee: need to account for tx fee
+	assert.Equal(carolInitBalance.Plus(types.Coins{TFuelWei: big.NewInt(payAmount3 - txFee)}), retrievedCarolAcc3.Balance) // payAmount3 - txFee: need to account for tx fee
 
 	// Simulate micropayment #4 between Alice and Carol. This is an overspend, alice should get slashed.
 	payAmount4 := int64(2000 * txFee)
@@ -750,7 +750,7 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	retrievedAliceAcc1 := et.state().Delivered().GetAccount(alice.Address)
 	assert.Equal(1, len(retrievedAliceAcc1.ReservedFunds))
 	assert.Equal([]string{resourceID}, retrievedAliceAcc1.ReservedFunds[0].ResourceIDs)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(1001 * txFee), ThetaWei: big.NewInt(0)}, retrievedAliceAcc1.ReservedFunds[0].Collateral)
 	assert.Equal(uint64(1), retrievedAliceAcc1.ReservedFunds[0].ReserveSequence)
 
 	// Simulate micropayment #1 between Alice and Bobs
@@ -767,9 +767,9 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	et.state().Commit()
 
 	retrievedAliceAcc2 := et.state().Delivered().GetAccount(alice.Address)
-	assert.Equal(types.Coins{GammaWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
+	assert.Equal(types.Coins{TFuelWei: big.NewInt(payAmount1), ThetaWei: big.NewInt(0)}, retrievedAliceAcc2.ReservedFunds[0].UsedFund)
 	retrievedBobAcc2 := et.state().Delivered().GetAccount(bob.Address)
-	assert.Equal(bobInitBalance.Plus(types.Coins{GammaWei: big.NewInt(payAmount1 - txFee)}), retrievedBobAcc2.Balance) // payAmount1 - txFee: need to account for Gas
+	assert.Equal(bobInitBalance.Plus(types.Coins{TFuelWei: big.NewInt(payAmount1 - txFee)}), retrievedBobAcc2.Balance) // payAmount1 - txFee: need to account for Gas
 
 	et.fastforwardBy(1e4) // The reservedFund should expire after the fastforward
 
@@ -860,7 +860,7 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 	txFee := getMinimumTxFee()
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -906,9 +906,9 @@ func TestSplitRuleTxNormalExecution(t *testing.T) {
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
 	// Check the balances of the relevant accounts
-	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 70 / 100), ThetaWei: big.NewInt(0)}
+	bobSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount * 70 / 100), ThetaWei: big.NewInt(0)}
 	servicePaymentTxFee := types.NewCoins(0, txFee)
-	carolSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount * 30 / 100), ThetaWei: big.NewInt(0)}
+	carolSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount * 30 / 100), ThetaWei: big.NewInt(0)}
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance.Plus(carolSplitCoins), carolFinalBalance)
 }
@@ -922,7 +922,7 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 	txFee := getMinimumTxFee()
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	splitCarol := types.Split{
@@ -970,7 +970,7 @@ func TestSplitRuleTxExpiration(t *testing.T) {
 	log.Infof("Carol's final balance: %v", carolFinalBalance)
 
 	// Check the balances of the relevant accounts
-	bobSplitCoins := types.Coins{GammaWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
+	bobSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)}
 	servicePaymentTxFee := types.NewCoins(0, txFee)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins).Minus(servicePaymentTxFee), bobFinalBalance)
 	assert.Equal(carolInitBalance, carolFinalBalance) // Carol gets no cut since the split rule has expired
@@ -984,11 +984,11 @@ func TestSplitRuleTxUpdate(t *testing.T) {
 	txFee := getMinimumTxFee()
 
 	initiator := types.MakeAcc("User David")
-	initiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
 	fakeInitiator := types.MakeAcc("User Eric")
-	fakeInitiator.Balance = types.Coins{GammaWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	fakeInitiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(fakeInitiator)
 
 	splitCarol := types.Split{

@@ -49,7 +49,7 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		Address: sourceAddress,
 		Coins: types.Coins{
 			ThetaWei: stake,
-			GammaWei: new(big.Int).SetUint64(0),
+			TFuelWei: new(big.Int).SetUint64(0),
 		},
 		Sequence: uint64(seqFlag),
 	}
@@ -60,7 +60,7 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 	depositStakeTx := &types.DepositStakeTx{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			GammaWei: fee,
+			TFuelWei: fee,
 		},
 		Source:  source,
 		Holder:  holder,
@@ -95,7 +95,7 @@ func init() {
 	depositStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	depositStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	depositStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
-	depositStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeGammaWei), "Fee")
+	depositStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	depositStakeCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	depositStakeCmd.Flags().StringVar(&stakeInThetaFlag, "stake", "5000000", "Theta amount to stake")
 	depositStakeCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")

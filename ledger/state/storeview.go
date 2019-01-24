@@ -326,7 +326,7 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 	}
 	account := sv.GetAccount(addr)
 	account.Balance = account.Balance.NoNil()
-	account.Balance.GammaWei.Sub(account.Balance.GammaWei, amount)
+	account.Balance.TFuelWei.Sub(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
 }
 
@@ -336,12 +336,12 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 	}
 	account := sv.GetAccount(addr)
 	account.Balance = account.Balance.NoNil()
-	account.Balance.GammaWei.Add(account.Balance.GammaWei, amount)
+	account.Balance.TFuelWei.Add(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
 }
 
 func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
-	return sv.GetOrCreateAccount(addr).Balance.GammaWei
+	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
 }
 
 func (sv *StoreView) GetNonce(addr common.Address) uint64 {
