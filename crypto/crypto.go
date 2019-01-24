@@ -207,6 +207,17 @@ func (sig *Signature) MarshalJSON() ([]byte, error) {
 	return json.Marshal(hexutil.Bytes(sig.data))
 }
 
+// UnmarshalJSON parses the JSON representation of the signature
+func (sig *Signature) UnmarshalJSON(data []byte) error {
+	raw := &hexutil.Bytes{}
+	err := raw.UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	sig.data = ([]byte)(*raw)
+	return nil
+}
+
 // IsEmpty indicates whether the signature is empty
 func (sig *Signature) IsEmpty() bool {
 	return len(sig.data) == 0
