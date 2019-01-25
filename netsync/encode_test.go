@@ -5,10 +5,10 @@ package netsync
 import (
 	"testing"
 
-	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/theta/dispatcher"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 func TestMessageEncoding(t *testing.T) {

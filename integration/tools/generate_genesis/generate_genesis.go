@@ -14,21 +14,21 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/ukulele/consensus"
-	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database/backend"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
 //
 // Example:
-// cd $UKULELE/integration/privatenet/node
+// cd $THETA/integration/privatenet/node
 // generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis_signatures=./data/genesis_signatures.json -genesis=./genesis
 //
 func main() {
@@ -80,7 +80,7 @@ func writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath,
 func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSignaturesFilePath string) (*core.SnapshotMetadata, *state.StoreView, error) {
 	genesis := &core.SnapshotMetadata{}
 
-	initGammaToThetaRatio := new(big.Int).SetUint64(5)
+	initTFuelToThetaRatio := new(big.Int).SetUint64(5)
 	sv := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
 
 	// --------------- Load initial balances --------------- //
@@ -108,18 +108,18 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 		if !success {
 			panic(fmt.Sprintf("Failed to parse ThetaWei amount: %v", val))
 		}
-		gamma := new(big.Int).Mul(initGammaToThetaRatio, theta)
+		tfuel := new(big.Int).Mul(initTFuelToThetaRatio, theta)
 		acc := &types.Account{
 			Address: address,
 			Balance: types.Coins{
 				ThetaWei: theta,
-				GammaWei: gamma,
+				TFuelWei: tfuel,
 			},
 			LastUpdatedBlockHeight: 0,
 		}
 		sv.SetAccount(acc.Address, acc)
 
-		// logger.Infof("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma)
+		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel))
 	}
 
 	// --------------- Perform initial stake deposit --------------- //
@@ -162,7 +162,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 
 		stake := types.Coins{
 			ThetaWei: stakeAmount,
-			GammaWei: new(big.Int).SetUint64(0),
+			TFuelWei: new(big.Int).SetUint64(0),
 		}
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		sv.SetAccount(sourceAddress, sourceAccount)
@@ -333,7 +333,7 @@ func itobs(val uint64) []byte {
 
 func sanityChecks(sv *state.StoreView) error {
 	thetaWeiTotal := new(big.Int).SetUint64(0)
-	gammaWeiTotal := new(big.Int).SetUint64(0)
+	tfuelWeiTotal := new(big.Int).SetUint64(0)
 
 	vcpAnalyzed := false
 	sv.GetStore().Traverse(nil, func(key, val common.Bytes) bool {
@@ -362,11 +362,11 @@ func sanityChecks(sv *state.StoreView) error {
 			}
 
 			thetaWei := account.Balance.ThetaWei
-			gammaWei := account.Balance.GammaWei
+			tfuelWei := account.Balance.TFuelWei
 			thetaWeiTotal = new(big.Int).Add(thetaWeiTotal, thetaWei)
-			gammaWeiTotal = new(big.Int).Add(gammaWeiTotal, gammaWei)
+			tfuelWeiTotal = new(big.Int).Add(tfuelWeiTotal, tfuelWei)
 
-			logger.Infof("Account: %v, ThetaWei = %v, GammaWei = %v", account.Address, thetaWei, gammaWei)
+			logger.Infof("Account: %v, ThetaWei = %v, TFuelWei = %v", account.Address, thetaWei, tfuelWei)
 		}
 		return true
 	})
@@ -388,13 +388,13 @@ func sanityChecks(sv *state.StoreView) error {
 	logger.Infof("Expected   ThetaWei total = %v", expectedThetaWeiTotal)
 	logger.Infof("Calculated ThetaWei total = %v", thetaWeiTotal)
 
-	// Check #3: Sum(GammaWei) == 5 * 10^9 * 10^18
-	expectedGammaWeiTotal := new(big.Int).Mul(fiveBillion, ten18)
-	if expectedGammaWeiTotal.Cmp(gammaWeiTotal) != 0 {
-		return fmt.Errorf("Unmatched GammaWei total: expected = %v, calculated = %v", expectedGammaWeiTotal, gammaWeiTotal)
+	// Check #3: Sum(TFuelWei) == 5 * 10^9 * 10^18
+	expectedTFuelWeiTotal := new(big.Int).Mul(fiveBillion, ten18)
+	if expectedTFuelWeiTotal.Cmp(tfuelWeiTotal) != 0 {
+		return fmt.Errorf("Unmatched TFuelWei total: expected = %v, calculated = %v", expectedTFuelWeiTotal, tfuelWeiTotal)
 	}
-	logger.Infof("Expected   GammaWei total = %v", expectedGammaWeiTotal)
-	logger.Infof("Calculated GammaWei total = %v", gammaWeiTotal)
+	logger.Infof("Expected   TFuelWei total = %v", expectedTFuelWeiTotal)
+	logger.Infof("Calculated TFuelWei total = %v", tfuelWeiTotal)
 
 	return nil
 }

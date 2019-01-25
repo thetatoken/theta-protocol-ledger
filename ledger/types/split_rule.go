@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 // ** Split Rule: Specifies the payment split agreement among participating addresses **

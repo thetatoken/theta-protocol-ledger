@@ -24,9 +24,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	dbbackend "github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	dbbackend "github.com/thetatoken/theta/store/database/backend"
 )
 
 func init() {

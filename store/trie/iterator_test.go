@@ -23,8 +23,8 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/thetatoken/ukulele/common"
-	dbbackend "github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	dbbackend "github.com/thetatoken/theta/store/database/backend"
 )
 
 func TestIterator(t *testing.T) {

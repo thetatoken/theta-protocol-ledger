@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 var (
@@ -21,25 +21,25 @@ func init() {
 
 type Coins struct {
 	ThetaWei *big.Int
-	GammaWei *big.Int
+	TFuelWei *big.Int
 }
 
 type CoinsJSON struct {
 	ThetaWei *common.JSONBig `json:"thetawei"`
-	GammaWei *common.JSONBig `json:"gammawei"`
+	TFuelWei *common.JSONBig `json:"tfuelwei"`
 }
 
 func NewCoinsJSON(coin Coins) CoinsJSON {
 	return CoinsJSON{
 		ThetaWei: (*common.JSONBig)(coin.ThetaWei),
-		GammaWei: (*common.JSONBig)(coin.GammaWei),
+		TFuelWei: (*common.JSONBig)(coin.TFuelWei),
 	}
 }
 
 func (c CoinsJSON) Coins() Coins {
 	return Coins{
 		ThetaWei: (*big.Int)(c.ThetaWei),
-		GammaWei: (*big.Int)(c.GammaWei),
+		TFuelWei: (*big.Int)(c.TFuelWei),
 	}
 }
 
@@ -57,15 +57,15 @@ func (c *Coins) UnmarshalJSON(data []byte) error {
 }
 
 // NewCoins is a convenient method for creating small amount of coins.
-func NewCoins(theta int64, gamma int64) Coins {
+func NewCoins(theta int64, tfuel int64) Coins {
 	return Coins{
 		ThetaWei: big.NewInt(theta),
-		GammaWei: big.NewInt(gamma),
+		TFuelWei: big.NewInt(tfuel),
 	}
 }
 
 func (coins Coins) String() string {
-	return fmt.Sprintf("%v %v, %v %v", coins.ThetaWei, DenomThetaWei, coins.GammaWei, DenomGammaWei)
+	return fmt.Sprintf("%v %v, %v %v", coins.ThetaWei, DenomThetaWei, coins.TFuelWei, DenomTFuelWei)
 }
 
 func (coins Coins) IsValid() bool {
@@ -77,14 +77,14 @@ func (coins Coins) NoNil() Coins {
 	if theta == nil {
 		theta = big.NewInt(0)
 	}
-	gamma := coins.GammaWei
-	if gamma == nil {
-		gamma = big.NewInt(0)
+	tfuel := coins.TFuelWei
+	if tfuel == nil {
+		tfuel = big.NewInt(0)
 	}
 
 	return Coins{
 		ThetaWei: theta,
-		GammaWei: gamma,
+		TFuelWei: tfuel,
 	}
 }
 
@@ -98,13 +98,13 @@ func (coins Coins) CalculatePercentage(percentage uint) Coins {
 	theta.Mul(c.ThetaWei, p)
 	theta.Div(theta, Hundred)
 
-	gamma := new(big.Int)
-	gamma.Mul(c.GammaWei, p)
-	gamma.Div(gamma, Hundred)
+	tfuel := new(big.Int)
+	tfuel.Mul(c.TFuelWei, p)
+	tfuel.Div(tfuel, Hundred)
 
 	return Coins{
 		ThetaWei: theta,
-		GammaWei: gamma,
+		TFuelWei: tfuel,
 	}
 }
 
@@ -116,12 +116,12 @@ func (coinsA Coins) Plus(coinsB Coins) Coins {
 	theta := new(big.Int)
 	theta.Add(cA.ThetaWei, cB.ThetaWei)
 
-	gamma := new(big.Int)
-	gamma.Add(cA.GammaWei, cB.GammaWei)
+	tfuel := new(big.Int)
+	tfuel.Add(cA.TFuelWei, cB.TFuelWei)
 
 	return Coins{
 		ThetaWei: theta,
-		GammaWei: gamma,
+		TFuelWei: tfuel,
 	}
 }
 
@@ -131,12 +131,12 @@ func (coins Coins) Negative() Coins {
 	theta := new(big.Int)
 	theta.Neg(c.ThetaWei)
 
-	gamma := new(big.Int)
-	gamma.Neg(c.GammaWei)
+	tfuel := new(big.Int)
+	tfuel.Neg(c.TFuelWei)
 
 	return Coins{
 		ThetaWei: theta,
-		GammaWei: gamma,
+		TFuelWei: tfuel,
 	}
 }
 
@@ -151,24 +151,24 @@ func (coinsA Coins) IsGTE(coinsB Coins) bool {
 
 func (coins Coins) IsZero() bool {
 	c := coins.NoNil()
-	return c.ThetaWei.Cmp(Zero) == 0 && c.GammaWei.Cmp(Zero) == 0
+	return c.ThetaWei.Cmp(Zero) == 0 && c.TFuelWei.Cmp(Zero) == 0
 }
 
 func (coinsA Coins) IsEqual(coinsB Coins) bool {
 	cA := coinsA.NoNil()
 	cB := coinsB.NoNil()
-	return cA.ThetaWei.Cmp(cB.ThetaWei) == 0 && cA.GammaWei.Cmp(cB.GammaWei) == 0
+	return cA.ThetaWei.Cmp(cB.ThetaWei) == 0 && cA.TFuelWei.Cmp(cB.TFuelWei) == 0
 }
 
 func (coins Coins) IsPositive() bool {
 	c := coins.NoNil()
-	return (c.ThetaWei.Cmp(Zero) > 0 && c.GammaWei.Cmp(Zero) >= 0) ||
-		(c.ThetaWei.Cmp(Zero) >= 0 && c.GammaWei.Cmp(Zero) > 0)
+	return (c.ThetaWei.Cmp(Zero) > 0 && c.TFuelWei.Cmp(Zero) >= 0) ||
+		(c.ThetaWei.Cmp(Zero) >= 0 && c.TFuelWei.Cmp(Zero) > 0)
 }
 
 func (coins Coins) IsNonnegative() bool {
 	c := coins.NoNil()
-	return c.ThetaWei.Cmp(Zero) >= 0 && c.GammaWei.Cmp(Zero) >= 0
+	return c.ThetaWei.Cmp(Zero) >= 0 && c.TFuelWei.Cmp(Zero) >= 0
 }
 
 // ParseCoinAmount parses a string representation of coin amount.

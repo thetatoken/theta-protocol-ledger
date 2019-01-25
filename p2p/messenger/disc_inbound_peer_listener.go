@@ -8,8 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/p2p/netutil"
-	pr "github.com/thetatoken/ukulele/p2p/peer"
+	"github.com/thetatoken/theta/p2p/netutil"
+	pr "github.com/thetatoken/theta/p2p/peer"
 )
 
 const (

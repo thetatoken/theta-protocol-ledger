@@ -10,14 +10,14 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	st "github.com/thetatoken/ukulele/ledger/state"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	st "github.com/thetatoken/theta/ledger/state"
 
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 // --------------- Test Utilities with Mocked Consensus Engine --------------- //
@@ -28,7 +28,7 @@ type TestConsensusEngine struct {
 
 func (tce *TestConsensusEngine) ID() string                        { return tce.privKey.PublicKey().Address().Hex() }
 func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey    { return tce.privKey }
-func (tce *TestConsensusEngine) GetTip() *core.ExtendedBlock       { return nil }
+func (tce *TestConsensusEngine) GetTip(bool) *core.ExtendedBlock   { return nil }
 func (tce *TestConsensusEngine) GetEpoch() uint64                  { return 100 }
 func (tce *TestConsensusEngine) AddMessage(msg interface{})        {}
 func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block { return nil }
@@ -176,7 +176,7 @@ func (et *execTest) SetAcc(accs ...types.PrivAccount) {
 }
 
 func getMinimumTxFee() int64 {
-	return int64(types.MinimumTransactionFeeGammaWei)
+	return int64(types.MinimumTransactionFeeTFuelWei)
 }
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
@@ -184,7 +184,7 @@ func createServicePaymentTx(chainID string, source, target *types.PrivAccount, a
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  source.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(amount), ThetaWei: big.NewInt(0)},
 			Sequence: uint64(srcSeq),
 		},
 		Target: types.TxInput{
@@ -217,19 +217,19 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 	et = NewExecTest()
 
 	alice = types.MakeAcc("User Alice")
-	aliceInitBalance = types.Coins{GammaWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	aliceInitBalance = types.Coins{TFuelWei: big.NewInt(10000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	alice.Balance = aliceInitBalance
 	et.acc2State(alice)
 	log.Infof("Alice's Address: %v", alice.Address.Hex())
 
 	bob = types.MakeAcc("User Bob")
-	bobInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	bobInitBalance = types.Coins{TFuelWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	bob.Balance = bobInitBalance
 	et.acc2State(bob)
 	log.Infof("Bob's Address: %v", bob.Address.Hex())
 
 	carol = types.MakeAcc("User Carol")
-	carolInitBalance = types.Coins{GammaWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
+	carolInitBalance = types.Coins{TFuelWei: big.NewInt(3000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)}
 	carol.Balance = carolInitBalance
 	et.acc2State(carol)
 	log.Infof("Carol's Address: %v", carol.Address.Hex())
@@ -241,10 +241,10 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 		Fee: types.NewCoins(0, getMinimumTxFee()),
 		Source: types.TxInput{
 			Address:  alice.Address,
-			Coins:    types.Coins{GammaWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+			Coins:    types.Coins{TFuelWei: big.NewInt(1000 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 			Sequence: 1,
 		},
-		Collateral:  types.Coins{GammaWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
+		Collateral:  types.Coins{TFuelWei: big.NewInt(1001 * getMinimumTxFee()), ThetaWei: big.NewInt(0)},
 		ResourceIDs: []string{resourceID},
 		Duration:    1000,
 	}

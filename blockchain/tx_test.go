@@ -5,9 +5,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 )
 
 func TestTxIndex(t *testing.T) {

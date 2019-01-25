@@ -4,14 +4,14 @@ const (
 	// DenomThetaWei is the basic unit of theta, 1 Theta = 10^18 ThetaWei
 	DenomThetaWei string = "ThetaWei"
 
-	// DenomGammaWei is the basic unit of theta, 1 Theta = 10^18 ThetaWei
-	DenomGammaWei string = "GammaWei"
+	// DenomTFuelWei is the basic unit of theta, 1 Theta = 10^18 ThetaWei
+	DenomTFuelWei string = "TFuelWei"
 
 	// MinimumGasPrice is the minimum gas price for a smart contract transaction
 	MinimumGasPrice uint64 = 1e8
 
-	// MinimumTransactionFeeGammaWei specifies the minimum fee for a regular transaction
-	MinimumTransactionFeeGammaWei uint64 = 1e12
+	// MinimumTransactionFeeTFuelWei specifies the minimum fee for a regular transaction
+	MinimumTransactionFeeTFuelWei uint64 = 1e12
 
 	// MaxAccountsAffectedPerTx specifies the max number of accounts one transaction is allowed to modify to avoid spamming
 	MaxAccountsAffectedPerTx = 10000
@@ -27,22 +27,22 @@ const (
 	// generated per existing ThetaWei per new block
 	ValidatorThetaGenerationRateDenominator int64 = 1e11
 
-	// ValidatorGammaGenerationRateNumerator is used for caluclating the generation rate of Gamma for validators
-	ValidatorGammaGenerationRateNumerator int64 = 0 // ZERO initial inflation for Gamma
+	// ValidatorTFuelGenerationRateNumerator is used for caluclating the generation rate of TFuel for validators
+	ValidatorTFuelGenerationRateNumerator int64 = 0 // ZERO initial inflation for TFuel
 
-	// ValidatorGammaGenerationRateDenominator is used for caluclating the generation rate of Gamma for validators
-	// ValidatorGammaGenerationRateNumerator / ValidatorGammaGenerationRateDenominator is the amount of GammaWei
+	// ValidatorTFuelGenerationRateDenominator is used for caluclating the generation rate of TFuel for validators
+	// ValidatorTFuelGenerationRateNumerator / ValidatorTFuelGenerationRateDenominator is the amount of TFuelWei
 	// generated per existing ThetaWei per new block
-	ValidatorGammaGenerationRateDenominator int64 = 1e9
+	ValidatorTFuelGenerationRateDenominator int64 = 1e9
 
-	// RegularGammaGenerationRateNumerator is used for caluclating the generation rate of Gamma for other types of accounts
-	//RegularGammaGenerationRateNumerator int64 = 1900
-	RegularGammaGenerationRateNumerator int64 = 0 // ZERO initial inflation for Gamma
+	// RegularTFuelGenerationRateNumerator is used for caluclating the generation rate of TFuel for other types of accounts
+	//RegularTFuelGenerationRateNumerator int64 = 1900
+	RegularTFuelGenerationRateNumerator int64 = 0 // ZERO initial inflation for TFuel
 
-	// RegularGammaGenerationRateDenominator is used for caluclating the generation rate of Gamma for other types of accounts
-	// RegularGammaGenerationRateNumerator / RegularGammaGenerationRateDenominator is the amount of GammaWei
+	// RegularTFuelGenerationRateDenominator is used for caluclating the generation rate of TFuel for other types of accounts
+	// RegularTFuelGenerationRateNumerator / RegularTFuelGenerationRateDenominator is the amount of TFuelWei
 	// generated per existing ThetaWei per new block
-	RegularGammaGenerationRateDenominator int64 = 1e10
+	RegularTFuelGenerationRateDenominator int64 = 1e10
 )
 
 const (

@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 type Keystore interface {

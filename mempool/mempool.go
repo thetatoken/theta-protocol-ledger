@@ -9,12 +9,12 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/clist"
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/common/pqueue"
-	"github.com/thetatoken/ukulele/core"
-	dp "github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/clist"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/common/pqueue"
+	"github.com/thetatoken/theta/core"
+	dp "github.com/thetatoken/theta/dispatcher"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "mempool"})

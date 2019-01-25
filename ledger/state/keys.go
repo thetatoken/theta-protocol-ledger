@@ -1,6 +1,6 @@
 package state
 
-import "github.com/thetatoken/ukulele/common"
+import "github.com/thetatoken/theta/common"
 
 //
 // ------------------------- Ledger State Keys -------------------------

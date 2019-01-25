@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	pr "github.com/thetatoken/ukulele/p2p/peer"
+	pr "github.com/thetatoken/theta/p2p/peer"
 )
 
 func TestPeerDiscoveryMessageHandler(t *testing.T) {

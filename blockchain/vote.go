@@ -1,8 +1,8 @@
 package blockchain
 
 import (
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 )
 
 // voteIndexKey constructs the DB key for the given block hash.

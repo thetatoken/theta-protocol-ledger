@@ -3,7 +3,7 @@ package connection
 import (
 	"sync"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 const (

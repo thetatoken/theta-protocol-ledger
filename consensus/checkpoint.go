@@ -7,15 +7,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database"
+	"github.com/thetatoken/theta/store/database/backend"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 )
 
 // LoadCheckpoint loads a checkpoint from file system.
@@ -93,12 +93,12 @@ func generateGenesisCheckpoint() (*core.Checkpoint, error) {
 		logger.Infof("Validator address: %v", pubKey.Address())
 
 		theta, _ := types.ParseCoinAmount("250000000")
-		gamma, _ := types.ParseCoinAmount("1250000000")
+		tfuel, _ := types.ParseCoinAmount("1250000000")
 		acc := &types.Account{
 			Address: pubKey.Address(),
 			Balance: types.Coins{
 				ThetaWei: theta,
-				GammaWei: gamma,
+				TFuelWei: tfuel,
 			},
 			LastUpdatedBlockHeight: 0,
 		}

@@ -3,11 +3,13 @@ package crypto
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"encoding/json"
 	"io"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/hexutil"
+	"github.com/thetatoken/theta/rlp"
 )
 
 //
@@ -198,6 +200,22 @@ func (sig *Signature) DecodeRLP(stream *rlp.Stream) error {
 // ToBytes returns the bytes representation of the signature
 func (sig *Signature) ToBytes() common.Bytes {
 	return sig.data
+}
+
+// MarshalJSON returns the JSON representation of the signature
+func (sig *Signature) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hexutil.Bytes(sig.data))
+}
+
+// UnmarshalJSON parses the JSON representation of the signature
+func (sig *Signature) UnmarshalJSON(data []byte) error {
+	raw := &hexutil.Bytes{}
+	err := raw.UnmarshalJSON(data)
+	if err != nil {
+		return err
+	}
+	sig.data = ([]byte)(*raw)
+	return nil
 }
 
 // IsEmpty indicates whether the signature is empty

@@ -21,11 +21,11 @@ import (
 	"errors"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/crypto/bn256"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/crypto/bn256"
+	"github.com/thetatoken/theta/ledger/vm/params"
 	"golang.org/x/crypto/ripemd160"
 )
 

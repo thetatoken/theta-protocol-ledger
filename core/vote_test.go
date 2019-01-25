@@ -6,9 +6,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
 )
 
 func TestVoteEncoding(t *testing.T) {

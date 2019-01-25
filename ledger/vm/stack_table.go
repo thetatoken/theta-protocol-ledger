@@ -19,7 +19,7 @@ package vm
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 func makeStackFunc(pop, push int) stackValidationFunc {

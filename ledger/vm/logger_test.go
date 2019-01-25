@@ -20,8 +20,8 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 type dummyContractRef struct {

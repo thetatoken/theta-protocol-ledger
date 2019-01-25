@@ -6,10 +6,10 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 func TestLedgerStateBasics(t *testing.T) {
@@ -66,7 +66,7 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 	// Account and Commit
 	_, acc1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
-	initCoin := types.Coins{ThetaWei: big.NewInt(956), GammaWei: big.NewInt(0)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(956), TFuelWei: big.NewInt(0)}
 	acc1 := &types.Account{
 		Address:  acc1PubKey.Address(),
 		Sequence: 657,

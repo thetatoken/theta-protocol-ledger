@@ -7,11 +7,11 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 func TestStoreViewBasics(t *testing.T) {
@@ -80,7 +80,7 @@ func TestStoreViewAccountAccess(t *testing.T) {
 	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
 
-	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(786), TFuelWei: big.NewInt(0)}
 	acc1 := &types.Account{
 		Address:  pubKey.Address(),
 		Sequence: 173,
@@ -185,7 +185,7 @@ func TestRevertAndPruneStoreView(t *testing.T) {
 	_, pubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)
 
-	initCoin := types.Coins{ThetaWei: big.NewInt(786), GammaWei: big.NewInt(0)}
+	initCoin := types.Coins{ThetaWei: big.NewInt(786), TFuelWei: big.NewInt(0)}
 	acc1Addr := pubKey.Address()
 	acc1 := &types.Account{
 		Address:  acc1Addr,

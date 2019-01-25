@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/p2p"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/p2p"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
 //

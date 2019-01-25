@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
 )
 
 /*
@@ -366,7 +366,7 @@ func (tx *SendTx) SetSignature(addr common.Address, sig *crypto.Signature) bool 
 }
 
 func (tx *SendTx) String() string {
-	return fmt.Sprintf("SendTx{fee: %v, %v->%v}", tx.Inputs, tx.Outputs, tx.Fee)
+	return fmt.Sprintf("SendTx{fee: %v, %v->%v}", tx.Fee, tx.Inputs, tx.Outputs)
 }
 
 //-----------------------------------------------------------------------------
@@ -791,7 +791,7 @@ func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signatu
 
 func (tx *SmartContractTx) String() string {
 	return fmt.Sprintf("SmartContractTx{%v -> %v, value: %v, gas_limit: %v, gas_price: %v, data: %v}",
-		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.From.Coins.GammaWei, tx.GasLimit, tx.GasPrice, tx.Data)
+		tx.From.Address.Hex(), tx.To.Address.Hex(), tx.From.Coins.TFuelWei, tx.GasLimit, tx.GasPrice, tx.Data)
 }
 
 //-----------------------------------------------------------------------------

@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/core"
-	st "github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
+	st "github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
 )
 
 var _ TxExecutor = (*ReserveFundTxExecutor)(nil)
@@ -63,8 +63,8 @@ func (exec *ReserveFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	if !sanityCheckForFee(tx.Fee) {
-		return result.Error("Insufficient fee. Transaction fee needs to be at least %v GammaWei",
-			types.MinimumTransactionFeeGammaWei).WithErrorCode(result.CodeInvalidFee)
+		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
+			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	fund := tx.Source.Coins
@@ -128,6 +128,6 @@ func (exec *ReserveFundTxExecutor) calculateEffectiveGasPrice(transaction types.
 	tx := transaction.(*types.ReserveFundTx)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasReserveFundTx)
-	effectiveGasPrice := new(big.Int).Div(fee.GammaWei, gas)
+	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

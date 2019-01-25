@@ -1,6 +1,6 @@
 package core
 
-import "github.com/thetatoken/ukulele/common"
+import "github.com/thetatoken/theta/common"
 
 type KVPair struct {
 	Key   common.Bytes

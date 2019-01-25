@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-	"github.com/thetatoken/ukulele/rlp"
+	"github.com/thetatoken/theta/rlp"
 )
 
 // ----------------- Common -------------------

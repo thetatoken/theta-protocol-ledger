@@ -23,14 +23,14 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/thetatoken/theta/store"
+	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store"
-	"github.com/thetatoken/ukulele/store/database"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/metrics"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
+	"github.com/thetatoken/theta/crypto"
 )
 
 var (

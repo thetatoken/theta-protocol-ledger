@@ -19,7 +19,7 @@ package params
 import (
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 // DAOForkBlockExtra is the block header extra-data field to set for the DAO fork

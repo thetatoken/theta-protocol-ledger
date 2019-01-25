@@ -5,10 +5,10 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/ledger/vm/params"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 // Execute executes the given smart contract
@@ -25,7 +25,7 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	config := Config{}
 	evm := NewEVM(context, storeView, chainConfig, config)
 
-	value := tx.From.Coins.GammaWei
+	value := tx.From.Coins.TFuelWei
 	if value == nil {
 		value = big.NewInt(0)
 	}

@@ -21,7 +21,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 )
 
 // precompiledTest defines the input/output pairs for precompiled contract tests.

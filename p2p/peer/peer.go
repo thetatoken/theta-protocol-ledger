@@ -9,12 +9,12 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	cmn "github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/crypto"
-	cn "github.com/thetatoken/ukulele/p2p/connection"
-	nu "github.com/thetatoken/ukulele/p2p/netutil"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
-	"github.com/thetatoken/ukulele/rlp"
+	cmn "github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
+	cn "github.com/thetatoken/theta/p2p/connection"
+	nu "github.com/thetatoken/theta/p2p/netutil"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/rlp"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})

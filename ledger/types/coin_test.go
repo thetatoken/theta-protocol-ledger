@@ -71,7 +71,7 @@ func TestNoNilException(t *testing.T) {
 
 	coinsD := coinsB.NoNil()
 	assert.Equal(int64(0), coinsD.ThetaWei.Int64())
-	assert.Equal(int64(0), coinsD.GammaWei.Int64())
+	assert.Equal(int64(0), coinsD.TFuelWei.Int64())
 }
 
 func TestParseCoinAmount(t *testing.T) {
@@ -135,5 +135,5 @@ func TestJSON(t *testing.T) {
 	var d Coins
 	err = json.Unmarshal(s, &d)
 	assert.Equal(0, num.Cmp(d.ThetaWei))
-	assert.Nil(d.GammaWei)
+	assert.Nil(d.TFuelWei)
 }

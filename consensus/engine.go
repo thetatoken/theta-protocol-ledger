@@ -12,14 +12,14 @@ import (
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/util"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/dispatcher"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "consensus"})
@@ -227,7 +227,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
-	validators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+	validators := e.validatorManager.GetValidatorSet(block.Hash())
 
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -346,6 +346,9 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 
 	if !e.validateBlock(block, parent) {
 		e.chain.MarkBlockInvalid(block.Hash())
+		e.logger.WithFields(log.Fields{
+			"block.Hash": block.Hash().Hex(),
+		}).Warn("Block is invalid")
 		return
 	}
 
@@ -406,7 +409,7 @@ func (e *ConsensusEngine) shouldVoteByID(id common.Address) bool {
 }
 
 func (e *ConsensusEngine) vote() {
-	tip := e.GetTip()
+	tip := e.GetTipToVote()
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
@@ -559,8 +562,16 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	return
 }
 
+func (e *ConsensusEngine) GetTipToVote() *core.ExtendedBlock {
+	return e.GetTip(true)
+}
+
+func (e *ConsensusEngine) GetTipToExtend() *core.ExtendedBlock {
+	return e.GetTip(false)
+}
+
 // GetTip return the block to be extended from.
-func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
+func (e *ConsensusEngine) GetTip(includePendingBlockingLeaf bool) *core.ExtendedBlock {
 	hcc := e.state.GetHighestCCBlock()
 	candidate := hcc
 
@@ -573,7 +584,7 @@ func (e *ConsensusEngine) GetTip() *core.ExtendedBlock {
 		if !curr.Status.IsValid() {
 			continue
 		}
-		if curr.HasValidatorUpdate {
+		if !includePendingBlockingLeaf && curr.HasValidatorUpdate {
 			// A block with validator update is newer than local HCC. Proposing
 			// on this branch will violate the two direct confirmations rule for
 			// blocks with validator changes.
@@ -680,7 +691,7 @@ func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 }
 
 func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
-	tip := e.GetTip()
+	tip := e.GetTipToExtend()
 	result := e.ledger.ResetState(tip.Height, tip.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -707,7 +718,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 			if err != nil {
 				e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
 			}
-			block.HCC.Votes = votes
+			block.HCC.Votes = votes.UniqueVoter()
 		}
 	}
 

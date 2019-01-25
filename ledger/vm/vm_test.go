@@ -9,10 +9,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 func TestVMBasic(t *testing.T) {
@@ -96,12 +96,12 @@ func TestVMCreate(t *testing.T) {
 
 	account2 := store.GetAccount(addr)
 	assert.Equal(int64(1000), account2.Balance.ThetaWei.Int64())
-	assert.Equal(int64(2000-123), account2.Balance.GammaWei.Int64())
+	assert.Equal(int64(2000-123), account2.Balance.TFuelWei.Int64())
 
 	contractAcc := store.GetAccount(contractAddress)
 	assert.NotNil(contractAcc)
 	assert.Equal(int64(0), contractAcc.Balance.ThetaWei.Int64())
-	assert.Equal(int64(123), contractAcc.Balance.GammaWei.Int64())
+	assert.Equal(int64(123), contractAcc.Balance.TFuelWei.Int64())
 	ccode := store.GetCode(contractAddress)
 	assert.Nil(ccode)
 

@@ -24,8 +24,8 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/crypto/secp256k1"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/crypto/secp256k1"
 )
 
 // ecrecover returns the uncompressed public key that created the given signature.

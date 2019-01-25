@@ -5,7 +5,7 @@ package backend
 import (
 	"testing"
 
-	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/theta/store/database"
 )
 
 func newTestAerospikeDB() (*AerospikeDatabase, database.Batch, func()) {

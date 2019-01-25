@@ -19,8 +19,8 @@ package runtime_test
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/ledger/vm/runtime"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/vm/runtime"
 )
 
 func ExampleExecute() {

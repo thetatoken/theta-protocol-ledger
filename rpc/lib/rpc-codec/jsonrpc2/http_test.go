@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/thetatoken/ukulele/rpc/lib/rpc-codec/jsonrpc2"
+	"github.com/thetatoken/theta/rpc/lib/rpc-codec/jsonrpc2"
 )
 
 // Svc is an RPC service for testing.

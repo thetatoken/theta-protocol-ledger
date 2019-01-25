@@ -3,9 +3,9 @@ package state
 import (
 	"fmt"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/store/database"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/store/database"
 )
 
 //

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/thetatoken/ukulele/p2p/netutil"
+	"github.com/thetatoken/theta/p2p/netutil"
 )
 
 //

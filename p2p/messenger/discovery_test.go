@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	pr "github.com/thetatoken/ukulele/p2p/peer"
-	p2ptypes "github.com/thetatoken/ukulele/p2p/types"
+	pr "github.com/thetatoken/theta/p2p/peer"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
 func TestSeedPeerConnector(t *testing.T) {

@@ -44,9 +44,9 @@ import (
 
 	"github.com/pborman/uuid"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/math"
-	"github.com/thetatoken/ukulele/crypto"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/math"
+	"github.com/thetatoken/theta/crypto"
 
 	"golang.org/x/crypto/pbkdf2"
 	"golang.org/x/crypto/scrypt"

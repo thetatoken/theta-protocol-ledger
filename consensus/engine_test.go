@@ -7,13 +7,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/store/database/backend"
-	"github.com/thetatoken/ukulele/store/kvstore"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/kvstore"
 )
 
 type MockValidatorManager struct {
@@ -528,7 +528,7 @@ func TestTipSelection(t *testing.T) {
 	b3 := core.CreateTestBlock("b3", "b2")
 	chain.AddBlock(b3)
 
-	tip := ce.GetTip()
+	tip := ce.GetTipToVote()
 	assert.Equal(root.Hash(), tip.Hash(), "should not select invalid blocks")
 
 	chain.MarkBlockValid(a1.Hash())
@@ -537,10 +537,10 @@ func TestTipSelection(t *testing.T) {
 	chain.MarkBlockValid(b2.Hash())
 	chain.MarkBlockValid(b3.Hash())
 
-	tip = ce.GetTip()
+	tip = ce.GetTipToVote()
 	assert.Equal(b3.Hash(), tip.Hash(), "should select longest branch")
 
 	chain.MarkBlockHasValidatorUpdate(b2.Hash())
-	tip = ce.GetTip()
+	tip = ce.GetTipToExtend()
 	assert.Equal(a2.Hash(), tip.Hash(), "should not select blocks with validator update that are higher than local HCC")
 }

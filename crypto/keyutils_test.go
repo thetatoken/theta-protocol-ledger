@@ -27,8 +27,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/hexutil"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/hexutil"
 )
 
 var testAddrHex = "970e8128ab834e8eac17ab8e3812f010678cf791"

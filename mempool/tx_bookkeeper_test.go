@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/theta/common"
 
 	"github.com/stretchr/testify/assert"
 )

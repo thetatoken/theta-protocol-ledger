@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/common/result"
-	"github.com/thetatoken/ukulele/crypto"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/trie"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/trie"
 )
 
 const (
@@ -112,8 +112,8 @@ func (h *BlockHeader) CalculateHash() common.Hash {
 }
 
 func (h *BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
-		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
+	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, HCC: %v, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
+		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.HCC.BlockHash.Hex(), h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
 }
 
 // SignBytes returns raw bytes to be signed.

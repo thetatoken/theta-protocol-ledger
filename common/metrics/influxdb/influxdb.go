@@ -7,7 +7,7 @@ import (
 
 	"github.com/influxdata/influxdb/client"
 	log "github.com/sirupsen/logrus"
-	"github.com/thetatoken/ukulele/common/metrics"
+	"github.com/thetatoken/theta/common/metrics"
 )
 
 type reporter struct {

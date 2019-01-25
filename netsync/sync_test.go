@@ -5,19 +5,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/thetatoken/ukulele/consensus"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database/backend"
-	"github.com/thetatoken/ukulele/store/kvstore"
+	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/kvstore"
 
-	"github.com/thetatoken/ukulele/common"
-	"github.com/thetatoken/ukulele/dispatcher"
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/dispatcher"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/p2p/simulation"
-	"github.com/thetatoken/ukulele/p2p/types"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/p2p/simulation"
+	"github.com/thetatoken/theta/p2p/types"
 )
 
 type MockMessageConsumer struct {

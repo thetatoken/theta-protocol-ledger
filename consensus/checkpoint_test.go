@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/ukulele/ledger/state"
-	"github.com/thetatoken/ukulele/store/database/backend"
+	"github.com/thetatoken/theta/ledger/state"
+	"github.com/thetatoken/theta/store/database/backend"
 )
 
 func TestGenerateGenesis(t *testing.T) {
