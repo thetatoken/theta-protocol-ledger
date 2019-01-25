@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/thetatoken/ukulele/blockchain"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/rlp"
-	"github.com/thetatoken/ukulele/store/database/backend"
-	"github.com/thetatoken/ukulele/store/trie"
+	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/trie"
 )
 
 func handleError(err error) {

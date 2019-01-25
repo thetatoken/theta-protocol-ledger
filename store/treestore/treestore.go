@@ -5,9 +5,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/theta/store/trie"
-	"github.com/thetatoken/ukulele/core"
 )
 
 // NewTreeStore create a new instance of TreeStore.

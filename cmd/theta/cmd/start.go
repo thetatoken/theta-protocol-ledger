@@ -11,12 +11,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/node"
 	"github.com/thetatoken/theta/p2p/messenger"
 	"github.com/thetatoken/theta/store/database/backend"
-	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/netsync"
 )
 
 // startCmd represents the start command

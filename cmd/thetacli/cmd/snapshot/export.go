@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/thetatoken/ukulele/cmd/banjo/cmd/utils"
-	"github.com/thetatoken/ukulele/rpc"
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
+	"github.com/thetatoken/theta/rpc"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -18,12 +18,12 @@ var (
 
 // exportCmd represents the export snapshot command.
 // Example:
-//		banjo snapshot export
+//		thetacli snapshot export
 var exportCmd = &cobra.Command{
 	Use:     "export",
 	Short:   "export snapshot",
 	Long:    `Export snapshot.`,
-	Example: `banjo snapshot export`,
+	Example: `thetacli snapshot export`,
 	Run:     doExportCmd,
 }
 

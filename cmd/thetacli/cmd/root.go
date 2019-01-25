@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/thetatoken/ukulele/cmd/banjo/cmd/snapshot"
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/snapshot"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"

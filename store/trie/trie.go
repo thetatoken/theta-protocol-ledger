@@ -23,10 +23,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/database"
-	"github.com/thetatoken/ukulele/ledger/types"
-	"github.com/thetatoken/ukulele/rlp"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/metrics"
