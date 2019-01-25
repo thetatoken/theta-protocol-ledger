@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -137,7 +138,12 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	blockHash = blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
-	// TODO: store vcpProofs in KVStore
+	for i, blockTrio := range metadata.BlockTrios {
+		if i < len(metadata.BlockTrios)-1 {
+			blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 64))
+			kvstore.Put(blockTrioKey, blockTrio)
+		}
+	}
 
 	return &blockTrio.Second.Header, nil
 }
