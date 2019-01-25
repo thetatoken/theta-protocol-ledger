@@ -125,7 +125,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	}
 
 	kvstore := kvstore.NewKVStore(db)
-	blockTrio := metadata.BlockTrios[len(metadata.BlockTrios)]
+	blockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
 
 	block := core.Block{BlockHeader: &blockTrio.First.Header}
 	ext := core.ExtendedBlock{Block: &block}
@@ -136,6 +136,8 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	ext = core.ExtendedBlock{Block: &block}
 	blockHash = blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
+
+	//TODO: store vcpProoves in KVStore
 
 	return &blockTrio.Second.Header, nil
 }
