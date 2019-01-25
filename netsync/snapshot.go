@@ -3,17 +3,16 @@ package netsync
 import (
 	"bytes"
 	"encoding/binary"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
 	"os"
 	"strings"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
-	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
@@ -21,12 +20,11 @@ import (
 	"github.com/thetatoken/ukulele/store/kvstore"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "snapshot"})
+
 var (
 	genesisValidatorAddrs = []string{
-		"042CA7FFB62122A220C72AA7CD87C252B21D72273275682386A099F0983C135659FF93E2E8756011074706E18113AA6529CD5833DD6463266980C6973895153C7C",
-		"048E8D53FD435265AD074597CC3E202F8E935CFB57925BB51316252027CB08767FB8099226414732543C4B5CBAA64B4EE8F173BA559258A0B5F633A0D11509E78B",
-		"0479188733862EBB3FE98A92315556D5214D908941CDC8D6C8700EEEAE5F90A6177A37E23B33B81B9FAC3A98EE2382AB24B1C92384FC151D07E36AC7209702D353",
-		"0455BDC5CF697F9519DF40E837BEE3E246C8D47C1B58CD1892FD3B0F780D2C09E718FF50A5929B86B8B88C7031164BDE553E285103F1B4DF668B44AFC907264C1C",
+		"2E833968E5bB786Ae419c4d13189fB081Cc43bab",
 	}
 )
 
@@ -68,7 +66,6 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	var hash common.Hash
 	var sv *state.StoreView
 	var account *types.Account
-	svHashes := make(map[common.Hash]bool)
 	svStack := make(SVStack, 0)
 	for {
 		record := core.SnapshotTrieRecord{}
@@ -103,8 +100,6 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 				if bytes.Compare(account.Root.Bytes(), hash.Bytes()) != 0 {
 					return nil, fmt.Errorf("Account storage root doesn't match")
 				}
-			} else {
-				svHashes[hash] = true
 			}
 			account = nil
 		} else {
@@ -126,89 +121,108 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 		}
 	}
 
-	var blockTrio core.SnapshotBlockTrio
-	for _, blockTrio = range metadata.BlockTrios {
-		_, ok := svHashes[blockTrio.First.StateHash]
-		if ok {
-			delete(svHashes, blockTrio.First.StateHash)
-		} else {
-			return nil, fmt.Errorf("Storeview missing for block %v", blockTrio.First.StateHash)
-		}
-	}
-	if len(svHashes) != 1 {
-		return nil, fmt.Errorf("Can't find matching state hash for storeview")
-	}
-
-	if !validateSnapshot(&metadata, hash, db) {
-		return nil, fmt.Errorf("Snapshot validation failed")
+	if err = validateSnapshot(&metadata, hash, db); err != nil {
+		return nil, fmt.Errorf("Snapshot validation failed: %v", err)
 	}
 
 	kvstore := kvstore.NewKVStore(db)
-	block := core.Block{BlockHeader: &blockTrio.First}
+	blockTrio := metadata.BlockTrios[len(metadata.BlockTrios)]
+	block := core.Block{BlockHeader: &blockTrio.First.Header}
 	ext := core.ExtendedBlock{Block: &block}
-	blockHash := blockTrio.First.Hash()
+	blockHash := blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
 	block = core.Block{BlockHeader: &blockTrio.Second}
 	ext = core.ExtendedBlock{Block: &block}
-	blockHash = blockTrio.First.Hash()
+	blockHash = blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
 	return &blockTrio.Second, nil
 }
 
-func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) bool {
+func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) error {
 	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.StateHash.Bytes(), hash.Bytes()) != 0 {
-		return false
+		return fmt.Errorf("StateHash not matching")
 	}
 
 	var validatorSet *core.ValidatorSet
+	var blockTrio core.SnapshotBlockTrio
 	for i, blockTrio := range metadata.BlockTrios {
-		if blockTrio.Second.Parent != blockTrio.First.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Hash() {
-			return false
+		if blockTrio.Second.Parent != blockTrio.First.Header.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Hash() {
+			return fmt.Errorf("block trio has invalid Parent link")
 		}
-		if blockTrio.Second.HCC.BlockHash != blockTrio.First.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Hash() {
-			return false
+		if blockTrio.Second.HCC.BlockHash != blockTrio.First.Header.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Hash() {
+			return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", blockTrio.First.Header.Hash(), blockTrio.Second.HCC.BlockHash, blockTrio.Second.Hash(), blockTrio.Third.Header.HCC.BlockHash)
 		}
 
 		var block *core.BlockHeader
 		if i > 0 {
-			block = &metadata.BlockTrios[i-1].First
+			block = &metadata.BlockTrios[i-1].First.Header
 		}
-		validatorSet = getValidatorSet(block, db)
-		validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes)
+		validatorSet, _ = getValidatorSet(block, db, &blockTrio.First.Proof)
+		if err := validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes); err != nil {
+			return err
+		}
 	}
 
-	return true
+	validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes)
+
+	return nil
 }
 
-func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) bool {
-	if !validatorSet.HasMajorityVotes(votes) {
-		return false
-	}
-	for _, vote := range votes {
-		if !vote.Validate().IsOK() {
-			return false
-		}
-		if vote.Block != block.Hash() {
-			return false
-		}
-		_, err := validatorSet.GetValidator(vote.ID)
-		if err != nil {
-			return false
-		}
-	}
-	return true
-}
-
-func getValidatorSet(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
+func getValidatorSet(block *core.BlockHeader, db database.Database, recoverredVp *core.VCPProof) (*core.ValidatorSet, error) {
 	if block == nil {
 		validators := []core.Validator{}
 		for _, addr := range genesisValidatorAddrs {
-			raw, _ := hex.DecodeString(addr)
-			pubKey, _ := crypto.PublicKeyFromBytes(raw)
-			address := pubKey.Address()
-			stake := new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit) //TODO: decide stake
+			address := common.HexToAddress(addr)
+			stake := new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinValidatorStakeDeposit)
+			validators = append(validators, core.Validator{Address: address, Stake: stake})
+		}
+		validatorSet := core.NewValidatorSet()
+		validatorSet.SetValidators(validators)
+		return validatorSet, nil
+	}
+
+	sv := state.NewStoreView(block.Height, block.StateHash, db)
+	serializedVCP, err := sv.VerifyProof(sv.Hash(), state.ValidatorCandidatePoolKey(), recoverredVp)
+	if err != nil {
+		return nil, err
+	}
+
+	vcp := &core.ValidatorCandidatePool{}
+	err = rlp.DecodeBytes(serializedVCP, vcp)
+	if err != nil {
+		return nil, err
+	}
+	return consensus.SelectTopStakeHoldersAsValidators(vcp), nil
+}
+
+func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) error {
+	if !validatorSet.HasMajorityVotes(votes) {
+		return fmt.Errorf("block doesn't have majority votes")
+	}
+	for _, vote := range votes {
+		// res := vote.Validate()
+		// if !res.IsOK() {
+		// 	return fmt.Errorf("vote is not valid, %v", res)
+		// }
+		if vote.Block != block.Hash() {
+			return fmt.Errorf("vote is not for corresponding block")
+		}
+		_, err := validatorSet.GetValidator(vote.ID)
+		if err != nil {
+			return fmt.Errorf("can't find validator for vote")
+		}
+	}
+	return nil
+}
+
+func getValidatorSetFromSV(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
+	if block == nil {
+		validators := []core.Validator{}
+		for _, addr := range genesisValidatorAddrs {
+			address := common.HexToAddress(addr)
+			stake := new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinValidatorStakeDeposit)
 			validators = append(validators, core.Validator{Address: address, Stake: stake})
 		}
 		validatorSet := core.NewValidatorSet()

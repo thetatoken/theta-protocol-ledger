@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/ukulele/common"
+	"github.com/thetatoken/ukulele/core"
 	"github.com/thetatoken/ukulele/store/database"
 	"github.com/thetatoken/ukulele/store/trie"
 )
@@ -78,6 +79,15 @@ func (store *TreeStore) Copy() (*TreeStore, error) {
 // Get retrieves value of given key.
 func (store *TreeStore) Get(key common.Bytes) common.Bytes {
 	return store.Trie.Get(key)
+}
+
+func (store *TreeStore) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
+	return store.Trie.Prove(vcpKey, 0, vp)
+}
+
+func (store *TreeStore) VerifyProof(rootHash common.Hash, key []byte, vp *core.VCPProof) ([]byte, error) {
+	value, _, err := trie.VerifyProof(rootHash, key, vp)
+	return value, err
 }
 
 // Set sets value of given key.

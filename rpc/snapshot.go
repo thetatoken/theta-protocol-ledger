@@ -94,7 +94,12 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 					}
 				}
 
-				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: *block.BlockHeader, Second: child, Third: core.SnapshotBlock{Header: grandChild, Votes: grandChild.HCC.Votes.Votes()}})
+				storeView := state.NewStoreView(block.Height, block.StateHash, db)
+				vcpProof, err := proveVCP(storeView, state.ValidatorCandidatePoolKey())
+				if err != nil {
+					return fmt.Errorf("Failed to get VCP Proof")
+				}
+				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof}, Second: child, Third: core.SnapshotThirdBlock{Header: grandChild, Votes: grandChild.HCC.Votes.Votes()}})
 				break
 			}
 		}
@@ -120,7 +125,12 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		votes = childBlock.BlockHeader.HCC.Votes.Votes()
 	}
 
-	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: *parentBlock.BlockHeader, Second: *lastFinalizedBlock.BlockHeader, Third: core.SnapshotBlock{Header: *childBlock.BlockHeader, Votes: votes}})
+	storeView := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	vcpProof, err := proveVCP(storeView, state.ValidatorCandidatePoolKey())
+	if err != nil {
+		return fmt.Errorf("Failed to get VCP Proof")
+	}
+	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof}, Second: *lastFinalizedBlock.BlockHeader, Third: core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, Votes: votes}})
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))
@@ -134,13 +144,22 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		return err
 	}
 
-	for _, trio := range metadata.BlockTrios {
-		storeView := state.NewStoreView(trio.First.Height, trio.First.StateHash, db)
-		writeStoreView(storeView, false, writer, db)
-	}
+	// for _, trio := range metadata.BlockTrios {
+	// 	storeView := state.NewStoreView(trio.First.Height, trio.First.StateHash, db)
+	// 	writeStoreView(storeView, false, writer, db)
+	// }
 	writeStoreView(sv, true, writer, db)
 
 	return nil
+}
+
+func proveVCP(sv *state.StoreView, vcpKey []byte) (*core.VCPProof, error) {
+	vp := &core.VCPProof{}
+	err := sv.ProveVCP(vcpKey, vp)
+	if err != nil {
+		return nil, err
+	}
+	return vp, nil
 }
 
 func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*core.ExtendedBlock, error) {
@@ -230,6 +249,26 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 			if err != nil {
 				panic(err)
 			}
+		}
+		return true
+	})
+	err = writeRecord(writer, []byte{core.SVEnd}, height)
+	if err != nil {
+		panic(err)
+	}
+	writer.Flush()
+}
+
+func writeVCPBranch(sv *state.StoreView, writer *bufio.Writer) {
+	height := itobs(sv.Height())
+	err := writeRecord(writer, []byte{core.SVStart}, height)
+	if err != nil {
+		panic(err)
+	}
+	sv.GetStore().Traverse(state.ValidatorCandidatePoolKey(), func(k, v common.Bytes) bool {
+		err = writeRecord(writer, k, v)
+		if err != nil {
+			panic(err)
 		}
 		return true
 	})

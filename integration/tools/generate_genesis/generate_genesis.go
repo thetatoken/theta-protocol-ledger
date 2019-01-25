@@ -17,6 +17,7 @@ import (
 	"github.com/thetatoken/ukulele/common"
 	"github.com/thetatoken/ukulele/consensus"
 	"github.com/thetatoken/ukulele/core"
+	"github.com/thetatoken/ukulele/crypto"
 	"github.com/thetatoken/ukulele/ledger/state"
 	"github.com/thetatoken/ukulele/ledger/types"
 	"github.com/thetatoken/ukulele/rlp"
@@ -28,21 +29,23 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 //
 // Example:
 // cd $UKULELE/integration/privatenet/node
-// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
+// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis_signatures=./data/genesis_signatures.json -genesis=./genesis
 //
 func main() {
 	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
 	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
 	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
 	genesisSnapshotFilePathPtr := flag.String("genesis", "./genesis", "the genesis snapshot")
+	genesisSignaturesFilePathPtr := flag.String("genesis_signatures", "./genesis_signatures.json", "the genesis signatures")
 	flag.Parse()
 
 	chainID := *chainIDPtr
 	erc20SnapshotJSONFilePath := *erc20SnapshotJSONFilePathPtr
 	stakeDepositFilePath := *stakeDepositFilePathPtr
 	genesisSnapshotFilePath := *genesisSnapshotFilePathPtr
+	genesisSignaturesFilePath := *genesisSignaturesFilePathPtr
 
-	writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath)
+	writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSignaturesFilePath, genesisSnapshotFilePath)
 }
 
 type StakeDeposit struct {
@@ -52,12 +55,11 @@ type StakeDeposit struct {
 }
 
 // writeGenesisSnapshot writes genesis snapshot to file system.
-func writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath, genesisSnapshotFilePath string) error {
-	metadata, sv, err := generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath)
+func writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath, genesisSignaturesFilePath, genesisSnapshotFilePath string) error {
+	metadata, sv, err := generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath, genesisSignaturesFilePath)
 	if err != nil {
 		return err
 	}
-
 	file, err := os.Create(genesisSnapshotFilePath)
 	if err != nil {
 		return err
@@ -68,12 +70,14 @@ func writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath,
 	if err != nil {
 		return err
 	}
+
+	sv.IncrementHeight()
 	writeStoreView(sv, true, writer)
 	return err
 }
 
 // generateGenesisSnapshot generates the genesis snapshot.
-func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.SnapshotMetadata, *state.StoreView, error) {
+func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSignaturesFilePath string) (*core.SnapshotMetadata, *state.StoreView, error) {
 	genesis := &core.SnapshotMetadata{}
 
 	initGammaToThetaRatio := new(big.Int).SetUint64(5)
@@ -93,7 +97,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
 	}
 
-	json.Unmarshal([]byte(erc20BalanceMapByteValue), &erc20BalanceMap)
+	json.Unmarshal(erc20BalanceMapByteValue, &erc20BalanceMap)
 	for key, val := range erc20BalanceMap {
 		if !common.IsHexAddress(key) {
 			panic(fmt.Sprintf("Invalid address: %v", key))
@@ -115,7 +119,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 		}
 		sv.SetAccount(acc.Address, acc)
 
-		//logger.Infof("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma))
+		// logger.Infof("address: %v, theta: %v, gamma: %v", strings.ToLower(address.String()), theta, gamma)
 	}
 
 	// --------------- Perform initial stake deposit --------------- //
@@ -127,7 +131,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
 	}
 
-	json.Unmarshal([]byte(stakeDepositByteValue), &stakeDeposits)
+	json.Unmarshal(stakeDepositByteValue, &stakeDeposits)
 	vcp := &core.ValidatorCandidatePool{}
 	for _, stakeDeposit := range stakeDeposits {
 		if !common.IsHexAddress(stakeDeposit.Source) {
@@ -186,12 +190,30 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	secondBlock.Height = genesisHeight + 1
 	secondBlock.Epoch = 0
 	secondBlock.Parent = firstBlock.Hash()
+	secondBlock.HCC = core.CommitCertificate{BlockHash: firstBlock.Hash()}
 	secondBlock.StateHash = stateHash
 	secondBlock.Timestamp = big.NewInt(time.Now().Unix())
 
 	thirdBlock := core.NewBlock()
 	thirdBlock.Parent = secondBlock.Hash()
 	thirdBlock.HCC = core.CommitCertificate{BlockHash: secondBlock.Hash()}
+
+	// --------------- Load genesis signatures --------------- //
+
+	genesisSignaturesFile, err := os.Open(genesisSignaturesFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open the genesis signatures file: %v", err))
+	}
+	defer genesisSignaturesFile.Close()
+
+	var genesisSignatureMap map[string][]byte
+	genesisSignaturesMapByteValue, err := ioutil.ReadAll(genesisSignaturesFile)
+	if err != nil {
+		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
+	}
+
+	json.Unmarshal(genesisSignaturesMapByteValue, &genesisSignatureMap)
+
 	validators := consensus.SelectTopStakeHoldersAsValidators(vcp).Validators()
 	votes := []core.Vote{}
 	for _, validator := range validators {
@@ -199,17 +221,22 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 			Block:  secondBlock.Hash(),
 			Height: secondBlock.Height,
 			ID:     validator.Address,
-			Epoch:  0,
+			Epoch:  secondBlock.Height,
 		}
-		// sig, err := e.privateKey.Sign(vote.SignBytes())
-		// if err != nil {
-		// 	e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
-		// }
-		// vote.SetSignature(sig)
+		sigBytes := genesisSignatureMap[validator.Address.String()]
+		sig, err := crypto.SignatureFromBytes(sigBytes)
+		if err != nil {
+			panic(fmt.Sprintf("failed to get genesis signature: %v", err))
+		}
+		vote.SetSignature(sig)
 		votes = append(votes, vote)
 	}
 
-	genesis.BlockTrios = append(genesis.BlockTrios, core.SnapshotBlockTrio{First: *firstBlock.BlockHeader, Second: *secondBlock.BlockHeader, Third: core.SnapshotBlock{Header: *thirdBlock.BlockHeader, Votes: votes}})
+	vcpProof, err := proofVCP(sv, state.ValidatorCandidatePoolKey())
+	if err != nil {
+		panic(fmt.Errorf("Failed to get VCP Proof"))
+	}
+	genesis.BlockTrios = append(genesis.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *firstBlock.BlockHeader, Proof: *vcpProof}, Second: *secondBlock.BlockHeader, Third: core.SnapshotThirdBlock{Header: *thirdBlock.BlockHeader, Votes: votes}})
 
 	// --------------- Sanity Checks --------------- //
 
@@ -219,6 +246,15 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	}
 
 	return genesis, sv, nil
+}
+
+func proofVCP(sv *state.StoreView, vcpKey []byte) (*core.VCPProof, error) {
+	vp := &core.VCPProof{}
+	err := sv.ProveVCP(vcpKey, vp)
+	if err != nil {
+		return nil, err
+	}
+	return vp, nil
 }
 
 func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
