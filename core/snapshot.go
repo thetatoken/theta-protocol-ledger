@@ -31,12 +31,11 @@ type SnapshotFirstBlock struct {
 
 type SnapshotSecondBlock struct {
 	Header BlockHeader
-	Votes  []Vote
 }
 
 type SnapshotThirdBlock struct {
-	Header BlockHeader
-	Votes  []Vote
+	Header  BlockHeader
+	VoteSet *VoteSet
 }
 
 type SnapshotBlockTrio struct {

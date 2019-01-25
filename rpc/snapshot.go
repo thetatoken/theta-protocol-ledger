@@ -96,7 +96,12 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 				if err != nil {
 					return fmt.Errorf("Failed to get VCP Proof")
 				}
-				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof}, Second: core.SnapshotSecondBlock{Header: child, Votes: grandChild.HCC.Votes.Votes()}, Third: core.SnapshotThirdBlock{Header: grandChild}})
+				metadata.BlockTrios = append(metadata.BlockTrios,
+					core.SnapshotBlockTrio{
+						First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
+						Second: core.SnapshotSecondBlock{Header: child},
+						Third:  core.SnapshotThirdBlock{Header: grandChild},
+					})
 				break
 			} else {
 				return fmt.Errorf("Found a non-directly-finalized Stake changing block")
@@ -113,34 +118,30 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		return fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
-	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
-	var votes []core.Vote
-	if childBlock.HCC.Votes.IsEmpty() {
-		voteSet, err := st.GetVoteSetByBlock(lastFinalizedBlock.Hash())
-		if err != nil {
-			return fmt.Errorf("Failed to get last finalized block's votes, %v", err)
-		}
-		votes = voteSet.Votes()
-	} else {
-		for _, vote := range childBlock.HCC.Votes.Votes() {
-			if vote.Block != lastFinalizedBlock.Hash() {
-				return fmt.Errorf("Invalid child block HCC votes for validator set changes")
-			}
-		}
-		votes = childBlock.HCC.Votes.Votes()
+	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
+		return fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
 	}
 
+	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
+		return fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+	}
+
+	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
 	childVoteSet, err := st.GetVoteSetByBlock(childBlock.Hash())
 	if err != nil {
 		return fmt.Errorf("Failed to get child block's votes, %v", err)
 	}
-	childVotes := childVoteSet.Votes()
 
 	vcpProof, err := proveVCP(parentBlock, db)
 	if err != nil {
 		return fmt.Errorf("Failed to get VCP Proof")
 	}
-	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof}, Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader, Votes: votes}, Third: core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, Votes: childVotes}})
+	metadata.BlockTrios = append(metadata.BlockTrios,
+		core.SnapshotBlockTrio{
+			First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
+			Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader},
+			Third:  core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, VoteSet: childVoteSet},
+		})
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))

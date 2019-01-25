@@ -137,7 +137,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	blockHash = blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
-	//TODO: store vcpProoves in KVStore
+	// TODO: store vcpProofs in KVStore
 
 	return &blockTrio.Second.Header, nil
 }
@@ -169,14 +169,10 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 			validatorSet = core.NewValidatorSet()
 			validatorSet.SetValidators(validators)
 		}
-
-		if err := validateVotes(&blockTrio.Second.Header, validatorSet, blockTrio.Second.Votes); err != nil {
-			return fmt.Errorf("Failed to validate voteSet, %v", err)
-		}
 	}
 
 	lastBlockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
-	validateVotes(&lastBlockTrio.Third.Header, validatorSet, lastBlockTrio.Third.Votes)
+	validateVotes(&lastBlockTrio.Third.Header, validatorSet, lastBlockTrio.Third.VoteSet)
 
 	return nil
 }
@@ -214,15 +210,15 @@ func getValidatorSetFromSV(block *core.BlockHeader, db database.Database) *core.
 	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
-func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) error {
-	if !validatorSet.HasMajorityVotes(votes) {
+func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, voteSet *core.VoteSet) error {
+	if !validatorSet.HasMajorityVotes(voteSet.Votes()) {
 		return fmt.Errorf("block doesn't have majority votes")
 	}
-	for _, vote := range votes {
-		// res := vote.Validate()
-		// if !res.IsOK() {
-		// 	return fmt.Errorf("vote is not valid, %v", res)
-		// }
+	for _, vote := range voteSet.Votes() {
+		res := vote.Validate()
+		if !res.IsOK() {
+			return fmt.Errorf("vote is not valid, %v", res)
+		}
 		if vote.Block != block.Hash() {
 			return fmt.Errorf("vote is not for corresponding block")
 		}
