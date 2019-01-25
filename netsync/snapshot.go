@@ -2,7 +2,6 @@ package netsync
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"math/big"
@@ -58,7 +57,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	defer file.Close()
 
 	metadata := core.SnapshotMetadata{}
-	err = readRecord(file, &metadata)
+	err = core.ReadRecord(file, &metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
@@ -69,7 +68,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	svStack := make(SVStack, 0)
 	for {
 		record := core.SnapshotTrieRecord{}
-		err := readRecord(file, &record)
+		err := core.ReadRecord(file, &record)
 		if err != nil {
 			if err == io.EOF {
 				if svStack.peek() != nil {
@@ -81,7 +80,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 		}
 
 		if bytes.Equal(record.K, []byte{core.SVStart}) {
-			height := bstoi(record.V)
+			height := core.Bytestoi(record.V)
 			sv := state.NewStoreView(height, common.Hash{}, db)
 			svStack = svStack.push(sv)
 		} else if bytes.Equal(record.K, []byte{core.SVEnd}) {
@@ -89,7 +88,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 			if sv == nil {
 				return nil, fmt.Errorf("Missing storeview to handle")
 			}
-			height := bstoi(record.V)
+			height := core.Bytestoi(record.V)
 			if height != sv.Height() {
 				return nil, fmt.Errorf("Storeview start and end heights don't match")
 			}
@@ -127,62 +126,60 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 
 	kvstore := kvstore.NewKVStore(db)
 	blockTrio := metadata.BlockTrios[len(metadata.BlockTrios)]
+
 	block := core.Block{BlockHeader: &blockTrio.First.Header}
 	ext := core.ExtendedBlock{Block: &block}
 	blockHash := blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
-	block = core.Block{BlockHeader: &blockTrio.Second}
+	block = core.Block{BlockHeader: &blockTrio.Second.Header}
 	ext = core.ExtendedBlock{Block: &block}
 	blockHash = blockTrio.First.Header.Hash()
 	kvstore.Put(blockHash[:], ext)
 
-	return &blockTrio.Second, nil
+	return &blockTrio.Second.Header, nil
 }
 
 func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) error {
-	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.StateHash.Bytes(), hash.Bytes()) != 0 {
+	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.Header.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return fmt.Errorf("StateHash not matching")
 	}
 
 	var validatorSet *core.ValidatorSet
-	var blockTrio core.SnapshotBlockTrio
 	for i, blockTrio := range metadata.BlockTrios {
-		if blockTrio.Second.Parent != blockTrio.First.Header.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Hash() {
+		if blockTrio.Second.Header.Parent != blockTrio.First.Header.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Header.Hash() {
 			return fmt.Errorf("block trio has invalid Parent link")
 		}
-		if blockTrio.Second.HCC.BlockHash != blockTrio.First.Header.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Hash() {
-			return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", blockTrio.First.Header.Hash(), blockTrio.Second.HCC.BlockHash, blockTrio.Second.Hash(), blockTrio.Third.Header.HCC.BlockHash)
+		if blockTrio.Second.Header.HCC.BlockHash != blockTrio.First.Header.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Header.Hash() {
+			return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", blockTrio.First.Header.Hash(), blockTrio.Second.Header.HCC.BlockHash, blockTrio.Second.Header.Hash(), blockTrio.Third.Header.HCC.BlockHash)
 		}
 
-		var block *core.BlockHeader
 		if i > 0 {
-			block = &metadata.BlockTrios[i-1].First.Header
+			prevBlockTrio := metadata.BlockTrios[i-1]
+			validatorSet, _ = getValidatorSet(&prevBlockTrio.First.Header, db, &blockTrio.First.Proof)
+		} else {
+			validators := []core.Validator{}
+			for _, addr := range genesisValidatorAddrs {
+				address := common.HexToAddress(addr)
+				stake := new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinValidatorStakeDeposit)
+				validators = append(validators, core.Validator{Address: address, Stake: stake})
+			}
+			validatorSet = core.NewValidatorSet()
+			validatorSet.SetValidators(validators)
 		}
-		validatorSet, _ = getValidatorSet(block, db, &blockTrio.First.Proof)
-		if err := validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes); err != nil {
-			return err
+
+		if err := validateVotes(&blockTrio.Second.Header, validatorSet, blockTrio.Second.Votes); err != nil {
+			return fmt.Errorf("Failed to validate voteSet, %v", err)
 		}
 	}
 
-	validateVotes(&blockTrio.Second, validatorSet, blockTrio.Third.Votes)
+	lastBlockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
+	validateVotes(&lastBlockTrio.Third.Header, validatorSet, lastBlockTrio.Third.Votes)
 
 	return nil
 }
 
 func getValidatorSet(block *core.BlockHeader, db database.Database, recoverredVp *core.VCPProof) (*core.ValidatorSet, error) {
-	if block == nil {
-		validators := []core.Validator{}
-		for _, addr := range genesisValidatorAddrs {
-			address := common.HexToAddress(addr)
-			stake := new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinValidatorStakeDeposit)
-			validators = append(validators, core.Validator{Address: address, Stake: stake})
-		}
-		validatorSet := core.NewValidatorSet()
-		validatorSet.SetValidators(validators)
-		return validatorSet, nil
-	}
-
 	sv := state.NewStoreView(block.Height, block.StateHash, db)
 	serializedVCP, err := sv.VerifyProof(sv.Hash(), state.ValidatorCandidatePoolKey(), recoverredVp)
 	if err != nil {
@@ -195,26 +192,6 @@ func getValidatorSet(block *core.BlockHeader, db database.Database, recoverredVp
 		return nil, err
 	}
 	return consensus.SelectTopStakeHoldersAsValidators(vcp), nil
-}
-
-func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) error {
-	if !validatorSet.HasMajorityVotes(votes) {
-		return fmt.Errorf("block doesn't have majority votes")
-	}
-	for _, vote := range votes {
-		// res := vote.Validate()
-		// if !res.IsOK() {
-		// 	return fmt.Errorf("vote is not valid, %v", res)
-		// }
-		if vote.Block != block.Hash() {
-			return fmt.Errorf("vote is not for corresponding block")
-		}
-		_, err := validatorSet.GetValidator(vote.ID)
-		if err != nil {
-			return fmt.Errorf("can't find validator for vote")
-		}
-	}
-	return nil
 }
 
 func getValidatorSetFromSV(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
@@ -235,28 +212,22 @@ func getValidatorSetFromSV(block *core.BlockHeader, db database.Database) *core.
 	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
-func readRecord(file *os.File, obj interface{}) error {
-	sizeBytes := make([]byte, 8)
-	n, err := io.ReadAtLeast(file, sizeBytes, 8)
-	if err != nil {
-		return err
+func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, votes []core.Vote) error {
+	if !validatorSet.HasMajorityVotes(votes) {
+		return fmt.Errorf("block doesn't have majority votes")
 	}
-	if n < 8 {
-		return fmt.Errorf("Failed to read record length")
+	for _, vote := range votes {
+		// res := vote.Validate()
+		// if !res.IsOK() {
+		// 	return fmt.Errorf("vote is not valid, %v", res)
+		// }
+		if vote.Block != block.Hash() {
+			return fmt.Errorf("vote is not for corresponding block")
+		}
+		_, err := validatorSet.GetValidator(vote.ID)
+		if err != nil {
+			return fmt.Errorf("can't find validator for vote")
+		}
 	}
-	size := bstoi(sizeBytes)
-	bytes := make([]byte, size)
-	n, err = io.ReadAtLeast(file, bytes, int(size))
-	if err != nil {
-		return err
-	}
-	if uint64(n) < size {
-		return fmt.Errorf("Failed to read record, %v < %v", n, size)
-	}
-	err = rlp.DecodeBytes(bytes, obj)
 	return nil
-}
-
-func bstoi(arr []byte) uint64 {
-	return binary.LittleEndian.Uint64(arr)
 }

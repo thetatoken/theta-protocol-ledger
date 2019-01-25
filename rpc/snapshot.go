@@ -2,7 +2,6 @@ package rpc
 
 import (
 	"bufio"
-	"encoding/binary"
 	"fmt"
 	"os"
 	"strconv"
@@ -20,7 +19,6 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
-	"github.com/thetatoken/theta/rlp"
 )
 
 const (
@@ -76,7 +74,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 					if b != nil {
 						grandChild = *b.BlockHeader
 					} else {
-						return fmt.Errorf("Can't find finalized child block")
+						return fmt.Errorf("Can't find finalized grandchild block")
 					}
 				} else {
 					return fmt.Errorf("Can't find finalized child block")
@@ -94,43 +92,55 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 					}
 				}
 
-				storeView := state.NewStoreView(block.Height, block.StateHash, db)
-				vcpProof, err := proveVCP(storeView, state.ValidatorCandidatePoolKey())
+				vcpProof, err := proveVCP(block, db)
 				if err != nil {
 					return fmt.Errorf("Failed to get VCP Proof")
 				}
-				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof}, Second: child, Third: core.SnapshotThirdBlock{Header: grandChild, Votes: grandChild.HCC.Votes.Votes()}})
+				metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof}, Second: core.SnapshotSecondBlock{Header: child, Votes: grandChild.HCC.Votes.Votes()}, Third: core.SnapshotThirdBlock{Header: grandChild}})
 				break
+			} else {
+				return fmt.Errorf("Found a non-directly-finalized Stake changing block")
 			}
 		}
 	}
 
 	parentBlock, err := t.chain.FindBlock(lastFinalizedBlock.Parent)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to find last finalized block's parent, %v", err)
 	}
 	childBlock, err := getAtLeastCommittedChild(lastFinalizedBlock, t.chain)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
+
+	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
 	var votes []core.Vote
-	if childBlock.BlockHeader.HCC.Votes.IsEmpty() {
-		st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+	if childBlock.HCC.Votes.IsEmpty() {
 		voteSet, err := st.GetVoteSetByBlock(lastFinalizedBlock.Hash())
 		if err != nil {
-			return err
+			return fmt.Errorf("Failed to get last finalized block's votes, %v", err)
 		}
 		votes = voteSet.Votes()
 	} else {
-		votes = childBlock.BlockHeader.HCC.Votes.Votes()
+		for _, vote := range childBlock.HCC.Votes.Votes() {
+			if vote.Block != lastFinalizedBlock.Hash() {
+				return fmt.Errorf("Invalid child block HCC votes for validator set changes")
+			}
+		}
+		votes = childBlock.HCC.Votes.Votes()
 	}
 
-	storeView := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
-	vcpProof, err := proveVCP(storeView, state.ValidatorCandidatePoolKey())
+	childVoteSet, err := st.GetVoteSetByBlock(childBlock.Hash())
+	if err != nil {
+		return fmt.Errorf("Failed to get child block's votes, %v", err)
+	}
+	childVotes := childVoteSet.Votes()
+
+	vcpProof, err := proveVCP(parentBlock, db)
 	if err != nil {
 		return fmt.Errorf("Failed to get VCP Proof")
 	}
-	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof}, Second: *lastFinalizedBlock.BlockHeader, Third: core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, Votes: votes}})
+	metadata.BlockTrios = append(metadata.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof}, Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader, Votes: votes}, Third: core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, Votes: childVotes}})
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))
@@ -139,27 +149,24 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
-	err = writeMetadata(writer, metadata)
+	err = core.WriteMetadata(writer, metadata)
 	if err != nil {
 		return err
 	}
 
-	// for _, trio := range metadata.BlockTrios {
-	// 	storeView := state.NewStoreView(trio.First.Height, trio.First.StateHash, db)
-	// 	writeStoreView(storeView, false, writer, db)
-	// }
+	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	writeStoreView(parentSV, true, writer, db)
 	writeStoreView(sv, true, writer, db)
 
 	return nil
 }
 
-func proveVCP(sv *state.StoreView, vcpKey []byte) (*core.VCPProof, error) {
+func proveVCP(block *core.ExtendedBlock, db database.Database) (*core.VCPProof, error) {
+	sv := state.NewStoreView(block.Height, block.StateHash, db)
+	vcpKey := state.ValidatorCandidatePoolKey()
 	vp := &core.VCPProof{}
 	err := sv.ProveVCP(vcpKey, vp)
-	if err != nil {
-		return nil, err
-	}
-	return vp, nil
+	return vp, err
 }
 
 func getFinalizedChild(block *core.ExtendedBlock, chain *blockchain.Chain) (*core.ExtendedBlock, error) {
@@ -190,44 +197,19 @@ func getAtLeastCommittedChild(block *core.ExtendedBlock, chain *blockchain.Chain
 	return nil, nil
 }
 
-func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(*metadata)
-	if err != nil {
-		log.Error("Failed to encode snapshot metadata")
-		return err
-	}
-	// write length first
-	_, err = writer.Write(itobs(uint64(len(raw))))
-	if err != nil {
-		log.Error("Failed to write snapshot metadata length")
-		return err
-	}
-	// write metadata itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		log.Error("Failed to write snapshot metadata")
-		return err
-	}
-
-	meta := &core.SnapshotMetadata{}
-	rlp.DecodeBytes(raw, meta)
-
-	return nil
-}
-
 func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
-	height := itobs(sv.Height())
-	err := writeRecord(writer, []byte{core.SVStart}, height)
+	height := core.Itobytes(sv.Height())
+	err := core.WriteRecord(writer, []byte{core.SVStart}, height)
 	if err != nil {
 		panic(err)
 	}
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err = writeRecord(writer, k, v)
+		err = core.WriteRecord(writer, k, v)
 		if err != nil {
 			panic(err)
 		}
 		if needAccountStorage && strings.HasPrefix(k.String(), "ls/a/") {
-			err = writeRecord(writer, []byte{core.SVStart}, height)
+			err = core.WriteRecord(writer, []byte{core.SVStart}, height)
 			if err != nil {
 				panic(err)
 			}
@@ -239,71 +221,22 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 			}
 			storage := treestore.NewTreeStore(account.Root, db)
 			storage.Traverse(nil, func(ak, av common.Bytes) bool {
-				err = writeRecord(writer, ak, av)
+				err = core.WriteRecord(writer, ak, av)
 				if err != nil {
 					panic(err)
 				}
 				return true
 			})
-			err = writeRecord(writer, []byte{core.SVEnd}, height)
+			err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
 			if err != nil {
 				panic(err)
 			}
 		}
 		return true
 	})
-	err = writeRecord(writer, []byte{core.SVEnd}, height)
+	err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
 	if err != nil {
 		panic(err)
 	}
 	writer.Flush()
-}
-
-func writeVCPBranch(sv *state.StoreView, writer *bufio.Writer) {
-	height := itobs(sv.Height())
-	err := writeRecord(writer, []byte{core.SVStart}, height)
-	if err != nil {
-		panic(err)
-	}
-	sv.GetStore().Traverse(state.ValidatorCandidatePoolKey(), func(k, v common.Bytes) bool {
-		err = writeRecord(writer, k, v)
-		if err != nil {
-			panic(err)
-		}
-		return true
-	})
-	err = writeRecord(writer, []byte{core.SVEnd}, height)
-	if err != nil {
-		panic(err)
-	}
-	writer.Flush()
-}
-
-func writeRecord(writer *bufio.Writer, k, v common.Bytes) error {
-	record := core.SnapshotTrieRecord{K: k, V: v}
-	raw, err := rlp.EncodeToBytes(record)
-	if err != nil {
-		return fmt.Errorf("Failed to encode storage record, %v", err)
-	}
-	// write length first
-	_, err = writer.Write(itobs(uint64(len(raw))))
-	if err != nil {
-		return fmt.Errorf("Failed to write storage record length, %v", err)
-	}
-	// write record itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		return fmt.Errorf("Failed to write storage record, %v", err)
-	}
-	err = writer.Flush()
-	if err != nil {
-		return fmt.Errorf("Failed to flush storage record, %v", err)
-	}
-	return nil
-}
-
-func itobs(val uint64) []byte {
-	arr := make([]byte, 8)
-	binary.LittleEndian.PutUint64(arr, val)
-	return arr
 }

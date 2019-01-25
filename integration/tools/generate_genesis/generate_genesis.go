@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"encoding/binary"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -66,12 +65,11 @@ func writeGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath,
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
-	err = writeMetadata(writer, metadata)
+	err = core.WriteMetadata(writer, metadata)
 	if err != nil {
 		return err
 	}
 
-	sv.IncrementHeight()
 	writeStoreView(sv, true, writer)
 	return err
 }
@@ -119,7 +117,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 		}
 		sv.SetAccount(acc.Address, acc)
 
-		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel))
+		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel)
 	}
 
 	// --------------- Perform initial stake deposit --------------- //
@@ -128,7 +126,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	stakeDepositFile, err := os.Open(stakeDepositFilePath)
 	stakeDepositByteValue, err := ioutil.ReadAll(stakeDepositFile)
 	if err != nil {
-		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
+		panic(fmt.Sprintf("failed to read initial stake deposit file: %v", err))
 	}
 
 	json.Unmarshal(stakeDepositByteValue, &stakeDeposits)
@@ -188,7 +186,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	secondBlock := core.NewBlock()
 	secondBlock.ChainID = chainID
 	secondBlock.Height = genesisHeight + 1
-	secondBlock.Epoch = 0
+	secondBlock.Epoch = secondBlock.Height
 	secondBlock.Parent = firstBlock.Hash()
 	secondBlock.HCC = core.CommitCertificate{BlockHash: firstBlock.Hash()}
 	secondBlock.StateHash = stateHash
@@ -209,34 +207,45 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	var genesisSignatureMap map[string][]byte
 	genesisSignaturesMapByteValue, err := ioutil.ReadAll(genesisSignaturesFile)
 	if err != nil {
-		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
+		panic(fmt.Sprintf("failed to read genesis signatures file: %v", err))
 	}
 
 	json.Unmarshal(genesisSignaturesMapByteValue, &genesisSignatureMap)
 
 	validators := consensus.SelectTopStakeHoldersAsValidators(vcp).Validators()
-	votes := []core.Vote{}
+	secondBlockVotes := []core.Vote{}
+	thirdBlockVotes := []core.Vote{}
 	for _, validator := range validators {
-		vote := core.Vote{
-			Block:  secondBlock.Hash(),
-			Height: secondBlock.Height,
-			ID:     validator.Address,
-			Epoch:  secondBlock.Height,
-		}
 		sigBytes := genesisSignatureMap[validator.Address.String()]
 		sig, err := crypto.SignatureFromBytes(sigBytes)
 		if err != nil {
 			panic(fmt.Sprintf("failed to get genesis signature: %v", err))
 		}
-		vote.SetSignature(sig)
-		votes = append(votes, vote)
+
+		secondBlockVote := core.Vote{
+			Block:  secondBlock.Hash(),
+			Height: secondBlock.Height,
+			ID:     validator.Address,
+			Epoch:  secondBlock.Height,
+		}
+		secondBlockVote.SetSignature(sig)
+		secondBlockVotes = append(secondBlockVotes, secondBlockVote)
+
+		thirdBlockVote := core.Vote{
+			Block:  thirdBlock.Hash(),
+			Height: thirdBlock.Height,
+			ID:     validator.Address,
+			Epoch:  thirdBlock.Height,
+		}
+		thirdBlockVote.SetSignature(sig)
+		thirdBlockVotes = append(thirdBlockVotes, thirdBlockVote)
 	}
 
-	vcpProof, err := proofVCP(sv, state.ValidatorCandidatePoolKey())
+	vcpProof, err := proveVCP(sv)
 	if err != nil {
 		panic(fmt.Errorf("Failed to get VCP Proof"))
 	}
-	genesis.BlockTrios = append(genesis.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *firstBlock.BlockHeader, Proof: *vcpProof}, Second: *secondBlock.BlockHeader, Third: core.SnapshotThirdBlock{Header: *thirdBlock.BlockHeader, Votes: votes}})
+	genesis.BlockTrios = append(genesis.BlockTrios, core.SnapshotBlockTrio{First: core.SnapshotFirstBlock{Header: *firstBlock.BlockHeader, Proof: *vcpProof}, Second: core.SnapshotSecondBlock{Header: *secondBlock.BlockHeader, Votes: secondBlockVotes}, Third: core.SnapshotThirdBlock{Header: *thirdBlock.BlockHeader, Votes: thirdBlockVotes}})
 
 	// --------------- Sanity Checks --------------- //
 
@@ -248,87 +257,31 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	return genesis, sv, nil
 }
 
-func proofVCP(sv *state.StoreView, vcpKey []byte) (*core.VCPProof, error) {
+func proveVCP(sv *state.StoreView) (*core.VCPProof, error) {
 	vp := &core.VCPProof{}
+	vcpKey := state.ValidatorCandidatePoolKey()
 	err := sv.ProveVCP(vcpKey, vp)
-	if err != nil {
-		return nil, err
-	}
-	return vp, nil
-}
-
-func writeMetadata(writer *bufio.Writer, metadata *core.SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(*metadata)
-	if err != nil {
-		log.Error("Failed to encode snapshot metadata")
-		return err
-	}
-	// write length first
-	_, err = writer.Write(itobs(uint64(len(raw))))
-	if err != nil {
-		log.Error("Failed to write snapshot metadata length")
-		return err
-	}
-	// write metadata itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		log.Error("Failed to write snapshot metadata")
-		return err
-	}
-
-	meta := &core.SnapshotMetadata{}
-	rlp.DecodeBytes(raw, meta)
-
-	return nil
+	return vp, err
 }
 
 func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer) {
-	height := itobs(sv.Height())
-	err := writeRecord(writer, []byte{core.SVStart}, height)
+	height := core.Itobytes(sv.Height())
+	err := core.WriteRecord(writer, []byte{core.SVStart}, height)
 	if err != nil {
 		panic(err)
 	}
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err = writeRecord(writer, k, v)
+		err = core.WriteRecord(writer, k, v)
 		if err != nil {
 			panic(err)
 		}
 		return true
 	})
-	err = writeRecord(writer, []byte{core.SVEnd}, height)
+	err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
 	if err != nil {
 		panic(err)
 	}
 	writer.Flush()
-}
-
-func writeRecord(writer *bufio.Writer, k, v common.Bytes) error {
-	record := core.SnapshotTrieRecord{K: k, V: v}
-	raw, err := rlp.EncodeToBytes(record)
-	if err != nil {
-		return fmt.Errorf("Failed to encode storage record, %v", err)
-	}
-	// write length first
-	_, err = writer.Write(itobs(uint64(len(raw))))
-	if err != nil {
-		return fmt.Errorf("Failed to write storage record length, %v", err)
-	}
-	// write record itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		return fmt.Errorf("Failed to write storage record, %v", err)
-	}
-	err = writer.Flush()
-	if err != nil {
-		return fmt.Errorf("Failed to flush storage record, %v", err)
-	}
-	return nil
-}
-
-func itobs(val uint64) []byte {
-	arr := make([]byte, 8)
-	binary.LittleEndian.PutUint64(arr, val)
-	return arr
 }
 
 func sanityChecks(sv *state.StoreView) error {
