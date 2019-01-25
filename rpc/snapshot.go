@@ -52,11 +52,21 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		return fmt.Errorf("Last finalized block state hash don't match %v != %v", sv.Hash(), lastFinalizedBlock.StateHash)
 	}
 
+	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
 		if height >= lastFinalizedBlock.Height-1 {
 			break
 		}
+
+		// check kvstore first
+		blockTrio := &core.SnapshotBlockTrio{}
+		err := kvStore.Get([]byte(core.BlockTrioStoreKeyPrefix+strconv.FormatUint(height, 64)), blockTrio)
+		if err == nil {
+			metadata.BlockTrios = append(metadata.BlockTrios, *blockTrio)
+			continue
+		}
+
 		blocks := t.chain.FindBlocksByHeight(height)
 		for _, block := range blocks {
 			if block.Status.IsDirectlyFinalized() {
@@ -113,7 +123,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		return fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
-	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+	st := consensus.NewState(kvStore, t.chain)
 	var votes []core.Vote
 	if childBlock.HCC.Votes.IsEmpty() {
 		voteSet, err := st.GetVoteSetByBlock(lastFinalizedBlock.Hash())
