@@ -66,7 +66,8 @@ func (c HTTPClient) Call(name string, args []interface{}, result interface{}) er
 
 type WSClient struct {
 	*jsonrpc2.Client
-	ws *websocket.Conn
+	ws  *websocket.Conn
+	url string
 }
 
 func newWSClient(url string) WSClient {
@@ -75,11 +76,20 @@ func newWSClient(url string) WSClient {
 		log.Fatal(err)
 	}
 	return WSClient{
+		url:    url,
 		ws:     ws,
 		Client: jsonrpc2.NewClient(ws),
 	}
 }
 
 func (c WSClient) Call(name string, args []interface{}, result interface{}) error {
-	return c.Client.Call(name, args, result)
+	err := c.Client.Call(name, args, result)
+	if err != nil && err.Error() == "connection is shut down" {
+		c.ws, err = websocket.Dial(c.url, "", c.url)
+		if err != nil {
+			return err
+		}
+		return c.Client.Call(name, args, result)
+	}
+	return err
 }
