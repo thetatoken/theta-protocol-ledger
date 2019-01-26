@@ -14,9 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
@@ -39,12 +37,12 @@ type StakeDeposit struct {
 //
 // Example:
 // cd $THETA/integration/privatenet/node
-// generate_genesis -mode=0 -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis_signatures=./data/genesis_signatures.json -genesis=./genesis
+// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
 //
 func main() {
-	mode, chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSignaturesFilePath, genesisSnapshotFilePath := parseArguments()
+	chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath := parseArguments()
 
-	sv, metadata, err := generateGenesisSnapshot(mode, chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSignaturesFilePath)
+	sv, metadata, err := generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to generate genesis snapshot: %v", err))
 	}
@@ -54,124 +52,61 @@ func main() {
 		panic(fmt.Sprintf("Sanity checks failed: %v", err))
 	}
 
-	if mode == GenGenesisFileMode {
-		err = writeGenesisSnapshot(sv, metadata, genesisSnapshotFilePath)
-		if err != nil {
-			panic(fmt.Sprintf("Failed to write genesis snapshot: %v", err))
-		}
+	err = writeGenesisSnapshot(sv, metadata, genesisSnapshotFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to write genesis snapshot: %v", err))
 	}
+
+	if len(metadata.BlockTrios) != 1 {
+		panic(fmt.Sprintf("Invalid genesis block trios"))
+	}
+
+	genesisBlockHeader := metadata.BlockTrios[0].First.Header
+	genesisBlockHash := genesisBlockHeader.Hash()
+
+	fmt.Println("")
+	fmt.Printf("--------------------------------------------------------------------------\n")
+	fmt.Printf("Genesis block hash: %v\n", genesisBlockHash.Hex())
+	fmt.Printf("--------------------------------------------------------------------------\n")
+	fmt.Println("")
 }
 
-func parseArguments() (mode int, chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath,
-	genesisSignaturesFilePath, genesisSnapshotFilePath string) {
-	modePtr := flag.Int("mode", GenBlockHashMode, "0: print the hash of the second block, 1: generate the genesis file")
+func parseArguments() (chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath string) {
 	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
 	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
 	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
-	genesisSignaturesFilePathPtr := flag.String("genesis_signatures", "./genesis_signatures.json", "the genesis signatures")
 	genesisSnapshotFilePathPtr := flag.String("genesis", "./genesis", "the genesis snapshot")
 	flag.Parse()
 
-	mode = *modePtr
 	chainID = *chainIDPtr
 	erc20SnapshotJSONFilePath = *erc20SnapshotJSONFilePathPtr
 	stakeDepositFilePath = *stakeDepositFilePathPtr
-	genesisSignaturesFilePath = *genesisSignaturesFilePathPtr
 	genesisSnapshotFilePath = *genesisSnapshotFilePathPtr
 
 	return
 }
 
 // generateGenesisSnapshot generates the genesis snapshot.
-func generateGenesisSnapshot(mode int, chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath,
-	genesisSignaturesFilePath string) (*state.StoreView, *core.SnapshotMetadata, error) {
+func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*state.StoreView, *core.SnapshotMetadata, error) {
 	metadata := &core.SnapshotMetadata{}
 	genesisHeight := uint64(0)
 
 	sv := loadInitialBalances(erc20SnapshotJSONFilePath)
-	vcp := performInitialStakeDeposit(stakeDepositFilePath, genesisHeight, sv)
-
-	// --------------- Generate Genensis Blocks --------------- //
-
 	stateHash := sv.Hash()
-	validators := consensus.SelectTopStakeHoldersAsValidators(vcp).Validators()
 
-	// First block
-
-	firstBlock := core.NewBlock()
-	firstBlock.ChainID = chainID
-	firstBlock.Height = genesisHeight
-	firstBlock.Epoch = firstBlock.Height
-	firstBlock.Parent = common.Hash{}
-	firstBlock.StateHash = stateHash
-	firstBlock.Timestamp = big.NewInt(time.Now().Unix())
-
-	// Second block
-
-	secondBlock := core.NewBlock()
-	secondBlock.ChainID = chainID
-	secondBlock.Height = genesisHeight + 1
-	secondBlock.Epoch = secondBlock.Height
-	secondBlock.Parent = firstBlock.Hash()
-	secondBlock.HCC = core.CommitCertificate{BlockHash: firstBlock.Hash()}
-	secondBlock.StateHash = stateHash
-	secondBlock.Timestamp = big.NewInt(time.Now().Unix())
-
-	// Third block (dummy block)
-
-	thirdBlock := core.NewBlock()
-	thirdBlock.Parent = secondBlock.Hash()
-	thirdBlock.HCC = core.CommitCertificate{BlockHash: secondBlock.Hash()}
-
-	if mode == GenBlockHashMode {
-		fmt.Printf("\n")
-		fmt.Printf("Block hash to be signed: %v\n", thirdBlock.Hash())
-		fmt.Printf("\n")
-		return sv, nil, nil
-	}
-
-	genesisSignaturesFile, err := os.Open(genesisSignaturesFilePath)
-	if err != nil {
-		panic(fmt.Sprintf("failed to open the genesis signatures file: %v", err))
-	}
-	defer genesisSignaturesFile.Close()
-
-	var genesisSignatureMap map[string][]byte
-	genesisSignaturesMapByteValue, err := ioutil.ReadAll(genesisSignaturesFile)
-	if err != nil {
-		panic(fmt.Sprintf("failed to read genesis signatures file: %v", err))
-	}
-
-	json.Unmarshal(genesisSignaturesMapByteValue, &genesisSignatureMap)
-
-	thirdBlockVoteSet := core.NewVoteSet()
-	for _, validator := range validators {
-		sigBytes := genesisSignatureMap[validator.Address.Hex()]
-		sig, err := crypto.SignatureFromBytes(sigBytes)
-		if err != nil {
-			panic(fmt.Sprintf("failed to get genesis signature: %v", err))
-		}
-
-		thirdBlockVote := core.Vote{
-			Block:  thirdBlock.Hash(),
-			Height: thirdBlock.Height,
-			ID:     validator.Address,
-			Epoch:  thirdBlock.Height,
-		}
-		thirdBlockVote.SetSignature(sig)
-		thirdBlockVoteSet.AddVote(thirdBlockVote)
-	}
-
-	vcpProof, err := proveVCP(sv)
-	if err != nil {
-		panic(fmt.Errorf("Failed to get VCP Proof"))
-	}
+	genesisBlock := core.NewBlock()
+	genesisBlock.ChainID = chainID
+	genesisBlock.Height = genesisHeight
+	genesisBlock.Epoch = genesisBlock.Height
+	genesisBlock.Parent = common.Hash{}
+	genesisBlock.StateHash = stateHash
+	genesisBlock.Timestamp = big.NewInt(time.Now().Unix())
 
 	metadata.BlockTrios = append(metadata.BlockTrios,
 		core.SnapshotBlockTrio{
-			First:  core.SnapshotFirstBlock{Header: *firstBlock.BlockHeader, Proof: *vcpProof},
-			Second: core.SnapshotSecondBlock{Header: *secondBlock.BlockHeader},
-			Third:  core.SnapshotThirdBlock{Header: *thirdBlock.BlockHeader, VoteSet: thirdBlockVoteSet},
+			First:  core.SnapshotFirstBlock{Header: *genesisBlock.BlockHeader},
+			Second: core.SnapshotSecondBlock{},
+			Third:  core.SnapshotThirdBlock{},
 		})
 
 	return sv, metadata, nil
