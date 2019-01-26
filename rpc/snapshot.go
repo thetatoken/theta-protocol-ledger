@@ -21,10 +21,6 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 )
 
-const (
-	LatestSnapshot = "theta_snapshot-latest"
-)
-
 type GenSnapshotArgs struct {
 }
 
