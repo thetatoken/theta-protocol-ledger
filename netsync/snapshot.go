@@ -121,7 +121,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 		}
 	}
 
-	if err = validateSnapshot(&metadata, hash, db); err != nil {
+	if err = validateSnapshot(sv, &metadata, hash, db); err != nil {
 		return nil, fmt.Errorf("Snapshot validation failed: %v", err)
 	}
 
@@ -148,7 +148,7 @@ func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	return &blockTrio.Second.Header, nil
 }
 
-func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) error {
+func validateSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) error {
 	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.Header.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return fmt.Errorf("StateHash not matching")
 	}
@@ -175,10 +175,22 @@ func validateSnapshot(metadata *core.SnapshotMetadata, hash common.Hash, db data
 			validatorSet = core.NewValidatorSet()
 			validatorSet.SetValidators(validators)
 		}
+
+		// blockTrio.Third.Header.HCC.Votes contains the votes for the second block in the
+		if err := validateVotes(&blockTrio.Second.Header, validatorSet, blockTrio.Third.Header.HCC.Votes); err != nil {
+			return fmt.Errorf("Failed to validate voteSet, %v", err)
+		}
 	}
 
 	lastBlockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
 	validateVotes(&lastBlockTrio.Third.Header, validatorSet, lastBlockTrio.Third.VoteSet)
+
+	latestProvenValSet := validatorSet
+	retrievedValSet := getValidatorSetFromSV(sv)
+
+	if !latestProvenValSet.Equals(retrievedValSet) {
+		return fmt.Errorf("The latest proven and retrieved validator set does not match")
+	}
 
 	return nil
 }
@@ -198,26 +210,13 @@ func getValidatorSet(block *core.BlockHeader, db database.Database, recoverredVp
 	return consensus.SelectTopStakeHoldersAsValidators(vcp), nil
 }
 
-func getValidatorSetFromSV(block *core.BlockHeader, db database.Database) *core.ValidatorSet {
-	if block == nil {
-		validators := []core.Validator{}
-		for _, addr := range genesisValidatorAddrs {
-			address := common.HexToAddress(addr)
-			stake := new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinValidatorStakeDeposit)
-			validators = append(validators, core.Validator{Address: address, Stake: stake})
-		}
-		validatorSet := core.NewValidatorSet()
-		validatorSet.SetValidators(validators)
-		return validatorSet
-	}
-
-	sv := state.NewStoreView(block.Height, block.StateHash, db)
+func getValidatorSetFromSV(sv *state.StoreView) *core.ValidatorSet {
 	vcp := sv.GetValidatorCandidatePool()
 	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
 func validateVotes(block *core.BlockHeader, validatorSet *core.ValidatorSet, voteSet *core.VoteSet) error {
-	if !validatorSet.HasMajorityVotes(voteSet.Votes()) {
+	if !validatorSet.HasMajority(voteSet) {
 		return fmt.Errorf("block doesn't have majority votes")
 	}
 	for _, vote := range voteSet.Votes() {

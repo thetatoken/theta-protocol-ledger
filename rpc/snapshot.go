@@ -41,33 +41,23 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		log.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
 		return err
 	}
-	sv, err := t.ledger.GetFinalizedSnapshot()
-	if err != nil {
-		return err
-	}
-	if sv.Height() != lastFinalizedBlock.Height {
-		return fmt.Errorf("Last finalized block height don't match %v != %v", sv.Height(), lastFinalizedBlock.Height)
-	}
-	if sv.Hash() != lastFinalizedBlock.StateHash {
-		return fmt.Errorf("Last finalized block state hash don't match %v != %v", sv.Hash(), lastFinalizedBlock.StateHash)
-	}
+
+	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
 	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
-		if height >= lastFinalizedBlock.Height-1 {
-			break
-		}
-
 		// check kvstore first
 		blockTrio := &core.SnapshotBlockTrio{}
-		err := kvStore.Get([]byte(core.BlockTrioStoreKeyPrefix+strconv.FormatUint(height, 64)), blockTrio)
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 64))
+		err := kvStore.Get(blockTrioKey, blockTrio)
 		if err == nil {
 			metadata.BlockTrios = append(metadata.BlockTrios, *blockTrio)
 			continue
 		}
 
 		blocks := t.chain.FindBlocksByHeight(height)
+		foundDirectlyFinalizedBlock := false
 		for _, block := range blocks {
 			if block.Status.IsDirectlyFinalized() {
 				var child, grandChild core.BlockHeader
@@ -112,10 +102,12 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 						Second: core.SnapshotSecondBlock{Header: child},
 						Third:  core.SnapshotThirdBlock{Header: grandChild},
 					})
+				foundDirectlyFinalizedBlock = true
 				break
-			} else {
-				return fmt.Errorf("Found a non-directly-finalized Stake changing block")
 			}
+		}
+		if !foundDirectlyFinalizedBlock {
+			return fmt.Errorf("Finalized block not found for height %v", height)
 		}
 	}
 

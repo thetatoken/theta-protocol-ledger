@@ -36,6 +36,17 @@ func (v Validator) ID() common.Address {
 	return v.Address
 }
 
+// Equals checks whether the validator is the same as another validator
+func (v Validator) Equals(x Validator) bool {
+	if v.Address != x.Address {
+		return false
+	}
+	if v.Stake.Cmp(x.Stake) != 0 {
+		return false
+	}
+	return true
+}
+
 // String represents the string representation of the validator
 func (v Validator) String() string {
 	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake)
@@ -70,6 +81,20 @@ func (s *ValidatorSet) Copy() *ValidatorSet {
 // Size returns the number of the validators in the validator set.
 func (s *ValidatorSet) Size() int {
 	return len(s.validators)
+}
+
+// Equals checks whether the validator set is the same as another validator set
+func (s *ValidatorSet) Equals(t *ValidatorSet) bool {
+	numVals := len(s.validators)
+	if numVals != len(t.validators) {
+		return false
+	}
+	for i := 0; i < numVals; i++ {
+		if !s.validators[i].Equals(t.validators[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // String represents the string representation of the validator set
