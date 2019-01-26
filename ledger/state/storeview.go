@@ -100,10 +100,6 @@ func (sv *StoreView) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
 	return sv.store.ProveVCP(vcpKey, vp)
 }
 
-func (sv *StoreView) VerifyProof(rootHash common.Hash, key []byte, vp *core.VCPProof) ([]byte, error) {
-	return sv.store.VerifyProof(rootHash, key, vp)
-}
-
 // Delete removes the value corresponding to the key
 func (sv *StoreView) Delete(key common.Bytes) {
 	sv.store.Delete(key)

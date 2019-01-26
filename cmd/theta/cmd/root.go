@@ -61,5 +61,5 @@ func getDefaultConfigPath() string {
 }
 
 func getDefaultSnapshotPath() string {
-	return path.Join(getDefaultConfigPath(), "snapshot")
+	return path.Join(getDefaultConfigPath(), "genesis")
 }

@@ -85,11 +85,6 @@ func (store *TreeStore) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
 	return store.Trie.Prove(vcpKey, 0, vp)
 }
 
-func (store *TreeStore) VerifyProof(rootHash common.Hash, key []byte, vp *core.VCPProof) ([]byte, error) {
-	value, _, err := trie.VerifyProof(rootHash, key, vp)
-	return value, err
-}
-
 // Set sets value of given key.
 func (store *TreeStore) Set(key, value common.Bytes) {
 	store.Trie.Update(key, value)

@@ -36,7 +36,7 @@ type StakeDeposit struct {
 
 //
 // Example:
-// cd $THETA/integration/privatenet/node
+// pushd $THETA_HOME/integration/privatenet/node
 // generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
 //
 func main() {
@@ -92,6 +92,8 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	genesisHeight := uint64(0)
 
 	sv := loadInitialBalances(erc20SnapshotJSONFilePath)
+	performInitialStakeDeposit(stakeDepositFilePath, genesisHeight, sv)
+
 	stateHash := sv.Hash()
 
 	genesisBlock := core.NewBlock()
@@ -104,8 +106,8 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 
 	metadata.BlockTrios = append(metadata.BlockTrios,
 		core.SnapshotBlockTrio{
-			First:  core.SnapshotFirstBlock{Header: *genesisBlock.BlockHeader},
-			Second: core.SnapshotSecondBlock{},
+			First:  core.SnapshotFirstBlock{},
+			Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
 			Third:  core.SnapshotThirdBlock{},
 		})
 

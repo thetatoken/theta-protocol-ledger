@@ -10,7 +10,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/netsync"
@@ -41,24 +40,16 @@ func runStart(cmd *cobra.Command, args []string) {
 	privKey := loadOrCreateKey()
 
 	network := newMessenger(privKey, peerSeeds, port)
-
-	checkpoint, err := consensus.LoadCheckpoint(path.Join(cfgPath, "genesis"))
-	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load checkpoint")
-	}
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	var root *core.Block
 	snapshotBlockHeader, err := netsync.LoadSnapshot(snapshotPath, db)
-	if err == nil {
-		root = &core.Block{BlockHeader: snapshotBlockHeader}
-	} else {
-		log.WithFields(log.Fields{"Info": err}).Info("Failed to load snapshot")
-		root = checkpoint.FirstBlock
-		consensus.LoadCheckpointLedgerState(checkpoint, db)
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load snapshot")
 	}
+	root = &core.Block{BlockHeader: snapshotBlockHeader}
 
 	params := &node.Params{
 		ChainID:    root.ChainID,
