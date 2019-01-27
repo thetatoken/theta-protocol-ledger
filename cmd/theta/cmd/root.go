@@ -32,7 +32,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
-	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
+	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", "", "snapshot path")
+	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 }
 
 // initConfig reads in config file and ENV variables if set.

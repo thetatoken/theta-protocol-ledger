@@ -61,7 +61,7 @@ func main() {
 		panic(fmt.Sprintf("Invalid genesis block trios"))
 	}
 
-	genesisBlockHeader := metadata.BlockTrios[0].First.Header
+	genesisBlockHeader := &metadata.BlockTrios[0].Second.Header
 	genesisBlockHash := genesisBlockHeader.Hash()
 
 	fmt.Println("")
@@ -230,7 +230,6 @@ func writeGenesisSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, 
 	if err != nil {
 		return err
 	}
-
 	writeStoreView(sv, true, writer)
 	return err
 }

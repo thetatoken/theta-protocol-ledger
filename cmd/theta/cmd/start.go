@@ -43,20 +43,27 @@ func runStart(cmd *cobra.Command, args []string) {
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-
-	var root *core.Block
-	snapshotBlockHeader, err := netsync.LoadSnapshot(snapshotPath, db)
 	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to load snapshot")
+		panic(fmt.Sprintf("Failed to connect to the db. main: %v, ref: %v, err: %v",
+			mainDBPath, refDBPath, err))
 	}
-	root = &core.Block{BlockHeader: snapshotBlockHeader}
+
+	if len(snapshotPath) == 0 {
+		snapshotPath = path.Join(cfgPath, "genesis")
+	}
+	snapshotBlockHeader, err := netsync.ValidateSnapshot(snapshotPath)
+	if err != nil {
+		panic(fmt.Sprintf("Snapshot validation failed, err: %v", err))
+	}
+	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
 	params := &node.Params{
-		ChainID:    root.ChainID,
-		PrivateKey: privKey,
-		Root:       root,
-		Network:    network,
-		DB:         db,
+		ChainID:      root.ChainID,
+		PrivateKey:   privKey,
+		Root:         root,
+		Network:      network,
+		DB:           db,
+		SnapshotPath: snapshotPath,
 	}
 	n := node.NewNode(params)
 	n.Start(context.Background())

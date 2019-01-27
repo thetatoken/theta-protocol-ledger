@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 
@@ -17,13 +19,14 @@ import (
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/database"
+	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
 	"github.com/thetatoken/theta/store/trie"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "snapshot"})
 
-const mainnetGenesisBlockHash = "0c58bd9fa43436dc9b6887b2bcad0dbda466d90b961ffb7308773e6f815f10d9"
+const mainnetGenesisBlockHash = "0xf58f0c574416abf4eb06bfaa211b9f1ba3faa4c3e9fcbf95156178ff08cb8579"
 const genesisBlockHeight = uint64(0)
 
 type SVStack []*state.StoreView
@@ -48,32 +51,69 @@ func (s SVStack) peek() *state.StoreView {
 	return s[l-1]
 }
 
+// ValidateSnapshot validates the snapshot using a temporary database
+func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
+	logger.Printf("Verifying snapshot: %v", filePath)
+
+	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create temporary db for snapshot verification: %v", err))
+	}
+	mainTmpDBPath := path.Join(tmpdbRoot, "main")
+	refTmpDBPath := path.Join(tmpdbRoot, "ref")
+	defer func() {
+		os.RemoveAll(mainTmpDBPath)
+		os.RemoveAll(refTmpDBPath)
+	}()
+
+	tmpdb, err := backend.NewLDBDatabase(mainTmpDBPath, refTmpDBPath, 256, 0)
+
+	blockHeader, err := loadSnapshot(filePath, tmpdb)
+	if err != nil {
+		return nil, err
+	}
+	logger.Printf("Snapshot verified.")
+
+	return blockHeader, nil
+}
+
+// LoadSnapshot loads the snapshot into the given database
 func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
+	logger.Printf("Loading snapshot from: %v", filePath)
+	blockHeader, err := loadSnapshot(filePath, db)
+	if err != nil {
+		return nil, err
+	}
+	logger.Printf("Snapshot loaded successfully.")
+	return blockHeader, nil
+}
+
+func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	// ------------------------- Load State ---------------------- //
-
-	sv, hash, err := loadState(file, db)
-	if err != nil {
-		return nil, err
-	}
-
-	// ------------------- Validate the Snapshot ----------------- //
+	// ------------------------------ Load State ------------------------------ //
 
 	metadata := core.SnapshotMetadata{}
 	err = core.ReadRecord(file, &metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
-	if err = validateSnapshot(sv, &metadata, hash, db); err != nil {
-		return nil, fmt.Errorf("Snapshot validation failed: %v", err)
+	sv, hash, err := loadState(file, db)
+	if err != nil {
+		return nil, err
 	}
 
-	// --------------- Save Proofs and Tail Blocks  --------------- //
+	// ----------------------------- Validity Checks -------------------------- //
+
+	if err = checkSnapshot(sv, hash, &metadata, db); err != nil {
+		return nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+	}
+
+	// --------------------- Save Proofs and Tail Blocks  --------------------- //
 
 	kvstore := kvstore.NewKVStore(db)
 
@@ -151,37 +191,40 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 	return sv, hash, nil
 }
 
-func validateSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, hash common.Hash, db database.Database) error {
-	if bytes.Compare(metadata.BlockTrios[len(metadata.BlockTrios)-1].Second.Header.StateHash.Bytes(), hash.Bytes()) != 0 {
+func checkSnapshot(sv *state.StoreView, hash common.Hash, metadata *core.SnapshotMetadata, db database.Database) error {
+	tailTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
+	secondBlock := tailTrio.Second.Header
+	if bytes.Compare(secondBlock.StateHash.Bytes(), hash.Bytes()) != 0 {
 		return fmt.Errorf("StateHash not matching")
 	}
 
 	var provenValSet *core.ValidatorSet // the proven validator set so far
 	var err error
 	for idx, blockTrio := range metadata.BlockTrios {
-		if blockTrio.Second.Header.Parent != blockTrio.First.Header.Hash() || blockTrio.Third.Header.Parent != blockTrio.Second.Header.Hash() {
-			return fmt.Errorf("block trio has invalid Parent link")
-		}
-
-		if blockTrio.Second.Header.HCC.BlockHash != blockTrio.First.Header.Hash() || blockTrio.Third.Header.HCC.BlockHash != blockTrio.Second.Header.Hash() {
-			return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", blockTrio.First.Header.Hash(), blockTrio.Second.Header.HCC.BlockHash,
-				blockTrio.Second.Header.Hash(), blockTrio.Third.Header.HCC.BlockHash)
-		}
-
-		firstBlock := blockTrio.First
-		secondBlock := blockTrio.Second
+		first := blockTrio.First
+		second := blockTrio.Second
+		third := blockTrio.Third
 		if idx == 0 {
 			// special handling for the genesis block
-			provenValSet, err = validateGenesisBlock(&secondBlock.Header, db)
+			provenValSet, err = validateGenesisBlock(&second.Header, db)
 			if err != nil {
 				return fmt.Errorf("Invalid genesis block: %v", err)
 			}
 		} else {
-			// blockTrio.Third.Header.HCC.Votes contains the votes for the second block in the trio
-			if err := validateVotes(provenValSet, &blockTrio.Second.Header, blockTrio.Third.Header.HCC.Votes); err != nil {
+			if second.Header.Parent != first.Header.Hash() || third.Header.Parent != second.Header.Hash() {
+				return fmt.Errorf("block trio has invalid Parent link")
+			}
+
+			if second.Header.HCC.BlockHash != first.Header.Hash() || third.Header.HCC.BlockHash != second.Header.Hash() {
+				return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", first.Header.Hash(), second.Header.HCC.BlockHash,
+					second.Header.Hash(), third.Header.HCC.BlockHash)
+			}
+
+			// third.Header.HCC.Votes contains the votes for the second block in the trio
+			if err := validateVotes(provenValSet, &second.Header, third.Header.HCC.Votes); err != nil {
 				return fmt.Errorf("Failed to validate voteSet, %v", err)
 			}
-			provenValSet, err = getValidatorSetFromVCPProof(firstBlock.Header.StateHash, &firstBlock.Proof)
+			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
 			if err != nil {
 				return fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
 			}
@@ -192,7 +235,6 @@ func validateSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, hash
 	validateVotes(provenValSet, &tailBlockTrio.Third.Header, tailBlockTrio.Third.VoteSet)
 
 	retrievedValSet := getValidatorSetFromSV(sv)
-
 	if !provenValSet.Equals(retrievedValSet) {
 		return fmt.Errorf("The latest proven and retrieved validator set does not match")
 	}
@@ -206,7 +248,7 @@ func validateGenesisBlock(block *core.BlockHeader, db database.Database) (*core.
 	}
 
 	if block.Hash() != common.HexToHash(mainnetGenesisBlockHash) {
-		return nil, fmt.Errorf("Genesis block hash mismatch: %v", block.Hash().Hex())
+		return nil, fmt.Errorf("Genesis block hash mismatch, calculated hash: %v", block.Hash().Hex())
 	}
 
 	// now that the block hash matches with the expected genesis block hash,
