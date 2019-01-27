@@ -89,7 +89,7 @@ func parseArguments() (chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath,
 // generateGenesisSnapshot generates the genesis snapshot.
 func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*state.StoreView, *core.SnapshotMetadata, error) {
 	metadata := &core.SnapshotMetadata{}
-	genesisHeight := uint64(0)
+	genesisHeight := core.GenesisBlockHeight
 
 	sv := loadInitialBalances(erc20SnapshotJSONFilePath)
 	performInitialStakeDeposit(stakeDepositFilePath, genesisHeight, sv)

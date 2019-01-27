@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
@@ -25,9 +26,6 @@ import (
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "snapshot"})
-
-const mainnetGenesisBlockHash = "0xf58f0c574416abf4eb06bfaa211b9f1ba3faa4c3e9fcbf95156178ff08cb8579"
-const genesisBlockHeight = uint64(0)
 
 type SVStack []*state.StoreView
 
@@ -243,12 +241,20 @@ func checkSnapshot(sv *state.StoreView, hash common.Hash, metadata *core.Snapsho
 }
 
 func validateGenesisBlock(block *core.BlockHeader, db database.Database) (*core.ValidatorSet, error) {
-	if block.Height != genesisBlockHeight {
+	if block.Height != core.GenesisBlockHeight {
 		return nil, fmt.Errorf("Invalid genesis block height: %v", block.Height)
 	}
 
-	if block.Hash() != common.HexToHash(mainnetGenesisBlockHash) {
-		return nil, fmt.Errorf("Genesis block hash mismatch, calculated hash: %v", block.Hash().Hex())
+	var expectedGenesisHash string
+	if block.ChainID == core.MainnetChainID {
+		expectedGenesisHash = core.MainnetGenesisBlockHash
+	} else {
+		expectedGenesisHash = viper.GetString(common.CfgGenesisHash)
+	}
+
+	if block.Hash() != common.HexToHash(expectedGenesisHash) {
+		return nil, fmt.Errorf("Genesis block hash mismatch, expected: %v, calculated: %v",
+			expectedGenesisHash, block.Hash().Hex())
 	}
 
 	// now that the block hash matches with the expected genesis block hash,
@@ -307,7 +313,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	secondBlock := core.Block{BlockHeader: &tailBlockTrio.Second.Header}
 	hl := sv.GetStakeTransactionHeightList()
 
-	if secondBlock.Height != genesisBlockHeight {
+	if secondBlock.Height != core.GenesisBlockHeight {
 		firstExt := core.ExtendedBlock{
 			Block:              &firstBlock,
 			Status:             core.BlockStatusDirectlyFinalized, // HCC links between all three blocks
