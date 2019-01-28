@@ -142,7 +142,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		})
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.Itoa(int(sv.Height())) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 64) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
