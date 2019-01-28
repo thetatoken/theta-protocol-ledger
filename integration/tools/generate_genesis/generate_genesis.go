@@ -145,12 +145,13 @@ func loadInitialBalances(erc20SnapshotJSONFilePath string) *state.StoreView {
 		}
 		tfuel := new(big.Int).Mul(initTFuelToThetaRatio, theta)
 		acc := &types.Account{
-			Address: address,
+			Address:  address,
+			Root:     common.Hash{},
+			CodeHash: types.EmptyCodeHash,
 			Balance: types.Coins{
 				ThetaWei: theta,
 				TFuelWei: tfuel,
 			},
-			LastUpdatedBlockHeight: 0,
 		}
 		sv.SetAccount(acc.Address, acc)
 		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel)

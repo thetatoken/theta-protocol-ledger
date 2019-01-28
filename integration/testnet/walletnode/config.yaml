@@ -2,5 +2,7 @@
 genesis:
   hash: "0x22a0d599e8f796824554a238a8cd3f0aea4cd30a79eca9195e26c6dee331c13e"
 p2p:
-  port: 13000
-  seeds: 127.0.0.1:11000,127.0.0.1:12000,127.0.0.1:14000
+  port: 15000
+  seeds: 18.219.77.217:11000
+rpc:
+  enabled: true
