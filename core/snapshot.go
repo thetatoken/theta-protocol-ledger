@@ -67,10 +67,6 @@ func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
 		log.Error("Failed to write snapshot metadata")
 		return err
 	}
-
-	meta := &SnapshotMetadata{}
-	rlp.DecodeBytes(raw, meta)
-
 	return nil
 }
 
