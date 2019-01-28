@@ -50,6 +50,8 @@ func main() {
 	err = sanityChecks(sv)
 	if err != nil {
 		panic(fmt.Sprintf("Sanity checks failed: %v", err))
+	} else {
+		logger.Infof("Sanity checks all passed.")
 	}
 
 	err = writeGenesisSnapshot(sv, metadata, genesisSnapshotFilePath)
@@ -277,6 +279,17 @@ func sanityChecks(sv *state.StoreView) error {
 			}
 			vcpAnalyzed = true
 		} else if bytes.Compare(key, state.StakeTransactionHeightListKey()) == 0 {
+			var hl types.HeightList
+			err := rlp.DecodeBytes(val, &hl)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to decode Height List: %v", err))
+			}
+			if len(hl.Heights) != 1 {
+				panic(fmt.Sprintf("The genesis height list should contain only one height: %v", hl.Heights))
+			}
+			if hl.Heights[0] != uint64(0) {
+				panic(fmt.Sprintf("Only height 0 should be in the genesis height list"))
+			}
 		} else { // regular account
 			var account types.Account
 			err := rlp.DecodeBytes(val, &account)
