@@ -32,26 +32,26 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 		return errors.New("start height must be <= end height")
 	}
 
-	var finalizedBlock *core.ExtendedBlock
+	var lastFinalizedBlock *core.ExtendedBlock
 	for i := endHeight; i >= startHeight; i-- {
 		blocks := t.chain.FindBlocksByHeight(i)
 		for _, block := range blocks {
 			if block.Status.IsFinalized() {
-				finalizedBlock = block
+				lastFinalizedBlock = block
 				break
 			}
 		}
-		if finalizedBlock != nil {
+		if lastFinalizedBlock != nil {
 			break
 		}
 	}
 
-	if finalizedBlock == nil {
+	if lastFinalizedBlock == nil {
 		return fmt.Errorf("There's no finalized block between height %v and %v", startHeight, endHeight)
 	}
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 64) + "-" + strconv.FormatUint(finalizedBlock.Height, 64) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(lastFinalizedBlock.Height, 10) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
@@ -59,25 +59,27 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 	writer := bufio.NewWriter(file)
 	db := t.ledger.State().DB()
 	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+	block := lastFinalizedBlock.Block
 
 	for {
-		voteSet, err := st.GetVoteSetByBlock(finalizedBlock.Hash())
+		voteSet, err := st.GetVoteSetByBlock(block.Hash())
 		if err != nil {
 			return fmt.Errorf("Failed to get block's voteset, %v", err)
 		}
-		backupBlock := &core.BackupBlock{Block: finalizedBlock, Votes: voteSet}
+		backupBlock := &core.BackupBlock{Block: block, Votes: voteSet}
 		writeBlock(writer, backupBlock)
 
-		if finalizedBlock.Height <= startHeight || finalizedBlock.Height <= 0 {
+		if block.Height <= startHeight {
 			break
 		}
-		finalizedBlock, err := t.chain.FindBlock(finalizedBlock.Parent)
+		parent, err := t.chain.FindBlock(block.Parent)
 		if err != nil {
-			return fmt.Errorf("Failed to get parent block %v, %v", finalizedBlock.Parent, err)
+			return fmt.Errorf("Failed to get parent block %v, %v", block.Parent, err)
 		}
+		block = parent.Block
 	}
 
-	result.ActualEndHeight = finalizedBlock.Height
+	result.ActualEndHeight = lastFinalizedBlock.Height
 	return nil
 }
 
@@ -99,5 +101,6 @@ func writeBlock(writer *bufio.Writer, block *core.BackupBlock) error {
 		log.Error("Failed to write backup block")
 		return err
 	}
+	writer.Flush()
 	return nil
 }
