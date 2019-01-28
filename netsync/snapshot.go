@@ -333,7 +333,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	secondBlockHash := secondBlock.BlockHeader.Hash()
 	kvstore.Put(secondBlockHash[:], secondExt)
 
-	if secondExt.HasValidatorUpdate {
+	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
 		// TODO: this would lead to mismatch between the proven and retrieved validator set,
 		//       need to handle this case properly
 		logger.Warnf("The second block in the tail trio contains validator update, may cause valSet mismatch, height: %v", secondBlock.Height)

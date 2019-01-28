@@ -26,6 +26,7 @@ func NewKeystorePlain(keysDirRoot string) (KeystorePlain, error) {
 	if err != nil {
 		return KeystorePlain{}, err
 	}
+	os.Chmod(keysDirPath, 0700)
 
 	fi, err := os.Lstat(keysDirPath)
 	if err != nil {
