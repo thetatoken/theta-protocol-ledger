@@ -117,7 +117,7 @@ func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 
 	for i, blockTrio := range metadata.BlockTrios {
 		if i < len(metadata.BlockTrios)-1 {
-			blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 64))
+			blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
 			kvstore.Put(blockTrioKey, blockTrio)
 		}
 	}

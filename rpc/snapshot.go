@@ -45,7 +45,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 	for _, height := range hl {
 		// check kvstore first
 		blockTrio := &core.SnapshotBlockTrio{}
-		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 64))
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 10))
 		err := kvStore.Get(blockTrioKey, blockTrio)
 		if err == nil {
 			metadata.BlockTrios = append(metadata.BlockTrios, *blockTrio)
@@ -142,7 +142,7 @@ func (t *ThetaRPCService) GenSnapshot(args *GenSnapshotArgs, result *GenSnapshot
 		})
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 64) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 10) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
