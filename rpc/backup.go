@@ -32,26 +32,26 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 		return errors.New("start height must be <= end height")
 	}
 
-	var lastFinalizedBlock *core.ExtendedBlock
+	var finalizedBlock *core.ExtendedBlock
 	for i := endHeight; i >= startHeight; i-- {
 		blocks := t.chain.FindBlocksByHeight(i)
 		for _, block := range blocks {
 			if block.Status.IsFinalized() {
-				lastFinalizedBlock = block
+				finalizedBlock = block
 				break
 			}
 		}
-		if lastFinalizedBlock != nil {
+		if finalizedBlock != nil {
 			break
 		}
 	}
 
-	if lastFinalizedBlock == nil {
+	if finalizedBlock == nil {
 		return fmt.Errorf("There's no finalized block between height %v and %v", startHeight, endHeight)
 	}
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(lastFinalizedBlock.Height, 10) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(finalizedBlock.Height, 10) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
@@ -59,27 +59,26 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 	writer := bufio.NewWriter(file)
 	db := t.ledger.State().DB()
 	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
-	block := lastFinalizedBlock.Block
+
+	result.ActualEndHeight = finalizedBlock.Height
 
 	for {
-		voteSet, err := st.GetVoteSetByBlock(block.Hash())
+		voteSet, err := st.GetVoteSetByBlock(finalizedBlock.Hash())
 		if err != nil {
 			return fmt.Errorf("Failed to get block's voteset, %v", err)
 		}
-		backupBlock := &core.BackupBlock{Block: block, Votes: voteSet}
+		backupBlock := &core.BackupBlock{Block: finalizedBlock, Votes: voteSet}
 		writeBlock(writer, backupBlock)
 
-		if block.Height <= startHeight {
+		if finalizedBlock.Height <= startHeight {
 			break
 		}
-		parent, err := t.chain.FindBlock(block.Parent)
+		finalizedBlock, err = t.chain.FindBlock(finalizedBlock.Parent)
 		if err != nil {
-			return fmt.Errorf("Failed to get parent block %v, %v", block.Parent, err)
+			return fmt.Errorf("Failed to get parent block %v, %v", finalizedBlock.Parent, err)
 		}
-		block = parent.Block
 	}
 
-	result.ActualEndHeight = lastFinalizedBlock.Height
 	return nil
 }
 

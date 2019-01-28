@@ -1,6 +1,6 @@
 package core
 
 type BackupBlock struct {
-	Block *Block
+	Block *ExtendedBlock
 	Votes *VoteSet `rlp:"nil"`
 }
