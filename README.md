@@ -116,6 +116,9 @@ And then, use the following commands to launch a private net with a single valid
 ```
 theta start --config=../privatenet/node
 ```
+
+When the prompt asks for password, simply enter `qwertyuiop`
+
 In another terminal, we can use the `thetacli` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
 ```
 thetacli tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=20 --seq=1
