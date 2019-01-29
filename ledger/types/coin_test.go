@@ -1,9 +1,14 @@
 package types
 
 import (
+	"bytes"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"testing"
+
+	"github.com/thetatoken/theta/rlp"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +56,45 @@ func TestInvalidCoin(t *testing.T) {
 	ret2.ThetaWei = big.NewInt(456)
 	assert.True(coinsA.ThetaWei.Cmp(big.NewInt(123)) == 0)
 	assert.True(ret2.ThetaWei.Cmp(big.NewInt(456)) == 0)
+}
+
+func TestCoinsRLPCollision(t *testing.T) {
+	assert := assert.New(t)
+
+	// 0 is encoded into "80", just to make sure it doesn't collide with
+	// 80 or 128 (128 == 0x80)
+
+	zero := big.NewInt(0)
+	i80 := big.NewInt(80)
+	i128 := big.NewInt(128)
+
+	zeroBytes, _ := rlp.EncodeToBytes(zero)
+	i80Bytes, _ := rlp.EncodeToBytes(i80)
+	i280Bytes, _ := rlp.EncodeToBytes(i128)
+
+	fmt.Printf("0   : %v\n", hex.EncodeToString(zeroBytes))
+	fmt.Printf("80  : %v\n", hex.EncodeToString(i80Bytes))
+	fmt.Printf("128 : %v\n", hex.EncodeToString(i280Bytes))
+
+	assert.True(bytes.Compare(zeroBytes, i80Bytes) != 0)
+	assert.True(bytes.Compare(zeroBytes, i280Bytes) != 0)
+	assert.True(bytes.Compare(i80Bytes, i280Bytes) != 0)
+
+	coins0 := NewCoins(0, 0)
+	coins0Bytes, _ := rlp.EncodeToBytes(coins0)
+	fmt.Printf("coins0     : %v\n", hex.EncodeToString(coins0Bytes))
+
+	coins80 := NewCoins(80, 80)
+	coins80Bytes, _ := rlp.EncodeToBytes(coins80)
+	fmt.Printf("coins80    : %v\n", hex.EncodeToString(coins80Bytes))
+
+	coins128 := NewCoins(128, 128)
+	coins128Bytes, _ := rlp.EncodeToBytes(coins128)
+	fmt.Printf("coins128   : %v\n", hex.EncodeToString(coins128Bytes))
+
+	assert.True(bytes.Compare(coins0Bytes, coins80Bytes) != 0)
+	assert.True(bytes.Compare(coins0Bytes, coins128Bytes) != 0)
+	assert.True(bytes.Compare(coins80Bytes, coins128Bytes) != 0)
 }
 
 func TestNoNilException(t *testing.T) {
