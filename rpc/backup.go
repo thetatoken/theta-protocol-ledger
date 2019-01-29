@@ -51,7 +51,7 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 	}
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 64) + "-" + strconv.FormatUint(finalizedBlock.Height, 64) + "-" + currentTime.Format("2006-01-02"))
+	file, err := os.Create("theta_backup-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(finalizedBlock.Height, 10) + "-" + currentTime.Format("2006-01-02"))
 	if err != nil {
 		return err
 	}
@@ -59,6 +59,8 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 	writer := bufio.NewWriter(file)
 	db := t.ledger.State().DB()
 	st := consensus.NewState(kvstore.NewKVStore(db), t.chain)
+
+	result.ActualEndHeight = finalizedBlock.Height
 
 	for {
 		voteSet, err := st.GetVoteSetByBlock(finalizedBlock.Hash())
@@ -68,16 +70,15 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 		backupBlock := &core.BackupBlock{Block: finalizedBlock, Votes: voteSet}
 		writeBlock(writer, backupBlock)
 
-		if finalizedBlock.Height <= startHeight || finalizedBlock.Height <= 0 {
+		if finalizedBlock.Height <= startHeight {
 			break
 		}
-		finalizedBlock, err := t.chain.FindBlock(finalizedBlock.Parent)
+		finalizedBlock, err = t.chain.FindBlock(finalizedBlock.Parent)
 		if err != nil {
 			return fmt.Errorf("Failed to get parent block %v, %v", finalizedBlock.Parent, err)
 		}
 	}
 
-	result.ActualEndHeight = finalizedBlock.Height
 	return nil
 }
 
@@ -99,5 +100,6 @@ func writeBlock(writer *bufio.Writer, block *core.BackupBlock) error {
 		log.Error("Failed to write backup block")
 		return err
 	}
+	writer.Flush()
 	return nil
 }

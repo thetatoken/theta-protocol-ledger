@@ -10,7 +10,7 @@ import (
 	"github.com/thetatoken/theta/store/kvstore"
 )
 
-func LoadBackup(filePath string, db database.Database) (*core.BlockHeader, error) {
+func LoadBackup(filePath string, db database.Database) (*core.ExtendedBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -18,9 +18,9 @@ func LoadBackup(filePath string, db database.Database) (*core.BlockHeader, error
 	defer file.Close()
 	kvstore := kvstore.NewKVStore(db)
 
-	var backupBlock *core.BackupBlock
+	var block *core.ExtendedBlock
 	for {
-		backupBlock = &core.BackupBlock{}
+		backupBlock := &core.BackupBlock{}
 		err := core.ReadRecord(file, backupBlock)
 		if err != nil {
 			if err == io.EOF {
@@ -30,10 +30,12 @@ func LoadBackup(filePath string, db database.Database) (*core.BlockHeader, error
 		}
 		hash := backupBlock.Block.Hash()
 		kvstore.Put(hash[:], *backupBlock.Block)
+		block = backupBlock.Block
 		// TODO: add votes
 	}
-	if backupBlock != nil {
-		return backupBlock.Block.BlockHeader, nil
+
+	if block == nil {
+		return nil, fmt.Errorf("Failed to find any block from backup")
 	}
-	return nil, nil
+	return block, nil
 }
