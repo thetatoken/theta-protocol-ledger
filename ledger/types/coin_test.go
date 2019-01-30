@@ -70,15 +70,15 @@ func TestCoinsRLPCollision(t *testing.T) {
 
 	zeroBytes, _ := rlp.EncodeToBytes(zero)
 	i80Bytes, _ := rlp.EncodeToBytes(i80)
-	i280Bytes, _ := rlp.EncodeToBytes(i128)
+	i128Bytes, _ := rlp.EncodeToBytes(i128)
 
 	fmt.Printf("0   : %v\n", hex.EncodeToString(zeroBytes))
 	fmt.Printf("80  : %v\n", hex.EncodeToString(i80Bytes))
-	fmt.Printf("128 : %v\n", hex.EncodeToString(i280Bytes))
+	fmt.Printf("128 : %v\n", hex.EncodeToString(i128Bytes))
 
 	assert.True(bytes.Compare(zeroBytes, i80Bytes) != 0)
-	assert.True(bytes.Compare(zeroBytes, i280Bytes) != 0)
-	assert.True(bytes.Compare(i80Bytes, i280Bytes) != 0)
+	assert.True(bytes.Compare(zeroBytes, i128Bytes) != 0)
+	assert.True(bytes.Compare(i80Bytes, i128Bytes) != 0)
 
 	coins0 := NewCoins(0, 0)
 	coins0Bytes, _ := rlp.EncodeToBytes(coins0)
