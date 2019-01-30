@@ -53,8 +53,17 @@ func (ch *Chain) Root() *core.ExtendedBlock {
 	return ret
 }
 
-// AddBlock adds a block to the chain and underlying store.
+// AddSnapshotRoot adds the root block of the chain
+func (ch *Chain) AddSnapshotRoot(block *core.Block) (*core.ExtendedBlock, error) {
+	return ch.addBlock(block, true)
+}
+
+// AddBlock adds a block to the chain and underlying store
 func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
+	return ch.addBlock(block, false)
+}
+
+func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.ExtendedBlock, error) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -70,7 +79,7 @@ func (ch *Chain) AddBlock(block *core.Block) (*core.ExtendedBlock, error) {
 		return val, fmt.Errorf("Block has already been added: %X", hash[:])
 	}
 
-	if !block.Parent.IsEmpty() {
+	if !block.Parent.IsEmpty() && !isSnapshotRoot {
 		parentBlock, err := ch.findBlock(block.Parent)
 		if err == store.ErrKeyNotFound {
 			// Parent block is not known yet, abandon block.

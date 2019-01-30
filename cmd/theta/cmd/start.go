@@ -13,9 +13,9 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
-	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/node"
 	"github.com/thetatoken/theta/p2p/messenger"
+	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
 	ks "github.com/thetatoken/theta/wallet/softwallet/keystore"
 )
@@ -56,7 +56,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	if len(snapshotPath) == 0 {
 		snapshotPath = path.Join(cfgPath, "genesis")
 	}
-	snapshotBlockHeader, err := netsync.ValidateSnapshot(snapshotPath)
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath)
 	if err != nil {
 		panic(fmt.Sprintf("Snapshot validation failed, err: %v", err))
 	}

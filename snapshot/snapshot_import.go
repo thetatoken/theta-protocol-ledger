@@ -1,4 +1,4 @@
-package netsync
+package snapshot
 
 import (
 	"bytes"
@@ -49,6 +49,17 @@ func (s SVStack) peek() *state.StoreView {
 	return s[l-1]
 }
 
+// ImportSnapshot loads the snapshot into the given database
+func ImportSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
+	logger.Printf("Loading snapshot from: %v", filePath)
+	blockHeader, err := loadSnapshot(filePath, db)
+	if err != nil {
+		return nil, err
+	}
+	logger.Printf("Snapshot loaded successfully.")
+	return blockHeader, nil
+}
+
 // ValidateSnapshot validates the snapshot using a temporary database
 func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
 	logger.Printf("Verifying snapshot: %v", filePath)
@@ -72,17 +83,6 @@ func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
 	}
 	logger.Printf("Snapshot verified.")
 
-	return blockHeader, nil
-}
-
-// LoadSnapshot loads the snapshot into the given database
-func LoadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
-	logger.Printf("Loading snapshot from: %v", filePath)
-	blockHeader, err := loadSnapshot(filePath, db)
-	if err != nil {
-		return nil, err
-	}
-	logger.Printf("Snapshot loaded successfully.")
 	return blockHeader, nil
 }
 

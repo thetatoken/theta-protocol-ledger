@@ -678,6 +678,9 @@ func (e *ConsensusEngine) randHex() []byte {
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
+	if epoch == 0 { // special handling for genesis epoch
+		return false
+	}
 	return e.shouldProposeByID(epoch, e.ID())
 }
 
@@ -748,11 +751,15 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	lastCC := e.state.GetHighestCCBlock()
 	lastCCVotes, err := e.state.GetVoteSetByBlock(lastCC.Hash())
 	if err != nil {
-		e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash().Hex()}).Warn("Failed to load votes for last CC block")
+		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have CCVotes
+			e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash().Hex()}).Warn("Failed to load votes for last CC block")
+		}
 	}
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
-		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
+		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have votes
+			e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
+		}
 	}
 	proposal.Votes = lastCCVotes.Merge(epochVotes).UniqueVoterAndBlock()
 	selfVote := e.createVote(block)

@@ -1,4 +1,4 @@
-package netsync
+package snapshot
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/theta/core"
 )
 
-func LoadBackup(filePath string) (*core.BackupBlock, error) {
+func ImportChainBackup(filePath string) (*core.BackupBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err

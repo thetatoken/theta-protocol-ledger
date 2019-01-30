@@ -17,6 +17,7 @@ import (
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
 	"github.com/thetatoken/theta/rpc"
+	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/theta/store/kvstore"
@@ -58,9 +59,9 @@ func NewNode(params *Params) *Node {
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
 	currentHeight := consensus.GetLastFinalizedBlock().Height
-	if currentHeight == 0 || currentHeight < params.Root.Height {
+	if currentHeight <= params.Root.Height {
 		snapshotPath := params.SnapshotPath
-		if _, err := netsync.LoadSnapshot(snapshotPath, params.DB); err != nil {
+		if _, err := snapshot.ImportSnapshot(snapshotPath, params.DB); err != nil {
 			panic(fmt.Sprintf("Failed to load snapshot: %v, err: %v", snapshotPath, err))
 		}
 	}

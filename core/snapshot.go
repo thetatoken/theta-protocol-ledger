@@ -9,7 +9,6 @@ import (
 	"io"
 	"os"
 
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/rlp"
 )
@@ -52,19 +51,19 @@ type SnapshotMetadata struct {
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
 	raw, err := rlp.EncodeToBytes(*metadata)
 	if err != nil {
-		log.Error("Failed to encode snapshot metadata")
+		logger.Error("Failed to encode snapshot metadata")
 		return err
 	}
 	// write length first
 	_, err = writer.Write(Itobytes(uint64(len(raw))))
 	if err != nil {
-		log.Error("Failed to write snapshot metadata length")
+		logger.Error("Failed to write snapshot metadata length")
 		return err
 	}
 	// write metadata itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		log.Error("Failed to write snapshot metadata")
+		logger.Error("Failed to write snapshot metadata")
 		return err
 	}
 	return nil

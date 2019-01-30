@@ -9,7 +9,7 @@ import (
 	"strconv"
 
 	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/netsync"
+	"github.com/thetatoken/theta/snapshot"
 
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
@@ -47,7 +47,7 @@ func main() {
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
 	snapshotPath := path.Join(configPath, "genesis")
-	snapshotBlockHeader, err := netsync.LoadSnapshot(snapshotPath, db)
+	snapshotBlockHeader, err := snapshot.ImportSnapshot(snapshotPath, db)
 	handleError(err)
 
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
