@@ -39,7 +39,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 10))
 		err := kvStore.Get(blockTrioKey, blockTrio)
 		if err == nil {
-			metadata.BlockTrios = append(metadata.BlockTrios, *blockTrio)
+			metadata.ProofTrios = append(metadata.ProofTrios, *blockTrio)
 			continue
 		}
 
@@ -61,10 +61,14 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 					if b != nil {
 						grandChild = *b.BlockHeader
 					} else {
-						return fmt.Errorf("Can't find finalized grandchild block")
+						return fmt.Errorf("Can't find finalized grandchild block. " +
+							"Likely the last finalized block also contains stake change transactions. " +
+							"Please try again in 30 seconds.")
 					}
 				} else {
-					return fmt.Errorf("Can't find finalized child block")
+					return fmt.Errorf("Can't find finalized child block. " +
+						"Likely the last finalized block also contains stake change transactions. " +
+						"Please try again in 30 seconds.")
 				}
 
 				if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
@@ -83,7 +87,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 				if err != nil {
 					return fmt.Errorf("Failed to get VCP Proof")
 				}
-				metadata.BlockTrios = append(metadata.BlockTrios,
+				metadata.ProofTrios = append(metadata.ProofTrios,
 					core.SnapshotBlockTrio{
 						First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
 						Second: core.SnapshotSecondBlock{Header: child},
@@ -125,12 +129,11 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	if err != nil {
 		return fmt.Errorf("Failed to get VCP Proof")
 	}
-	metadata.BlockTrios = append(metadata.BlockTrios,
-		core.SnapshotBlockTrio{
-			First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
-			Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader},
-			Third:  core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, VoteSet: childVoteSet},
-		})
+	metadata.TailTrio = core.SnapshotBlockTrio{
+		First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
+		Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, VoteSet: childVoteSet},
+	}
 
 	currentTime := time.Now().UTC()
 	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 10) + "-" + currentTime.Format("2006-01-02"))

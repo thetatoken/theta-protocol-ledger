@@ -54,7 +54,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	if len(snapshotPath) == 0 {
-		snapshotPath = path.Join(cfgPath, "genesis")
+		snapshotPath = path.Join(cfgPath, "snapshot")
 	}
 	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath)
 	if err != nil {

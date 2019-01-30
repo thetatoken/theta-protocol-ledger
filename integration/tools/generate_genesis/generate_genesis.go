@@ -38,7 +38,7 @@ type StakeDeposit struct {
 //
 // Example:
 // pushd $THETA_HOME/integration/privatenet/node
-// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
+// generate_genesis -chainID=privatenet -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
 //
 func main() {
 	chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath := parseArguments()
@@ -60,11 +60,7 @@ func main() {
 		panic(fmt.Sprintf("Failed to write genesis snapshot: %v", err))
 	}
 
-	if len(metadata.BlockTrios) != 1 {
-		panic(fmt.Sprintf("Invalid genesis block trios"))
-	}
-
-	genesisBlockHeader := &metadata.BlockTrios[0].Second.Header
+	genesisBlockHeader := &metadata.TailTrio.Second.Header
 	genesisBlockHash := genesisBlockHeader.Hash()
 
 	fmt.Println("")
@@ -107,12 +103,11 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 	genesisBlock.StateHash = stateHash
 	genesisBlock.Timestamp = big.NewInt(time.Now().Unix())
 
-	metadata.BlockTrios = append(metadata.BlockTrios,
-		core.SnapshotBlockTrio{
-			First:  core.SnapshotFirstBlock{},
-			Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
-			Third:  core.SnapshotThirdBlock{},
-		})
+	metadata.TailTrio = core.SnapshotBlockTrio{
+		First:  core.SnapshotFirstBlock{},
+		Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{},
+	}
 
 	return sv, metadata, nil
 }
