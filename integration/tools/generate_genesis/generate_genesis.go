@@ -19,6 +19,7 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/trie"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
@@ -309,6 +310,14 @@ func sanityChecks(sv *state.StoreView) error {
 	})
 
 	// Check #1: VCP analyzed
+	vcpProof, err := proveVCP(sv)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get VCP proof from storeview"))
+	}
+	_, _, err = trie.VerifyProof(sv.Hash(), state.ValidatorCandidatePoolKey(), vcpProof)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to verify VCP proof in storeview"))
+	}
 	if !vcpAnalyzed {
 		return fmt.Errorf("VCP not detected in the genesis file")
 	}

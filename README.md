@@ -27,7 +27,7 @@ brew link go@1.9 --force
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
 
 ```
-git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
+git clone https://github.com/thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
 Install [glide](https://github.com/Masterminds/glide). Then execute the following commands to download all dependencies:
