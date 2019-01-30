@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/theta/store/trie"
 )
@@ -78,6 +79,10 @@ func (store *TreeStore) Copy() (*TreeStore, error) {
 // Get retrieves value of given key.
 func (store *TreeStore) Get(key common.Bytes) common.Bytes {
 	return store.Trie.Get(key)
+}
+
+func (store *TreeStore) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
+	return store.Trie.Prove(vcpKey, 0, vp)
 }
 
 // Set sets value of given key.

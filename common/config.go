@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	// CfgChainID defines the chain ID.
-	CfgChainID = "chain.ID"
+	// CfgGenesisHash defines the hash of the genesis block
+	CfgGenesisHash = "genesis.hash"
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
@@ -51,8 +51,6 @@ p2p:
 `
 
 func init() {
-	viper.SetDefault(CfgChainID, "localchain")
-
 	viper.SetDefault(CfgConsensusMaxEpochLength, 5)
 	viper.SetDefault(CfgConsensusMinProposalWait, 2)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)

@@ -93,6 +93,7 @@ func NewKeystoreEncrypted(keysDirRoot string, scryptN, scryptP int) (KeystoreEnc
 	if err != nil {
 		return KeystoreEncrypted{}, err
 	}
+	os.Chmod(keysDirPath, 0700)
 
 	fi, err := os.Lstat(keysDirPath)
 	if err != nil {

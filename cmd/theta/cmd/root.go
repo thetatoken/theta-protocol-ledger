@@ -11,6 +11,7 @@ import (
 )
 
 var cfgPath string
+var snapshotPath string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -31,6 +32,8 @@ func init() {
 	cobra.OnInitialize(initConfig)
 
 	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", "", "snapshot path")
+	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -56,4 +59,8 @@ func getDefaultConfigPath() string {
 		os.Exit(1)
 	}
 	return path.Join(home, ".theta")
+}
+
+func getDefaultSnapshotPath() string {
+	return path.Join(getDefaultConfigPath(), "genesis")
 }

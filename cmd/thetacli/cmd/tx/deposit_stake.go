@@ -18,11 +18,11 @@ import (
 
 // depositStakeCmd represents the deposit stake command
 // Example:
-//		thetacli tx deposit --chain="private_net" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --stake=6000000 --purpose=0 --seq=7
+//		thetacli tx deposit --chain="privatenet" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --stake=6000000 --purpose=0 --seq=7
 var depositStakeCmd = &cobra.Command{
 	Use:     "deposit",
 	Short:   "Deposit stake to a validator or guardian",
-	Example: `thetacli tx deposit --chain="private_net" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --stake=6000000 --purpose=0 --seq=7`,
+	Example: `thetacli tx deposit --chain="privatenet" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --stake=6000000 --purpose=0 --seq=7`,
 	Run:     doDepositStakeCmd,
 }
 

@@ -16,6 +16,8 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "netsync"})
+
 type MessageConsumer interface {
 	AddMessage(interface{})
 }

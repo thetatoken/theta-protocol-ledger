@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"flag"
@@ -18,29 +19,15 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/trie"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "genesis"})
 
-//
-// Example:
-// cd $THETA/integration/privatenet/node
-// generate_genesis -chainID=private_net -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
-//
-func main() {
-	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
-	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
-	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
-	genesisCheckpointfilePathPtr := flag.String("genesis", "./genesis", "the genesis checkpoint")
-	flag.Parse()
-
-	chainID := *chainIDPtr
-	erc20SnapshotJSONFilePath := *erc20SnapshotJSONFilePathPtr
-	stakeDepositFilePath := *stakeDepositFilePathPtr
-	genesisCheckpointfilePath := *genesisCheckpointfilePathPtr
-
-	writeGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisCheckpointfilePath)
-}
+const (
+	GenBlockHashMode int = iota
+	GenGenesisFileMode
+)
 
 type StakeDeposit struct {
 	Source string `json:"source"`
@@ -48,31 +35,86 @@ type StakeDeposit struct {
 	Amount string `json:"amount"`
 }
 
-// writeGenesisCheckpoint writes genesis checkpoint to file system.
-func writeGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath, genesisCheckpointfilePath string) error {
-	genesis, err := generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFPath)
+//
+// Example:
+// pushd $THETA_HOME/integration/privatenet/node
+// generate_genesis -chainID=privatenet -erc20snapshot=./data/genesis_theta_erc20_snapshot.json -stake_deposit=./data/genesis_stake_deposit.json -genesis=./genesis
+//
+func main() {
+	chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath := parseArguments()
+
+	sv, metadata, err := generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath)
 	if err != nil {
-		return err
+		panic(fmt.Sprintf("Failed to generate genesis snapshot: %v", err))
 	}
 
-	raw, err := rlp.EncodeToBytes(genesis)
+	err = sanityChecks(sv)
 	if err != nil {
-		return err
+		panic(fmt.Sprintf("Sanity checks failed: %v", err))
+	} else {
+		logger.Infof("Sanity checks all passed.")
 	}
-	err = common.WriteFileAtomic(genesisCheckpointfilePath, raw, 0600)
-	fmt.Printf("\nGenesis snapshot generated and saved to %v\n\n", genesisCheckpointfilePath)
 
-	return err
+	err = writeGenesisSnapshot(sv, metadata, genesisSnapshotFilePath)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to write genesis snapshot: %v", err))
+	}
+
+	genesisBlockHeader := &metadata.TailTrio.Second.Header
+	genesisBlockHash := genesisBlockHeader.Hash()
+
+	fmt.Println("")
+	fmt.Printf("--------------------------------------------------------------------------\n")
+	fmt.Printf("Genesis block hash: %v\n", genesisBlockHash.Hex())
+	fmt.Printf("--------------------------------------------------------------------------\n")
+	fmt.Println("")
 }
 
-// generateGenesisCheckpoint generates the genesis checkpoint.
-func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*core.Checkpoint, error) {
-	genesis := &core.Checkpoint{}
+func parseArguments() (chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath, genesisSnapshotFilePath string) {
+	chainIDPtr := flag.String("chainID", "local_chain", "the ID of the chain")
+	erc20SnapshotJSONFilePathPtr := flag.String("erc20snapshot", "./theta_erc20_snapshot.json", "the json file contain the ERC20 balance snapshot")
+	stakeDepositFilePathPtr := flag.String("stake_deposit", "./stake_deposit.json", "the initial stake deposits")
+	genesisSnapshotFilePathPtr := flag.String("genesis", "./genesis", "the genesis snapshot")
+	flag.Parse()
 
+	chainID = *chainIDPtr
+	erc20SnapshotJSONFilePath = *erc20SnapshotJSONFilePathPtr
+	stakeDepositFilePath = *stakeDepositFilePathPtr
+	genesisSnapshotFilePath = *genesisSnapshotFilePathPtr
+
+	return
+}
+
+// generateGenesisSnapshot generates the genesis snapshot.
+func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFilePath string) (*state.StoreView, *core.SnapshotMetadata, error) {
+	metadata := &core.SnapshotMetadata{}
+	genesisHeight := core.GenesisBlockHeight
+
+	sv := loadInitialBalances(erc20SnapshotJSONFilePath)
+	performInitialStakeDeposit(stakeDepositFilePath, genesisHeight, sv)
+
+	stateHash := sv.Hash()
+
+	genesisBlock := core.NewBlock()
+	genesisBlock.ChainID = chainID
+	genesisBlock.Height = genesisHeight
+	genesisBlock.Epoch = genesisBlock.Height
+	genesisBlock.Parent = common.Hash{}
+	genesisBlock.StateHash = stateHash
+	genesisBlock.Timestamp = big.NewInt(time.Now().Unix())
+
+	metadata.TailTrio = core.SnapshotBlockTrio{
+		First:  core.SnapshotFirstBlock{},
+		Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{},
+	}
+
+	return sv, metadata, nil
+}
+
+func loadInitialBalances(erc20SnapshotJSONFilePath string) *state.StoreView {
 	initTFuelToThetaRatio := new(big.Int).SetUint64(5)
-	s := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
-
-	// --------------- Load initial balances --------------- //
+	sv := state.NewStoreView(0, common.Hash{}, backend.NewMemDatabase())
 
 	erc20SnapshotJSONFile, err := os.Open(erc20SnapshotJSONFilePath)
 	if err != nil {
@@ -86,7 +128,7 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
 	}
 
-	json.Unmarshal([]byte(erc20BalanceMapByteValue), &erc20BalanceMap)
+	json.Unmarshal(erc20BalanceMapByteValue, &erc20BalanceMap)
 	for key, val := range erc20BalanceMap {
 		if !common.IsHexAddress(key) {
 			panic(fmt.Sprintf("Invalid address: %v", key))
@@ -99,28 +141,30 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 		}
 		tfuel := new(big.Int).Mul(initTFuelToThetaRatio, theta)
 		acc := &types.Account{
-			Address: address,
+			Address:  address,
+			Root:     common.Hash{},
+			CodeHash: types.EmptyCodeHash,
 			Balance: types.Coins{
 				ThetaWei: theta,
 				TFuelWei: tfuel,
 			},
-			LastUpdatedBlockHeight: 0,
 		}
-		s.SetAccount(acc.Address, acc)
-
-		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel))
+		sv.SetAccount(acc.Address, acc)
+		//logger.Infof("address: %v, theta: %v, tfuel: %v", strings.ToLower(address.String()), theta, tfuel)
 	}
 
-	// --------------- Perform initial stake deposit --------------- //
+	return sv
+}
 
+func performInitialStakeDeposit(stakeDepositFilePath string, genesisHeight uint64, sv *state.StoreView) *core.ValidatorCandidatePool {
 	var stakeDeposits []StakeDeposit
 	stakeDepositFile, err := os.Open(stakeDepositFilePath)
 	stakeDepositByteValue, err := ioutil.ReadAll(stakeDepositFile)
 	if err != nil {
-		panic(fmt.Sprintf("failed to read the ERC20 balance snapshot: %v", err))
+		panic(fmt.Sprintf("failed to read initial stake deposit file: %v", err))
 	}
 
-	json.Unmarshal([]byte(stakeDepositByteValue), &stakeDeposits)
+	json.Unmarshal(stakeDepositByteValue, &stakeDeposits)
 	vcp := &core.ValidatorCandidatePool{}
 	for _, stakeDeposit := range stakeDeposits {
 		if !common.IsHexAddress(stakeDeposit.Source) {
@@ -136,7 +180,7 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 			panic(fmt.Sprintf("Failed to parse Stake amount: %v", stakeDeposit.Amount))
 		}
 
-		sourceAccount := s.GetAccount(sourceAddress)
+		sourceAccount := sv.GetAccount(sourceAddress)
 		if sourceAccount == nil {
 			panic(fmt.Sprintf("Failed to retrieve account for source address: %v", sourceAddress))
 		}
@@ -154,52 +198,67 @@ func generateGenesisCheckpoint(chainID, erc20SnapshotJSONFilePath, stakeDepositF
 			TFuelWei: new(big.Int).SetUint64(0),
 		}
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
-		s.SetAccount(sourceAddress, sourceAccount)
+		sv.SetAccount(sourceAddress, sourceAccount)
 	}
 
-	s.UpdateValidatorCandidatePool(vcp)
+	sv.UpdateValidatorCandidatePool(vcp)
 
-	genesisHeight := uint64(0)
 	hl := &types.HeightList{}
 	hl.Append(genesisHeight)
-	s.UpdateStakeTransactionHeightList(hl)
+	sv.UpdateStakeTransactionHeightList(hl)
 
-	stateHash := s.Hash()
-
-	firstBlock := core.NewBlock()
-	firstBlock.ChainID = chainID
-	firstBlock.Height = genesisHeight
-	firstBlock.Epoch = 0
-	firstBlock.Parent = common.Hash{}
-	firstBlock.StateHash = stateHash
-	firstBlock.Timestamp = big.NewInt(time.Now().Unix())
-
-	genesis.FirstBlock = firstBlock
-
-	s.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		genesis.LedgerState = append(genesis.LedgerState, core.KVPair{Key: k, Value: v})
-		return false
-	})
-
-	// --------------- Sanity Checks --------------- //
-
-	err = sanityChecks(genesis)
-	if err != nil {
-		panic(fmt.Sprintf("Sanity checks failed: %v", err))
-	}
-
-	return genesis, nil
+	return vcp
 }
 
-func sanityChecks(genesis *core.Checkpoint) error {
+func proveVCP(sv *state.StoreView) (*core.VCPProof, error) {
+	vp := &core.VCPProof{}
+	vcpKey := state.ValidatorCandidatePoolKey()
+	err := sv.ProveVCP(vcpKey, vp)
+	return vp, err
+}
+
+// writeGenesisSnapshot writes genesis snapshot to file system.
+func writeGenesisSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, genesisSnapshotFilePath string) error {
+	file, err := os.Create(genesisSnapshotFilePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+	err = core.WriteMetadata(writer, metadata)
+	if err != nil {
+		return err
+	}
+	writeStoreView(sv, true, writer)
+	return err
+}
+
+func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer) {
+	height := core.Itobytes(sv.Height())
+	err := core.WriteRecord(writer, []byte{core.SVStart}, height)
+	if err != nil {
+		panic(err)
+	}
+	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
+		err = core.WriteRecord(writer, k, v)
+		if err != nil {
+			panic(err)
+		}
+		return true
+	})
+	err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
+	if err != nil {
+		panic(err)
+	}
+	writer.Flush()
+}
+
+func sanityChecks(sv *state.StoreView) error {
 	thetaWeiTotal := new(big.Int).SetUint64(0)
 	tfuelWeiTotal := new(big.Int).SetUint64(0)
 
 	vcpAnalyzed := false
-	for _, kvpair := range genesis.LedgerState {
-		key := kvpair.Key
-		val := kvpair.Value
-
+	sv.GetStore().Traverse(nil, func(key, val common.Bytes) bool {
 		if bytes.Compare(key, state.ValidatorCandidatePoolKey()) == 0 {
 			var vcp core.ValidatorCandidatePool
 			err := rlp.DecodeBytes(val, &vcp)
@@ -217,7 +276,17 @@ func sanityChecks(genesis *core.Checkpoint) error {
 			}
 			vcpAnalyzed = true
 		} else if bytes.Compare(key, state.StakeTransactionHeightListKey()) == 0 {
-			continue
+			var hl types.HeightList
+			err := rlp.DecodeBytes(val, &hl)
+			if err != nil {
+				panic(fmt.Sprintf("Failed to decode Height List: %v", err))
+			}
+			if len(hl.Heights) != 1 {
+				panic(fmt.Sprintf("The genesis height list should contain only one height: %v", hl.Heights))
+			}
+			if hl.Heights[0] != uint64(0) {
+				panic(fmt.Sprintf("Only height 0 should be in the genesis height list"))
+			}
 		} else { // regular account
 			var account types.Account
 			err := rlp.DecodeBytes(val, &account)
@@ -232,9 +301,18 @@ func sanityChecks(genesis *core.Checkpoint) error {
 
 			logger.Infof("Account: %v, ThetaWei = %v, TFuelWei = %v", account.Address, thetaWei, tfuelWei)
 		}
-	}
+		return true
+	})
 
 	// Check #1: VCP analyzed
+	vcpProof, err := proveVCP(sv)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get VCP proof from storeview"))
+	}
+	_, _, err = trie.VerifyProof(sv.Hash(), state.ValidatorCandidatePoolKey(), vcpProof)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to verify VCP proof in storeview"))
+	}
 	if !vcpAnalyzed {
 		return fmt.Errorf("VCP not detected in the genesis file")
 	}

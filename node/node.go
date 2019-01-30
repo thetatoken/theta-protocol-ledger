@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -16,6 +17,7 @@ import (
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
 	"github.com/thetatoken/theta/rpc"
+	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/theta/store/kvstore"
@@ -41,11 +43,12 @@ type Node struct {
 }
 
 type Params struct {
-	ChainID    string
-	PrivateKey *crypto.PrivateKey
-	Root       *core.Block
-	Network    p2p.Network
-	DB         database.Database
+	ChainID      string
+	PrivateKey   *crypto.PrivateKey
+	Root         *core.Block
+	Network      p2p.Network
+	DB           database.Database
+	SnapshotPath string
 }
 
 func NewNode(params *Params) *Node {
@@ -54,6 +57,15 @@ func NewNode(params *Params) *Node {
 	validatorManager := consensus.NewRotatingValidatorManager()
 	dispatcher := dp.NewDispatcher(params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
+
+	currentHeight := consensus.GetLastFinalizedBlock().Height
+	if currentHeight <= params.Root.Height {
+		snapshotPath := params.SnapshotPath
+		if _, err := snapshot.ImportSnapshot(snapshotPath, params.DB); err != nil {
+			panic(fmt.Sprintf("Failed to load snapshot: %v, err: %v", snapshotPath, err))
+		}
+	}
+
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, consensus, validatorManager, mempool)

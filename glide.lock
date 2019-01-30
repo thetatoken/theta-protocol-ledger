@@ -1,10 +1,6 @@
 hash: 730ae671e081b7b9e063feeffd09d45f009b1363ef2d839f1ca8f611a2b19f12
 updated: 2018-11-08T18:22:11.70424355-08:00
 imports:
-- name: github.com/ethereum/go-ethereum
-  version: 7e7781ffaa5c5486c5e7b66dea4986e063524f63
-  subpackages:
-  - crypto
 - name: github.com/aerospike/aerospike-client-go
   version: e68a0fcdfba08afc0a03c8bf27778de1280dd15a
   subpackages:
@@ -270,3 +266,5 @@ testImports:
   version: e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f
 - name: gopkg.in/check.v1
   version: 788fd78401277ebd861206a03c884797c6ec5541
+- name: github.com/aws/aws-sdk-go
+  version: ddc06f9fad886ea5daa5f828f3ca094084f8c2a7

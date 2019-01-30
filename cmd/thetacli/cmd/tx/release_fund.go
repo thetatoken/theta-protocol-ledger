@@ -16,11 +16,11 @@ import (
 
 // releaseFundCmd represents the release fund command
 // Example:
-//		thetacli tx release --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8
+//		thetacli tx release --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8
 var releaseFundCmd = &cobra.Command{
 	Use:     "release",
 	Short:   "Release fund",
-	Example: `thetacli tx release --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8`,
+	Example: `thetacli tx release --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab  --reserve_seq=8 --seq=8`,
 	Run:     doReleaseFundCmd,
 }
 

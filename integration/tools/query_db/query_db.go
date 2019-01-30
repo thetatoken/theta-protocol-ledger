@@ -8,9 +8,11 @@ import (
 	"path"
 	"strconv"
 
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/snapshot"
+
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
 )
@@ -40,12 +42,15 @@ func main() {
 	hashStr := *hashStrPtr
 	heightStr := *heightStrPtr
 
-	checkpoint, err := consensus.LoadCheckpoint(path.Join(configPath, "genesis"))
-	handleError(err)
 	mainDBPath := path.Join(configPath, "db", "main")
 	refDBPath := path.Join(configPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
-	root := checkpoint.FirstBlock
+
+	snapshotPath := path.Join(configPath, "genesis")
+	snapshotBlockHeader, err := snapshot.ImportSnapshot(snapshotPath, db)
+	handleError(err)
+
+	root := &core.Block{BlockHeader: snapshotBlockHeader}
 	store := kvstore.NewKVStore(db)
 	chain := blockchain.NewChain(root.ChainID, store, root)
 

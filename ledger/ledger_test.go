@@ -135,7 +135,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	// Validator balance
 	validators := ledger.valMgr.GetValidatorSet(common.Hash{}).Validators()
 	for _, val := range validators {
-		valAddr := val.Address()
+		valAddr := val.Address
 		valAcc := ledger.state.Delivered().GetAccount(valAddr)
 		expectedValBal := types.NewCoins(100000000000, 1000)
 		assert.NotNil(valAcc)

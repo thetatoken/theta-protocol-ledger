@@ -16,11 +16,11 @@ import (
 
 // reserveFundCmd represents the reserve fund command
 // Example:
-//		thetacli tx reserve --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello
+//		thetacli tx reserve --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello
 var reserveFundCmd = &cobra.Command{
 	Use:     "reserve",
 	Short:   "Reserve fund for an off-chain micropayment",
-	Example: `thetacli tx reserve --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello`,
+	Example: `thetacli tx reserve --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=900 --collateral=1203 --seq=6 --duration=1002 --resource_ids=die_another_day,hello`,
 	Run:     doReserveFundCmd,
 }
 

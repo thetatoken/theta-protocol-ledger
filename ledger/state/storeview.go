@@ -96,6 +96,10 @@ func (sv *StoreView) Get(key common.Bytes) common.Bytes {
 	return value
 }
 
+func (sv *StoreView) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
+	return sv.store.ProveVCP(vcpKey, vp)
+}
+
 // Delete removes the value corresponding to the key
 func (sv *StoreView) Delete(key common.Bytes) {
 	sv.store.Delete(key)

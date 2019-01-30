@@ -45,7 +45,7 @@ func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) cor
 
 // GetValidatorSet returns the validator set for given block hash.
 func (m *FixedValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
 	return valSet
 }
 
@@ -89,7 +89,7 @@ func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint
 	curr := uint64(0)
 	validators := valSet.Validators()
 	for _, v := range validators {
-		curr += scaleDown(v.Stake(), scalingFactor)
+		curr += scaleDown(v.Stake, scalingFactor)
 		if r < curr {
 			return v
 		}
@@ -101,7 +101,7 @@ func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint
 
 // GetValidatorSet returns the validator set for given epoch.
 func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidators(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
 	return valSet
 }
 
@@ -109,15 +109,7 @@ func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.
 // -------------------------------- Utilities ----------------------------------
 //
 
-func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
-	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
-	}
-	if vcp == nil {
-		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
-	}
-
+func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
 	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
 
@@ -133,6 +125,18 @@ func selectTopStakeHoldersAsValidators(consensus core.ConsensusEngine, blockHash
 	}
 
 	return valSet
+}
+
+func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
+	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
+	}
+	if vcp == nil {
+		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
+	}
+
+	return SelectTopStakeHoldersAsValidators(vcp)
 }
 
 // Generate a random uint64 in [0, max)

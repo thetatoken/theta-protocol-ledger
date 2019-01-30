@@ -21,8 +21,8 @@ var (
 
 // Validator contains the public information of a validator.
 type Validator struct {
-	address common.Address
-	stake   *big.Int
+	Address common.Address
+	Stake   *big.Int
 }
 
 // NewValidator creates a new validator instance.
@@ -31,24 +31,25 @@ func NewValidator(addressStr string, stake *big.Int) Validator {
 	return Validator{address, stake}
 }
 
-// Address returns the address of the validator.
-func (v Validator) Address() common.Address {
-	return v.address
-}
-
 // ID returns the ID of the validator, which is the string representation of its address.
 func (v Validator) ID() common.Address {
-	return v.address
+	return v.Address
 }
 
-// Stake returns the stake of the validator.
-func (v Validator) Stake() *big.Int {
-	return v.stake
+// Equals checks whether the validator is the same as another validator
+func (v Validator) Equals(x Validator) bool {
+	if v.Address != x.Address {
+		return false
+	}
+	if v.Stake.Cmp(x.Stake) != 0 {
+		return false
+	}
+	return true
 }
 
 // String represents the string representation of the validator
 func (v Validator) String() string {
-	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake())
+	return fmt.Sprintf("{ID: %v, Stake: %v}", v.ID(), v.Stake)
 }
 
 // ValidatorSet represents a set of validators.
@@ -63,6 +64,11 @@ func NewValidatorSet() *ValidatorSet {
 	}
 }
 
+// SetValidators sets validators
+func (s *ValidatorSet) SetValidators(validators []Validator) {
+	s.validators = validators
+}
+
 // Copy creates a copy of this validator set.
 func (s *ValidatorSet) Copy() *ValidatorSet {
 	ret := NewValidatorSet()
@@ -75,6 +81,20 @@ func (s *ValidatorSet) Copy() *ValidatorSet {
 // Size returns the number of the validators in the validator set.
 func (s *ValidatorSet) Size() int {
 	return len(s.validators)
+}
+
+// Equals checks whether the validator set is the same as another validator set
+func (s *ValidatorSet) Equals(t *ValidatorSet) bool {
+	numVals := len(s.validators)
+	if numVals != len(t.validators) {
+		return false
+	}
+	for i := 0; i < numVals; i++ {
+		if !s.validators[i].Equals(t.validators[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // String represents the string representation of the validator set
@@ -109,18 +129,18 @@ func (s *ValidatorSet) AddValidator(validator Validator) {
 func (s *ValidatorSet) TotalStake() *big.Int {
 	ret := new(big.Int).SetUint64(0)
 	for _, v := range s.validators {
-		ret = new(big.Int).Add(ret, v.Stake())
+		ret = new(big.Int).Add(ret, v.Stake)
 	}
 	return ret
 }
 
-// HasMajority checks whether a vote set has reach majority.
-func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
+// HasMajorityVotes checks whether a vote set has reach majority.
+func (s *ValidatorSet) HasMajorityVotes(votes []Vote) bool {
 	votedStake := new(big.Int).SetUint64(0)
-	for _, vote := range votes.Votes() {
+	for _, vote := range votes {
 		validator, err := s.GetValidator(vote.ID)
 		if err == nil {
-			votedStake = new(big.Int).Add(votedStake, validator.Stake())
+			votedStake = new(big.Int).Add(votedStake, validator.Stake)
 		}
 	}
 
@@ -131,6 +151,11 @@ func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
 
 	//return votedStake*3 > s.TotalStake()*2
 	return lhs.Mul(votedStake, three).Cmp(rhs.Mul(s.TotalStake(), two)) > 0
+}
+
+// HasMajority checks whether a vote set has reach majority.
+func (s *ValidatorSet) HasMajority(votes *VoteSet) bool {
+	return s.HasMajorityVotes(votes.Votes())
 }
 
 // Validators returns a slice of validators.
