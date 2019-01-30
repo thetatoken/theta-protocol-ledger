@@ -13,7 +13,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
-const BlockTrioStoreKeyPrefix = "blocktrio_"
+const BlockTrioStoreKeyPrefix = "prooftrio_"
 const (
 	SVStart = iota
 	SVEnd
