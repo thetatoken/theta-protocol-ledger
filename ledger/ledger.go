@@ -103,7 +103,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 		}
 
 		// Grandparent or root block.
-		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status == core.BlockStatusTrusted {
+		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			vcp := storeView.GetValidatorCandidatePool()

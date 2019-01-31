@@ -208,6 +208,10 @@ func (bs BlockStatus) IsIndirectlyFinalized() bool {
 	return bs == BlockStatusIndirectlyFinalized
 }
 
+func (bs BlockStatus) IsTrusted() bool {
+	return bs == BlockStatusTrusted
+}
+
 // IsValid returns whether block has been validated.
 func (bs BlockStatus) IsValid() bool {
 	return bs != BlockStatusPending && bs != BlockStatusInvalid
