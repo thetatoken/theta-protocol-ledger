@@ -168,9 +168,7 @@ func (e *ConsensusEngine) mainLoop() {
 				}
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
-				if e.shouldVote() {
-					e.vote()
-				}
+				e.vote()
 				break Epoch
 			case <-e.proposalTimer.C:
 				e.propose()
@@ -380,10 +378,6 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 
 	e.chain.MarkBlockValid(block.Hash())
 
-	if !e.shouldVote() {
-		return
-	}
-
 	// Skip voting for block older than current best known epoch.
 	if block.Epoch < e.GetEpoch() {
 		e.logger.WithFields(log.Fields{
@@ -397,19 +391,22 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	e.vote()
 }
 
-func (e *ConsensusEngine) shouldVote() bool {
-	return e.shouldVoteByID(e.privateKey.PublicKey().Address())
+func (e *ConsensusEngine) shouldVote(block common.Hash) bool {
+	return e.shouldVoteByID(e.privateKey.PublicKey().Address(), block)
 }
 
-func (e *ConsensusEngine) shouldVoteByID(id common.Address) bool {
-	block := e.state.GetLastFinalizedBlock()
-	validators := e.validatorManager.GetValidatorSet(block.Hash())
+func (e *ConsensusEngine) shouldVoteByID(id common.Address, block common.Hash) bool {
+	validators := e.validatorManager.GetValidatorSet(block)
 	_, err := validators.GetValidator(id)
 	return err == nil
 }
 
 func (e *ConsensusEngine) vote() {
 	tip := e.GetTipToVote()
+
+	if !e.shouldVote(tip.Hash()) {
+		return
+	}
 
 	var vote core.Vote
 	lastVote := e.state.GetLastVote()
@@ -483,28 +480,24 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 		}).Warn("Ignoring invalid vote")
 		return false
 	}
-	if !e.shouldVoteByID(vote.ID) {
-		e.logger.WithFields(log.Fields{
-			"vote.Epoch": vote.Epoch,
-			"vote.ID":    vote.ID,
-		}).Warn("Ignoring invalid vote from non-validator")
-		return false
-	}
 	return true
 }
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
+	// Validate vote.
 	if !e.validateVote(vote) {
 		return
 	}
 
-	extBlk := e.state.GetLastFinalizedBlock()
-	validators := e.validatorManager.GetValidatorSet(extBlk.Hash())
+	// Save vote.
 	err := e.state.AddVote(&vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to add vote")
 	}
 
+	// Update epoch.
+	lfb := e.state.GetLastFinalizedBlock()
+	nextValidators := e.validatorManager.GetNextValidatorSet(lfb.Hash())
 	if vote.Epoch >= e.GetEpoch() {
 		currentEpochVotes := core.NewVoteSet()
 		allEpochVotes, err := e.state.GetEpochVotes()
@@ -517,7 +510,7 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 			}
 		}
 
-		if validators.HasMajority(currentEpochVotes) {
+		if nextValidators.HasMajority(currentEpochVotes) {
 			nextEpoch := vote.Epoch + 1
 			endEpoch = true
 			if nextEpoch > e.GetEpoch()+1 {
@@ -536,6 +529,7 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		}
 	}
 
+	// Process CC.
 	if vote.Block.IsEmpty() {
 		return
 	}
@@ -544,7 +538,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
 		return
 	}
-
 	// Ingore outdated votes.
 	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
 	if block.Height < highestCCBlockHeight {
@@ -555,6 +548,7 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
 	}
+	validators := e.validatorManager.GetValidatorSet(vote.Block)
 	if validators.HasMajority(votes) {
 		e.processCCBlock(block)
 	}
@@ -600,7 +594,7 @@ func (e *ConsensusEngine) GetTip(includePendingBlockingLeaf bool) *core.Extended
 			if err != nil {
 				e.logger.WithFields(log.Fields{
 					"err":       err,
-					"childHash": childHash,
+					"childHash": childHash.Hex(),
 				}).Fatal("Failed to find child block")
 			}
 			stack = append(stack, child)

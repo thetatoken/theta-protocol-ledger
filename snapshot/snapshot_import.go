@@ -345,7 +345,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	if secondBlock.Height != core.GenesisBlockHeight {
 		firstExt := core.ExtendedBlock{
 			Block:              &firstBlock,
-			Status:             core.BlockStatusDirectlyFinalized, // HCC links between all three blocks
+			Status:             core.BlockStatusTrusted, // HCC links between all three blocks
 			Children:           []common.Hash{secondBlock.Hash()},
 			HasValidatorUpdate: hl.Contains(firstBlock.Height),
 		}
@@ -355,7 +355,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 	secondExt := core.ExtendedBlock{
 		Block:              &secondBlock,
-		Status:             core.BlockStatusDirectlyFinalized,
+		Status:             core.BlockStatusTrusted,
 		Children:           []common.Hash{},
 		HasValidatorUpdate: hl.Contains(secondBlock.Height),
 	}

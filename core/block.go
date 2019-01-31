@@ -184,6 +184,7 @@ const (
 	BlockStatusCommitted
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
+	BlockStatusTrusted
 )
 
 func (bs BlockStatus) IsPending() bool {
@@ -195,7 +196,8 @@ func (bs BlockStatus) IsCommitted() bool {
 }
 
 func (bs BlockStatus) IsFinalized() bool {
-	return (bs == BlockStatusDirectlyFinalized) || (bs == BlockStatusIndirectlyFinalized)
+	return (bs == BlockStatusDirectlyFinalized) || (bs == BlockStatusIndirectlyFinalized) ||
+		(bs == BlockStatusTrusted)
 }
 
 func (bs BlockStatus) IsDirectlyFinalized() bool {
