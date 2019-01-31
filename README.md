@@ -121,7 +121,7 @@ When the prompt asks for password, simply enter `qwertyuiop`
 
 In another terminal, we can use the `thetacli` command line tool to send Theta tokens from one address to another by executing the following command. When the prompt asks for password, simply enter `qwertyuiop`
 ```
-thetacli tx send --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=20 --seq=1
+thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=20 --seq=1
 ```
 The balance of an address can be retrieved with the following query command
 ```
@@ -162,7 +162,7 @@ Now let us deploy the bytecode on the Theta Ledger, and then use it to calculate
 
 First, let us do a dry run for the smart contract deployment. The `data` parameter carries the deployment bytecode of the smart contract as provided above.
 ```
-thetacli call smart_contract --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=1000000000wei --gas_limit=200000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029
+thetacli call smart_contract --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=1000000000wei --gas_limit=200000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029
 ```
 This call should return a json similar to the one shown below. The `contract_address` parameter gives the address of the smart contract when it is actually deployed on to the blockchain. The `gas_used` field is the amount of gas to be consumed if we deploy the smart contract.
 ```
@@ -175,7 +175,7 @@ This call should return a json similar to the one shown below. The `contract_add
 ```
 Now, let us deploy the contract with the following command. Again, when the prompt asks for password, simply enter `qwertyuiop`
 ```
-thetacli tx smart_contract --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=1000000000wei --gas_limit=200000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029 --seq=2
+thetacli tx smart_contract --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --value=0 --gas_price=1000000000wei --gas_limit=200000 --data=608060405234801561001057600080fd5b50610148806100206000396000f300608060405260043610610057576000357c0100000000000000000000000000000000000000000000000000000000900463ffffffff1680633fa4f2451461005c578063b5a0241a14610087578063ed8b0706146100b2575b600080fd5b34801561006857600080fd5b506100716100df565b6040518082815260200191505060405180910390f35b34801561009357600080fd5b5061009c6100e5565b6040518082815260200191505060405180910390f35b3480156100be57600080fd5b506100dd60048036038101908080359060200190929190505050610112565b005b60005481565b6000806000546000540290506000546000548281151561010157fe5b0414151561010b57fe5b8091505090565b80600081905550505600a165627a7a72305820459c07c1668e919ca760d663b8df04e80634c53ebd49393dca83e81c58ae2a660029 --seq=2
 ```
 Wait for a few seconds for the transaction to be included in the blockchain. Then we can use the following query command to confirmed that the smart contract has been deployed, where the account address is the `contract_address` returned by the deployment dry run.
 ```
@@ -183,11 +183,11 @@ thetacli query account --address=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337
 ```
 Now, let us call the `SetValue()` function of the deployed smart contract with the following `thetacli tx` command. Note that the smart contract address is passed to the command with the `to` parameter. And the `data` parameter is the concatenation of `ed8b0706`, the signature of the function `SetValue()`, and an integer `0x3` for which we want to calculate the square.  
 ```
-thetacli tx smart_contract --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=1000000000wei --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000000003 --seq=3
+thetacli tx smart_contract --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=1000000000wei --gas_limit=50000 --data=ed8b07060000000000000000000000000000000000000000000000000000000000000003 --seq=3
 ```
 Again, wait for a couple seconds for the transaction to be included in the blockchain, and then we can query the square result with the following command, where the `data` parameter `b5a0241a` is the signature of the `CalculateSquare()` function.
 ```
-thetacli call smart_contract --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=1000000000wei --gas_limit=50000 --data=b5a0241a
+thetacli call smart_contract --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=0x5c3159ddd2fe0f9862bc7b7d60c1875fa8f81337 --gas_price=1000000000wei --gas_limit=50000 --data=b5a0241a
 ```
 The `vm_return` field in the returned json should be `0000000000000000000000000000000000000000000000000000000000000009`, which is simply the square of `0x3`, the value we set previously.
 
@@ -198,7 +198,7 @@ In order to handle the sheer amount of micropayments for the bandwidth sharing r
 
 Below is an example. To get started, the sender creates a resource oriented micropayment pool for a live video stream with resource_id `rid1000001` by reserving some TFuel tokens for 1002 blocktimes. She can use this micropayment pool to pay multiple relay nodes that provides the desired video stream.
 ```
-thetacli tx reserve --chain="private_net" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=100 --collateral=101 --duration=1002 --resource_ids=rid1000001 --seq=4
+thetacli tx reserve --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=100 --collateral=101 --duration=1002 --resource_ids=rid1000001 --seq=4
 ```
 After this transaction has been processed. We can query the `from` account to confirm the creation of the micropayment pool.
 ```

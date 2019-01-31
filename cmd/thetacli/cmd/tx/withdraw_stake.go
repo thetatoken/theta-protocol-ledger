@@ -17,11 +17,11 @@ import (
 
 // withdrawStakeCmd represents the withdraw stake command
 // Example:
-//		thetacli tx withdraw --chain="private_net" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8
+//		thetacli tx withdraw --chain="privatenet" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8
 var withdrawStakeCmd = &cobra.Command{
 	Use:     "withdraw",
 	Short:   "withdraw stake to a validator or guardian",
-	Example: `thetacli tx withdraw --chain="private_net" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8`,
+	Example: `thetacli tx withdraw --chain="privatenet" --source=2E833968E5bB786Ae419c4d13189fB081Cc43bab --holder=2E833968E5bB786Ae419c4d13189fB081Cc43bab --purpose=0 --seq=8`,
 	Run:     doWithdrawStakeCmd,
 }
 

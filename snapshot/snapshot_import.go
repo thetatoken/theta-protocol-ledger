@@ -100,14 +100,14 @@ func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
-	sv, hash, err := loadState(file, db)
+	sv, _, err := loadState(file, db)
 	if err != nil {
 		return nil, err
 	}
 
 	// ----------------------------- Validity Checks -------------------------- //
 
-	if err = checkSnapshot(sv, hash, &metadata, db); err != nil {
+	if err = checkSnapshot(sv, &metadata, db); err != nil {
 		return nil, fmt.Errorf("Snapshot state validation failed: %v", err)
 	}
 
@@ -115,11 +115,9 @@ func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 
 	kvstore := kvstore.NewKVStore(db)
 
-	for i, blockTrio := range metadata.BlockTrios {
-		if i < len(metadata.BlockTrios)-1 {
-			blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
-			kvstore.Put(blockTrioKey, blockTrio)
-		}
+	for _, blockTrio := range metadata.ProofTrios {
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
+		kvstore.Put(blockTrioKey, blockTrio)
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
@@ -189,58 +187,90 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 	return sv, hash, nil
 }
 
-func checkSnapshot(sv *state.StoreView, hash common.Hash, metadata *core.SnapshotMetadata, db database.Database) error {
-	tailTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
+func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db database.Database) error {
+	tailTrio := &metadata.TailTrio
 	secondBlock := tailTrio.Second.Header
-	if bytes.Compare(secondBlock.StateHash.Bytes(), hash.Bytes()) != 0 {
-		return fmt.Errorf("StateHash not matching")
+	expectedStateHash := sv.Hash()
+	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.StateHash.Bytes()) != 0 {
+		return fmt.Errorf("StateHash not matching: %v vs %s",
+			expectedStateHash.Hex(), secondBlock.StateHash.Hex())
 	}
 
-	var provenValSet *core.ValidatorSet // the proven validator set so far
+	var provenValSet *core.ValidatorSet
 	var err error
-	for idx, blockTrio := range metadata.BlockTrios {
-		first := blockTrio.First
-		second := blockTrio.Second
-		third := blockTrio.Third
-		if idx == 0 {
-			// special handling for the genesis block
-			provenValSet, err = validateGenesisBlock(&second.Header, db)
-			if err != nil {
-				return fmt.Errorf("Invalid genesis block: %v", err)
-			}
-		} else {
-			if second.Header.Parent != first.Header.Hash() || third.Header.Parent != second.Header.Hash() {
-				return fmt.Errorf("block trio has invalid Parent link")
-			}
-
-			if second.Header.HCC.BlockHash != first.Header.Hash() || third.Header.HCC.BlockHash != second.Header.Hash() {
-				return fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", first.Header.Hash(), second.Header.HCC.BlockHash,
-					second.Header.Hash(), third.Header.HCC.BlockHash)
-			}
-
-			// third.Header.HCC.Votes contains the votes for the second block in the trio
-			if err := validateVotes(provenValSet, &second.Header, third.Header.HCC.Votes); err != nil {
-				return fmt.Errorf("Failed to validate voteSet, %v", err)
-			}
-			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
-			if err != nil {
-				return fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
-			}
+	if secondBlock.Height != core.GenesisBlockHeight {
+		provenValSet, err = checkProofTrios(metadata.ProofTrios, db)
+		if err != nil {
+			return err
 		}
 	}
 
-	tailBlockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
-	validateVotes(provenValSet, &tailBlockTrio.Third.Header, tailBlockTrio.Third.VoteSet)
-
-	retrievedValSet := getValidatorSetFromSV(sv)
-	if !provenValSet.Equals(retrievedValSet) {
-		return fmt.Errorf("The latest proven and retrieved validator set does not match")
+	err = checkTailTrio(sv, provenValSet, tailTrio)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func validateGenesisBlock(block *core.BlockHeader, db database.Database) (*core.ValidatorSet, error) {
+func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) (*core.ValidatorSet, error) {
+	var provenValSet *core.ValidatorSet // the proven validator set so far
+	var err error
+	for idx, blockTrio := range proofTrios {
+		first := blockTrio.First
+		second := blockTrio.Second
+		third := blockTrio.Third
+		if idx == 0 {
+			// special handling for the genesis block
+			provenValSet, err = checkGenesisBlock(&second.Header, db)
+			if err != nil {
+				return nil, fmt.Errorf("Invalid genesis block: %v", err)
+			}
+		} else {
+			if second.Header.Parent != first.Header.Hash() || third.Header.Parent != second.Header.Hash() {
+				return nil, fmt.Errorf("block trio has invalid Parent link")
+			}
+
+			if second.Header.HCC.BlockHash != first.Header.Hash() || third.Header.HCC.BlockHash != second.Header.Hash() {
+				return nil, fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", first.Header.Hash(), second.Header.HCC.BlockHash,
+					second.Header.Hash(), third.Header.HCC.BlockHash)
+			}
+
+			// third.Header.HCC.Votes contains the votes for the second block in the trio
+			if err := validateVotes(provenValSet, &second.Header, third.Header.HCC.Votes); err != nil {
+				return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
+			}
+			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+			}
+		}
+	}
+
+	return provenValSet, nil
+}
+
+func checkTailTrio(sv *state.StoreView, provenValSet *core.ValidatorSet, tailTrio *core.SnapshotBlockTrio) error {
+	second := &tailTrio.Second
+	third := &tailTrio.Third
+
+	if second.Header.Height == core.GenesisBlockHeight {
+		_, err := checkGenesisBlock(&second.Header, sv.GetDB())
+		if err != nil {
+			return err
+		}
+	} else {
+		validateVotes(provenValSet, &third.Header, third.VoteSet)
+		retrievedValSet := getValidatorSetFromSV(sv)
+		if !provenValSet.Equals(retrievedValSet) {
+			return fmt.Errorf("The latest proven and retrieved validator set does not match")
+		}
+	}
+
+	return nil
+}
+
+func checkGenesisBlock(block *core.BlockHeader, db database.Database) (*core.ValidatorSet, error) {
 	if block.Height != core.GenesisBlockHeight {
 		return nil, fmt.Errorf("Invalid genesis block height: %v", block.Height)
 	}
@@ -307,8 +337,7 @@ func validateVotes(validatorSet *core.ValidatorSet, block *core.BlockHeader, vot
 }
 
 func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstore store.Store) *core.BlockHeader {
-	tailBlockTrio := metadata.BlockTrios[len(metadata.BlockTrios)-1]
-
+	tailBlockTrio := &metadata.TailTrio
 	firstBlock := core.Block{BlockHeader: &tailBlockTrio.First.Header}
 	secondBlock := core.Block{BlockHeader: &tailBlockTrio.Second.Header}
 	hl := sv.GetStakeTransactionHeightList()

@@ -13,7 +13,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
-const BlockTrioStoreKeyPrefix = "blocktrio_"
+const BlockTrioStoreKeyPrefix = "prooftrio_"
 const (
 	SVStart = iota
 	SVEnd
@@ -45,7 +45,8 @@ type SnapshotBlockTrio struct {
 }
 
 type SnapshotMetadata struct {
-	BlockTrios []SnapshotBlockTrio
+	ProofTrios []SnapshotBlockTrio
+	TailTrio   SnapshotBlockTrio
 }
 
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {

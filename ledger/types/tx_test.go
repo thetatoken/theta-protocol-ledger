@@ -257,7 +257,7 @@ func TestSendTxSignable(t *testing.T) {
 }
 
 func TestSendTxSignable2(t *testing.T) {
-	chainID := "private_net"
+	chainID := "privatenet"
 	ten18 := new(big.Int).SetUint64(1000000000000000000) // 10^18
 	thetaWei := new(big.Int).Mul(new(big.Int).SetUint64(10), ten18)
 	tfuelWei := new(big.Int).Mul(new(big.Int).SetUint64(20), ten18)
@@ -283,7 +283,7 @@ func TestSendTxSignable2(t *testing.T) {
 	}
 	signBytes := sendTx.SignBytes(chainID)
 	signBytesHex := hex.EncodeToString(signBytes)
-	expected := "f88a80808094000000000000000000000000000000000000000080b86f8b707269766174655f6e657402f860c78085e8d4a51000eceb942e833968e5bb786ae419c4d13189fb081cc43babd3888ac7230489e800008901158e46f1e87510000280eae9949f1233798e905e173560071255140b4a8abd3ec6d3888ac7230489e800008901158e460913d00000"
+	expected := "f88980808094000000000000000000000000000000000000000080b86e8a707269766174656e657402f860c78085e8d4a51000eceb942e833968e5bb786ae419c4d13189fb081cc43babd3888ac7230489e800008901158e46f1e87510000280eae9949f1233798e905e173560071255140b4a8abd3ec6d3888ac7230489e800008901158e460913d00000"
 
 	assert.Equal(t, expected, signBytesHex,
 		"Got unexpected sign string for SendTx. Expected:\n%v\nGot:\n%v", expected, signBytesHex)
@@ -332,7 +332,7 @@ func TestSendTxSignable2(t *testing.T) {
 	signedTxBytesHex := hex.EncodeToString(raw)
 	t.Logf("Signed Tx: %v", signedTxBytesHex)
 
-	expectedSignedTxBytes := "02f8a4c78085e8d4a51000f86ff86d942e833968e5bb786ae419c4d13189fb081cc43babd3888ac7230489e800008901158e46f1e875100002b841db91d32189895167e40b446a0a411e148508060e4972747d03d0f5a4d0a7aec031173ca09c58a1d23eeaf232f5317e01356418469247ebeb4ec1e397819938ee00eae9949f1233798e905e173560071255140b4a8abd3ec6d3888ac7230489e800008901158e460913d00000"
+	expectedSignedTxBytes := "02f8a4c78085e8d4a51000f86ff86d942e833968e5bb786ae419c4d13189fb081cc43babd3888ac7230489e800008901158e46f1e875100002b8415a6e9a2e93487c786f07175998493161e61a5d9613745aa0e2fe51e5db1eaf626f72bfae41d971e88ff3b2c217cf611c2addb266e7d7ebda29cb0e9e5a2f482800eae9949f1233798e905e173560071255140b4a8abd3ec6d3888ac7230489e800008901158e460913d00000"
 	assert.Equal(t, expectedSignedTxBytes, signedTxBytesHex,
 		"Got unexpected signed raw bytes for SendTx. Expected:\n%v\nGot:\n%v", expectedSignedTxBytes, signedTxBytesHex)
 
