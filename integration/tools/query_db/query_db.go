@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/snapshot"
 
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
@@ -44,13 +43,9 @@ func main() {
 
 	mainDBPath := path.Join(configPath, "db", "main")
 	refDBPath := path.Join(configPath, "db", "ref")
-	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
+	db, _ := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
-	snapshotPath := path.Join(configPath, "genesis")
-	snapshotBlockHeader, err := snapshot.ImportSnapshot(snapshotPath, db)
-	handleError(err)
-
-	root := &core.Block{BlockHeader: snapshotBlockHeader}
+	root := core.NewBlock()
 	store := kvstore.NewKVStore(db)
 	chain := blockchain.NewChain(root.ChainID, store, root)
 
