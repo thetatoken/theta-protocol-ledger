@@ -31,6 +31,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
+	var genesisBlockHeader *core.BlockHeader
 	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
@@ -40,65 +41,80 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		err := kvStore.Get(blockTrioKey, blockTrio)
 		if err == nil {
 			metadata.ProofTrios = append(metadata.ProofTrios, *blockTrio)
+			if height == core.GenesisBlockHeight {
+				genesisBlockHeader = &blockTrio.Second.Header
+			}
 			continue
 		}
 
-		blocks := chain.FindBlocksByHeight(height)
-		foundDirectlyFinalizedBlock := false
-		for _, block := range blocks {
-			if block.Status.IsDirectlyFinalized() {
-				var child, grandChild core.BlockHeader
-				b, err := getFinalizedChild(block, chain)
-				if err != nil {
-					return err
-				}
-				if b != nil {
-					child = *b.BlockHeader
-					b, err = getFinalizedChild(b, chain)
+		if height == core.GenesisBlockHeight {
+			blocks := chain.FindBlocksByHeight(core.GenesisBlockHeight)
+			genesisBlock := blocks[0]
+			genesisBlockHeader = genesisBlock.BlockHeader
+			metadata.ProofTrios = append(metadata.ProofTrios,
+				core.SnapshotBlockTrio{
+					First:  core.SnapshotFirstBlock{},
+					Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+					Third:  core.SnapshotThirdBlock{},
+				})
+		} else {
+			blocks := chain.FindBlocksByHeight(height)
+			foundDirectlyFinalizedBlock := false
+			for _, block := range blocks {
+				if block.Status.IsDirectlyFinalized() {
+					var child, grandChild core.BlockHeader
+					b, err := getFinalizedChild(block, chain)
 					if err != nil {
 						return err
 					}
 					if b != nil {
-						grandChild = *b.BlockHeader
+						child = *b.BlockHeader
+						b, err = getFinalizedChild(b, chain)
+						if err != nil {
+							return err
+						}
+						if b != nil {
+							grandChild = *b.BlockHeader
+						} else {
+							return fmt.Errorf("Can't find finalized grandchild block. " +
+								"Likely the last finalized block also contains stake change transactions. " +
+								"Please try again in 30 seconds.")
+						}
 					} else {
-						return fmt.Errorf("Can't find finalized grandchild block. " +
+						return fmt.Errorf("Can't find finalized child block. " +
 							"Likely the last finalized block also contains stake change transactions. " +
 							"Please try again in 30 seconds.")
 					}
-				} else {
-					return fmt.Errorf("Can't find finalized child block. " +
-						"Likely the last finalized block also contains stake change transactions. " +
-						"Please try again in 30 seconds.")
-				}
 
-				if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
-					return fmt.Errorf("Invalid block HCC link for validator set changes")
-				}
-				if grandChild.HCC.Votes.IsEmpty() {
-					return fmt.Errorf("Missing block HCC votes for validator set changes")
-				}
-				for _, vote := range grandChild.HCC.Votes.Votes() {
-					if vote.Block != child.Hash() {
-						return fmt.Errorf("Invalid block HCC votes for validator set changes")
+					if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
+						return fmt.Errorf("Invalid block HCC link for validator set changes")
 					}
-				}
+					if grandChild.HCC.Votes.IsEmpty() {
+						return fmt.Errorf("Missing block HCC votes for validator set changes")
+					}
+					for _, vote := range grandChild.HCC.Votes.Votes() {
+						if vote.Block != child.Hash() {
+							return fmt.Errorf("Invalid block HCC votes for validator set changes")
+						}
+					}
 
-				vcpProof, err := proveVCP(block, db)
-				if err != nil {
-					return fmt.Errorf("Failed to get VCP Proof")
+					vcpProof, err := proveVCP(block, db)
+					if err != nil {
+						return fmt.Errorf("Failed to get VCP Proof")
+					}
+					metadata.ProofTrios = append(metadata.ProofTrios,
+						core.SnapshotBlockTrio{
+							First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
+							Second: core.SnapshotSecondBlock{Header: child},
+							Third:  core.SnapshotThirdBlock{Header: grandChild},
+						})
+					foundDirectlyFinalizedBlock = true
+					break
 				}
-				metadata.ProofTrios = append(metadata.ProofTrios,
-					core.SnapshotBlockTrio{
-						First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
-						Second: core.SnapshotSecondBlock{Header: child},
-						Third:  core.SnapshotThirdBlock{Header: grandChild},
-					})
-				foundDirectlyFinalizedBlock = true
-				break
 			}
-		}
-		if !foundDirectlyFinalizedBlock {
-			return fmt.Errorf("Finalized block not found for height %v", height)
+			if !foundDirectlyFinalizedBlock {
+				return fmt.Errorf("Finalized block not found for height %v", height)
+			}
 		}
 	}
 
@@ -147,6 +163,8 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		return err
 	}
 
+	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
+	writeStoreView(genesisSV, false, writer, db)
 	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
 	writeStoreView(parentSV, true, writer, db)
 	writeStoreView(sv, true, writer, db)
