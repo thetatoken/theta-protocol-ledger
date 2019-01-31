@@ -13,8 +13,9 @@ import (
 )
 
 var (
-	startFlag uint64
-	endFlag   uint64
+	startFlag  uint64
+	endFlag    uint64
+	configFlag string
 )
 
 // generateCmd represents the generate backup command.
@@ -31,7 +32,7 @@ var generateCmd = &cobra.Command{
 func doGenerateCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.GenBackup", rpc.BackupArgs{Start: startFlag, End: endFlag})
+	res, err := client.Call("theta.GenBackup", rpc.BackupArgs{Start: startFlag, End: endFlag, Config: configFlag})
 	if err != nil {
 		utils.Error("Failed to get generate backup call details: %v\n", err)
 	}
@@ -48,6 +49,8 @@ func doGenerateCmd(cmd *cobra.Command, args []string) {
 func init() {
 	generateCmd.Flags().Uint64Var(&startFlag, "start", 0, "Starting block height")
 	generateCmd.Flags().Uint64Var(&endFlag, "end", 0, "Ending block height")
+	generateCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
 	generateCmd.MarkFlagRequired("start")
 	generateCmd.MarkFlagRequired("end")
+	generateCmd.MarkFlagRequired("config")
 }

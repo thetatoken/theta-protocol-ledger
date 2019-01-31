@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	addressFlag string
+	configFlag string
 )
 
 // exportCmd represents the export snapshot command.
@@ -30,7 +30,7 @@ var exportCmd = &cobra.Command{
 func doExportCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.GenSnapshot", rpc.GenSnapshotArgs{})
+	res, err := client.Call("theta.GenSnapshot", rpc.GenSnapshotArgs{Config: configFlag})
 	if err != nil {
 		utils.Error("Failed to get export snapshot call details: %v\n", err)
 	}
@@ -45,4 +45,6 @@ func doExportCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
+	exportCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
+	exportCmd.MarkFlagRequired("config")
 }

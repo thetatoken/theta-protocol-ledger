@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -19,14 +20,14 @@ import (
 	"github.com/thetatoken/theta/store/treestore"
 )
 
-func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain) error {
+func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, snapshotDir string) (string, error) {
 	metadata := &core.SnapshotMetadata{}
 
 	stub := consensus.GetSummary()
 	lastFinalizedBlock, err := chain.FindBlock(stub.LastFinalizedBlock)
 	if err != nil {
 		logger.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
-		return err
+		return "", err
 	}
 
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
@@ -65,42 +66,42 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 					var child, grandChild core.BlockHeader
 					b, err := getFinalizedChild(block, chain)
 					if err != nil {
-						return err
+						return "", err
 					}
 					if b != nil {
 						child = *b.BlockHeader
 						b, err = getFinalizedChild(b, chain)
 						if err != nil {
-							return err
+							return "", err
 						}
 						if b != nil {
 							grandChild = *b.BlockHeader
 						} else {
-							return fmt.Errorf("Can't find finalized grandchild block. " +
+							return "", fmt.Errorf("Can't find finalized grandchild block. " +
 								"Likely the last finalized block also contains stake change transactions. " +
 								"Please try again in 30 seconds.")
 						}
 					} else {
-						return fmt.Errorf("Can't find finalized child block. " +
+						return "", fmt.Errorf("Can't find finalized child block. " +
 							"Likely the last finalized block also contains stake change transactions. " +
 							"Please try again in 30 seconds.")
 					}
 
 					if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
-						return fmt.Errorf("Invalid block HCC link for validator set changes")
+						return "", fmt.Errorf("Invalid block HCC link for validator set changes")
 					}
 					if grandChild.HCC.Votes.IsEmpty() {
-						return fmt.Errorf("Missing block HCC votes for validator set changes")
+						return "", fmt.Errorf("Missing block HCC votes for validator set changes")
 					}
 					for _, vote := range grandChild.HCC.Votes.Votes() {
 						if vote.Block != child.Hash() {
-							return fmt.Errorf("Invalid block HCC votes for validator set changes")
+							return "", fmt.Errorf("Invalid block HCC votes for validator set changes")
 						}
 					}
 
 					vcpProof, err := proveVCP(block, db)
 					if err != nil {
-						return fmt.Errorf("Failed to get VCP Proof")
+						return "", fmt.Errorf("Failed to get VCP Proof")
 					}
 					metadata.ProofTrios = append(metadata.ProofTrios,
 						core.SnapshotBlockTrio{
@@ -113,37 +114,37 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 				}
 			}
 			if !foundDirectlyFinalizedBlock {
-				return fmt.Errorf("Finalized block not found for height %v", height)
+				return "", fmt.Errorf("Finalized block not found for height %v", height)
 			}
 		}
 	}
 
 	parentBlock, err := chain.FindBlock(lastFinalizedBlock.Parent)
 	if err != nil {
-		return fmt.Errorf("Failed to find last finalized block's parent, %v", err)
+		return "", fmt.Errorf("Failed to find last finalized block's parent, %v", err)
 	}
 	childBlock, err := getAtLeastCommittedChild(lastFinalizedBlock, chain)
 	if err != nil {
-		return fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
+		return "", fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
 	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
-		return fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
+		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
 	}
 
 	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
-		return fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
 	}
 
 	st := cns.NewState(kvstore.NewKVStore(db), chain)
 	childVoteSet, err := st.GetVoteSetByBlock(childBlock.Hash())
 	if err != nil {
-		return fmt.Errorf("Failed to get child block's votes, %v", err)
+		return "", fmt.Errorf("Failed to get child block's votes, %v", err)
 	}
 
 	vcpProof, err := proveVCP(parentBlock, db)
 	if err != nil {
-		return fmt.Errorf("Failed to get VCP Proof")
+		return "", fmt.Errorf("Failed to get VCP Proof")
 	}
 	metadata.TailTrio = core.SnapshotBlockTrio{
 		First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
@@ -152,15 +153,17 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	}
 
 	currentTime := time.Now().UTC()
-	file, err := os.Create("theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 10) + "-" + currentTime.Format("2006-01-02"))
+	filename := "theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 10) + "-" + currentTime.Format("2006-01-02")
+	snapshotPath := path.Join(snapshotDir, filename)
+	file, err := os.Create(snapshotPath)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
 	err = core.WriteMetadata(writer, metadata)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
@@ -169,7 +172,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	writeStoreView(parentSV, true, writer, db)
 	writeStoreView(sv, true, writer, db)
 
-	return nil
+	return filename, nil
 }
 
 func proveVCP(block *core.ExtendedBlock, db database.Database) (*core.VCPProof, error) {
