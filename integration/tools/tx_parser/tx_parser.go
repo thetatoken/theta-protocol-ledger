@@ -33,6 +33,6 @@ func main() {
 	tx, err := types.TxFromBytes(raw)
 	handleError(err)
 
-	fmt.Printf("\n%v\n\n", tx)
+	fmt.Printf("\n%#v\n\n", tx)
 
 }

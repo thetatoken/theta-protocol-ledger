@@ -484,7 +484,7 @@ func (tl *TestLedger) FinalizeState(height uint64, rootHash common.Hash) result.
 	return result.OK
 }
 
-func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
+func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*core.ValidatorCandidatePool, error) {
 	return nil, nil
 }
 

@@ -35,7 +35,15 @@ func (m *FixedValidatorManager) SetConsensusEngine(consensus core.ConsensusEngin
 
 // GetProposer implements ValidatorManager interface.
 func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) core.Validator {
-	valSet := m.GetValidatorSet(blockHash)
+	return m.getProposerFromValidators(m.GetValidatorSet(blockHash))
+}
+
+// GetNextProposer implements ValidatorManager interface.
+func (m *FixedValidatorManager) GetNextProposer(blockHash common.Hash, _ uint64) core.Validator {
+	return m.getProposerFromValidators(m.GetNextValidatorSet(blockHash))
+}
+
+func (m *FixedValidatorManager) getProposerFromValidators(valSet *core.ValidatorSet) core.Validator {
 	if valSet.Size() == 0 {
 		panic("No validators have been added")
 	}
@@ -45,7 +53,13 @@ func (m *FixedValidatorManager) GetProposer(blockHash common.Hash, _ uint64) cor
 
 // GetValidatorSet returns the validator set for given block hash.
 func (m *FixedValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash, false)
+	return valSet
+}
+
+// GetNextValidatorSet returns the validator set for given block hash's next block.
+func (m *FixedValidatorManager) GetNextValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash, true)
 	return valSet
 }
 
@@ -73,7 +87,15 @@ func (m *RotatingValidatorManager) SetConsensusEngine(consensus core.ConsensusEn
 
 // GetProposer implements ValidatorManager interface.
 func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint64) core.Validator {
-	valSet := m.GetValidatorSet(blockHash)
+	return m.getProposerFromValidators(m.GetValidatorSet(blockHash), epoch)
+}
+
+// GetNextProposer implements ValidatorManager interface.
+func (m *RotatingValidatorManager) GetNextProposer(blockHash common.Hash, epoch uint64) core.Validator {
+	return m.getProposerFromValidators(m.GetNextValidatorSet(blockHash), epoch)
+}
+
+func (m *RotatingValidatorManager) getProposerFromValidators(valSet *core.ValidatorSet, epoch uint64) core.Validator {
 	if valSet.Size() == 0 {
 		panic("No validators have been added")
 	}
@@ -99,9 +121,15 @@ func (m *RotatingValidatorManager) GetProposer(blockHash common.Hash, epoch uint
 	panic("Failed to randomly select a validator")
 }
 
-// GetValidatorSet returns the validator set for given epoch.
+// GetValidatorSet returns the validator set for given block.
 func (m *RotatingValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
-	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash)
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash, false)
+	return valSet
+}
+
+// GetNextValidatorSet returns the validator set for given block's next block.
+func (m *RotatingValidatorManager) GetNextValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	valSet := selectTopStakeHoldersAsValidatorsForBlock(m.consensus, blockHash, true)
 	return valSet
 }
 
@@ -127,8 +155,8 @@ func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.V
 	return valSet
 }
 
-func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, blockHash common.Hash) *core.ValidatorSet {
-	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash)
+func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, blockHash common.Hash, isNext bool) *core.ValidatorSet {
+	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash, isNext)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
 	}

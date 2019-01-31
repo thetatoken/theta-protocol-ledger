@@ -686,7 +686,7 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 
 func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
 	extBlk := e.state.GetLastFinalizedBlock()
-	proposer := e.validatorManager.GetProposer(extBlk.Hash(), epoch)
+	proposer := e.validatorManager.GetNextProposer(extBlk.Hash(), epoch)
 	if proposer.ID().Hex() != id {
 		return false
 	}

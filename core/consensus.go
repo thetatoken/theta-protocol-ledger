@@ -21,5 +21,7 @@ type ConsensusEngine interface {
 type ValidatorManager interface {
 	SetConsensusEngine(consensus ConsensusEngine)
 	GetProposer(blockHash common.Hash, epoch uint64) Validator
+	GetNextProposer(blockHash common.Hash, epoch uint64) Validator
 	GetValidatorSet(blockHash common.Hash) *ValidatorSet
+	GetNextValidatorSet(blockHash common.Hash) *ValidatorSet
 }

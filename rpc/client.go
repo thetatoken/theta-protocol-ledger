@@ -70,25 +70,26 @@ type WSClient struct {
 	url string
 }
 
-func newWSClient(url string) WSClient {
+func newWSClient(url string) *WSClient {
 	ws, err := websocket.Dial(url, "", url)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return WSClient{
+	return &WSClient{
 		url:    url,
 		ws:     ws,
 		Client: jsonrpc2.NewClient(ws),
 	}
 }
 
-func (c WSClient) Call(name string, args []interface{}, result interface{}) error {
+func (c *WSClient) Call(name string, args []interface{}, result interface{}) error {
 	err := c.Client.Call(name, args, result)
 	if err != nil && err.Error() == "connection is shut down" {
 		c.ws, err = websocket.Dial(c.url, "", c.url)
 		if err != nil {
 			return err
 		}
+		c.Client = jsonrpc2.NewClient(c.ws)
 		return c.Client.Call(name, args, result)
 	}
 	return err
