@@ -24,10 +24,18 @@ func (m MockValidatorManager) GetProposer(_ common.Hash, _ uint64) core.Validato
 	return core.NewValidator(m.PrivKey.PublicKey().Address().Hex(), types.Zero)
 }
 
+func (m MockValidatorManager) GetNextProposer(a common.Hash, b uint64) core.Validator {
+	return m.GetProposer(a, b)
+}
+
 func (m MockValidatorManager) GetValidatorSet(_ common.Hash) *core.ValidatorSet {
 	v := core.NewValidatorSet()
 	v.AddValidator(m.GetProposer(common.Hash{}, 0))
 	return v
+}
+
+func (m MockValidatorManager) GetNextValidatorSet(a common.Hash) *core.ValidatorSet {
+	return m.GetNextValidatorSet(a)
 }
 
 func (m MockValidatorManager) SetConsensusEngine(consensus core.ConsensusEngine) {}

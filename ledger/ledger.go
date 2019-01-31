@@ -83,11 +83,17 @@ func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
 }
 
 // GetFinalizedValidatorCandidatePool returns the validator candidate pool of the latest DIRECTLY finalized block
-func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash) (*core.ValidatorCandidatePool, error) {
+func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*core.ValidatorCandidatePool, error) {
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
-	for i := 2; ; i-- {
+	var i int
+	if isNext {
+		i = 1
+	} else {
+		i = 2
+	}
+	for ; ; i-- {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err

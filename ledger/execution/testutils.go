@@ -53,7 +53,15 @@ func (tvm *TestValidatorManager) GetProposer(blockHash common.Hash, epoch uint64
 	return tvm.proposer
 }
 
+func (tvm *TestValidatorManager) GetNextProposer(blockHash common.Hash, epoch uint64) core.Validator {
+	return tvm.proposer
+}
+
 func (tvm *TestValidatorManager) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	return tvm.valSet
+}
+
+func (tvm *TestValidatorManager) GetNextValidatorSet(blockHash common.Hash) *core.ValidatorSet {
 	return tvm.valSet
 }
 
