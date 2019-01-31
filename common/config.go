@@ -51,8 +51,8 @@ p2p:
 `
 
 func init() {
-	viper.SetDefault(CfgConsensusMaxEpochLength, 5)
-	viper.SetDefault(CfgConsensusMinProposalWait, 2)
+	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
+	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 	viper.SetDefault(CfgConsensusMaxNumValidators, 7)
 
