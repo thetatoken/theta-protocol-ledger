@@ -41,7 +41,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to load or create key: %v", err))
+		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
 	network := newMessenger(privKey, peerSeeds, port)
@@ -49,8 +49,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to connect to the db. main: %v, ref: %v, err: %v",
-			mainDBPath, refDBPath, err))
+		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
+			mainDBPath, refDBPath, err)
 	}
 
 	if len(snapshotPath) == 0 {
@@ -58,7 +58,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath)
 	if err != nil {
-		panic(fmt.Sprintf("Snapshot validation failed, err: %v", err))
+		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
@@ -80,11 +80,11 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	keysDir := path.Join(cfgPath, "key")
 	keystore, err := ks.NewKeystoreEncrypted(keysDir, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create key store: %v", err))
+		log.Fatalf("Failed to create key store: %v", err)
 	}
 	addresses, err := keystore.ListKeyAddresses()
 	if err != nil {
-		panic(fmt.Sprintf("Failed to get key address: %v", err))
+		log.Fatalf("Failed to get key address: %v", err)
 	}
 
 	numAddrs := len(addresses)
