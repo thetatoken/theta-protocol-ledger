@@ -7,6 +7,8 @@ import (
 
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
@@ -62,6 +64,7 @@ func TestSyncManager(t *testing.T) {
 	// node1's chain initially contains only A0, A1
 	initChain := blockchain.CreateTestChainByBlocks([]string{
 		"A1", "A0",
+		"B2", "A1",
 	})
 	// node2's chain
 	_ = blockchain.CreateTestChainByBlocks([]string{
@@ -69,6 +72,7 @@ func TestSyncManager(t *testing.T) {
 		"A2", "A1",
 		"A3", "A2",
 		"A4", "A3",
+		"C3", "A2",
 	})
 	simnet := simulation.NewSimnet()
 	net1 := simnet.AddEndpoint("node1")
@@ -102,7 +106,10 @@ func TestSyncManager(t *testing.T) {
 	msg1, ok := res.(dispatcher.InventoryRequest)
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
-	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), msg1.Start)
+	assert.Equal(3, len(msg1.Starts))
+	assert.Equal(core.GetTestBlock("B2").Hash().Hex(), msg1.Starts[0])
+	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), msg1.Starts[1])
+	assert.Equal(core.GetTestBlock("A0").Hash().Hex(), msg1.Starts[2])
 
 	// node2 replies with InventoryReponse
 	entries := []string{}
@@ -147,4 +154,95 @@ func TestSyncManager(t *testing.T) {
 	for i, msg := range mockMsgConsumer.Received {
 		assert.Equal(core.GetTestBlock(expected[i]).Hash(), msg.(*core.Block).Hash())
 	}
+}
+
+type MockConsensus struct {
+	chain *blockchain.Chain
+	lfb   *core.ExtendedBlock
+}
+
+func NewMockConsensus(chain *blockchain.Chain, lfb *core.ExtendedBlock) *MockConsensus {
+	return &MockConsensus{
+		chain: chain,
+		lfb:   lfb,
+	}
+}
+
+// ID() string
+// PrivateKey() *crypto.PrivateKey
+// GetTip(includePendingBlockingLeaf bool) *ExtendedBlock
+// GetEpoch() uint64
+// GetLedger() Ledger
+// AddMessage(msg interface{})
+// FinalizedBlocks() chan *Block
+// GetLastFinalizedBlock() *ExtendedBlock
+
+func (c *MockConsensus) ID() string {
+	return ""
+}
+
+func (c *MockConsensus) PrivateKey() *crypto.PrivateKey {
+	return nil
+}
+
+func (c *MockConsensus) GetTip(includePendingBlockingLeaf bool) *core.ExtendedBlock {
+	return nil
+}
+
+func (c *MockConsensus) GetEpoch() uint64 {
+	return 0
+}
+
+func (c *MockConsensus) GetLedger() core.Ledger {
+	return (*ledger.Ledger)(nil)
+}
+func (c *MockConsensus) AddMessage(msg interface{}) {
+
+}
+func (c *MockConsensus) FinalizedBlocks() chan *core.Block {
+	return make(chan *core.Block)
+}
+func (c *MockConsensus) GetLastFinalizedBlock() *core.ExtendedBlock {
+	return c.lfb
+}
+
+func TestCollectBlocks(t *testing.T) {
+	assert := assert.New(t)
+	core.ResetTestBlocks()
+
+	initChain := blockchain.CreateTestChainByBlocks([]string{
+		"A1", "A0",
+		"A2", "A1",
+		"A3", "A2",
+		"A4", "A3",
+		"A5", "A4",
+		"C3", "A2",
+		"D4", "A3",
+	})
+
+	initChain.FinalizePreviousBlocks(core.GetTestBlock("A3").Hash())
+
+	simnet := simulation.NewSimnet()
+	net1 := simnet.AddEndpoint("node1")
+	net2 := simnet.AddEndpoint("node2")
+	mockMsgHandler := &MockMsgHandler{C: make(chan interface{}, 128)}
+	net2.RegisterMessageHandler(mockMsgHandler)
+	simnet.Start(context.Background())
+
+	dispatch := dispatcher.NewDispatcher(net1)
+	a3, _ := initChain.FindBlock(core.GetTestBlock("A3").Hash())
+	consensus := NewMockConsensus(initChain, a3)
+	mockMsgConsumer := NewMockMessageConsumer()
+
+	sm := NewSyncManager(initChain, consensus, net1, dispatch, mockMsgConsumer)
+
+	blocks := sm.collectBlocks(core.GetTestBlock("A1").Hash(), core.GetTestBlock("A5").Hash())
+	// Expected blocks: [A1, A2, A3, A4, D4, A5]
+	assert.Equal(6, len(blocks))
+	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), blocks[0])
+	assert.Equal(core.GetTestBlock("A2").Hash().Hex(), blocks[1])
+	assert.Equal(core.GetTestBlock("A3").Hash().Hex(), blocks[2])
+	assert.Equal(core.GetTestBlock("A4").Hash().Hex(), blocks[3])
+	assert.Equal(core.GetTestBlock("D4").Hash().Hex(), blocks[4])
+	assert.Equal(core.GetTestBlock("A5").Hash().Hex(), blocks[5])
 }

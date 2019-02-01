@@ -10,8 +10,8 @@ const MaxInventorySize = 500
 // InventoryRequest defines the structure of the inventory request
 type InventoryRequest struct {
 	ChannelID common.ChannelIDEnum
-	Start     string
-	End       string
+	Starts    []string // Starting hashes.
+	End       string   // Optional ending hash.
 }
 
 // InventoryResponse defines the structure of the inventory response
