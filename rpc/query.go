@@ -18,6 +18,7 @@ import (
 type GetAccountArgs struct {
 	Name    string `json:"name"`
 	Address string `json:"address"`
+	Preview bool   `json:"preview"` // preview the account balance from the ScreenedView
 }
 
 type GetAccountResult struct {
@@ -32,7 +33,12 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 	address := common.HexToAddress(args.Address)
 	result.Address = args.Address
 
-	ledgerState, err := t.ledger.GetScreenedSnapshot()
+	var ledgerState *state.StoreView
+	if args.Preview {
+		ledgerState, err = t.ledger.GetScreenedSnapshot()
+	} else {
+		ledgerState, err = t.ledger.GetFinalizedSnapshot()
+	}
 	if err != nil {
 		return err
 	}
