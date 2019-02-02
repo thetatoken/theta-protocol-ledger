@@ -2,11 +2,11 @@ package snapshot
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"path"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/thetatoken/theta/blockchain"
@@ -222,28 +222,30 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 		if err != nil {
 			panic(err)
 		}
-		if needAccountStorage && strings.HasPrefix(k.String(), "ls/a/") {
-			err = core.WriteRecord(writer, []byte{core.SVStart}, height)
-			if err != nil {
-				panic(err)
-			}
+		if needAccountStorage && bytes.HasPrefix(k, []byte("ls/a")) {
 			account := &types.Account{}
 			err := types.FromBytes([]byte(v), account)
 			if err != nil {
 				logger.Errorf("Failed to parse account for %v", []byte(v))
 				panic(err)
 			}
-			storage := treestore.NewTreeStore(account.Root, db)
-			storage.Traverse(nil, func(ak, av common.Bytes) bool {
-				err = core.WriteRecord(writer, ak, av)
+			if account.Root != (common.Hash{}) {
+				err = core.WriteRecord(writer, []byte{core.SVStart}, height)
 				if err != nil {
 					panic(err)
 				}
-				return true
-			})
-			err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
-			if err != nil {
-				panic(err)
+				storage := treestore.NewTreeStore(account.Root, db)
+				storage.Traverse(nil, func(ak, av common.Bytes) bool {
+					err = core.WriteRecord(writer, ak, av)
+					if err != nil {
+						panic(err)
+					}
+					return true
+				})
+				err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 		return true

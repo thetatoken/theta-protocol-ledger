@@ -8,7 +8,6 @@ import (
 	"os"
 	"path"
 	"strconv"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -160,7 +159,7 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 
 			if svStack.peek() != nil && height == svStack.peek().Height() {
 				// it's a storeview for account storage, verify account
-				if bytes.Compare(account.Root.Bytes(), hash.Bytes()) != 0 {
+				if account.Root != hash {
 					return nil, common.Hash{}, fmt.Errorf("Account storage root doesn't match")
 				}
 			}
@@ -173,11 +172,14 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 			sv.Set(record.K, record.V)
 
 			if account == nil {
-				if strings.HasPrefix(record.K.String(), "ls/a/") {
-					account = &types.Account{}
-					err = types.FromBytes([]byte(record.V), account)
+				if bytes.HasPrefix(record.K, []byte("ls/a")) {
+					acct := &types.Account{}
+					err = types.FromBytes([]byte(record.V), acct)
 					if err != nil {
 						return nil, common.Hash{}, fmt.Errorf("Failed to parse account, %v", err)
+					}
+					if acct.Root != (common.Hash{}) {
+						account = acct
 					}
 				}
 			}
