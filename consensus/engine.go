@@ -675,7 +675,29 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 	if epoch == 0 { // special handling for genesis epoch
 		return false
 	}
-	return e.shouldProposeByID(epoch, e.ID())
+	if !e.shouldProposeByID(epoch, e.ID()) {
+		return false
+	}
+
+	// Don't propose if majority has greater block height.
+	tip := e.GetTipToExtend()
+	epochVotes, err := e.state.GetEpochVotes()
+	if err != nil {
+		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
+		return true
+	}
+	validators := e.validatorManager.GetNextValidatorSet(tip.Hash())
+	votes := core.NewVoteSet()
+	for _, v := range epochVotes.Votes() {
+		if v.Height >= tip.Height+1 {
+			votes.AddVote(v)
+		}
+	}
+	if validators.HasMajority(votes) {
+		return false
+	}
+
+	return true
 }
 
 func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {

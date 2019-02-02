@@ -138,6 +138,41 @@ func (rm *RequestManager) Wait() {
 	rm.wg.Wait()
 }
 
+func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
+	tip := rm.syncMgr.consensus.GetTip(true)
+	lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
+
+	// Build expontially backoff starting hashes:
+	// https://en.bitcoin.it/wiki/Protocol_documentation#getblocks
+	starts := []string{}
+	step := 1
+
+	// Start at the top of the chain and work backwards.
+	for index := tip.Height; index > lfb.Height; index -= uint64(step) {
+		// Push top 10 indexes first, then back off exponentially.
+		if tip.Height-index >= 10 {
+			step *= 2
+		}
+		// Check overflow
+		if uint64(step) > index || step <= 0 {
+			break
+		}
+
+		blocks := rm.syncMgr.chain.FindBlocksByHeight(index)
+		for _, b := range blocks {
+			starts = append(starts, b.Hash().Hex())
+		}
+	}
+
+	//  Push last finalized block.
+	starts = append(starts, lfb.Hash().Hex())
+
+	return dispatcher.InventoryRequest{
+		ChannelID: common.ChannelIDBlock,
+		Starts:    starts,
+	}
+}
+
 func (rm *RequestManager) tryToDownload() {
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
 	inventoryRequestIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
@@ -149,13 +184,14 @@ func (rm *RequestManager) tryToDownload() {
 		}).Info("Fast sync in progress")
 
 		rm.lastInventoryRequest = time.Now()
-		tip := rm.syncMgr.consensus.GetTip(true)
-		req := dispatcher.InventoryRequest{ChannelID: common.ChannelIDBlock, Start: tip.Hash().String()}
+		req := rm.buildInventoryRequest()
+
 		rm.logger.WithFields(log.Fields{
 			"channelID": req.ChannelID,
-			"startHash": req.Start,
-			"endHash":   req.End,
+			"starts":    req.Starts,
+			"end":       req.End,
 		}).Debug("Sending inventory request")
+
 		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	}
 
