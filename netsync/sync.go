@@ -155,52 +155,86 @@ func (sm *SyncManager) PassdownMessage(msg interface{}) {
 	sm.consumer.AddMessage(msg)
 }
 
+// locateStart finds first start hash that exists in local chain.
+func (m *SyncManager) locateStart(starts []string) common.Hash {
+	var start common.Hash
+	for i := 0; i < len(starts); i++ {
+		curr := common.HexToHash(starts[i])
+		if _, err := m.chain.FindBlock(curr); err == nil {
+			start = curr
+			break
+		}
+	}
+	return start
+}
+
+// Dump blocks from start until end or MaxInventorySize is reached.
+func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string {
+	ret := []string{}
+
+	lfbHeight := m.consensus.GetLastFinalizedBlock().Height
+	q := []common.Hash{start}
+	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize {
+		curr := q[0]
+		q = q[1:]
+		block, err := m.chain.FindBlock(curr)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"hash": curr.Hex(),
+			}).Error("Failed to find block with given hash")
+			return ret
+		}
+		ret = append(ret, curr.Hex())
+		if curr == end {
+			break
+		}
+
+		if block.Height < lfbHeight {
+			// Enqueue finalized child.
+			for _, child := range block.Children {
+				block, err := m.chain.FindBlock(child)
+				if err != nil {
+					m.logger.WithFields(log.Fields{
+						"err":  err,
+						"hash": curr,
+					}).Error("Failed to load block")
+					return ret
+				}
+				if block.Status.IsFinalized() {
+					q = append(q, block.Hash())
+					break
+				}
+			}
+		} else {
+			// Enqueue all children.
+			q = append(q, block.Children...)
+		}
+	}
+	return ret
+}
+
 func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
 	m.logger.WithFields(log.Fields{
-		"channelID": req.ChannelID,
-		"startHash": req.Start,
-		"endHash":   req.End,
+		"channelID":   req.ChannelID,
+		"startHashes": req.Starts,
+		"endHash":     req.End,
 	}).Debug("Received inventory request")
 
 	switch req.ChannelID {
 	case common.ChannelIDBlock:
-		blocks := []string{}
-		if req.Start == "" {
+
+		start := m.locateStart(req.Starts)
+		if start.IsEmpty() {
 			m.logger.WithFields(log.Fields{
 				"channelID": req.ChannelID,
-			}).Error("No start hash is specified in InvRequest")
+			}).Warn("No start hash can be found in local chain")
 			return
 		}
-		curr := common.HexToHash(req.Start)
-		end := common.HexToHash(req.End)
-		for i := 0; i < dispatcher.MaxInventorySize; i++ {
-			blocks = append(blocks, curr.Hex())
-			block, err := m.chain.FindBlock(curr)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"channelID": req.ChannelID,
-					"hash":      curr.Hex(),
-				}).Error("Failed to find block with given hash")
-				return
-			}
-			if len(block.Children) == 0 {
-				break
-			}
 
-			// Fixme: should we only send blocks on the finalized branch?
-			curr = block.Children[0]
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"err":  err,
-					"hash": curr,
-				}).Error("Failed to load block")
-				return
-			}
-			if curr == end {
-				blocks = append(blocks, end.Hex())
-				break
-			}
-		}
+		end := common.HexToHash(req.End)
+		blocks := m.collectBlocks(start, end)
+
+		// Send response.
 		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
 		m.logger.WithFields(log.Fields{
 			"channelID":         resp.ChannelID,
