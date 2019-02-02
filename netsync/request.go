@@ -145,13 +145,17 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 	// Build expontially backoff starting hashes:
 	// https://en.bitcoin.it/wiki/Protocol_documentation#getblocks
 	starts := []string{}
-	step := uint64(1)
+	step := 1
 
 	// Start at the top of the chain and work backwards.
-	for index := tip.Height; index > lfb.Height; index -= step {
+	for index := tip.Height; index > lfb.Height; index -= uint64(step) {
 		// Push top 10 indexes first, then back off exponentially.
 		if tip.Height-index >= 10 {
 			step *= 2
+		}
+		// Check overflow
+		if uint64(step) > index || step <= 0 {
+			break
 		}
 
 		blocks := rm.syncMgr.chain.FindBlocksByHeight(index)
