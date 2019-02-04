@@ -30,8 +30,8 @@ type CommitCertificate struct {
 }
 
 // Copy creates a copy of this commit certificate.
-func (cc *CommitCertificate) Copy() *CommitCertificate {
-	ret := &CommitCertificate{
+func (cc CommitCertificate) Copy() CommitCertificate {
+	ret := CommitCertificate{
 		BlockHash: cc.BlockHash,
 	}
 	if cc.Votes != nil {
@@ -40,13 +40,13 @@ func (cc *CommitCertificate) Copy() *CommitCertificate {
 	return ret
 }
 
-func (cc *CommitCertificate) String() string {
+func (cc CommitCertificate) String() string {
 	return fmt.Sprintf("CC{BlockHash: %v, Votes: %v}", cc.BlockHash.Hex(), cc.Votes)
 }
 
 // IsValid checks if a CommitCertificate is in valid format. Note that we allow
 // CommitCertificate with nil voteset in block header.
-func (cc *CommitCertificate) IsValid(validators *ValidatorSet) bool {
+func (cc CommitCertificate) IsValid(validators *ValidatorSet) bool {
 	if cc.Votes == nil || cc.Votes.IsEmpty() {
 		return true
 	}
@@ -54,7 +54,7 @@ func (cc *CommitCertificate) IsValid(validators *ValidatorSet) bool {
 }
 
 // IsProven checks if a CommitCertificate contains supporting voteset.
-func (cc *CommitCertificate) IsProven(validators *ValidatorSet) bool {
+func (cc CommitCertificate) IsProven(validators *ValidatorSet) bool {
 	if cc.Votes == nil || cc.Votes.IsEmpty() {
 		return false
 	}
