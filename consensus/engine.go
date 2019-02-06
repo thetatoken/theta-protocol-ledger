@@ -378,8 +378,13 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 
 	e.chain.MarkBlockValid(block.Hash())
 
+	// Check and process CC.
+	e.checkCC(block.Hash())
+
 	// Skip voting for block older than current best known epoch.
-	if block.Epoch < e.GetEpoch() {
+	// Allow block with one epoch behind since votes are processed first and might advance epoch
+	// before block is processed.
+	if block.Epoch < e.GetEpoch()-1 {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash().Hex(),
@@ -529,13 +534,19 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		}
 	}
 
-	// Process CC.
+	// Check and process CC.
 	if vote.Block.IsEmpty() {
 		return
 	}
-	block, err := e.Chain().FindBlock(vote.Block)
+	e.checkCC(vote.Block)
+
+	return
+}
+
+func (e *ConsensusEngine) checkCC(hash common.Hash) {
+	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
 		return
 	}
 	// Ingore outdated votes.
@@ -549,8 +560,6 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	if validators.HasMajority(votes) {
 		e.processCCBlock(block)
 	}
-
-	return
 }
 
 func (e *ConsensusEngine) GetTipToVote() *core.ExtendedBlock {
