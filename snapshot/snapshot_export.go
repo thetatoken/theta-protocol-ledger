@@ -136,11 +136,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
 	}
 
-	st := cns.NewState(kvstore.NewKVStore(db), chain)
-	childVoteSet, err := st.GetVoteSetByBlock(childBlock.Hash())
-	if err != nil {
-		return "", fmt.Errorf("Failed to get child block's votes, %v", err)
-	}
+	childVoteSet := chain.FindVotesByHash(childBlock.Hash())
 
 	vcpProof, err := proveVCP(parentBlock, db)
 	if err != nil {

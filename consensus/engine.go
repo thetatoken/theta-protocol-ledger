@@ -544,11 +544,8 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		return
 	}
 
-	votes, err := e.state.GetVoteSetByBlock(vote.Block)
-	if err != nil {
-		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
-	}
-	validators := e.validatorManager.GetValidatorSet(vote.Block)
+	votes := e.chain.FindVotesByHash(hash)
+	validators := e.validatorManager.GetValidatorSet(hash)
 	if validators.HasMajority(votes) {
 		e.processCCBlock(block)
 	}
@@ -733,10 +730,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	if !tip.Parent.IsEmpty() {
 		grandParent, err := e.chain.FindBlock(tip.Parent)
 		if err == nil && grandParent.HasValidatorUpdate {
-			votes, err := e.state.GetVoteSetByBlock(tip.Hash())
-			if err != nil {
-				e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
-			}
+			votes := e.chain.FindVotesByHash(tip.Hash())
 			block.HCC.Votes = votes.UniqueVoter()
 		}
 	}
@@ -765,12 +759,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	// Add votes that might help peers progress, e.g. votes on last CC block and latest epoch
 	// votes.
 	lastCC := e.state.GetHighestCCBlock()
-	lastCCVotes, err := e.state.GetVoteSetByBlock(lastCC.Hash())
-	if err != nil {
-		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have CCVotes
-			e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash().Hex()}).Warn("Failed to load votes for last CC block")
-		}
-	}
+	lastCCVotes := e.chain.FindVotesByHash(lastCC.Hash())
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
 		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have votes
