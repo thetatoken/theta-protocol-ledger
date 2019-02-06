@@ -212,7 +212,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Vote:
 		e.logger.WithFields(log.Fields{"vote": m}).Debug("Received vote")
-		return e.handleVote(m)
+		return e.handleStandaloneVote(m)
 	case *core.Block:
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
@@ -348,6 +348,10 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"block.Hash": block.Hash().Hex(),
 		}).Warn("Block is invalid")
 		return
+	}
+
+	for _, vote := range block.HCC.Votes.Votes() {
+		e.handleVoteInBlock(vote)
 	}
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
@@ -488,6 +492,16 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 	return true
 }
 
+func (e *ConsensusEngine) handleVoteInBlock(vote core.Vote) (endEpoch bool) {
+	return e.handleVote(vote)
+}
+
+func (e *ConsensusEngine) handleStandaloneVote(vote core.Vote) (endEpoch bool) {
+	endEpoch = e.handleVote(vote)
+	e.checkCC(vote.Block)
+	return
+}
+
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	// Validate vote.
 	if !e.validateVote(vote) {
@@ -533,17 +547,13 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 			e.state.SetEpoch(nextEpoch)
 		}
 	}
-
-	// Check and process CC.
-	if vote.Block.IsEmpty() {
-		return
-	}
-	e.checkCC(vote.Block)
-
 	return
 }
 
 func (e *ConsensusEngine) checkCC(hash common.Hash) {
+	if hash.IsEmpty() {
+		return
+	}
 	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
@@ -735,14 +745,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
-
-	if !tip.Parent.IsEmpty() {
-		grandParent, err := e.chain.FindBlock(tip.Parent)
-		if err == nil && grandParent.HasValidatorUpdate {
-			votes := e.chain.FindVotesByHash(tip.Hash())
-			block.HCC.Votes = votes.UniqueVoter()
-		}
-	}
+	block.HCC.Votes = e.chain.FindVotesByHash(block.HCC.BlockHash).UniqueVoter()
 
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
