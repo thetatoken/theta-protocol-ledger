@@ -63,7 +63,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg: &sync.WaitGroup{},
+		wg:                         &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
