@@ -1,8 +1,8 @@
-package backup
+package prune
 
 import "github.com/spf13/cobra"
 
-// PruneCmd represents the backup command
+// PruneCmd represents the prune command
 var PruneCmd = &cobra.Command{
 	Use:   "prune",
 	Short: "Manage pruning",

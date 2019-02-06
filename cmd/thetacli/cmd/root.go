@@ -6,6 +6,7 @@ import (
 	"path"
 
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/backup"
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/prune"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/snapshot"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -46,6 +47,7 @@ func init() {
 	RootCmd.AddCommand(call.CallCmd)
 	RootCmd.AddCommand(snapshot.SnapshotCmd)
 	RootCmd.AddCommand(backup.BackupCmd)
+	RootCmd.AddCommand(prune.PruneCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

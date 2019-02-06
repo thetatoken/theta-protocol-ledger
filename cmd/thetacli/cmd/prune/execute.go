@@ -1,4 +1,4 @@
-package backup
+package prune
 
 import (
 	"encoding/json"
@@ -21,7 +21,7 @@ var (
 // Example:
 //		thetacli prune execute
 var executeCmd = &cobra.Command{
-	Use:     "prune",
+	Use:     "execute",
 	Short:   "execute prune",
 	Long:    `Execute prune.`,
 	Example: `thetacli prune execute`,
