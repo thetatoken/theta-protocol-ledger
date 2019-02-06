@@ -28,6 +28,8 @@ const (
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
+	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
+	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
@@ -63,6 +65,7 @@ func init() {
 	viper.SetDefault(CfgP2PName, "Anonymous")
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
+	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
