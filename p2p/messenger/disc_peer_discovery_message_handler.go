@@ -247,6 +247,8 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 				pdmh.requestAddresses(peer)
 			}
 		}
+	} else { // no peer in the peer table, try to reconnect to seed peers
+		pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
 	}
 }
 

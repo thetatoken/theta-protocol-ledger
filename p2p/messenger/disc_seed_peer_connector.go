@@ -81,6 +81,7 @@ func (spc *SeedPeerConnector) Wait() {
 }
 
 func (spc *SeedPeerConnector) connectToSeedPeers() {
+	logger.Infof("Connecting to seed peers...")
 	perm := rand.Perm(len(spc.seedPeerNetAddresses))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		spc.wg.Add(1)
