@@ -451,7 +451,7 @@ func (e *ConsensusEngine) vote() {
 		"vote": vote,
 	}).Debug("Sending vote")
 	e.broadcastVote(vote)
-	e.handleVote(vote)
+	e.handleStandaloneVote(vote)
 }
 
 func (e *ConsensusEngine) broadcastVote(vote core.Vote) {
