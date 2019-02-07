@@ -40,8 +40,16 @@ func prune(start uint64, end uint64, db database.Database, consensus *cns.Consen
 
 	stateHashMap := make(map[string]bool)
 	for height := end; height >= start && height > 0; height-- {
+		logger.Errorf("============== height: %v", height)
 		blocks := chain.FindBlocksByHeight(height)
-		logger.Errorf("===== # blocks at height %v: %v", height, len(blocks))
+
+		for i, block := range blocks {
+			if block.HasValidatorUpdate {
+				stateHashMap[block.StateHash.String()] = true
+				blocks = append(blocks[:i], blocks[i+1:]...)
+				break
+			}
+		}
 		for _, block := range blocks {
 			logger.Errorf("==============> %v, %v, %v", height, block.StateHash.String(), block.HasValidatorUpdate)
 			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
