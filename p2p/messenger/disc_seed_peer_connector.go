@@ -80,7 +80,17 @@ func (spc *SeedPeerConnector) Wait() {
 	spc.wg.Wait()
 }
 
+func (spc *SeedPeerConnector) isASeedPeer(netAddr *netutil.NetAddress) bool {
+	for _, seedAddr := range spc.seedPeerNetAddresses {
+		if netAddr.Equals(&seedAddr) {
+			return true
+		}
+	}
+	return false
+}
+
 func (spc *SeedPeerConnector) connectToSeedPeers() {
+	logger.Infof("Connecting to seed peers...")
 	perm := rand.Perm(len(spc.seedPeerNetAddresses))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		spc.wg.Add(1)

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/thetatoken/theta/rlp"
 
 	"github.com/thetatoken/theta/common"
@@ -63,7 +65,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg: &sync.WaitGroup{},
+		wg:                         &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -166,8 +168,15 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
 	validAddressMap := make(map[*netutil.NetAddress]bool)
-
 	for _, idAddr := range message.Addresses {
+		isNotASeedPeer := !pdmh.discMgr.seedPeerConnector.isASeedPeer(idAddr.Addr)
+		if seedPeerOnlyOutbound() && isNotASeedPeer {
+			// Sometimes we want to run some nodes behind firewalls. We only allow these nodes to proactively
+			// connect to the seed peers (i.e. only the seed peers can be outbound peers). Such nodes can
+			// still accept inbound connections from non-seed peers based on the firewall rules.
+			continue
+		}
+
 		if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
 			validAddressMap[idAddr.Addr] = true
 		}
@@ -247,6 +256,8 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 				pdmh.requestAddresses(peer)
 			}
 		}
+	} else { // no peer left in the peer table, try to reconnect to seed peers
+		pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
 	}
 }
 
@@ -268,4 +279,9 @@ func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDAddr
 func decodePeerDiscoveryMessage(msgBytes common.Bytes) (message PeerDiscoveryMessage, err error) {
 	err = rlp.DecodeBytes(msgBytes, &message)
 	return
+}
+
+func seedPeerOnlyOutbound() bool {
+	seedOnlyOutbound := viper.GetBool(common.CfgP2PSeedPeerOnlyOutbound)
+	return seedOnlyOutbound
 }

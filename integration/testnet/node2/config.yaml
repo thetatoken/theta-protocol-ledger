@@ -4,5 +4,6 @@ genesis:
 p2p:
   port: 12000
   seeds: 127.0.0.1:11000,127.0.0.1:13000,127.0.0.1:14000
+  seedPeerOnlyOutbound: true
 rpc:
   enabled: true

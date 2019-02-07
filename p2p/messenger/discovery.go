@@ -152,6 +152,7 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	logger.Infof("HandlePeerWithErrors, peerRemoteAddress: %v", peerRemoteAddress)
 	logger.Infof("HandlePeerWithErrors, lookedUpPeerRemoteAddress: %v", lookedUpPeerRemoteAddress)
 	if peerRemoteAddress != lookedUpPeerRemoteAddress {
+		logger.Warnf("Will not reconnect, since peerRemoteAddress and lookedUpPeerRemoteAddress are not the same")
 		return
 		// lookedUpPeer might be created by the inbound connection. A senario is that
 		// the peer restarted and established a new connection with us. In this case,

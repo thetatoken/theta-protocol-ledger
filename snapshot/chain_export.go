@@ -14,7 +14,6 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database"
-	"github.com/thetatoken/theta/store/kvstore"
 )
 
 func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, startHeight, endHeight uint64, backupDir string) (actualEndHeight uint64, backupFile string, err error) {
@@ -49,15 +48,11 @@ func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, cha
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
-	st := cns.NewState(kvstore.NewKVStore(db), chain)
 
 	actualEndHeight = finalizedBlock.Height
 
 	for {
-		voteSet, err := st.GetVoteSetByBlock(finalizedBlock.Hash())
-		if err != nil {
-			return 0, "", fmt.Errorf("Failed to get block's voteset, %v", err)
-		}
+		voteSet := chain.FindVotesByHash(finalizedBlock.Hash())
 		backupBlock := &core.BackupBlock{Block: finalizedBlock, Votes: voteSet}
 		writeBlock(writer, backupBlock)
 

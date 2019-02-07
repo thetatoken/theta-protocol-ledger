@@ -369,7 +369,16 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		"block.Parent": block.Parent.Hex(),
 	}).Debug("Received block")
 
+	if _, err := sm.chain.FindBlock(block.Hash()); err == nil {
+		return
+	}
+
 	sm.requestMgr.AddBlock(block)
+
+	sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+		ChannelID: common.ChannelIDBlock,
+		Entries:   []string{block.Hash().Hex()},
+	})
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {
@@ -379,5 +388,24 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 		"vote.Epoch": vote.Epoch,
 	}).Debug("Received vote")
 
+	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
+	for _, v := range votes {
+		// Check if vote already processed.
+		if v.Block == vote.Block && v.Epoch == vote.Epoch && v.Height == vote.Height && v.ID == vote.ID {
+			return
+		}
+	}
+
 	sm.PassdownMessage(vote)
+
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	msg := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDVote,
+		Payload:   payload,
+	}
+	sm.dispatcher.SendData([]string{}, msg)
 }

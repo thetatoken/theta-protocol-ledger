@@ -212,7 +212,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Vote:
 		e.logger.WithFields(log.Fields{"vote": m}).Debug("Received vote")
-		return e.handleVote(m)
+		return e.handleStandaloneVote(m)
 	case *core.Block:
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
@@ -350,6 +350,10 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
+	for _, vote := range block.HCC.Votes.Votes() {
+		e.handleVoteInBlock(vote)
+	}
+
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -378,8 +382,13 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 
 	e.chain.MarkBlockValid(block.Hash())
 
+	// Check and process CC.
+	e.checkCC(block.Hash())
+
 	// Skip voting for block older than current best known epoch.
-	if block.Epoch < e.GetEpoch() {
+	// Allow block with one epoch behind since votes are processed first and might advance epoch
+	// before block is processed.
+	if block.Epoch < e.GetEpoch()-1 {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash().Hex(),
@@ -483,6 +492,16 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 	return true
 }
 
+func (e *ConsensusEngine) handleVoteInBlock(vote core.Vote) (endEpoch bool) {
+	return e.handleVote(vote)
+}
+
+func (e *ConsensusEngine) handleStandaloneVote(vote core.Vote) (endEpoch bool) {
+	endEpoch = e.handleVote(vote)
+	e.checkCC(vote.Block)
+	return
+}
+
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	// Validate vote.
 	if !e.validateVote(vote) {
@@ -528,14 +547,16 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 			e.state.SetEpoch(nextEpoch)
 		}
 	}
+	return
+}
 
-	// Process CC.
-	if vote.Block.IsEmpty() {
+func (e *ConsensusEngine) checkCC(hash common.Hash) {
+	if hash.IsEmpty() {
 		return
 	}
-	block, err := e.Chain().FindBlock(vote.Block)
+	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"vote.block": vote.Block.Hex()}).Warn("Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
 		return
 	}
 	// Ingore outdated votes.
@@ -544,16 +565,11 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		return
 	}
 
-	votes, err := e.state.GetVoteSetByBlock(vote.Block)
-	if err != nil {
-		e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
-	}
-	validators := e.validatorManager.GetValidatorSet(vote.Block)
+	votes := e.chain.FindVotesByHash(hash)
+	validators := e.validatorManager.GetValidatorSet(hash)
 	if validators.HasMajority(votes) {
 		e.processCCBlock(block)
 	}
-
-	return
 }
 
 func (e *ConsensusEngine) GetTipToVote() *core.ExtendedBlock {
@@ -729,17 +745,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
-
-	if !tip.Parent.IsEmpty() {
-		grandParent, err := e.chain.FindBlock(tip.Parent)
-		if err == nil && grandParent.HasValidatorUpdate {
-			votes, err := e.state.GetVoteSetByBlock(tip.Hash())
-			if err != nil {
-				e.logger.WithFields(log.Fields{"err": err}).Panic("Failed to retrieve vote set by block")
-			}
-			block.HCC.Votes = votes.UniqueVoter()
-		}
-	}
+	block.HCC.Votes = e.chain.FindVotesByHash(block.HCC.BlockHash).UniqueVoter()
 
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs()
@@ -765,12 +771,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	// Add votes that might help peers progress, e.g. votes on last CC block and latest epoch
 	// votes.
 	lastCC := e.state.GetHighestCCBlock()
-	lastCCVotes, err := e.state.GetVoteSetByBlock(lastCC.Hash())
-	if err != nil {
-		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have CCVotes
-			e.logger.WithFields(log.Fields{"error": err, "block": lastCC.Hash().Hex()}).Warn("Failed to load votes for last CC block")
-		}
-	}
+	lastCCVotes := e.chain.FindVotesByHash(lastCC.Hash())
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
 		if lastCC.Height > core.GenesisBlockHeight { // OK for the genesis block not to have votes

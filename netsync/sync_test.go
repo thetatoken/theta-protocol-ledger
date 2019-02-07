@@ -100,16 +100,22 @@ func TestSyncManager(t *testing.T) {
 		},
 	})
 
-	// node1 should broadcast InventoryRequest
+	// node1 should broadcast InventoryResponse
 	var res interface{}
 	res = <-mockMsgHandler.C
-	msg1, ok := res.(dispatcher.InventoryRequest)
+	msg1, ok := res.(dispatcher.InventoryResponse)
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
-	assert.Equal(3, len(msg1.Starts))
-	assert.Equal(core.GetTestBlock("B2").Hash().Hex(), msg1.Starts[0])
-	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), msg1.Starts[1])
-	assert.Equal(core.GetTestBlock("A0").Hash().Hex(), msg1.Starts[2])
+	assert.Equal(core.GetTestBlock("A4").Hash().Hex(), msg1.Entries[0])
+
+	res = <-mockMsgHandler.C
+	msg2, ok := res.(dispatcher.InventoryRequest)
+	assert.True(ok)
+	assert.Equal(common.ChannelIDBlock, msg2.ChannelID)
+	assert.Equal(3, len(msg2.Starts))
+	assert.Equal(core.GetTestBlock("B2").Hash().Hex(), msg2.Starts[0])
+	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), msg2.Starts[1])
+	assert.Equal(core.GetTestBlock("A0").Hash().Hex(), msg2.Starts[2])
 
 	// node2 replies with InventoryReponse
 	entries := []string{}

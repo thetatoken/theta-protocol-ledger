@@ -257,9 +257,6 @@ func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
 }
 
 func (rm *RequestManager) AddBlock(block *core.Block) {
-	if _, err := rm.chain.FindBlock(block.Hash()); err == nil {
-		return
-	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		pendingBlock.block = block

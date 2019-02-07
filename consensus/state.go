@@ -201,30 +201,8 @@ func (s *State) AddVote(vote *core.Vote) error {
 	if err := s.AddEpochVote(vote); err != nil {
 		return err
 	}
-	if err := s.AddVoteByBlock(vote); err != nil {
-		return err
-	}
+	s.chain.AddVoteToIndex(*vote)
 	return nil
-}
-
-func (s *State) GetVoteSetByBlock(hash common.Hash) (*core.VoteSet, error) {
-	key := append([]byte(DBVoteByBlockPrefix), hash[:]...)
-	ret := core.NewVoteSet()
-	err := s.db.Get(key, ret)
-	return ret, err
-}
-
-func (s *State) AddVoteByBlock(vote *core.Vote) error {
-	if vote.Block.IsEmpty() {
-		return nil
-	}
-	voteset, err := s.GetVoteSetByBlock(vote.Block)
-	if err != nil {
-		voteset = core.NewVoteSet()
-	}
-	voteset.AddVote(*vote)
-	key := append([]byte(DBVoteByBlockPrefix), vote.Block[:]...)
-	return s.db.Put(key, voteset)
 }
 
 func (s *State) GetEpochVotes() (*core.VoteSet, error) {

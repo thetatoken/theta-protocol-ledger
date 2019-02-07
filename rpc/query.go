@@ -84,6 +84,7 @@ type GetTransactionResult struct {
 	BlockHeight common.JSONUint64 `json:"block_height"`
 	Status      TxStatus          `json:"status"`
 	TxHash      common.Hash       `json:"hash"`
+	Type        byte              `json:"type"`
 	Tx          types.Tx          `json:"transaction"`
 }
 
@@ -120,6 +121,7 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return err
 	}
 	result.Tx = tx
+	result.Type = getTxType(tx)
 
 	return nil
 }
@@ -205,29 +207,7 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := byte(0x0)
-		switch tx.(type) {
-		case *types.CoinbaseTx:
-			t = TxTypeCoinbase
-		case *types.SlashTx:
-			t = TxTypeSlash
-		case *types.SendTx:
-			t = TxTypeSend
-		case *types.ReserveFundTx:
-			t = TxTypeReserveFund
-		case *types.ReleaseFundTx:
-			t = TxTypeReleaseFund
-		case *types.ServicePaymentTx:
-			t = TxTypeServicePayment
-		case *types.SplitRuleTx:
-			t = TxTypeSplitRule
-		case *types.SmartContractTx:
-			t = TxTypeSmartContract
-		case *types.DepositStakeTx:
-			t = TxTypeDepositStake
-		case *types.WithdrawStakeTx:
-			t = TxTypeWithdrawStake
-		}
+		t := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
@@ -286,29 +266,7 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := byte(0x0)
-		switch tx.(type) {
-		case *types.CoinbaseTx:
-			t = TxTypeCoinbase
-		case *types.SlashTx:
-			t = TxTypeSlash
-		case *types.SendTx:
-			t = TxTypeSend
-		case *types.ReserveFundTx:
-			t = TxTypeReserveFund
-		case *types.ReleaseFundTx:
-			t = TxTypeReleaseFund
-		case *types.ServicePaymentTx:
-			t = TxTypeServicePayment
-		case *types.SplitRuleTx:
-			t = TxTypeSplitRule
-		case *types.SmartContractTx:
-			t = TxTypeSmartContract
-		case *types.DepositStakeTx:
-			t = TxTypeDepositStake
-		case *types.WithdrawStakeTx:
-			t = TxTypeWithdrawStake
-		}
+		t := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
@@ -391,4 +349,34 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	result.BlockHashVcpPairs = blockHashVcpPairs
 
 	return nil
+}
+
+// ------------------------------ Utils ------------------------------
+
+func getTxType(tx types.Tx) byte {
+	t := byte(0x0)
+	switch tx.(type) {
+	case *types.CoinbaseTx:
+		t = TxTypeCoinbase
+	case *types.SlashTx:
+		t = TxTypeSlash
+	case *types.SendTx:
+		t = TxTypeSend
+	case *types.ReserveFundTx:
+		t = TxTypeReserveFund
+	case *types.ReleaseFundTx:
+		t = TxTypeReleaseFund
+	case *types.ServicePaymentTx:
+		t = TxTypeServicePayment
+	case *types.SplitRuleTx:
+		t = TxTypeSplitRule
+	case *types.SmartContractTx:
+		t = TxTypeSmartContract
+	case *types.DepositStakeTx:
+		t = TxTypeDepositStake
+	case *types.WithdrawStakeTx:
+		t = TxTypeWithdrawStake
+	}
+
+	return t
 }

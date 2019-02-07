@@ -14,7 +14,7 @@ const (
 	MinimumTransactionFeeTFuelWei uint64 = 1e12
 
 	// MaxAccountsAffectedPerTx specifies the max number of accounts one transaction is allowed to modify to avoid spamming
-	MaxAccountsAffectedPerTx = 10000
+	MaxAccountsAffectedPerTx = 512
 )
 
 const (
