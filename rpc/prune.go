@@ -34,22 +34,36 @@ func prune(start uint64, end uint64, db database.Database, consensus *cns.Consen
 		return fmt.Errorf("Failed to get last finalized block %v, %v", stub.LastFinalizedBlock, err)
 	}
 
-	if end > lastFinalizedBlock.Height {
-		return fmt.Errorf("Can't prune at height > %v yet", lastFinalizedBlock.Height)
+	if end >= lastFinalizedBlock.Height {
+		return fmt.Errorf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
 	}
 
-	for height := end; height >= start; height-- {
+	stateHashMap := make(map[string]bool)
+	for height := end; height >= start && height > 0; height-- {
 		blocks := chain.FindBlocksByHeight(height)
+		logger.Errorf("===== # blocks at height %v: %v", height, len(blocks))
 		for _, block := range blocks {
-			if block.HasValidatorUpdate {
-				continue
-			}
-			sv := state.NewStoreView(height, block.StateHash, db)
-			err = sv.Prune()
-			if err != nil {
-				return fmt.Errorf("Failed to prune storeview at height %v, %v", height, err)
+			logger.Errorf("==============> %v, %v, %v", height, block.StateHash.String(), block.HasValidatorUpdate)
+			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
+				if block.HasValidatorUpdate {
+					continue
+				}
+				sv := state.NewStoreView(height, block.StateHash, db)
+				err = sv.Prune()
+				if err != nil {
+					return fmt.Errorf("Failed to prune storeview at height %v, %v", height, err)
+				}
+				// stateHashMap[block.StateHash.String()] = true
+				logger.Errorf("==============+++ %v", stateHashMap)
 			}
 		}
 	}
+	logger.Errorf("========------------======")
+	blocks := chain.FindBlocksByHeight(0)
+	logger.Errorf("===== # blocks at height 0: %v", len(blocks))
+	for _, block := range blocks {
+		logger.Errorf("==============> %v, %v", block.StateHash.String(), block.HasValidatorUpdate)
+	}
+
 	return nil
 }
