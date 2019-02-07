@@ -486,8 +486,6 @@ func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	t.root = cached
 	t.cachegen++
 
-	ref, _ := t.db.diskdb.CountReference(t.Root())
-	logger.Errorf("<<<<<<<<<<< COMMIT >>>>>>>>> %v has References: %v", string(t.Root()), ref)
 	return common.BytesToHash(hash.(hashNode)), nil
 }
 
@@ -505,25 +503,10 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	hash, _ := t.root.cache()
-
-	ref, _ := t.db.diskdb.CountReference(hash[:])
-	logger.Errorf("####### BEFORE ######## %v has References: %v", hash.String(), ref)
-
 	err := t.pruneNode(t.root, cb)
 	if err != nil {
 		return err
 	}
-
-	ref, _ = t.db.diskdb.CountReference(hash[:])
-	logger.Errorf("######## AFTER ####### %v has References: %v", hash.String(), ref)
-	_, err = t.db.diskdb.Get(hash[:])
-	if err == store.ErrKeyNotFound {
-		logger.Errorf("######## GONE ####### %v", hash.String())
-	} else {
-		logger.Errorf("######## EXISTING ####### %v", hash.String())
-	}
-
 	return nil
 }
 

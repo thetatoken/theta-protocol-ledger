@@ -2,11 +2,14 @@ package rpc
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/thetatoken/theta/blockchain"
 	cns "github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/store/database"
+	"github.com/thetatoken/theta/store/kvstore"
 )
 
 type PruneArgs struct {
@@ -38,20 +41,39 @@ func prune(start uint64, end uint64, db database.Database, consensus *cns.Consen
 		return fmt.Errorf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
 	}
 
-	stateHashMap := make(map[string]bool)
-	for height := end; height >= start && height > 0; height-- {
-		logger.Errorf("============== height: %v", height)
-		blocks := chain.FindBlocksByHeight(height)
+	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
-		for i, block := range blocks {
-			if block.HasValidatorUpdate {
-				stateHashMap[block.StateHash.String()] = true
-				blocks = append(blocks[:i], blocks[i+1:]...)
-				break
+	stateHashMap := make(map[string]bool)
+	kvStore := kvstore.NewKVStore(db)
+	hl := sv.GetStakeTransactionHeightList().Heights
+	for _, height := range hl {
+		// check kvstore first
+		blockTrio := &core.SnapshotBlockTrio{}
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 10))
+		err := kvStore.Get(blockTrioKey, blockTrio)
+		if err == nil {
+			stateHashMap[blockTrio.First.Header.StateHash.String()] = true
+			continue
+		}
+
+		if height == core.GenesisBlockHeight {
+			blocks := chain.FindBlocksByHeight(core.GenesisBlockHeight)
+			genesisBlock := blocks[0]
+			stateHashMap[genesisBlock.StateHash.String()] = true
+		} else {
+			blocks := chain.FindBlocksByHeight(height)
+			for _, block := range blocks {
+				if block.Status.IsDirectlyFinalized() {
+					stateHashMap[block.StateHash.String()] = true
+					break
+				}
 			}
 		}
+	}
+
+	for height := end; height >= start && height > 0; height-- {
+		blocks := chain.FindBlocksByHeight(height)
 		for _, block := range blocks {
-			logger.Errorf("==============> %v, %v, %v", height, block.StateHash.String(), block.HasValidatorUpdate)
 			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
 				if block.HasValidatorUpdate {
 					continue
@@ -61,16 +83,8 @@ func prune(start uint64, end uint64, db database.Database, consensus *cns.Consen
 				if err != nil {
 					return fmt.Errorf("Failed to prune storeview at height %v, %v", height, err)
 				}
-				// stateHashMap[block.StateHash.String()] = true
-				logger.Errorf("==============+++ %v", stateHashMap)
 			}
 		}
-	}
-	logger.Errorf("========------------======")
-	blocks := chain.FindBlocksByHeight(0)
-	logger.Errorf("===== # blocks at height 0: %v", len(blocks))
-	for _, block := range blocks {
-		logger.Errorf("==============> %v, %v", block.StateHash.String(), block.HasValidatorUpdate)
 	}
 
 	return nil
