@@ -512,9 +512,11 @@ func (sv *StoreView) Prune() error {
 		account := &types.Account{}
 		err := types.FromBytes(node, account)
 		if err != nil {
-			panic(fmt.Errorf("Failed to parse account for %v", node))
+			return false
 		}
-
+		if account.Root == (common.Hash{}) {
+			return false
+		}
 		storage := sv.getAccountStorage(account)
 		err = storage.Prune(nil)
 		if err != nil {

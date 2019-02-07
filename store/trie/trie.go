@@ -503,16 +503,28 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 	defer t.mu.RUnlock()
 
 	hash, _ := t.root.cache()
-	for {
-		_, err := t.db.diskdb.Get(hash[:])
-		if err == store.ErrKeyNotFound {
-			break
-		}
-		err = t.pruneNode(t.root, cb)
-		if err != nil {
-			return err
-		}
+	// for {
+	// 	_, err := t.db.diskdb.Get(hash[:])
+	// 	if err == store.ErrKeyNotFound {
+	// 		break
+	// 	}
+	ref, _ := t.db.diskdb.CountReference(hash[:])
+	logger.Errorf("####### BEFORE ######## %v has References: %v", hash.String(), ref)
+
+	err := t.pruneNode(t.root, cb)
+	if err != nil {
+		return err
 	}
+
+	ref, _ = t.db.diskdb.CountReference(hash[:])
+	logger.Errorf("######## AFTER ####### %v has References: %v", hash.String(), ref)
+	_, err = t.db.diskdb.Get(hash[:])
+	if err == store.ErrKeyNotFound {
+		logger.Errorf("######## GONE ####### %v", hash.String())
+	} else {
+		logger.Errorf("######## EXISTING ####### %v", hash.String())
+	}
+	// }
 	return nil
 }
 
