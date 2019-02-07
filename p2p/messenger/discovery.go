@@ -188,7 +188,7 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
-		logger.Errorf("Failed to create outbound peer: %v", peerNetAddress)
+		logger.Warnf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
 	}
 	peer.SetPersistency(persistent)

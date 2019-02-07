@@ -53,7 +53,7 @@ type PeerConfig struct {
 func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
-		logger.Errorf("Error dialing the peer: %v", peerAddr)
+		logger.Warnf("Error dialing the peer: %v", peerAddr)
 		return nil, err
 	}
 	peer := createPeer(netconn, true, peerConfig, connConfig)
