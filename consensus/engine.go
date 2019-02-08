@@ -642,14 +642,18 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	e.state.SetHighestCCBlock(ccBlock)
 	e.chain.CommitBlock(ccBlock.Hash())
 
+	if ccBlock.Parent != ccBlock.HCC.BlockHash {
+		return
+	}
+
+	// Finalize condition: b1 is finalized iff there is b2 where b2 is committed and
+	// b2.Parent == b2.HCC == b1.
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
-	if parent.Status.IsCommitted() {
-		e.finalizeBlock(parent)
-	}
+	e.finalizeBlock(parent)
 }
 
 func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
