@@ -554,7 +554,11 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
 		return
 	}
-	// Ingore outdated votes.
+	// Skip if block already has CC.
+	if block.Status.IsCommitted() || block.Status.IsFinalized() {
+		return
+	}
+	// Ignore outdated votes.
 	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
 	if block.Height < highestCCBlockHeight {
 		return
