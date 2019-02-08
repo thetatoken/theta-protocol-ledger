@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path"
 	"strings"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -92,13 +93,27 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("Multiple encrypted keys detected under %v. Please keep only one key.", path.Join(keysDir, "encrypted"))
 	}
 
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println(" ######################################################### ")
+	fmt.Println("#                                                         #")
+	fmt.Println("#  _    _      _ _         _______ _          _           #")
+	fmt.Println("#  | |  | |    | | |       |__   __| |        | |         #")
+	fmt.Println("#  | |__| | ___| | | ___      | |  | |__   ___| |_ __ _   #")
+	fmt.Println("#  |  __  |/ _ \\ | |/ _ \\     | |  | '_ \\ / _ \\ __/ _` |  #")
+	fmt.Println("#  | |  | |  __/ | | (_) |    | |  | | | |  __/ || (_| |  #")
+	fmt.Println("#  |_|  |_|\\___|_|_|\\___/     |_|  |_| |_|\\___|\\__\\__,_|  #")
+	fmt.Println("#                                                         #")
+	fmt.Println("#                                                         #")
+	fmt.Println(" ######################################################### ")
+	fmt.Println("")
+	fmt.Println("")
+
 	var password string
 	var nodeAddrss common.Address
 	if numAddrs == 0 {
 		fmt.Println("")
-		fmt.Println(" --------------------------------------------------------------------------------------------------------------------")
-		fmt.Println("| You are launching the Theta Node for the first time. Welcome and please follow the instructions to setup the node. |")
-		fmt.Println(" --------------------------------------------------------------------------------------------------------------------")
+		fmt.Println("You are launching the Theta Node for the first time. Welcome and please follow the instructions to setup the node.")
 		fmt.Println("")
 
 		firstPrompt := fmt.Sprintf("Please choose your password for the Theta Node: ")
@@ -114,10 +129,15 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 		if firstPassword != secondPassword {
 			return nil, fmt.Errorf("Passwords do not match")
 		}
-		fmt.Println("Thanks and please store your password securely. You will need it each time you launch the Theta node.")
+
 		fmt.Println("")
-		fmt.Println("Please press enter to continue..")
-		utils.GetConfirmation()
+		fmt.Println("-----------------------------------------------------------------------------------------------------")
+		fmt.Println("IMPORTANT: Please store your password securely. You will need it each time you launch the Theta node.")
+		fmt.Println("-----------------------------------------------------------------------------------------------------")
+		fmt.Println("")
+
+		// fmt.Println("Please press enter to continue..")
+		// utils.GetConfirmation()
 
 		password = firstPassword
 
@@ -132,13 +152,10 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 			return nil, err
 		}
 		nodeAddrss = key.Address
-	} else {
-		fmt.Println("")
-		fmt.Println(" ----------------------------------------------------------")
-		fmt.Println("|                      Hello, Theta!                       |")
-		fmt.Println(" ----------------------------------------------------------")
-		fmt.Println("")
 
+		printCountdown()
+
+	} else {
 		prompt := fmt.Sprintf("Please enter the password to launch the Theta node: ")
 		password, err = utils.GetPassword(prompt)
 		if err != nil {
@@ -168,4 +185,12 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}
 	return messenger
+}
+
+func printCountdown() {
+	for i := 10; i >= 0; i-- {
+		fmt.Printf("\rLaunching Theta: %d...", i)
+		time.Sleep(1 * time.Second)
+	}
+	fmt.Printf("\n\n")
 }
