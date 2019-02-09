@@ -3,9 +3,7 @@ package consensus
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
-	"math/rand"
 	"sync"
 	"time"
 
@@ -50,8 +48,6 @@ type ConsensusEngine struct {
 	proposalTimer *time.Timer
 
 	state *State
-
-	rand *rand.Rand
 }
 
 // NewConsensusEngine creates a instance of ConsensusEngine.
@@ -77,8 +73,6 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 	e.logger = logger
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
-
-	e.rand = rand.New(rand.NewSource(time.Now().Unix()))
 
 	return e
 }
@@ -186,12 +180,7 @@ func (e *ConsensusEngine) enterEpoch() {
 	if e.proposalTimer != nil {
 		e.proposalTimer.Stop()
 	}
-	if e.shouldPropose(e.GetEpoch()) {
-		e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
-	} else {
-		e.proposalTimer = time.NewTimer(math.MaxInt64)
-		e.proposalTimer.Stop()
-	}
+	e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface.
@@ -683,12 +672,6 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	case e.finalizedBlocks <- block.Block:
 	default:
 	}
-}
-
-func (e *ConsensusEngine) randHex() []byte {
-	bytes := make([]byte, 10)
-	e.rand.Read(bytes)
-	return bytes
 }
 
 func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
