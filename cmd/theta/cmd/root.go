@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -44,6 +45,7 @@ func initConfig() {
 	viper.SetConfigName("config")
 
 	viper.AutomaticEnv() // read in environment variables that match
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
