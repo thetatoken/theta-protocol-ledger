@@ -354,6 +354,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	for _, vote := range block.HCC.Votes.Votes() {
 		e.handleVote(vote)
 	}
+	e.checkCC(block.Hash())
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
