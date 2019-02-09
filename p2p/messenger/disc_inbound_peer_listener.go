@@ -113,7 +113,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	for {
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {
-			panic(fmt.Sprintf("net listener error: %v", err))
+			logger.Fatalf("net listener error: %v", err)
 		}
 
 		peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
@@ -145,11 +145,11 @@ func (ipl *InboundPeerListener) String() string {
 func splitHostPort(addr string) (host string, port int) {
 	host, portStr, err := net.SplitHostPort(addr)
 	if err != nil {
-		panic(fmt.Sprintf("failed to split host and port for: %v, err: %v", addr, err))
+		logger.Fatalf("failed to split host and port for: %v, err: %v", addr, err)
 	}
 	port, err = strconv.Atoi(portStr)
 	if err != nil {
-		panic(fmt.Sprintf("failed to extract port for: %v, err: %v", addr, err))
+		logger.Fatalf("failed to extract port for: %v, err: %v", addr, err)
 	}
 	return host, port
 }
@@ -165,7 +165,7 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 		}
 	}
 	if err != nil {
-		panic(fmt.Sprintf("Failed to initiate net listener: %v", err))
+		logger.Fatalf("Failed to initiate net listener: %v", err)
 	}
 
 	return netListener
@@ -174,7 +174,7 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 func getInternalNetAddress(localAddr string) *netutil.NetAddress {
 	internalAddr, err := netutil.NewNetAddressString(localAddr)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to get internal network address: %v", err))
+		logger.Fatalf("Failed to get internal network address: %v", err)
 	}
 	return internalAddr
 }
@@ -192,7 +192,7 @@ func getExternalNetAddress(localAddrIP string, localAddrPort int, listenerPort i
 		externalAddr = getNaiveExternalAddress(listenerPort)
 	}
 	if externalAddr == nil {
-		panic(fmt.Sprintf("Could not determine external address!"))
+		logger.Fatalf("Could not determine external address!")
 	}
 
 	return externalAddr
@@ -229,7 +229,7 @@ func getUPNPExternalAddress(externalPort, internalPort int) *netutil.NetAddress 
 func getNaiveExternalAddress(port int) *netutil.NetAddress {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		panic(fmt.Sprintf("Could not fetch interface addresses: %v", err))
+		logger.Fatalf("Could not fetch interface addresses: %v", err)
 	}
 
 	for _, a := range addrs {
