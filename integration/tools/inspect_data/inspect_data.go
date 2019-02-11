@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
@@ -123,5 +124,5 @@ func fmtValue(value []byte) string {
 		return fmt.Sprintf("%v", bbhie)
 	}
 
-	return fmt.Sprintf("%v", value)
+	return fmt.Sprintf("%v", common.Bytes2Hex(value))
 }

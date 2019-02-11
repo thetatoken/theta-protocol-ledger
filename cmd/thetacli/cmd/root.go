@@ -7,7 +7,6 @@ import (
 
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/backup"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/prune"
-	"github.com/thetatoken/theta/cmd/thetacli/cmd/snapshot"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
@@ -45,7 +44,6 @@ func init() {
 	RootCmd.AddCommand(tx.TxCmd)
 	RootCmd.AddCommand(query.QueryCmd)
 	RootCmd.AddCommand(call.CallCmd)
-	RootCmd.AddCommand(snapshot.SnapshotCmd)
 	RootCmd.AddCommand(backup.BackupCmd)
 	RootCmd.AddCommand(prune.PruneCmd)
 }
