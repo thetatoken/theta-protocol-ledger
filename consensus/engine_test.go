@@ -122,6 +122,19 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Height = 1
+	invalidBlock.Epoch = 4
+	invalidBlock.Parent = chain.Root().Hash()
+	invalidBlock.HCC.BlockHash = common.HexToHash("a0b1")
+	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
+	invalidBlock.Proposer = privKey.PublicKey().Address()
+	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
+	_, err = chain.AddBlock(invalidBlock)
+	require.Nil(err)
+	require.False(ce.validateBlock(invalidBlock, chain.Root()), "HCC not found")
+
+	invalidBlock = core.NewBlock()
+	invalidBlock.ChainID = chain.ChainID
+	invalidBlock.Height = 1
 	invalidBlock.Epoch = 5
 	invalidBlock.Parent = chain.Root().Hash()
 	invalidBlock.HCC.BlockHash = invalidBlock.Parent

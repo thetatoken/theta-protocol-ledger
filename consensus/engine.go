@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
@@ -212,7 +211,9 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	switch m := msg.(type) {
 	case core.Vote:
 		e.logger.WithFields(log.Fields{"vote": m}).Debug("Received vote")
-		return e.handleStandaloneVote(m)
+		endEpoch = e.handleVote(m)
+		e.checkCC(m.Block)
+		return endEpoch
 	case *core.Block:
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
@@ -351,8 +352,9 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	}
 
 	for _, vote := range block.HCC.Votes.Votes() {
-		e.handleVoteInBlock(vote)
+		e.handleVote(vote)
 	}
+	e.checkCC(block.Hash())
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
@@ -451,7 +453,11 @@ func (e *ConsensusEngine) vote() {
 		"vote": vote,
 	}).Debug("Sending vote")
 	e.broadcastVote(vote)
-	e.handleStandaloneVote(vote)
+
+	// e.handleStandaloneVote(vote)
+	go func() {
+		e.AddMessage(vote)
+	}()
 }
 
 func (e *ConsensusEngine) broadcastVote(vote core.Vote) {
@@ -490,16 +496,6 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 		return false
 	}
 	return true
-}
-
-func (e *ConsensusEngine) handleVoteInBlock(vote core.Vote) (endEpoch bool) {
-	return e.handleVote(vote)
-}
-
-func (e *ConsensusEngine) handleStandaloneVote(vote core.Vote) (endEpoch bool) {
-	endEpoch = e.handleVote(vote)
-	e.checkCC(vote.Block)
-	return
 }
 
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
@@ -559,7 +555,11 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
 		return
 	}
-	// Ingore outdated votes.
+	// Skip if block already has CC.
+	if block.Status.IsCommitted() || block.Status.IsFinalized() {
+		return
+	}
+	// Ignore outdated votes.
 	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
 	if block.Height < highestCCBlockHeight {
 		return
@@ -643,14 +643,18 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	e.state.SetHighestCCBlock(ccBlock)
 	e.chain.CommitBlock(ccBlock.Hash())
 
+	if ccBlock.Parent != ccBlock.HCC.BlockHash {
+		return
+	}
+
+	// Finalize condition: b1 is finalized iff there is b2 where b2 is committed and
+	// b2.Parent == b2.HCC == b1.
 	parent, err := e.Chain().FindBlock(ccBlock.Parent)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
 		return
 	}
-	if parent.Status.IsCommitted() {
-		e.finalizeBlock(parent)
-	}
+	e.finalizeBlock(parent)
 }
 
 func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
@@ -779,15 +783,6 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		}
 	}
 	proposal.Votes = lastCCVotes.Merge(epochVotes).UniqueVoterAndBlock()
-	selfVote := e.createVote(block)
-	proposal.Votes.AddVote(selfVote)
-
-	_, err = e.chain.AddBlock(block)
-	if err != nil {
-		return core.Proposal{}, errors.Wrap(err, "Failed to add proposed block to chain")
-	}
-
-	e.handleBlock(block)
 
 	return proposal, nil
 }
@@ -807,6 +802,11 @@ func (e *ConsensusEngine) propose() {
 		}
 		e.state.LastProposal = proposal
 
+		_, err = e.chain.AddBlock(proposal.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{"error": err}).Fatal("Failed to add proposed block to chain")
+		}
+
 		e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Making proposal")
 	}
 
@@ -820,4 +820,8 @@ func (e *ConsensusEngine) propose() {
 		Payload:   payload,
 	}
 	e.dispatcher.SendData([]string{}, proposalMsg)
+
+	go func() {
+		e.AddMessage(proposal.Block)
+	}()
 }
