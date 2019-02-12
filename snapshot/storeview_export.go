@@ -82,31 +82,31 @@ func fmtValue(value common.Bytes) string {
 	account := types.Account{}
 	err := rlp.DecodeBytes(value, &account)
 	if err == nil {
-		return fmt.Sprintf("%v", account)
+		return fmt.Sprintf("%v", account.String())
 	}
 
 	splitRule := types.SplitRule{}
 	err = rlp.DecodeBytes(value, &splitRule)
 	if err == nil {
-		return fmt.Sprintf("%v", splitRule)
+		return fmt.Sprintf("%v", splitRule.String())
 	}
 
 	vcp := core.ValidatorCandidatePool{}
 	err = rlp.DecodeBytes(value, &vcp)
 	if err == nil {
-		return fmt.Sprintf("%v", vcp)
+		return fmt.Sprintf("%v", vcp.String())
 	}
 
 	hl := types.HeightList{}
 	err = rlp.DecodeBytes(value, &hl)
 	if err == nil {
-		return fmt.Sprintf("%v", hl)
+		return fmt.Sprintf("%v", hl.String())
 	}
 
 	bbhie := blockchain.BlockByHeightIndexEntry{}
 	err = rlp.DecodeBytes(value, &bbhie)
 	if err == nil {
-		return fmt.Sprintf("%v", bbhie)
+		return fmt.Sprintf("%v", bbhie.String())
 	}
 
 	return fmt.Sprintf("%v", common.Bytes2Hex(value))

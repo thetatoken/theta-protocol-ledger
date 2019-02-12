@@ -274,3 +274,7 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 
 	return returnedStakes
 }
+
+func (vcp *ValidatorCandidatePool) String() string {
+	return fmt.Sprintf("{ValidatorCandidatePool: %v}", vcp.SortedCandidates)
+}

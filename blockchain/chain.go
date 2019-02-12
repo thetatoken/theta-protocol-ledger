@@ -123,6 +123,10 @@ type BlockByHeightIndexEntry struct {
 	Blocks []common.Hash
 }
 
+func (bbhie *BlockByHeightIndexEntry) String() string {
+	return fmt.Sprintf("{BlockByHeightIndexEntry: %v}", bbhie.Blocks)
+}
+
 func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {
 	key := blockByHeightIndexKey(height)
 	blockByHeightIndexEntry := BlockByHeightIndexEntry{

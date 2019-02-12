@@ -1,5 +1,7 @@
 package types
 
+import "fmt"
+
 type HeightList struct {
 	Heights []uint64
 }
@@ -15,4 +17,8 @@ func (hl *HeightList) Contains(height uint64) bool {
 		}
 	}
 	return false
+}
+
+func (hl *HeightList) String() string {
+	return fmt.Sprintf("{HeightList: %v}", hl.Heights)
 }
