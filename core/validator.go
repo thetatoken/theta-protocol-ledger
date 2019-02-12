@@ -275,6 +275,18 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	return returnedStakes
 }
 
-func (vcp *ValidatorCandidatePool) String() string {
-	return fmt.Sprintf("{ValidatorCandidatePool: %v}", vcp.SortedCandidates)
+func (vcp *ValidatorCandidatePool) JsonString() string {
+	return jsonCandidates(vcp.SortedCandidates)
+}
+
+func jsonCandidates(candidates []*StakeHolder) string {
+	str := "["
+	for i, candidate := range candidates {
+		str += candidate.JsonString()
+		if i < len(candidates)-1 {
+			str += ","
+		}
+	}
+	str += "]"
+	return str
 }

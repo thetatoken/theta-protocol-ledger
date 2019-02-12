@@ -38,8 +38,8 @@ func NewAccountJSON(acc Account) AccountJSON {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: common.JSONUint64(acc.LastUpdatedBlockHeight),
-		Root:     acc.Root,
-		CodeHash: acc.CodeHash,
+		Root:                   acc.Root,
+		CodeHash:               acc.CodeHash,
 	}
 }
 
@@ -49,8 +49,8 @@ func (acc AccountJSON) Account() Account {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: uint64(acc.LastUpdatedBlockHeight),
-		Root:     acc.Root,
-		CodeHash: acc.CodeHash,
+		Root:                   acc.Root,
+		CodeHash:               acc.CodeHash,
 	}
 }
 
@@ -90,6 +90,14 @@ func (acc *Account) String() string {
 	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
 		acc.Address, acc.Sequence, acc.Balance, acc.ReservedFunds)
+}
+
+func (acc *Account) JsonString() string {
+	if acc == nil {
+		return "nil-Account"
+	}
+	return fmt.Sprintf("{\"Address\":%v, \"Sequence\":%v, \"Balance\":%v}",
+		acc.Address.JsonString(), acc.Sequence, acc.Balance.JsonString())
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.

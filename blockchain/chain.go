@@ -123,8 +123,16 @@ type BlockByHeightIndexEntry struct {
 	Blocks []common.Hash
 }
 
-func (bbhie *BlockByHeightIndexEntry) String() string {
-	return fmt.Sprintf("{BlockByHeightIndexEntry: %v}", bbhie.Blocks)
+func (bbhie *BlockByHeightIndexEntry) JsonString() string {
+	str := "["
+	for i, blockHash := range bbhie.Blocks {
+		str += "\"" + blockHash.Hex() + "\""
+		if i < len(bbhie.Blocks)-1 {
+			str += ","
+		}
+	}
+	str += "]"
+	return str
 }
 
 func (ch *Chain) AddBlockByHeightIndex(height uint64, block common.Hash) {

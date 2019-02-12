@@ -49,9 +49,9 @@ func DumpSV(db database.Database, chain *blockchain.Chain, dumpDir string, heigh
 
 func writeSV(sv *state.StoreView, writer *bufio.Writer, db database.Database, heightStr string) {
 	// kvStore := kvstore.NewKVStore(db)
-	jsonString := "{"
+	jsonString := "{\n"
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		jsonString += common.Bytes2Hex(k) + ":" + fmtValue(v) + ","
+		jsonString += fmt.Sprintf("\"%v\":%v,\n", common.Bytes2Hex(k), fmtValue(v))
 		if bytes.HasPrefix(k, common.Bytes("ls/a")) {
 			account := &types.Account{}
 			err := types.FromBytes(v, account)
@@ -60,20 +60,20 @@ func writeSV(sv *state.StoreView, writer *bufio.Writer, db database.Database, he
 				panic(err)
 			}
 			if account.Root != (common.Hash{}) {
-				jsonString += common.Bytes2Hex(k) + "-storage:{"
+				jsonString += fmt.Sprintf("\"%v-storage\": {", common.Bytes2Hex(k))
 				storage := treestore.NewTreeStore(account.Root, db)
 				storage.Traverse(nil, func(ak, av common.Bytes) bool {
-					jsonString += common.Bytes2Hex(ak) + ":" + common.Bytes2Hex(av) + ","
+					jsonString += common.Bytes2Hex(ak) + ":" + common.Bytes2Hex(av) + ",\n"
 					return true
 				})
-				jsonString += "account: " + common.Bytes2Hex(k) + "},"
+				jsonString += fmt.Sprintf("\"account\":\"%v\"}", common.Bytes2Hex(k))
 			}
 		} else if bytes.HasPrefix(k, common.Bytes("ls/ch/")) {
 			//TODO
 		}
 		return true
 	})
-	jsonString += "height: " + heightStr + "}"
+	jsonString += "\"height\": " + heightStr + "\n}"
 	writer.WriteString(jsonString)
 	writer.Flush()
 }
@@ -82,32 +82,32 @@ func fmtValue(value common.Bytes) string {
 	account := types.Account{}
 	err := rlp.DecodeBytes(value, &account)
 	if err == nil {
-		return fmt.Sprintf("%v", account.String())
+		return fmt.Sprintf("%v", account.JsonString())
 	}
 
 	splitRule := types.SplitRule{}
 	err = rlp.DecodeBytes(value, &splitRule)
 	if err == nil {
-		return fmt.Sprintf("%v", splitRule.String())
+		return fmt.Sprintf("%v", splitRule.JsonString())
 	}
 
 	vcp := core.ValidatorCandidatePool{}
 	err = rlp.DecodeBytes(value, &vcp)
 	if err == nil {
-		return fmt.Sprintf("%v", vcp.String())
+		return fmt.Sprintf("%v", vcp.JsonString())
 	}
 
 	hl := types.HeightList{}
 	err = rlp.DecodeBytes(value, &hl)
 	if err == nil {
-		return fmt.Sprintf("%v", hl.String())
+		return fmt.Sprintf("%v", hl.JsonString())
 	}
 
 	bbhie := blockchain.BlockByHeightIndexEntry{}
 	err = rlp.DecodeBytes(value, &bbhie)
 	if err == nil {
-		return fmt.Sprintf("%v", bbhie.String())
+		return fmt.Sprintf("%v", bbhie.JsonString())
 	}
 
-	return fmt.Sprintf("%v", common.Bytes2Hex(value))
+	return fmt.Sprintf("\"%v\"", common.Bytes2Hex(value))
 }

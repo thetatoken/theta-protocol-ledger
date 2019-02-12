@@ -232,6 +232,10 @@ func (a Address) String() string {
 	return a.Hex()
 }
 
+func (a Address) JsonString() string {
+	return "\"" + a.Hex() + "\""
+}
+
 var emptyAddress Address
 
 // IsEmpty returns whether this address is empty.
