@@ -6,6 +6,7 @@ import (
 	"io"
 	"sort"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/crypto"
@@ -44,32 +45,26 @@ func (cc CommitCertificate) String() string {
 	return fmt.Sprintf("CC{BlockHash: %v, Votes: %v}", cc.BlockHash.Hex(), cc.Votes)
 }
 
-// IsValid checks if a CommitCertificate is in valid format. Note that we allow
-// CommitCertificate with nil voteset in block header.
+// IsValid checks if a CommitCertificate is valid.
 func (cc CommitCertificate) IsValid(validators *ValidatorSet) bool {
-	if cc.Votes == nil || cc.Votes.IsEmpty() {
-		return true
-	}
-	return cc.IsProven(validators)
-}
-
-// IsProven checks if a CommitCertificate contains supporting voteset.
-func (cc CommitCertificate) IsProven(validators *ValidatorSet) bool {
 	if cc.Votes == nil || cc.Votes.IsEmpty() {
 		return false
 	}
-
 	filtered := cc.Votes.UniqueVoter()
 	if filtered.Size() != cc.Votes.Size() {
 		return false
 	}
-
+	if filtered.Size() > validators.Size() {
+		return false
+	}
 	for _, vote := range filtered.Votes() {
 		if vote.Block != cc.BlockHash {
 			return false
 		}
+		if vote.Validate().IsError() {
+			return false
+		}
 	}
-
 	return validators.HasMajority(filtered)
 }
 
@@ -97,6 +92,16 @@ func (v Vote) SignBytes() common.Bytes {
 	return raw
 }
 
+// Sign signs the vote using given private key.
+func (v *Vote) Sign(priv *crypto.PrivateKey) {
+	sig, err := priv.Sign(v.SignBytes())
+	if err != nil {
+		// Should not happen.
+		logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
+	}
+	v.SetSignature(sig)
+}
+
 // SetSignature sets given signature in vote.
 func (v *Vote) SetSignature(sig *crypto.Signature) {
 	v.Signature = sig
@@ -104,6 +109,9 @@ func (v *Vote) SetSignature(sig *crypto.Signature) {
 
 // Validate checks the vote is legitimate.
 func (v Vote) Validate() result.Result {
+	if v.Block.IsEmpty() {
+		return result.Error("Block is not specified")
+	}
 	if v.ID.IsEmpty() {
 		return result.Error("Voter is not specified")
 	}
@@ -174,6 +182,9 @@ func (s *VoteSet) Validate() result.Result {
 }
 
 func (s *VoteSet) String() string {
+	if s == nil {
+		return "nil"
+	}
 	return fmt.Sprintf("%v", s.Votes())
 }
 

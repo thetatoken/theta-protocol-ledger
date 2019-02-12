@@ -19,7 +19,7 @@ import (
 	"github.com/thetatoken/theta/store"
 )
 
-var logger *log.Entry = log.WithFields(log.Fields{"prefix": "consensus"})
+var logger = log.WithFields(log.Fields{"prefix": "consensus"})
 
 var _ core.ConsensusEngine = (*ConsensusEngine)(nil)
 
@@ -170,6 +170,7 @@ func (e *ConsensusEngine) mainLoop() {
 	}
 }
 
+// enterEpoch is called when engine enters a new epoch.
 func (e *ConsensusEngine) enterEpoch() {
 	// Reset timers.
 	if e.epochTimer != nil {
@@ -192,6 +193,7 @@ func (e *ConsensusEngine) GetChannelIDs() []common.ChannelIDEnum {
 	}
 }
 
+// AddMessage adds a message to engine's message queue.
 func (e *ConsensusEngine) AddMessage(msg interface{}) {
 	e.incoming <- msg
 }
@@ -215,8 +217,17 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+	// Basic validations.
+	if res := block.Validate(); res.IsError() {
+		e.logger.WithFields(log.Fields{
+			"err": res.String(),
+		}).Warn("Block is invalid")
+		return false
+	}
+
 	validators := e.validatorManager.GetValidatorSet(block.Hash())
 
+	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
 			"parent":        block.Parent.Hex(),
@@ -226,7 +237,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("Block.Height != parent.Height + 1")
 		return false
 	}
-
 	if parent.Epoch >= block.Epoch {
 		e.logger.WithFields(log.Fields{
 			"parent":       block.Parent.Hex(),
@@ -236,7 +246,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("Block.Epoch <= parent.Epoch")
 		return false
 	}
-
 	if !parent.Status.IsValid() {
 		e.logger.WithFields(log.Fields{
 			"parent": block.Parent.Hex(),
@@ -245,6 +254,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
+	// Validate HCC.
 	if !e.chain.IsDescendant(block.HCC.BlockHash, block.Hash()) {
 		e.logger.WithFields(log.Fields{
 			"block.HCC": block.HCC.BlockHash.Hex(),
@@ -252,7 +262,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("HCC must be ancestor")
 		return false
 	}
-
 	if !block.HCC.IsValid(validators) {
 		e.logger.WithFields(log.Fields{
 			"parent":    block.Parent.Hex(),
@@ -273,8 +282,10 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			return false
 		}
 	}
+	shouldSynchronize := false
 	if !parent.Parent.IsEmpty() {
 		grandParent, err := e.chain.FindBlock(parent.Parent)
+		// Should not happen.
 		if err != nil {
 			e.logger.WithFields(log.Fields{
 				"error":         err,
@@ -284,33 +295,20 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			}).Warn("Failed to find grand parent block")
 			return false
 		}
-		if grandParent.HasValidatorUpdate {
-			if block.HCC.BlockHash != block.Parent {
-				e.logger.WithFields(log.Fields{
-					"parent":    block.Parent.Hex(),
-					"block":     block.Hash().Hex(),
-					"block.HCC": block.HCC.BlockHash.Hex(),
-				}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
-				return false
-			}
-			if !block.HCC.IsProven(validators) {
-				e.logger.WithFields(log.Fields{
-					"parent":    block.Parent.Hex(),
-					"block":     block.Hash().Hex(),
-					"block.HCC": block.HCC,
-				}).Warn("block.HCC must contain valid voteset when block.Parent.Parent contains validator changes.")
-				return false
-			}
+		shouldSynchronize = grandParent.HasValidatorUpdate
+	}
+	if shouldSynchronize {
+		if block.HCC.BlockHash != block.Parent {
+			e.logger.WithFields(log.Fields{
+				"parent":    block.Parent.Hex(),
+				"block":     block.Hash().Hex(),
+				"block.HCC": block.HCC.BlockHash.Hex(),
+			}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
+			return false
 		}
 	}
 
-	if res := block.Validate(); res.IsError() {
-		e.logger.WithFields(log.Fields{
-			"err": res.String(),
-		}).Warn("Block is invalid")
-		return false
-	}
-	if !e.shouldProposeByID(block.Epoch, block.Proposer.Hex()) {
+	if !e.shouldProposeByID(block.Parent, block.Epoch, block.Proposer.Hex()) {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch":    block.Epoch,
 			"block.proposer": block.Proposer.Hex(),
@@ -323,7 +321,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
-		// Should not happen.
+		// Should not happen since netsync layer ensures order of blocks.
 		e.logger.WithFields(log.Fields{
 			"error":  err,
 			"parent": block.Parent.Hex(),
@@ -469,11 +467,7 @@ func (e *ConsensusEngine) createVote(block *core.Block) core.Vote {
 		ID:     e.privateKey.PublicKey().Address(),
 		Epoch:  e.GetEpoch(),
 	}
-	sig, err := e.privateKey.Sign(vote.SignBytes())
-	if err != nil {
-		e.logger.WithFields(log.Fields{"error": err}).Panic("Failed to sign vote")
-	}
-	vote.SetSignature(sig)
+	vote.Sign(e.privateKey)
 	return vote
 }
 
@@ -674,16 +668,11 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	}
 }
 
-func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
-	if epoch == 0 { // special handling for genesis epoch
+func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
+	if !e.shouldProposeByID(tip.Hash(), epoch, e.ID()) {
 		return false
 	}
-	if !e.shouldProposeByID(epoch, e.ID()) {
-		return false
-	}
-
 	// Don't propose if majority has greater block height.
-	tip := e.GetTipToExtend()
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
 		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
@@ -699,13 +688,14 @@ func (e *ConsensusEngine) shouldPropose(epoch uint64) bool {
 	if validators.HasMajority(votes) {
 		return false
 	}
-
 	return true
 }
 
-func (e *ConsensusEngine) shouldProposeByID(epoch uint64, id string) bool {
-	extBlk := e.state.GetLastFinalizedBlock()
-	proposer := e.validatorManager.GetNextProposer(extBlk.Hash(), epoch)
+func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uint64, id string) bool {
+	if epoch == 0 { // special handling for genesis epoch
+		return false
+	}
+	proposer := e.validatorManager.GetNextProposer(previousBlock, epoch)
 	if proposer.ID().Hex() != id {
 		return false
 	}
@@ -771,6 +761,11 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 }
 
 func (e *ConsensusEngine) propose() {
+	tip := e.GetTipToExtend()
+	if !e.shouldPropose(tip, e.GetEpoch()) {
+		return
+	}
+
 	var proposal core.Proposal
 	var err error
 	lastProposal := e.state.GetLastProposal()

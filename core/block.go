@@ -34,6 +34,9 @@ func NewBlock() *Block {
 }
 
 func (b *Block) String() string {
+	if b == nil {
+		return "nil"
+	}
 	txs := []string{}
 	for _, tx := range b.Txs {
 		txs = append(txs, hex.EncodeToString(tx))
