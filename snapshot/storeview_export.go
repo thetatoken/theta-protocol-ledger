@@ -68,8 +68,6 @@ func writeSV(sv *state.StoreView, writer *bufio.Writer, db database.Database, he
 				})
 				jsonString += fmt.Sprintf("\"account\":\"%v\"}", common.Bytes2Hex(k))
 			}
-		} else if bytes.HasPrefix(k, common.Bytes("ls/ch/")) {
-			//TODO
 		}
 		return true
 	})
