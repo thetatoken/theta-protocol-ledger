@@ -1,0 +1,7 @@
+# Theta configuration
+genesis:
+  hash: "0xa58cb754a23975c872ef06d8b54baf16eec88ad60f966368b950a6c16ae52ed9"
+p2p:
+  port: 16000
+  seeds: 127.0.0.1:12000,127.0.0.1:13000,127.0.0.1:14000
+  seedPeerOnlyOutbound: true
