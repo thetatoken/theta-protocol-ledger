@@ -51,7 +51,6 @@ func main() {
 
 	node, err := trie.DecodeNode(k, value, 0)
 	if err == nil {
-		// fmt.Printf("%v\n", node)
 		fmt.Printf("%v\n", trie.FmtNode(node, "", level, db, fmtValue))
 	} else {
 		if strings.HasPrefix(err.Error(), "invalid number of list elements") {

@@ -1,8 +1,9 @@
-package snapshot
+package main
 
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"os"
 	"path"
@@ -15,10 +16,39 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/kvstore"
 	"github.com/thetatoken/theta/store/treestore"
 )
 
-func DumpSV(db database.Database, chain *blockchain.Chain, dumpDir string, height uint64) (string, error) {
+func handleError(err error) {
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		printUsage()
+		os.Exit(1)
+	}
+}
+
+func printUsage() {
+	fmt.Println("Usage: dump_storeview -config=<path_to_config_home> -height=<height>")
+}
+
+func main() {
+	configPathPtr := flag.String("config", "", "path to ukuele config home")
+	heightPtr := flag.Uint64("height", 0, "height of storeview block")
+	flag.Parse()
+	configPath := *configPathPtr
+	height := *heightPtr
+
+	mainDBPath := path.Join(configPath, "main")
+	refDBPath := path.Join(configPath, "ref")
+	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
+	handleError(err)
+
+	root := core.NewBlock()
+	store := kvstore.NewKVStore(db)
+	chain := blockchain.NewChain(root.ChainID, store, root)
+
 	var finalizedBlock *core.ExtendedBlock
 	blocks := chain.FindBlocksByHeight(height)
 	for _, block := range blocks {
@@ -28,27 +58,27 @@ func DumpSV(db database.Database, chain *blockchain.Chain, dumpDir string, heigh
 		}
 	}
 	if finalizedBlock == nil {
-		return "", fmt.Errorf("Finalized block not found for height %v", height)
+		handleError(fmt.Errorf("Finalized block not found for height %v", height))
 	}
 
 	sv := state.NewStoreView(finalizedBlock.Height, finalizedBlock.StateHash, db)
 
 	heightStr := strconv.FormatUint(height, 10)
 	filename := "theta_sv_dump-" + heightStr
-	dumpPath := path.Join(dumpDir, filename)
+	dumpPath := path.Join(configPath, filename)
 	file, err := os.Create(dumpPath)
 	if err != nil {
-		return "", err
+		handleError(err)
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
 	writeSV(sv, writer, db, heightStr)
 
-	return filename, nil
+	fmt.Printf("Output file: %v\n", filename)
+	os.Exit(0)
 }
 
 func writeSV(sv *state.StoreView, writer *bufio.Writer, db database.Database, heightStr string) {
-	// kvStore := kvstore.NewKVStore(db)
 	jsonString := "{\n"
 	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
 		jsonString += fmt.Sprintf("\"%v\":%v,\n", common.Bytes2Hex(k), fmtValue(v))
@@ -56,7 +86,6 @@ func writeSV(sv *state.StoreView, writer *bufio.Writer, db database.Database, he
 			account := &types.Account{}
 			err := types.FromBytes(v, account)
 			if err != nil {
-				logger.Errorf("Failed to parse account for %v", v)
 				panic(err)
 			}
 			if account.Root != (common.Hash{}) {

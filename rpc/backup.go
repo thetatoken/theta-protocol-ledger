@@ -64,30 +64,3 @@ func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChain
 
 	return err
 }
-
-// ------------------------------- DumpStoreview -----------------------------------
-
-type DumpStoreviewArgs struct {
-	Config string `json:"config"`
-	Height uint64 `json:"height"`
-}
-
-type DumpStoreviewResult struct {
-	StoreviewFile string `json:"storeview_file"`
-}
-
-func (t *ThetaRPCService) DumpStoreview(args *DumpStoreviewArgs, result *DumpStoreviewResult) error {
-	db := t.ledger.State().DB()
-	chain := t.chain
-	height := args.Height
-
-	dumpDir := path.Join(args.Config, "backup", "storeview")
-	if _, err := os.Stat(dumpDir); os.IsNotExist(err) {
-		os.MkdirAll(dumpDir, os.ModePerm)
-	}
-
-	storeviewFile, err := snapshot.DumpSV(db, chain, dumpDir, height)
-	result.StoreviewFile = storeviewFile
-
-	return err
-}
