@@ -288,6 +288,7 @@ type GetStatusResult struct {
 	LatestFinalizedBlockEpoch  common.JSONUint64 `json:"latest_finalized_block_epoch"`
 	CurrentEpoch               common.JSONUint64 `json:"current_epoch"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
+	Syncing                    bool              `json:"syncing"`
 }
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
@@ -302,9 +303,11 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		result.LatestFinalizedBlockEpoch = common.JSONUint64(block.Epoch)
 		result.LatestFinalizedBlockHeight = common.JSONUint64(block.Height)
 		result.LatestFinalizedBlockTime = (*common.JSONBig)(block.Timestamp)
+		result.Syncing = isSyncing(block)
 	}
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
+
 	return
 }
 
@@ -379,4 +382,12 @@ func getTxType(tx types.Tx) byte {
 	}
 
 	return t
+}
+
+func isSyncing(block *core.ExtendedBlock) bool {
+	currentTime := big.NewInt(time.Now().Unix())
+	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
+	threshold := new(big.Int).Sub(currentTime, maxDiff)
+	isSyncing := block.Timestamp.Cmp(threshold) < 0
+	return isSyncing
 }
