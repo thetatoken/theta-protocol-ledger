@@ -189,7 +189,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 
 func printCountdown() {
 	for i := 10; i >= 0; i-- {
-		fmt.Printf("\rLaunching Theta: %d...", i)
+		fmt.Printf("\rLaunching Theta to da moon: %d...", i)
 		time.Sleep(1 * time.Second)
 	}
 	fmt.Printf("\n\n")

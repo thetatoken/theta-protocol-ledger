@@ -11,7 +11,6 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
-	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
 )
@@ -21,7 +20,8 @@ type MockValidatorManager struct {
 }
 
 func (m MockValidatorManager) GetProposer(_ common.Hash, _ uint64) core.Validator {
-	return core.NewValidator(m.PrivKey.PublicKey().Address().Hex(), types.Zero)
+	stake := big.NewInt(10000)
+	return core.NewValidator(m.PrivKey.PublicKey().Address().Hex(), stake)
 }
 
 func (m MockValidatorManager) GetNextProposer(a common.Hash, b uint64) core.Validator {
@@ -44,6 +44,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	require := require.New(t)
 
 	privKey, _, _ := crypto.GenerateKeyPair()
+	addr := privKey.PublicKey().Address()
 	validatorManager := MockValidatorManager{PrivKey: privKey}
 
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
@@ -60,8 +61,15 @@ func TestSingleBlockValidation(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
+
 	b1.HCC.BlockHash = b1.Parent
-	b1.Proposer = privKey.PublicKey().Address()
+	vote := core.Vote{Block: b1.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset := core.NewVoteSet()
+	voteset.AddVote(vote)
+	b1.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Parent}
+
+	b1.Proposer = addr
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
 	chain.AddBlock(b1)
@@ -73,7 +81,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Epoch = 2
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -85,7 +98,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Height = 1
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -98,7 +116,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 3
 	invalidBlock.Parent = common.Hash{}
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -111,7 +134,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 4
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = common.Hash{}
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: common.Hash{}}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -124,20 +152,30 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 4
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = common.HexToHash("a0b1")
+
+	vote = core.Vote{Block: common.HexToHash("a0b1"), ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: common.HexToHash("a0b1")}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err = chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "HCC not found")
+	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Invalid HCC")
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 5
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = common.Address{}
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
@@ -150,7 +188,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 6
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 
@@ -165,7 +208,12 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Height = 1
 	invalidBlock.Epoch = 6
 	invalidBlock.Parent = chain.Root().Hash()
-	invalidBlock.HCC.BlockHash = invalidBlock.Parent
+
+	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	_, err = chain.AddBlock(invalidBlock)
@@ -177,6 +225,7 @@ func TestValidParent(t *testing.T) {
 	require := require.New(t)
 
 	privKey, _, _ := crypto.GenerateKeyPair()
+	addr := privKey.PublicKey().Address()
 	validatorManager := MockValidatorManager{PrivKey: privKey}
 
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
@@ -192,7 +241,13 @@ func TestValidParent(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC.BlockHash = b1.Parent
+
+	vote := core.Vote{Block: b1.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset := core.NewVoteSet()
+	voteset.AddVote(vote)
+	b1.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Parent}
+
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -204,7 +259,13 @@ func TestValidParent(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC.BlockHash = b2.Parent
+
+	vote = core.Vote{Block: b2.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b2.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b2.Parent}
+
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -223,8 +284,14 @@ func TestValidParent(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
+
 	// b3's HCC is linked to b1
-	b3.HCC.BlockHash = b1.Hash()
+	vote = core.Vote{Block: b1.Hash(), ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b3.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Hash()}
+
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -238,6 +305,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	require := require.New(t)
 
 	privKey, _, _ := crypto.GenerateKeyPair()
+	addr := privKey.PublicKey().Address()
 	validatorManager := MockValidatorManager{PrivKey: privKey}
 
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
@@ -253,7 +321,13 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC.BlockHash = b1.Parent
+
+	vote := core.Vote{Block: b1.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset := core.NewVoteSet()
+	voteset.AddVote(vote)
+	b1.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Parent}
+
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -265,7 +339,13 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC.BlockHash = b2.Parent
+
+	vote = core.Vote{Block: b2.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b2.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b2.Parent}
+
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -282,7 +362,12 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
 	// b3's HCC is linked to b1
-	b3.HCC.BlockHash = b1.Hash()
+	vote = core.Vote{Block: b1.Hash(), ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b3.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Hash()}
+
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -300,7 +385,13 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 4
 	b3.Parent = b2.Hash()
-	b3.HCC.BlockHash = b2.Hash()
+
+	vote = core.Vote{Block: b3.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b3.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b3.Parent}
+
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -313,6 +404,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	require := require.New(t)
 
 	privKey, _, _ := crypto.GenerateKeyPair()
+	addr := privKey.PublicKey().Address()
 	validatorManager := MockValidatorManager{PrivKey: privKey}
 
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
@@ -328,7 +420,13 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC.BlockHash = b1.Parent
+
+	vote := core.Vote{Block: b1.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset := core.NewVoteSet()
+	voteset.AddVote(vote)
+	b1.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Parent}
+
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -341,7 +439,13 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC.BlockHash = b2.Parent
+
+	vote = core.Vote{Block: b2.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b2.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b2.Parent}
+
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -356,7 +460,13 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
-	b3.HCC.BlockHash = b2.Hash()
+
+	vote = core.Vote{Block: b3.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b3.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b3.Parent}
+
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -370,13 +480,18 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 5
 	b4.Parent = b3.Hash()
-	b4.HCC.BlockHash = b3.Hash()
+
+	vote = core.Vote{Block: b4.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	b4.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b4.Parent}
+
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
+	require.False(ce.validateBlock(b4, eb3), "HCC has no votes")
 
 	// Valid grand child.
 	b4 = core.NewBlock()
@@ -384,15 +499,19 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 5
 	b4.Parent = b3.Hash()
-	b4.HCC.BlockHash = b3.Hash()
-	b4.HCC.Votes = core.NewVoteSet()
-	b4.HCC.Votes.AddVote(core.Vote{ID: privKey.PublicKey().Address()})
+
+	vote = core.Vote{Block: b4.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b4.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b4.Parent}
+
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
+	require.True(ce.validateBlock(b4, eb3), "HCC is valid")
 
 	// Invalid grand child: HCC link to b2.
 	b4 = core.NewBlock()
@@ -400,7 +519,13 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 6
 	b4.Parent = b3.Hash()
-	b4.HCC.BlockHash = b2.Hash()
+
+	vote = core.Vote{Block: b2.Hash(), ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b4.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b2.Hash()}
+
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -414,7 +539,13 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 7
 	b4.Parent = b3.Hash()
-	b4.HCC.BlockHash = b1.Hash()
+
+	vote = core.Vote{Block: b1.Hash(), ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b4.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Hash()}
+
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -427,6 +558,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	require := require.New(t)
 
 	privKey, _, _ := crypto.GenerateKeyPair()
+	addr := privKey.PublicKey().Address()
 	validatorManager := MockValidatorManager{PrivKey: privKey}
 
 	store := kvstore.NewKVStore(backend.NewMemDatabase())
@@ -442,7 +574,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b1.Height = chain.Root().Height + 1
 	b1.Epoch = 1
 	b1.Parent = chain.Root().Hash()
-	b1.HCC.BlockHash = b1.Parent
+
+	vote := core.Vote{Block: b1.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset := core.NewVoteSet()
+	voteset.AddVote(vote)
+	b1.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b1.Parent}
+
 	b1.Proposer = privKey.PublicKey().Address()
 	b1.Timestamp = big.NewInt(time.Now().Unix())
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
@@ -455,7 +593,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b2.Height = 2
 	b2.Epoch = 2
 	b2.Parent = b1.Hash()
-	b2.HCC.BlockHash = b2.Parent
+
+	vote = core.Vote{Block: b2.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b2.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b2.Parent}
+
 	b2.Proposer = privKey.PublicKey().Address()
 	b2.Timestamp = big.NewInt(time.Now().Unix())
 	b2.Signature, _ = privKey.Sign(b2.SignBytes())
@@ -470,7 +614,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
-	b3.HCC.BlockHash = b2.Hash()
+
+	vote = core.Vote{Block: b3.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b3.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b3.Parent}
+
 	b3.Proposer = privKey.PublicKey().Address()
 	b3.Timestamp = big.NewInt(time.Now().Unix())
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
@@ -483,7 +633,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Height = 4
 	b4.Epoch = 5
 	b4.Parent = b3.Hash()
-	b4.HCC.BlockHash = b3.Hash()
+
+	vote = core.Vote{Block: b4.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b4.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b4.Parent}
+
 	b4.Proposer = privKey.PublicKey().Address()
 	b4.Timestamp = big.NewInt(time.Now().Unix())
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
@@ -497,7 +653,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Height = 5
 	b5.Epoch = 6
 	b5.Parent = b4.Hash()
-	b5.HCC.BlockHash = b4.Hash()
+
+	vote = core.Vote{Block: b5.Parent, ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b5.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b5.Parent}
+
 	b5.Proposer = privKey.PublicKey().Address()
 	b5.Timestamp = big.NewInt(time.Now().Unix())
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())
@@ -511,7 +673,13 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Height = 5
 	b5.Epoch = 7
 	b5.Parent = b4.Hash()
-	b5.HCC.BlockHash = b3.Hash()
+
+	vote = core.Vote{Block: b3.Hash(), ID: addr}
+	vote.Sign(privKey)
+	voteset = core.NewVoteSet()
+	voteset.AddVote(vote)
+	b5.HCC = core.CommitCertificate{Votes: voteset, BlockHash: b3.Hash()}
+
 	b5.Proposer = privKey.PublicKey().Address()
 	b5.Timestamp = big.NewInt(time.Now().Unix())
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())

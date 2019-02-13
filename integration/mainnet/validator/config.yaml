@@ -1,0 +1,5 @@
+# Theta configuration
+p2p:
+  port: 
+  seeds: 
+  seedPeerOnlyOutbound: true

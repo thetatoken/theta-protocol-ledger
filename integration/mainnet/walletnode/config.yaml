@@ -1,0 +1,6 @@
+# Theta configuration
+p2p:
+  port: 16000
+  seeds: 54.219.137.110:15000
+rpc:
+  enabled: true
