@@ -10,5 +10,5 @@ var PruneCmd = &cobra.Command{
 }
 
 func init() {
-	// PruneCmd.AddCommand(executeCmd)
+	PruneCmd.AddCommand(executeCmd)
 }
