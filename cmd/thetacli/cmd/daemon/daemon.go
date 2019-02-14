@@ -9,14 +9,14 @@ import (
 	"github.com/thetatoken/theta/cmd/thetacli/rpc"
 )
 
-// runDaemonCmd runs the thetacli daemon
+// startDaemonCmd runs the thetacli daemon
 // Example:
-//		thetacli daemon run --port=16889
-var runDaemonCmd = &cobra.Command{
-	Use:     "run",
+//		thetacli daemon start --port=16889
+var startDaemonCmd = &cobra.Command{
+	Use:     "start",
 	Short:   "Run the thatacli daemon",
 	Long:    `Run the thatacli daemon.`,
-	Example: `thetacli daemon run --port=16889`,
+	Example: `thetacli daemon start --port=16889`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cfgPath := cmd.Flag("config").Value.String()
 		server, err := rpc.NewThetaCliRPCServer(cfgPath, portFlag)
@@ -32,7 +32,7 @@ var runDaemonCmd = &cobra.Command{
 }
 
 func init() {
-	runDaemonCmd.Flags().StringVar(&portFlag, "port", "16889", "Port to run the ThetaCli Daemon")
+	startDaemonCmd.Flags().StringVar(&portFlag, "port", "16889", "Port to run the ThetaCli Daemon")
 }
 
 type ThetaCliDaemon struct {
