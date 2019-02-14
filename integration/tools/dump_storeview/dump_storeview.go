@@ -40,8 +40,8 @@ func main() {
 	configPath := *configPathPtr
 	height := *heightPtr
 
-	mainDBPath := path.Join(configPath, "main")
-	refDBPath := path.Join(configPath, "ref")
+	mainDBPath := path.Join(configPath, "db", "main")
+	refDBPath := path.Join(configPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 	handleError(err)
 
