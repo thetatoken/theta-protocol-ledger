@@ -35,6 +35,13 @@ type SendResult struct {
 }
 
 func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error) {
+	if len(args.From) == 0 || len(args.To) == 0 {
+		return fmt.Errorf("The from and to address cannot be empty")
+	}
+	if args.From == args.To {
+		return fmt.Errorf("The from and to address cannot be identical")
+	}
+
 	from := common.HexToAddress(args.From)
 	to := common.HexToAddress(args.To)
 	thetawei, ok := new(big.Int).SetString(args.ThetaWei, 10)
@@ -55,7 +62,7 @@ func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error
 	}
 
 	if !t.wallet.IsUnlocked(from) {
-		return fmt.Errorf("The from address %v has not been unlocked yet")
+		return fmt.Errorf("The from address %v has not been unlocked yet", from.Hex())
 	}
 
 	inputs := []types.TxInput{{
