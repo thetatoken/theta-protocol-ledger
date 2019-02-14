@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/call"
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/daemon"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/key"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/query"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/tx"
@@ -41,6 +42,7 @@ func init() {
 
 	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 
+	RootCmd.AddCommand(daemon.DaemonCmd)
 	RootCmd.AddCommand(key.KeyCmd)
 	RootCmd.AddCommand(tx.TxCmd)
 	RootCmd.AddCommand(query.QueryCmd)

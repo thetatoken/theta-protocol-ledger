@@ -54,6 +54,10 @@ func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error
 		return err
 	}
 
+	if !t.wallet.IsUnlocked(from) {
+		return fmt.Errorf("The from address %v has not been unlocked yet")
+	}
+
 	inputs := []types.TxInput{{
 		Address: from,
 		Coins: types.Coins{
@@ -105,7 +109,7 @@ func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error
 		return fmt.Errorf("Server returned error: %v", res.Error)
 	}
 	trpcResult := &trpc.BroadcastRawTransactionResult{}
-	err = res.GetObject(result)
+	err = res.GetObject(trpcResult)
 	if err != nil {
 		return fmt.Errorf("Failed to parse Theta node response: %v", err)
 	}

@@ -135,6 +135,14 @@ func (w *SoftWallet) Lock(address common.Address) error {
 	return nil
 }
 
+// IsUnlocked indicates whether a key is unlocked
+func (w *SoftWallet) IsUnlocked(address common.Address) bool {
+	if _, exists := w.unlockedKeyMap[address]; exists {
+		return true
+	}
+	return false
+}
+
 // Delete deletes a key from disk permanently
 func (w *SoftWallet) Delete(address common.Address, password string) error {
 	w.mu.Lock()

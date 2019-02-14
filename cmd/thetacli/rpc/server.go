@@ -37,6 +37,7 @@ type ThetaCliRPCService struct {
 // ThetaCliRPCServer is an instance of the CLI RPC service.
 type ThetaCliRPCServer struct {
 	*ThetaCliRPCService
+	port string
 
 	server   *http.Server
 	handler  *rpc.Server
@@ -45,7 +46,7 @@ type ThetaCliRPCServer struct {
 }
 
 // NewThetaCliRPCServer creates a new instance of ThetaRPCServer.
-func NewThetaCliRPCServer(cfgPath string) (*ThetaCliRPCServer, error) {
+func NewThetaCliRPCServer(cfgPath, port string) (*ThetaCliRPCServer, error) {
 	wallet, err := wl.OpenWallet(cfgPath, wt.WalletTypeSoft, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
@@ -55,7 +56,9 @@ func NewThetaCliRPCServer(cfgPath string) (*ThetaCliRPCServer, error) {
 	t := &ThetaCliRPCServer{
 		ThetaCliRPCService: &ThetaCliRPCService{
 			wallet: wallet,
+			wg:     &sync.WaitGroup{},
 		},
+		port: port,
 	}
 
 	s := rpc.NewServer()
@@ -99,12 +102,11 @@ func (t *ThetaCliRPCServer) mainLoop() {
 }
 
 func (t *ThetaCliRPCServer) serve() {
-	port := viper.GetString(common.CfgRPCPort)
-	l, err := net.Listen("tcp", ":"+port)
+	l, err := net.Listen("tcp", ":"+t.port)
 	if err != nil {
 		logger.WithFields(log.Fields{"error": err}).Fatal("Failed to create listener")
 	} else {
-		logger.WithFields(log.Fields{"port": port}).Info("RPC server started")
+		logger.WithFields(log.Fields{"port": t.port}).Info("RPC server started")
 	}
 	defer l.Close()
 

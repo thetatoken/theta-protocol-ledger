@@ -124,6 +124,10 @@ func (w *ColdWallet) Lock(address common.Address) error {
 	return err
 }
 
+func (w *ColdWallet) IsUnlocked(address common.Address) bool {
+	return false // not supported
+}
+
 func (w *ColdWallet) Delete(address common.Address, password string) error {
 	return fmt.Errorf("Not supported for cold wallet")
 }
