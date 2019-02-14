@@ -27,6 +27,15 @@ var sendCmd = &cobra.Command{
 }
 
 func doSendCmd(cmd *cobra.Command, args []string) {
+	if len(fromFlag) == 0 || len(toFlag) == 0 {
+		utils.Error("The from and to address cannot be empty")
+		return
+	}
+	if fromFlag == toFlag {
+		utils.Error("The from and to address cannot be identical")
+		return
+	}
+
 	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
 	if err != nil {
 		return

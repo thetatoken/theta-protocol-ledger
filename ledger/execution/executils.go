@@ -179,7 +179,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 
 	// Check amount
 	if !balance.IsGTE(in.Coins) {
-		return result.Error("balance is %v, tried to send %v",
+		return result.Error("Insufficient fund: balance is %v, tried to send %v",
 			balance, in.Coins).WithErrorCode(result.CodeInsufficientFund)
 	}
 
