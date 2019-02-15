@@ -13,10 +13,6 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	heightFlag uint64
-)
-
 // vcpCmd represents the vcp command.
 // Example:
 //		thetacli query vcp --height=10

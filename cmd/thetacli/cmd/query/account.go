@@ -12,11 +12,6 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	addressFlag string
-	previewFlag bool
-)
-
 // accountCmd represents the account command.
 // Example:
 //		thetacli query account --address=0x2E833968E5bB786Ae419c4d13189fB081Cc43bab

@@ -14,10 +14,6 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	resourceIDFlag string
-)
-
 // splitRuleCmd represents the split_rule command.
 // Example:
 //		thetacli query split_rule --resource_id=0x3FACC98BCCAD124
