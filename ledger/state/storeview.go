@@ -520,7 +520,8 @@ func (sv *StoreView) Prune() error {
 		storage := sv.getAccountStorage(account)
 		err = storage.Prune(nil)
 		if err != nil {
-			panic(fmt.Errorf("Failed to prune storage for account %v", account))
+			logger.Errorf("Failed to prune storage for account %v", account)
+			return false
 		}
 		return true
 	})
