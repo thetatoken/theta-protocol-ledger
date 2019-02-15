@@ -10,5 +10,6 @@ var BackupCmd = &cobra.Command{
 }
 
 func init() {
-	BackupCmd.AddCommand(generateCmd)
+	BackupCmd.AddCommand(chainCmd)
+	BackupCmd.AddCommand(snapshotCmd)
 }

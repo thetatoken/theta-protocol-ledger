@@ -7,18 +7,46 @@ import (
 	"github.com/thetatoken/theta/snapshot"
 )
 
-type BackupArgs struct {
+// ------------------------------- BackupSnapshot -----------------------------------
+
+type BackupSnapshotArgs struct {
+	Config string `json:"config"`
+}
+
+type BackupSnapshotResult struct {
+	SnapshotFile string `json:"snapshot_file"`
+}
+
+func (t *ThetaRPCService) BackupSnapshot(args *BackupSnapshotArgs, result *BackupSnapshotResult) error {
+	db := t.ledger.State().DB()
+	consensus := t.consensus
+	chain := t.chain
+
+	snapshotDir := path.Join(args.Config, "backup", "snapshot")
+	if _, err := os.Stat(snapshotDir); os.IsNotExist(err) {
+		os.MkdirAll(snapshotDir, os.ModePerm)
+	}
+
+	snapshotFile, err := snapshot.ExportSnapshot(db, consensus, chain, snapshotDir)
+	result.SnapshotFile = snapshotFile
+
+	return err
+}
+
+// ------------------------------- BackupChain -----------------------------------
+
+type BackupChainArgs struct {
 	Start  uint64 `json:"start"`
 	End    uint64 `json:"end"`
 	Config string `json:"config"`
 }
 
-type BackupResult struct {
+type BackupChainResult struct {
 	ActualEndHeight uint64 `json:"actual_end_height"`
-	BackupFile      string `json:"backup_file"`
+	ChainFile       string `json:"chain_file"`
 }
 
-func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) error {
+func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChainResult) error {
 	db := t.ledger.State().DB()
 	consensus := t.consensus
 	chain := t.chain
@@ -30,9 +58,9 @@ func (t *ThetaRPCService) GenBackup(args *BackupArgs, result *BackupResult) erro
 		os.MkdirAll(backupDir, os.ModePerm)
 	}
 
-	actualEndHeight, backupFile, err := snapshot.ExportChainBackup(db, consensus, chain, startHeight, endHeight, backupDir)
+	actualEndHeight, chainFile, err := snapshot.ExportChainBackup(db, consensus, chain, startHeight, endHeight, backupDir)
 	result.ActualEndHeight = actualEndHeight
-	result.BackupFile = backupFile
+	result.ChainFile = chainFile
 
 	return err
 }

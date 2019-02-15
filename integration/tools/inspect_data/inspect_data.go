@@ -9,7 +9,9 @@ import (
 	"strings"
 
 	"github.com/thetatoken/theta/blockchain"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/trie"
@@ -49,8 +51,7 @@ func main() {
 
 	node, err := trie.DecodeNode(k, value, 0)
 	if err == nil {
-		// fmt.Printf("%v\n", node)
-		fmt.Printf("%v\n", trie.FmtNode(node, "", level, db))
+		fmt.Printf("%v\n", trie.FmtNode(node, "", level, db, fmtValue))
 	} else {
 		if strings.HasPrefix(err.Error(), "invalid number of list elements") {
 			block := core.ExtendedBlock{}
@@ -89,4 +90,38 @@ func str2hex2bytes(str string) []byte {
 		str = str[2:]
 	}
 	return bytes
+}
+
+func fmtValue(value []byte) string {
+	account := types.Account{}
+	err := rlp.DecodeBytes(value, &account)
+	if err == nil {
+		return fmt.Sprintf("%v", account)
+	}
+
+	splitRule := types.SplitRule{}
+	err = rlp.DecodeBytes(value, &splitRule)
+	if err == nil {
+		return fmt.Sprintf("%v", splitRule)
+	}
+
+	vcp := core.ValidatorCandidatePool{}
+	err = rlp.DecodeBytes(value, &vcp)
+	if err == nil {
+		return fmt.Sprintf("%v", vcp)
+	}
+
+	hl := types.HeightList{}
+	err = rlp.DecodeBytes(value, &hl)
+	if err == nil {
+		return fmt.Sprintf("%v", hl)
+	}
+
+	bbhie := blockchain.BlockByHeightIndexEntry{}
+	err = rlp.DecodeBytes(value, &bbhie)
+	if err == nil {
+		return fmt.Sprintf("%v", bbhie)
+	}
+
+	return fmt.Sprintf("%v", common.Bytes2Hex(value))
 }

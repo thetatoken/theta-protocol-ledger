@@ -23,8 +23,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/thetatoken/theta/ledger/types"
-	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/database"
 
@@ -487,6 +485,7 @@ func (t *Trie) Commit(onleaf LeafCallback) (root common.Hash, err error) {
 	}
 	t.root = cached
 	t.cachegen++
+
 	return common.BytesToHash(hash.(hashNode)), nil
 }
 
@@ -504,16 +503,9 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	hash, _ := t.root.cache()
-	for {
-		_, err := t.db.diskdb.Get(hash[:])
-		if err == store.ErrKeyNotFound {
-			break
-		}
-		err = t.pruneNode(t.root, cb)
-		if err != nil {
-			return err
-		}
+	err := t.pruneNode(t.root, cb)
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -608,23 +600,23 @@ func (t *Trie) pruneChildren(nd node, cb func(n []byte) bool) error {
 	return nil
 }
 
-func FmtNode(node node, ind string, level int, db database.Database) string {
+func FmtNode(node node, ind string, level int, db database.Database, cb func([]byte) string) string {
 	var resp string
 	switch m := node.(type) {
 	case valueNode:
-		resp += fmtValueNode(m, ind)
+		resp += cb([]byte(m))
 	case hashNode:
-		resp += fmtHashNode(m, ind, level, db)
+		resp += fmtHashNode(m, ind, level, db, cb)
 	case *shortNode:
-		resp += fmtShortNode(m, ind, level, db)
+		resp += fmtShortNode(m, ind, level, db, cb)
 	case *fullNode:
-		resp += fmtFullNode(m, ind+"  ", level, db)
+		resp += fmtFullNode(m, ind+"  ", level, db, cb)
 	default:
 	}
 	return resp
 }
 
-func fmtFullNode(n *fullNode, ind string, level int, db database.Database) string {
+func fmtFullNode(n *fullNode, ind string, level int, db database.Database, cb func([]byte) string) string {
 	if level <= 0 {
 		return fmt.Sprintf("%v", n.fstring(ind+"  "))
 	}
@@ -635,13 +627,13 @@ func fmtFullNode(n *fullNode, ind string, level int, db database.Database) strin
 		} else {
 			switch m := node.(type) {
 			case valueNode:
-				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtValueNode(m, ind+"  "))
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], cb([]byte(m)))
 			case hashNode:
-				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtHashNode(m, ind+"  ", level+1, db))
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtHashNode(m, ind+"  ", level+1, db, cb))
 			case *shortNode:
-				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtShortNode(m, ind+"  ", level+1, db))
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtShortNode(m, ind+"  ", level+1, db, cb))
 			case *fullNode:
-				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtFullNode(m, ind+"  ", level+1, db))
+				resp += fmt.Sprintf("%s%s: %v\n", ind+"  ", indices[i], fmtFullNode(m, ind+"  ", level+1, db, cb))
 			default:
 			}
 		}
@@ -649,14 +641,14 @@ func fmtFullNode(n *fullNode, ind string, level int, db database.Database) strin
 	return resp + fmt.Sprintf("%s]\n", ind)
 }
 
-func fmtShortNode(n *shortNode, ind string, level int, db database.Database) string {
+func fmtShortNode(n *shortNode, ind string, level int, db database.Database, cb func([]byte) string) string {
 	if level <= 0 {
 		return fmt.Sprintf("%v", n.Val.fstring(ind+"  "))
 	}
-	return fmt.Sprintf("(%x: %v)", n.Key, FmtNode(n.Val, ind, level-1, db))
+	return fmt.Sprintf("(%x: %v)", n.Key, FmtNode(n.Val, ind, level-1, db, cb))
 }
 
-func fmtHashNode(n hashNode, ind string, level int, db database.Database) string {
+func fmtHashNode(n hashNode, ind string, level int, db database.Database, cb func([]byte) string) string {
 	if level <= 0 {
 		return fmt.Sprintf("%v", n.fstring(ind+"  "))
 	}
@@ -668,33 +660,5 @@ func fmtHashNode(n hashNode, ind string, level int, db database.Database) string
 	if err != nil {
 		panic(err)
 	}
-	return fmt.Sprintf("<%v>", FmtNode(nd, ind, level-1, db))
-}
-
-func fmtValueNode(n valueNode, ind string) string {
-	account := types.Account{}
-	err := rlp.DecodeBytes([]byte(n), &account)
-	if err == nil {
-		return fmt.Sprintf("%v", account)
-	}
-
-	splitRule := types.SplitRule{}
-	err = rlp.DecodeBytes([]byte(n), &splitRule)
-	if err == nil {
-		return fmt.Sprintf("%v", splitRule)
-	}
-
-	// vcp := core.ValidatorCandidatePool{}
-	// err = rlp.DecodeBytes([]byte(n), &vcp)
-	// if err == nil {
-	// 	return fmt.Sprintf("%v", vcp)
-	// }
-
-	hl := types.HeightList{}
-	err = rlp.DecodeBytes([]byte(n), &hl)
-	if err == nil {
-		return fmt.Sprintf("%v", hl)
-	}
-
-	return fmt.Sprintf("%v", []byte(n))
+	return fmt.Sprintf("<%v>", FmtNode(nd, ind, level-1, db, cb))
 }
