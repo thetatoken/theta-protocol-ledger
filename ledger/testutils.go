@@ -191,12 +191,13 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 	proposerSeed := "proposer"
 
 	db := backend.NewMemDatabase()
+	chain := &blockchain.Chain{ChainID: chainID}
 	consensus := exec.NewTestConsensusEngine(proposerSeed)
 	valMgr := newTesetValidatorManager(consensus)
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
 	messenger := p2psimnet.AddEndpoint(peerID)
 	mempool = newTestMempool(peerID, messenger)
-	ledger = NewLedger(chainID, db, consensus, valMgr, mempool)
+	ledger = NewLedger(chainID, db, chain, consensus, valMgr, mempool)
 	mempool.SetLedger(ledger)
 
 	ctx := context.Background()

@@ -488,6 +488,10 @@ func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, nil
 }
 
+func (tl *TestLedger) PruneState(startHeight, endHeight uint64) error {
+	return nil
+}
+
 type TestNetworkMessageInterceptor struct {
 	lock             *sync.Mutex
 	ReceivedMessages chan p2ptypes.Message

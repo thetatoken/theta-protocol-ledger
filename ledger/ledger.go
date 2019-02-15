@@ -3,6 +3,7 @@ package ledger
 import (
 	"encoding/hex"
 	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/thetatoken/theta/store"
@@ -10,11 +11,13 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	exec "github.com/thetatoken/theta/ledger/execution"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	mp "github.com/thetatoken/theta/mempool"
@@ -29,6 +32,7 @@ var _ core.Ledger = (*Ledger)(nil)
 // Ledger implements the core.Ledger interface
 //
 type Ledger struct {
+	chain     *blockchain.Chain
 	consensus core.ConsensusEngine
 	valMgr    core.ValidatorManager
 	mempool   *mp.Mempool
@@ -39,7 +43,7 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(chainID string, db database.Database, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
+func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db)
 	executor := exec.NewExecutor(state, consensus, valMgr)
 	ledger := &Ledger{
@@ -248,6 +252,65 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
+}
+
+func (ledger *Ledger) PruneState(startHeight, endHeight uint64) error {
+	db := ledger.State().DB()
+	consensus := ledger.consensus
+	chain := ledger.chain
+
+	lastFinalizedBlock := consensus.GetLastFinalizedBlock()
+	if endHeight >= lastFinalizedBlock.Height {
+		return fmt.Errorf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
+	}
+
+	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+
+	stateHashMap := make(map[string]bool)
+	kvStore := kvstore.NewKVStore(db)
+	hl := sv.GetStakeTransactionHeightList().Heights
+	for _, height := range hl {
+		// check kvstore first
+		blockTrio := &core.SnapshotBlockTrio{}
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 10))
+		err := kvStore.Get(blockTrioKey, blockTrio)
+		if err == nil {
+			stateHashMap[blockTrio.First.Header.StateHash.String()] = true
+			continue
+		}
+
+		if height == core.GenesisBlockHeight {
+			blocks := chain.FindBlocksByHeight(core.GenesisBlockHeight)
+			genesisBlock := blocks[0]
+			stateHashMap[genesisBlock.StateHash.String()] = true
+		} else {
+			blocks := chain.FindBlocksByHeight(height)
+			for _, block := range blocks {
+				if block.Status.IsDirectlyFinalized() {
+					stateHashMap[block.StateHash.String()] = true
+					break
+				}
+			}
+		}
+	}
+
+	for height := endHeight; height >= startHeight && height > 0; height-- {
+		blocks := chain.FindBlocksByHeight(height)
+		for _, block := range blocks {
+			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
+				if block.HasValidatorUpdate {
+					continue
+				}
+				sv := state.NewStoreView(height, block.StateHash, db)
+				err := sv.Prune()
+				if err != nil {
+					return fmt.Errorf("Failed to prune storeview at height %v, %v", height, err)
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // ResetState sets the ledger state with the designated root
