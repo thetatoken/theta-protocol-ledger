@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -109,31 +110,51 @@ func fmtValue(value common.Bytes) string {
 	account := types.Account{}
 	err := rlp.DecodeBytes(value, &account)
 	if err == nil {
-		return fmt.Sprintf("%v", account.JsonString())
+		j, err := json.Marshal(account)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf("%v", string(j))
 	}
 
 	splitRule := types.SplitRule{}
 	err = rlp.DecodeBytes(value, &splitRule)
 	if err == nil {
-		return fmt.Sprintf("%v", splitRule.JsonString())
+		j, err := json.Marshal(splitRule)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf("%v", string(j))
 	}
 
 	vcp := core.ValidatorCandidatePool{}
 	err = rlp.DecodeBytes(value, &vcp)
 	if err == nil {
-		return fmt.Sprintf("%v", vcp.JsonString())
+		j, err := json.Marshal(vcp)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf("%v", string(j))
 	}
 
 	hl := types.HeightList{}
 	err = rlp.DecodeBytes(value, &hl)
 	if err == nil {
-		return fmt.Sprintf("%v", hl.JsonString())
+		j, err := json.Marshal(hl)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf("%v", string(j))
 	}
 
 	bbhie := blockchain.BlockByHeightIndexEntry{}
 	err = rlp.DecodeBytes(value, &bbhie)
 	if err == nil {
-		return fmt.Sprintf("%v", bbhie.JsonString())
+		j, err := json.Marshal(bbhie)
+		if err != nil {
+			panic(err)
+		}
+		return fmt.Sprintf("%v", string(j))
 	}
 
 	return fmt.Sprintf("\"%v\"", common.Bytes2Hex(value))

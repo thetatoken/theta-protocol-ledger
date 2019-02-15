@@ -16,10 +16,6 @@ type Split struct {
 	Percentage uint           // An integer between 0 and 100, representing the percentage of the payment the address should get
 }
 
-func (s Split) JsonString() string {
-	return fmt.Sprint("{\"Address\":%v, \"Percentage\": %v}", s.Address.JsonString(), s.Percentage)
-}
-
 // SplitRule specifies the payment split agreement among differet addresses
 type SplitRule struct {
 	InitiatorAddress common.Address // Address of the initiator
@@ -73,24 +69,4 @@ func (sc *SplitRule) String() string {
 	}
 	return fmt.Sprintf("SplitRule{%v %v %v %v}",
 		sc.InitiatorAddress.Hex(), string(sc.ResourceID), sc.Splits, sc.EndBlockHeight)
-}
-
-func (sc *SplitRule) JsonString() string {
-	if sc == nil {
-		return "nil-SlashIntent"
-	}
-	return fmt.Sprintf("{\"InitiatorAddress\":%v, \"ResourceID\":\"%v\", \"Splits\":%v, \"EndBlockHeight\":%v}",
-		sc.InitiatorAddress.JsonString(), sc.ResourceID, jsonSplits(sc.Splits), sc.EndBlockHeight)
-}
-
-func jsonSplits(splits []Split) string {
-	str := "["
-	for i, split := range splits {
-		str += split.JsonString()
-		if i < len(splits)-1 {
-			str += ","
-		}
-	}
-	str += "]"
-	return str
 }

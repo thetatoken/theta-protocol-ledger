@@ -68,10 +68,6 @@ func (coins Coins) String() string {
 	return fmt.Sprintf("%v %v, %v %v", coins.ThetaWei, DenomThetaWei, coins.TFuelWei, DenomTFuelWei)
 }
 
-func (coins Coins) JsonString() string {
-	return fmt.Sprintf("{\"%v\": %v, \"%v\": %v}", DenomThetaWei, coins.ThetaWei, DenomTFuelWei, coins.TFuelWei)
-}
-
 func (coins Coins) IsValid() bool {
 	return coins.IsNonnegative()
 }

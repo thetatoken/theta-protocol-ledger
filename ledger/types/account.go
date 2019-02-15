@@ -92,14 +92,6 @@ func (acc *Account) String() string {
 		acc.Address, acc.Sequence, acc.Balance, acc.ReservedFunds)
 }
 
-func (acc *Account) JsonString() string {
-	if acc == nil {
-		return "nil-Account"
-	}
-	return fmt.Sprintf("{\"Address\":%v, \"Sequence\":%v, \"Balance\":%v}",
-		acc.Address.JsonString(), acc.Sequence, acc.Balance.JsonString())
-}
-
 // CheckReserveFund verifies inputs for ReserveFund.
 func (acc *Account) CheckReserveFund(collateral Coins, fund Coins, duration uint64, reserveSequence uint64) error {
 	if duration < MinimumFundReserveDuration || duration > MaximumFundReserveDuration {

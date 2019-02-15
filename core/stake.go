@@ -48,23 +48,6 @@ func (s *Stake) String() string {
 		s.Source, s.Amount, s.Withdrawn, s.ReturnHeight)
 }
 
-func jsonStakes(stakes []*Stake) string {
-	str := "["
-	for i, stake := range stakes {
-		str += stake.JsonString()
-		if i < len(stakes)-1 {
-			str += ","
-		}
-	}
-	str += "]"
-	return str
-}
-
-func (s *Stake) JsonString() string {
-	return fmt.Sprintf("{\"Source\": %v, \"Amount\": %v, \"Withdrawn\": %v, \"ReturnHeight\": %v}",
-		s.Source.JsonString(), s.Amount, s.Withdrawn, s.ReturnHeight)
-}
-
 //
 // ------- StakeHolder ------- //
 //
@@ -148,8 +131,4 @@ func (sh *StakeHolder) returnStake(source common.Address, currentHeight uint64) 
 
 func (sh *StakeHolder) String() string {
 	return fmt.Sprintf("{holder: %v, stakes :%v}", sh.Holder, sh.Stakes)
-}
-
-func (sh *StakeHolder) JsonString() string {
-	return fmt.Sprintf("{\"holder\": %v, \"stakes\" :%v}", sh.Holder.JsonString(), jsonStakes(sh.Stakes))
 }

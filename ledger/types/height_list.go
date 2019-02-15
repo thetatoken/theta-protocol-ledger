@@ -1,7 +1,5 @@
 package types
 
-import "strconv"
-
 type HeightList struct {
 	Heights []uint64
 }
@@ -17,16 +15,4 @@ func (hl *HeightList) Contains(height uint64) bool {
 		}
 	}
 	return false
-}
-
-func (hl *HeightList) JsonString() string {
-	str := "["
-	for i, height := range hl.Heights {
-		str += strconv.FormatUint(height, 10)
-		if i < len(hl.Heights)-1 {
-			str += ","
-		}
-	}
-	str += "]"
-	return str
 }
