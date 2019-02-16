@@ -319,6 +319,22 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 }
 
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
+	eb, err := e.chain.FindBlock(block.Hash())
+	if err != nil {
+		// Should not happen.
+		e.logger.WithFields(log.Fields{
+			"error": err,
+			"block": block.Hash().Hex(),
+		}).Fatal("Failed to find block")
+	} else if !eb.Status.IsPending() {
+		// Before consensus engine can process the first one, sync layer might send duplicate blocks.
+		e.logger.WithFields(log.Fields{
+			"error":        err,
+			"block.Status": eb.Status,
+			"block":        block.Hash().Hex(),
+		}).Debug("Ignore processed block")
+		return
+	}
 	parent, err := e.chain.FindBlock(block.Parent)
 	if err != nil {
 		// Should not happen since netsync layer ensures order of blocks.
@@ -327,7 +343,6 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"parent": block.Parent.Hex(),
 			"block":  block.Hash().Hex(),
 		}).Fatal("Failed to find parent block")
-		return
 	}
 
 	if !e.validateBlock(block, parent) {

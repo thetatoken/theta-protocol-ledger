@@ -116,7 +116,6 @@ func (rm *RequestManager) mainLoop() {
 			rm.stopped = true
 			return
 		case <-rm.ticker.C:
-			rm.dumpAllReadyBlocks()
 			rm.quota = RequestQuotaPerSecond
 			rm.tryToDownload()
 		}
@@ -127,6 +126,8 @@ func (rm *RequestManager) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)
 	rm.ctx = c
 	rm.cancel = cancel
+
+	rm.resumePendingBlocks()
 
 	rm.wg.Add(1)
 	go rm.mainLoop()
@@ -142,9 +143,8 @@ func (rm *RequestManager) Wait() {
 }
 
 func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
-	// tip := rm.syncMgr.consensus.GetTip(true)
+	tip := rm.syncMgr.consensus.GetTip(true)
 	lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
-	tip := lfb
 
 	// Build expontially backoff starting hashes:
 	// https://en.bitcoin.it/wiki/Protocol_documentation#getblocks
@@ -235,7 +235,7 @@ func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	if eb, err := rm.chain.FindBlock(x); err == nil && !eb.Status.IsPending() {
+	if _, err := rm.chain.FindBlock(x); err == nil {
 		return
 	}
 
@@ -275,7 +275,7 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 		pendingBlock.block = block
 	}
 	parent := block.Parent
-	if eb, err := rm.chain.FindBlock(parent); err == nil && !eb.Status.IsPending() {
+	if _, err := rm.chain.FindBlock(parent); err == nil {
 		rm.dumpReadyBlocks(block)
 		return
 	}
@@ -312,6 +312,27 @@ func (rm *RequestManager) dumpAllReadyBlocks() {
 		}
 		if eb, err := rm.chain.FindBlock(block.Parent); err == nil && !eb.Status.IsPending() {
 			rm.dumpReadyBlocks(block)
+		}
+	}
+}
+
+// resumePendingBlocks is called during process start to resume blocks that are already downloaded
+// but are not yet processed by consensus engine.
+func (rm *RequestManager) resumePendingBlocks() {
+	lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
+	queue := []*core.ExtendedBlock{lfb}
+	for len(queue) > 0 {
+		block := queue[0]
+		queue = queue[1:]
+		if block.Status.IsPending() {
+			rm.AddBlock(block.Block)
+		}
+		for _, hash := range block.Children {
+			child, err := rm.chain.FindBlock(hash)
+			if err != nil {
+				logger.Panic(err)
+			}
+			queue = append(queue, child)
 		}
 	}
 }
