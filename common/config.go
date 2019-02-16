@@ -17,6 +17,9 @@ const (
 	// CfgConsensusMaxNumValidators defines the max number validators allowed
 	CfgConsensusMaxNumValidators = "consensus.maxNumValidators"
 
+	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
+	CfgStorageStatePruningEnabled = "storage.statePruning"
+
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
 

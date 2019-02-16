@@ -42,3 +42,8 @@ func ValidatorCandidatePoolKey() common.Bytes {
 func StakeTransactionHeightListKey() common.Bytes {
 	return common.Bytes("ls/sthl")
 }
+
+// StatePruningProgressKey returns the key for the state pruning progress
+func StatePruningProgressKey() common.Bytes {
+	return common.Bytes("ls/spp")
+}

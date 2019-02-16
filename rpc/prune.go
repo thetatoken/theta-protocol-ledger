@@ -11,6 +11,6 @@ type PruneResult struct {
 func (t *ThetaRPCService) ExecutePrune(args *PruneArgs, result *PruneResult) error {
 	start := args.Start
 	end := args.End
-	err := t.ledger.PruneState(start, end)
+	err := t.ledger.PruneStateForRange(start, end)
 	return err
 }

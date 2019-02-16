@@ -362,6 +362,8 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
+	e.pruneState(block.Height)
+
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
 		hasValidatorUpdateBool := hasValidatorUpdate.(bool)
 		if hasValidatorUpdateBool {
@@ -802,4 +804,23 @@ func (e *ConsensusEngine) propose() {
 	go func() {
 		e.AddMessage(proposal.Block)
 	}()
+}
+
+func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
+	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+		return
+	}
+
+	const pruneInterval = uint64(10)
+	if currentBlockHeight%pruneInterval != 0 {
+		return
+	}
+
+	const minimumNumBlocksToRetain = uint64(512)
+	if currentBlockHeight <= minimumNumBlocksToRetain+1 {
+		return
+	}
+
+	endHeight := currentBlockHeight - minimumNumBlocksToRetain
+	e.ledger.PruneState(endHeight)
 }

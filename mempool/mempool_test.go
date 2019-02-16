@@ -488,7 +488,11 @@ func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, nil
 }
 
-func (tl *TestLedger) PruneState(startHeight, endHeight uint64) error {
+func (tl *TestLedger) PruneState(endHeight uint64) error {
+	return nil
+}
+
+func (tl *TestLedger) PruneStateForRange(startHeight, endHeight uint64) error {
 	return nil
 }
 

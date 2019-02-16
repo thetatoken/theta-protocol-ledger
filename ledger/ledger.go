@@ -47,6 +47,7 @@ func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, co
 	state := st.NewLedgerState(chainID, db)
 	executor := exec.NewExecutor(state, consensus, valMgr)
 	ledger := &Ledger{
+		chain:     chain,
 		consensus: consensus,
 		valMgr:    valMgr,
 		mempool:   mempool,
@@ -254,7 +255,30 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
-func (ledger *Ledger) PruneState(startHeight, endHeight uint64) error {
+func (ledger *Ledger) PruneState(endHeight uint64) error {
+	var processedHeight uint64
+	db := ledger.State().DB()
+	kvStore := kvstore.NewKVStore(db)
+	err := kvStore.Get(state.StatePruningProgressKey(), &processedHeight)
+	if err != nil {
+		processedHeight = ledger.chain.Root().Height
+	}
+
+	err = ledger.PruneStateForRange(processedHeight+1, endHeight)
+	if err != nil {
+		logger.Errorf("Failed to pruning state: %v", err)
+		return err
+	}
+
+	processedHeight = endHeight
+	kvStore.Put(state.StatePruningProgressKey(), endHeight)
+
+	return nil
+}
+
+func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
+	logger.Infof("Prune state from height %v to %v.\n", startHeight, endHeight)
+
 	db := ledger.State().DB()
 	consensus := ledger.consensus
 	chain := ledger.chain
@@ -263,7 +287,6 @@ func (ledger *Ledger) PruneState(startHeight, endHeight uint64) error {
 	if endHeight >= lastFinalizedBlock.Height {
 		return fmt.Errorf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
 	}
-
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
 	stateHashMap := make(map[string]bool)

@@ -34,5 +34,6 @@ type Ledger interface {
 	ResetState(height uint64, rootHash common.Hash) result.Result
 	FinalizeState(height uint64, rootHash common.Hash) result.Result
 	GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*ValidatorCandidatePool, error)
-	PruneState(startHeight, endHeight uint64) error
+	PruneState(endHeight uint64) error
+	PruneStateForRange(startHeight, endHeight uint64) error
 }
