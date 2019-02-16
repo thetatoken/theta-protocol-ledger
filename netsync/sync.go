@@ -251,7 +251,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	m.logger.WithFields(log.Fields{
 		"channelID":   resp.ChannelID,
 		"InvResponse": resp,
-	}).Debug("Received InvResponse")
+	}).Debug("Received Inventory Response")
 
 	switch resp.ChannelID {
 	case common.ChannelIDBlock:
@@ -262,7 +262,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": resp.ChannelID,
-		}).Error("Unsupported channelID in received InvRequest")
+		}).Error("Unsupported channelID in received Inventory Request")
 	}
 }
 
@@ -369,7 +369,7 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		"block.Parent": block.Parent.Hex(),
 	}).Debug("Received block")
 
-	if _, err := sm.chain.FindBlock(block.Hash()); err == nil {
+	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
 		return
 	}
 

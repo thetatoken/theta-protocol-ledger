@@ -341,7 +341,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	for _, vote := range block.HCC.Votes.Votes() {
 		e.handleVote(vote)
 	}
-	e.checkCC(block.Hash())
+	e.checkCC(block.HCC.BlockHash)
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
@@ -536,6 +536,10 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
+		return
+	}
+	// Skip if block is still pending.
+	if block.Status.IsPending() {
 		return
 	}
 	// Skip if block already has CC.
