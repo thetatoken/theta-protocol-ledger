@@ -210,9 +210,7 @@ func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder co
 		vcp.SortedCandidates = append(vcp.SortedCandidates, newCandidate)
 	}
 
-	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
-	})
+	vcp.sortCandidates()
 
 	return nil
 }
@@ -234,9 +232,7 @@ func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder c
 		return fmt.Errorf("No matched stake holder address found: %v", holder)
 	}
 
-	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
-	})
+	vcp.sortCandidates()
 
 	return nil
 }
@@ -268,9 +264,24 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 		}
 	}
 
-	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order
-		return vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake()) >= 0
-	})
+	vcp.sortCandidates()
 
 	return returnedStakes
+}
+
+// func (vcp *ValidatorCandidatePool) sortCandidates() {
+// 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in (totalStake, holderAddress)
+// 		stakeCmp := vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake())
+// 		if stakeCmp == 0 {
+// 			return strings.Compare(vcp.SortedCandidates[i].Holder.Hex(), vcp.SortedCandidates[j].Holder.Hex()) >= 0
+// 		}
+// 		return stakeCmp > 0
+// 	})
+// }
+
+func (vcp *ValidatorCandidatePool) sortCandidates() {
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in totalStake
+		stakeCmp := vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake())
+		return stakeCmp >= 0
+	})
 }

@@ -49,20 +49,23 @@ func main() {
 	value, err := db.Get(k)
 	handleError(err)
 
+	ref, err := db.CountReference(k)
+	handleError(err)
+
 	node, err := trie.DecodeNode(k, value, 0)
 	if err == nil {
-		fmt.Printf("%v\n", trie.FmtNode(node, "", level, db, fmtValue))
+		fmt.Printf("ref = %v, obj = %v\n", ref, trie.FmtNode(node, "", level, db, fmtValue))
 	} else {
 		if strings.HasPrefix(err.Error(), "invalid number of list elements") {
 			block := core.ExtendedBlock{}
 			err = rlp.DecodeBytes(value, &block)
 			if err == nil {
-				fmt.Printf("%v\n", block)
+				fmt.Printf("ref = %v, obj = %v\n", ref, block)
 			} else {
 				blockByHeightIndexEntry := blockchain.BlockByHeightIndexEntry{}
 				err = rlp.DecodeBytes(value, &blockByHeightIndexEntry)
 				if err == nil {
-					fmt.Printf("%v\n", blockByHeightIndexEntry)
+					fmt.Printf("ref = %v, obj = %v\n", ref, blockByHeightIndexEntry)
 				} else {
 					handleError(err)
 				}

@@ -271,12 +271,16 @@ func (ledger *Ledger) PruneState(endHeight uint64) error {
 	}
 
 	processedHeight = endHeight
-	kvStore.Put(state.StatePruningProgressKey(), endHeight)
+	kvStore.Put(state.StatePruningProgressKey(), processedHeight)
 
 	return nil
 }
 
 func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
+	if endHeight < startHeight {
+		return fmt.Errorf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
+	}
+
 	logger.Infof("Prune state from height %v to %v.\n", startHeight, endHeight)
 
 	db := ledger.State().DB()
