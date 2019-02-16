@@ -6,3 +6,5 @@ p2p:
   seeds: 54.219.137.110:15000
 rpc:
   enabled: true
+log:
+  levels: "*:info"

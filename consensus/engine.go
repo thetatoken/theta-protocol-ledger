@@ -656,7 +656,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 		return
 	}
 
-	e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex()}).Info("Finalizing block")
+	e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex(), "block.Height": block.Height}).Info("Finalizing block")
 
 	e.state.SetLastFinalizedBlock(block)
 	e.ledger.FinalizeState(block.Height, block.StateHash)

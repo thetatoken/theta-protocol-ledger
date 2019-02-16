@@ -281,7 +281,7 @@ func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
 		return fmt.Errorf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
 	}
 
-	logger.Infof("Prune state from height %v to %v.\n", startHeight, endHeight)
+	logger.Infof("Prune state from height %v to %v", startHeight, endHeight)
 
 	db := ledger.State().DB()
 	consensus := ledger.consensus
