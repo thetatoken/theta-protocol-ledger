@@ -70,6 +70,7 @@ type RequestManager struct {
 
 	lastInventoryRequest time.Time
 
+	mu                    *sync.RWMutex
 	pendingBlocks         *list.List
 	pendingBlocksByHash   map[string]*list.Element
 	pendingBlocksByParent map[string][]*core.Block
@@ -91,6 +92,7 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 		chain:      syncMgr.chain,
 		dispatcher: syncMgr.dispatcher,
 
+		mu:                    &sync.RWMutex{},
 		pendingBlocks:         list.New(),
 		pendingBlocksByHash:   make(map[string]*list.Element),
 		pendingBlocksByParent: make(map[string][]*core.Block),
@@ -114,6 +116,7 @@ func (rm *RequestManager) mainLoop() {
 			rm.stopped = true
 			return
 		case <-rm.ticker.C:
+			rm.dumpAllReadyBlocks()
 			rm.quota = RequestQuotaPerSecond
 			rm.tryToDownload()
 		}
@@ -139,8 +142,9 @@ func (rm *RequestManager) Wait() {
 }
 
 func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
-	tip := rm.syncMgr.consensus.GetTip(true)
+	// tip := rm.syncMgr.consensus.GetTip(true)
 	lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
+	tip := lfb
 
 	// Build expontially backoff starting hashes:
 	// https://en.bitcoin.it/wiki/Protocol_documentation#getblocks
@@ -174,6 +178,9 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 }
 
 func (rm *RequestManager) tryToDownload() {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
 	inventoryRequestIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	if hasUndownloadedBlocks && inventoryRequestIntervalPassed {
@@ -225,7 +232,10 @@ func (rm *RequestManager) tryToDownload() {
 }
 
 func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
-	if _, err := rm.chain.FindBlock(x); err == nil {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	if eb, err := rm.chain.FindBlock(x); err == nil && !eb.Status.IsPending() {
 		return
 	}
 
@@ -257,12 +267,15 @@ func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
 }
 
 func (rm *RequestManager) AddBlock(block *core.Block) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		pendingBlock.block = block
 	}
 	parent := block.Parent
-	if _, err := rm.chain.FindBlock(parent); err == nil {
+	if eb, err := rm.chain.FindBlock(parent); err == nil && !eb.Status.IsPending() {
 		rm.dumpReadyBlocks(block)
 		return
 	}
@@ -283,6 +296,26 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.pendingBlocksByParent[parent.String()] = byParents
 }
 
+func (rm *RequestManager) dumpAllReadyBlocks() {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	pendings := []*list.Element{}
+	for _, pendingBlockEl := range rm.pendingBlocksByHash {
+		pendings = append(pendings, pendingBlockEl)
+	}
+	for _, pendingBlockEl := range pendings {
+		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+		block := pendingBlock.block
+		if block == nil {
+			continue
+		}
+		if eb, err := rm.chain.FindBlock(block.Parent); err == nil && !eb.Status.IsPending() {
+			rm.dumpReadyBlocks(block)
+		}
+	}
+}
+
 func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 	queue := []*core.Block{block}
 	for len(queue) > 0 {
@@ -300,9 +333,11 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 			delete(rm.pendingBlocksByHash, hash)
 		}
 
-		_, err := rm.chain.AddBlock(block)
-		if err != nil {
-			rm.logger.Panic(err)
+		rm.chain.AddBlock(block)
+
+		queueHash := []string{}
+		for _, b := range queue {
+			queueHash = append(queueHash, b.Hash().Hex())
 		}
 		rm.syncMgr.PassdownMessage(block)
 	}
