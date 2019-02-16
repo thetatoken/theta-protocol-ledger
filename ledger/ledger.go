@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/store"
 	"github.com/thetatoken/theta/store/kvstore"
 
@@ -255,7 +256,8 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
-func (ledger *Ledger) PruneState(endHeight uint64) error {
+// PruneState attempts to prune the state up to the targetEndHeight
+func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
 	var processedHeight uint64
 	db := ledger.State().DB()
 	kvStore := kvstore.NewKVStore(db)
@@ -264,6 +266,12 @@ func (ledger *Ledger) PruneState(endHeight uint64) error {
 		processedHeight = ledger.chain.Root().Height
 	}
 
+	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
+	maxHeightsToPrune := 3 * pruneInterval // prune too many heights at once could cause hang, should catchup gradually
+	endHeight := processedHeight + maxHeightsToPrune
+	if endHeight > targetEndHeight {
+		endHeight = targetEndHeight
+	}
 	err = ledger.PruneStateForRange(processedHeight+1, endHeight)
 	if err != nil {
 		logger.Errorf("Failed to pruning state: %v", err)
@@ -276,12 +284,13 @@ func (ledger *Ledger) PruneState(endHeight uint64) error {
 	return nil
 }
 
+// PruneStateForRange prunes states from startHeight to endHeight (inclusive for both end)
 func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
 	if endHeight < startHeight {
 		return fmt.Errorf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
 	}
 
-	logger.Debugf("Prune state from height %v to %v", startHeight, endHeight)
+	logger.Infof("Prune state from height %v to %v", startHeight, endHeight)
 
 	db := ledger.State().DB()
 	consensus := ledger.consensus
