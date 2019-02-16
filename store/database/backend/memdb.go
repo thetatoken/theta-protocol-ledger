@@ -125,10 +125,8 @@ func (db *MemDatabase) CountReference(key []byte) (int, error) {
 	defer db.lock.RUnlock()
 
 	// check if k/v exists
-	if _, ok := db.db[string(key)]; ok {
-		if ref, ok := db.refdb[string(key)]; ok {
-			return ref, nil
-		}
+	if ref, ok := db.refdb[string(key)]; ok {
+		return ref, nil
 	}
 	return 0, store.ErrKeyNotFound
 }
@@ -160,7 +158,7 @@ func (b *memBatch) Put(key, value []byte) error {
 }
 
 func (b *memBatch) Delete(key []byte) error {
-	delete(b.references, string(key))
+	delete(b.db.refdb, string(key))
 	b.writes = append(b.writes, kv{common.CopyBytes(key), nil, true})
 	b.size += 1
 	return nil
@@ -198,11 +196,15 @@ func (b *memBatch) Write() error {
 	}
 
 	for k, v := range b.references {
-		if _, ok := b.db.db[k]; ok {
-			b.db.refdb[string(k)] = b.db.refdb[string(k)] + v
-			if b.db.refdb[string(k)] < 0 {
-				b.db.refdb[string(k)] = 0
+		if _, ok := b.db.db[k]; !ok {
+			if v < 0 {
+				continue
 			}
+			b.db.refdb[string(k)] = 0
+		}
+		b.db.refdb[string(k)] = b.db.refdb[string(k)] + v
+		if b.db.refdb[string(k)] < 0 {
+			b.db.refdb[string(k)] = 0
 		}
 	}
 

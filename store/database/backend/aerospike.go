@@ -205,24 +205,21 @@ func (b *adbBatch) Write() error {
 		if err != nil {
 			return err
 		}
-		if rec == nil {
-			continue
-		}
 
 		var ref int
-		if rec.Bins[RefBin] != nil {
+		if rec != nil && rec.Bins[RefBin] != nil {
 			ref = rec.Bins[RefBin].(int)
-		} else {
-			ref = 0
 		}
 
 		if ref <= 0 && v < 0 {
 			continue
 		}
+
 		ref += v
 		if ref < 0 {
 			ref = 0
 		}
+
 		bin := aerospike.NewBin(RefBin, ref)
 		writePolicy := aerospike.NewWritePolicy(0, 0)
 		writePolicy.Timeout = 300 * time.Millisecond

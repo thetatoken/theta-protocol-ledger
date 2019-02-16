@@ -256,20 +256,19 @@ func (b *badgerdbBatch) Write() error {
 	}
 
 	for k, v := range b.references {
+		var document Document
 		unmarshal, err := txn.Get([]byte(k))
 		if err != nil {
-			if err == badger.ErrKeyNotFound {
-				continue
+			if err != badger.ErrKeyNotFound {
+				return err
 			}
-			return err
-		}
-
-		var document Document
-		err = unmarshal.Value(func(val []byte) error {
-			return json.Unmarshal(val, &document)
-		})
-		if err != nil {
-			return err
+		} else {
+			err = unmarshal.Value(func(val []byte) error {
+				return json.Unmarshal(val, &document)
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if document.Reference <= 0 && v < 0 {

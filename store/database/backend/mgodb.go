@@ -185,10 +185,13 @@ func (b *mgodbBatch) Write() error {
 			result := new(Document)
 			err := b.collection.Find(selector).One(&result)
 			if err != nil {
-				if err == mgo.ErrNotFound {
-					continue
+				if err != mgo.ErrNotFound {
+					return err
 				}
-				return err
+			}
+
+			if result.Reference <= 0 && v < 0 {
+				continue
 			}
 
 			ref := result.Reference + v

@@ -222,10 +222,13 @@ func (b *mdbBatch) Write() error {
 		result := new(Document)
 		err := b.collection.FindOne(nil, filter).Decode(result)
 		if err != nil {
-			if err == mongo.ErrNoDocuments {
-				continue
+			if err != mongo.ErrNoDocuments {
+				return err
 			}
-			return err
+		}
+
+		if result.Reference <= 0 && v < 0 {
+			continue
 		}
 
 		ref := result.Reference + v
