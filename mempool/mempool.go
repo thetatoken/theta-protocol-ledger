@@ -175,7 +175,8 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 	defer mp.mutex.Unlock()
 
 	if mp.txBookeepper.hasSeen(rawTx) {
-		logger.Infof("Transaction already seen: %v", hex.EncodeToString(rawTx))
+		logger.Debugf("Transaction already seen: %v, hash: 0x%v",
+			hex.EncodeToString(rawTx), getTransactionHash(rawTx))
 		return DuplicateTxError
 	}
 
@@ -185,7 +186,8 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		return errors.New(checkTxRes.Message)
 	}
 
-	logger.Infof("Insert tx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
+	logger.Infof("Insert tx, tx.hash: 0x%v", getTransactionHash(rawTx))
+	logger.Debugf("rawTx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
 
 	// only record the transactions that passed the screening. This is because that
 	// an invalid transaction could becoume valid later on. For example, assume expected

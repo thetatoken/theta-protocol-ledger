@@ -118,7 +118,7 @@ func (t *ThetaRPCService) BroadcastRawTransaction(
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
-	logger.Infof("[rpc] broadcast raw transaction: %v", hex.EncodeToString(txBytes))
+	logger.Infof("Broadcast raw transaction (sync): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	err = t.mempool.InsertTransaction(txBytes)
 	if err != nil {
@@ -162,7 +162,7 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
-	logger.Infof("[rpc] broadcast raw transaction: %v", hex.EncodeToString(txBytes))
+	logger.Infof("Broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	return t.mempool.InsertTransaction(txBytes)
 }
