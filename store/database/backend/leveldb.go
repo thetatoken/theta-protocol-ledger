@@ -486,7 +486,7 @@ func (b *ldbBatch) Put(key, value []byte) error {
 }
 
 func (b *ldbBatch) Delete(key []byte) error {
-	delete(b.references, string(key))
+	b.refdb.Delete(key, nil)
 	b.b.Delete(key)
 	b.size += 1
 	return nil
