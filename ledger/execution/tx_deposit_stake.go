@@ -40,7 +40,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
 	if res.IsError() {
-		logger.Infof(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
+		logger.Warnf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 

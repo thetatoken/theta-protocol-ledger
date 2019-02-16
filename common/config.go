@@ -18,7 +18,11 @@ const (
 	CfgConsensusMaxNumValidators = "consensus.maxNumValidators"
 
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
-	CfgStorageStatePruningEnabled = "storage.statePruning"
+	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
+	// CfgStorageStatePruningInterval indicates the purning interval (in terms of blocks)
+	CfgStorageStatePruningInterval = "storage.statePruningInterval"
+	// CfgStorageStatePruningRetainedBlocks indicates the number of blocks prior to the latest finalized block to be retained
+	CfgStorageStatePruningRetainedBlocks = "storage.statePruningRetainedBlocks"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -62,6 +66,10 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxNumValidators, 7)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
+
+	viper.SetDefault(CfgStorageStatePruningEnabled, true)
+	viper.SetDefault(CfgStorageStatePruningInterval, 10)
+	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 512)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)

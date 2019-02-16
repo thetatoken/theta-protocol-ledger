@@ -815,12 +815,12 @@ func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
 		return
 	}
 
-	const pruneInterval = uint64(10)
+	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
 	if currentBlockHeight%pruneInterval != 0 {
 		return
 	}
 
-	const minimumNumBlocksToRetain = uint64(512)
+	minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
 	if currentBlockHeight <= minimumNumBlocksToRetain+1 {
 		return
 	}

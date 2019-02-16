@@ -417,7 +417,7 @@ func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
 
 	err = conn.onReceive(message)
 	if err != nil {
-		logger.Warnf("Error handling message: %v, err: %v", message, err)
+		logger.Debugf("Error handling message: %v, err: %v", message, err)
 		return false
 	}
 

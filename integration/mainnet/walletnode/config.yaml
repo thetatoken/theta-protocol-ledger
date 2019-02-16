@@ -1,4 +1,6 @@
 # Theta configuration
+storage:
+  statePruningRetainedBlocks: 128
 p2p:
   port: 16000
   seeds: 18.218.16.108:21000,18.191.88.191:21000,52.14.100.133:21000

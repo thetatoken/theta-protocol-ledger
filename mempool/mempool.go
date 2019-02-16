@@ -181,7 +181,7 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 
 	txInfo, checkTxRes := mp.ledger.ScreenTx(rawTx)
 	if !checkTxRes.IsOK() {
-		logger.Warnf("Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
+		logger.Debugf("Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
 		return errors.New(checkTxRes.Message)
 	}
 
