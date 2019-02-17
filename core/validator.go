@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 
@@ -269,19 +270,19 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 	return returnedStakes
 }
 
-// func (vcp *ValidatorCandidatePool) sortCandidates() {
-// 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in (totalStake, holderAddress)
-// 		stakeCmp := vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake())
-// 		if stakeCmp == 0 {
-// 			return strings.Compare(vcp.SortedCandidates[i].Holder.Hex(), vcp.SortedCandidates[j].Holder.Hex()) >= 0
-// 		}
-// 		return stakeCmp > 0
-// 	})
-// }
-
 func (vcp *ValidatorCandidatePool) sortCandidates() {
-	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in totalStake
+	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in (totalStake, holderAddress)
 		stakeCmp := vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake())
-		return stakeCmp >= 0
+		if stakeCmp == 0 {
+			return strings.Compare(vcp.SortedCandidates[i].Holder.Hex(), vcp.SortedCandidates[j].Holder.Hex()) >= 0
+		}
+		return stakeCmp > 0
 	})
 }
+
+// func (vcp *ValidatorCandidatePool) sortCandidates() {
+// 	sort.Slice(vcp.SortedCandidates[:], func(i, j int) bool { // descending order in totalStake
+// 		stakeCmp := vcp.SortedCandidates[i].TotalStake().Cmp(vcp.SortedCandidates[j].TotalStake())
+// 		return stakeCmp >= 0
+// 	})
+// }

@@ -274,7 +274,7 @@ func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
 	}
 	err = ledger.PruneStateForRange(processedHeight+1, endHeight)
 	if err != nil {
-		logger.Errorf("Failed to pruning state: %v", err)
+		logger.Warnf("Unable to pruning state: %v", err)
 		return err
 	}
 
