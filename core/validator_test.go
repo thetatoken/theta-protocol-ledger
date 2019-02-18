@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -299,6 +300,48 @@ func TestValidatorCandidatePool(t *testing.T) {
 	assert.True(len(vcp.SortedCandidates[3].Stakes) == 1)
 	checkAndPrintAllSortedCandidates(t, assert, vcp)
 	checkAndPrintTopCandidates(t, assert, vcp, 3)
+}
+
+func TestValidatorSetUniqueSortedOrder(t *testing.T) {
+	assert := assert.New(t)
+
+	ten18 := new(big.Int).SetUint64(1000000000000000000) // 10^18
+	stakeAmount := new(big.Int).Mul(new(big.Int).SetUint64(50000000), ten18)
+
+	sourceAddr1 := common.HexToAddress("0x111")
+	holderAddr1 := common.HexToAddress("0x111")
+	sourceAddr2 := common.HexToAddress("0x222")
+	holderAddr2 := common.HexToAddress("0x222")
+	sourceAddr3 := common.HexToAddress("0x333")
+	holderAddr3 := common.HexToAddress("0x333")
+	sourceAddr4 := common.HexToAddress("0x444")
+	holderAddr4 := common.HexToAddress("0x444")
+
+	vcp := &ValidatorCandidatePool{}
+	assert.Nil(vcp.DepositStake(sourceAddr1, holderAddr1, stakeAmount))
+	assert.Nil(vcp.DepositStake(sourceAddr2, holderAddr2, stakeAmount))
+	assert.Nil(vcp.DepositStake(sourceAddr3, holderAddr3, stakeAmount))
+	assert.Nil(vcp.DepositStake(sourceAddr4, holderAddr4, stakeAmount))
+
+	vcp.sortCandidates()
+	vcpJson1, _ := json.MarshalIndent(vcp, "", "  ")
+	fmt.Printf("VCP after the 1st sort: %v\n\n", string(vcpJson1))
+
+	vcp.sortCandidates()
+	vcpJson2, _ := json.MarshalIndent(vcp, "", "  ")
+	fmt.Printf("VCP after the 2nd sort: %v\n\n", string(vcpJson2))
+
+	vcp.sortCandidates()
+	vcpJson3, _ := json.MarshalIndent(vcp, "", "  ")
+	fmt.Printf("VCP after the 3rd sort: %v\n\n", string(vcpJson3))
+
+	vcp.sortCandidates()
+	vcpJson4, _ := json.MarshalIndent(vcp, "", "  ")
+	fmt.Printf("VCP after the 4th sort: %v\n\n", string(vcpJson4))
+
+	assert.Equal(vcpJson1, vcpJson2)
+	assert.Equal(vcpJson2, vcpJson3)
+	assert.Equal(vcpJson3, vcpJson4)
 }
 
 // ------------------------- Utilities -------------------------
