@@ -306,7 +306,8 @@ func TestValidatorSetUniqueSortedOrder(t *testing.T) {
 	assert := assert.New(t)
 
 	ten18 := new(big.Int).SetUint64(1000000000000000000) // 10^18
-	stakeAmount := new(big.Int).Mul(new(big.Int).SetUint64(50000000), ten18)
+	stakeAmountA := new(big.Int).Mul(new(big.Int).SetUint64(50000000), ten18)
+	stakeAmountB := new(big.Int).Mul(new(big.Int).SetUint64(10000000), ten18)
 
 	sourceAddr1 := common.HexToAddress("0x111")
 	holderAddr1 := common.HexToAddress("0x111")
@@ -316,12 +317,18 @@ func TestValidatorSetUniqueSortedOrder(t *testing.T) {
 	holderAddr3 := common.HexToAddress("0x333")
 	sourceAddr4 := common.HexToAddress("0x444")
 	holderAddr4 := common.HexToAddress("0x444")
+	sourceAddr5 := common.HexToAddress("0x555")
+	holderAddr5 := common.HexToAddress("0x555")
+	sourceAddr6 := common.HexToAddress("0x666")
+	holderAddr6 := common.HexToAddress("0x666")
 
 	vcp := &ValidatorCandidatePool{}
-	assert.Nil(vcp.DepositStake(sourceAddr1, holderAddr1, stakeAmount))
-	assert.Nil(vcp.DepositStake(sourceAddr2, holderAddr2, stakeAmount))
-	assert.Nil(vcp.DepositStake(sourceAddr3, holderAddr3, stakeAmount))
-	assert.Nil(vcp.DepositStake(sourceAddr4, holderAddr4, stakeAmount))
+	assert.Nil(vcp.DepositStake(sourceAddr3, holderAddr3, stakeAmountA))
+	assert.Nil(vcp.DepositStake(sourceAddr1, holderAddr1, stakeAmountA))
+	assert.Nil(vcp.DepositStake(sourceAddr5, holderAddr5, stakeAmountB))
+	assert.Nil(vcp.DepositStake(sourceAddr2, holderAddr2, stakeAmountA))
+	assert.Nil(vcp.DepositStake(sourceAddr6, holderAddr6, stakeAmountB))
+	assert.Nil(vcp.DepositStake(sourceAddr4, holderAddr4, stakeAmountA))
 
 	vcp.sortCandidates()
 	vcpJson1, _ := json.MarshalIndent(vcp, "", "  ")
@@ -338,6 +345,13 @@ func TestValidatorSetUniqueSortedOrder(t *testing.T) {
 	vcp.sortCandidates()
 	vcpJson4, _ := json.MarshalIndent(vcp, "", "  ")
 	fmt.Printf("VCP after the 4th sort: %v\n\n", string(vcpJson4))
+
+	assert.Equal(vcp.SortedCandidates[0].Holder, holderAddr4)
+	assert.Equal(vcp.SortedCandidates[1].Holder, holderAddr3)
+	assert.Equal(vcp.SortedCandidates[2].Holder, holderAddr2)
+	assert.Equal(vcp.SortedCandidates[3].Holder, holderAddr1)
+	assert.Equal(vcp.SortedCandidates[4].Holder, holderAddr6)
+	assert.Equal(vcp.SortedCandidates[5].Holder, holderAddr5)
 
 	assert.Equal(vcpJson1, vcpJson2)
 	assert.Equal(vcpJson2, vcpJson3)
