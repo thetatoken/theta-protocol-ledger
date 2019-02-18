@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/thetatoken/theta/common"
@@ -11,6 +12,7 @@ import (
 )
 
 var TestBlocks map[string]*Block = make(map[string]*Block)
+var TestBlocksLock = &sync.Mutex{}
 
 var DefaultSigner *crypto.PrivateKey
 var epoch uint64
@@ -21,10 +23,16 @@ func init() {
 }
 
 func ResetTestBlocks() {
+	TestBlocksLock.Lock()
+	defer TestBlocksLock.Unlock()
+
 	TestBlocks = make(map[string]*Block)
 }
 
 func GetTestBlock(name string) *Block {
+	TestBlocksLock.Lock()
+	defer TestBlocksLock.Unlock()
+
 	name = strings.ToLower(name)
 	block, ok := TestBlocks[name]
 	if !ok {
@@ -65,6 +73,8 @@ func CreateTestBlock(name string, parent string) *Block {
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.Signature, _ = DefaultSigner.Sign(block.SignBytes())
 
+	TestBlocksLock.Lock()
+	defer TestBlocksLock.Unlock()
 	TestBlocks[name] = block
 
 	return block

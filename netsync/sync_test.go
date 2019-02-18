@@ -154,6 +154,9 @@ func TestSyncManager(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
+	sm.Stop()
+	sm.Wait()
+
 	// Sync manager should output A2, A3, A4 in order.
 	assert.Equal(3, len(mockMsgConsumer.Received))
 	expected := []string{"A2", "A3", "A4"}
