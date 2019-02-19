@@ -338,15 +338,19 @@ func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
 					continue
 				}
 
-				//logger.Infof("Prune state, height: %v, StateHash: %v", height, block.StateHash.Hex())
-				logger.Infof("Prune state, idx: %v, height: %v, StateHash: %v", idx, height, block.StateHash.Hex())
-				_, err := db.Get(block.StateHash[:])
-				if err != nil {
-					logger.Warnf("StateRoot %v not found, skip pruning")
+				if block.Status.IsPending() || block.Status.IsInvalid() || block.Status.IsTrusted() {
 					continue // This could happen if the block is stored in the chain but its
 					// txs were not processed (e.g. an invalid block). In such cases the block
 					// is stored in the chain, but its state trie is not saved
 				}
+
+				logger.Infof("Prune state, idx: %v, height: %v, StateHash: %v", idx, height, block.StateHash.Hex())
+				_, err := db.Get(block.StateHash[:])
+				if err != nil {
+					logger.Errorf("StateRoot %v not found, skip pruning", block.StateHash.Hex())
+					continue
+				}
+
 				sv := state.NewStoreView(height, block.StateHash, db)
 				err = sv.Prune()
 				if err != nil {

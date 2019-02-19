@@ -215,6 +215,10 @@ func (bs BlockStatus) IsTrusted() bool {
 	return bs == BlockStatusTrusted
 }
 
+func (bs BlockStatus) IsInvalid() bool {
+	return bs == BlockStatusInvalid
+}
+
 // IsValid returns whether block has been validated.
 func (bs BlockStatus) IsValid() bool {
 	return bs != BlockStatusPending && bs != BlockStatusInvalid
