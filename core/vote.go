@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -186,6 +187,11 @@ func (s *VoteSet) String() string {
 		return "nil"
 	}
 	return fmt.Sprintf("%v", s.Votes())
+}
+
+// MarshalJSON implements json.Marshaler
+func (s *VoteSet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.Votes())
 }
 
 var _ rlp.Encoder = (*VoteSet)(nil)
