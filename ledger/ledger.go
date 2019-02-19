@@ -339,7 +339,7 @@ func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
 				}
 
 				//logger.Infof("Prune state, height: %v, StateHash: %v", height, block.StateHash.Hex())
-				logger.Infof("Prune state, idx: %v, startHeight: %v, endHeight: %v, height: %v, StateHash: %v", idx, startHeight, endHeight, height, block.StateHash.Hex())
+				logger.Infof("Prune state, idx: %v, height: %v, StateHash: %v", idx, height, block.StateHash.Hex())
 				_, err := db.Get(block.StateHash[:])
 				if err != nil {
 					logger.Warnf("StateRoot %v not found, skip pruning")
