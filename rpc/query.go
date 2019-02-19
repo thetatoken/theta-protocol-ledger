@@ -11,7 +11,26 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/version"
 )
+
+// ------------------------------- GetVersion -----------------------------------
+
+type GetVersionArgs struct {
+}
+
+type GetVersionResult struct {
+	Version   string `json:"version"`
+	GitHash   string `json:"git_hash"`
+	Timestamp string `json:"timestamp"`
+}
+
+func (t *ThetaRPCService) GetVersion(args *GetVersionArgs, result *GetVersionResult) (err error) {
+	result.Version = version.Version
+	result.GitHash = version.GitHash
+	result.Timestamp = version.Timestamp
+	return nil
+}
 
 // ------------------------------- GetAccount -----------------------------------
 

@@ -552,7 +552,7 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 	}
 	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
-		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Warn("checkCC: Block hash in vote is not found")
+		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Debug("checkCC: Block hash in vote is not found")
 		return
 	}
 	// Skip if block is still pending.

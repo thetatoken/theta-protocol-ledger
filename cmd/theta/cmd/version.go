@@ -19,5 +19,5 @@ func init() {
 }
 
 func runVersion(cmd *cobra.Command, args []string) {
-	fmt.Printf("Version %s\nBuilt at %s\n", version.GitHash, version.Timestamp)
+	fmt.Printf("Version %v %s\nBuilt at %s\n", version.Version, version.GitHash, version.Timestamp)
 }

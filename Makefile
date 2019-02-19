@@ -41,12 +41,14 @@ gen_doc:
 
 BUILD_DATE := `date -u`
 GIT_HASH := `git rev-parse HEAD`
+VERSION_NUMER := `cat version/version_number.txt`
 VERSIONFILE := version/version_generated.go
 
 gen_version:
 	@echo "package version" > $(VERSIONFILE)
 	@echo "const (" >> $(VERSIONFILE)
 	@echo "  Timestamp = \"$(BUILD_DATE)\"" >> $(VERSIONFILE)
+	@echo "  Version = \"$(VERSION_NUMER)\"" >> $(VERSIONFILE)
 	@echo "  GitHash = \"$(GIT_HASH)\"" >> $(VERSIONFILE)
 	@echo ")" >> $(VERSIONFILE)
 
