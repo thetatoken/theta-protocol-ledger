@@ -377,6 +377,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		return
 	}
 
+	fmt.Printf("Received block, height: %v\n", block.Height)
 	e.pruneState(block.Height)
 
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {

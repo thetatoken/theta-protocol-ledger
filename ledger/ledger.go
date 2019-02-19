@@ -332,11 +332,15 @@ func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
 
 	for height := endHeight; height >= startHeight && height > 0; height-- {
 		blocks := chain.FindBlocksByHeight(height)
-		for _, block := range blocks {
+		for idx, block := range blocks {
 			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
 				if block.HasValidatorUpdate {
 					continue
 				}
+
+				//logger.Infof("Prune state, height: %v, StateHash: %v", height, block.StateHash.Hex())
+				logger.Infof("Prune state, idx: %v, startHeight: %v, endHeight: %v, height: %v, StateHash: %v", idx, startHeight, endHeight, height, block.StateHash.Hex())
+
 				sv := state.NewStoreView(height, block.StateHash, db)
 				err := sv.Prune()
 				if err != nil {

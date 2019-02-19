@@ -84,6 +84,9 @@ func (sv *StoreView) IncrementHeight() {
 // Save saves the StoreView to the persistent storage, and return the root hash
 func (sv *StoreView) Save() common.Hash {
 	rootHash, err := sv.store.Commit()
+
+	logger.Infof("store.Commit(), height: %v, rootHash: %v", sv.height+1, rootHash.Hex())
+
 	if err != nil {
 		panic(fmt.Sprintf("Failed to save the StoreView: %v", err))
 	}
