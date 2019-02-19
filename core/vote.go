@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -186,6 +187,24 @@ func (s *VoteSet) String() string {
 		return "nil"
 	}
 	return fmt.Sprintf("%v", s.Votes())
+}
+
+// MarshalJSON implements json.Marshaler
+func (s *VoteSet) MarshalJSON() ([]byte, error) {
+	return json.Marshal(s.Votes())
+}
+
+// UnmarshalJSON implements json.Marshaler
+func (s *VoteSet) UnmarshalJSON(b []byte) error {
+	votes := []Vote{}
+	if err := json.Unmarshal(b, &votes); err != nil {
+		return err
+	}
+	s.votes = make(map[string]Vote)
+	for _, v := range votes {
+		s.AddVote(v)
+	}
+	return nil
 }
 
 var _ rlp.Encoder = (*VoteSet)(nil)

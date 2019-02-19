@@ -690,6 +690,9 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 }
 
 func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
+	if epoch <= tip.Epoch {
+		return false
+	}
 	if !e.shouldProposeByID(tip.Hash(), epoch, e.ID()) {
 		return false
 	}

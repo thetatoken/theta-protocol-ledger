@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -75,8 +76,8 @@ type BlockHeader struct {
 	Parent      common.Hash
 	HCC         CommitCertificate
 	TxHash      common.Hash
-	ReceiptHash common.Hash
-	Bloom       Bloom
+	ReceiptHash common.Hash `json:"-"`
+	Bloom       Bloom       `json:"-"`
 	StateHash   common.Hash
 	Timestamp   *big.Int
 	Proposer    common.Address
@@ -224,6 +225,28 @@ func (bs BlockStatus) IsValid() bool {
 	return bs != BlockStatusPending && bs != BlockStatusInvalid
 }
 
+// func (bs BlockStatus) MarshalJSON() ([]byte, error) {
+// 	if bs == BlockStatusPending {
+// 		return []byte("\"pending\""), nil
+// 	}
+// 	if bs == BlockStatusValid {
+// 		return []byte("\"valid\""), nil
+// 	}
+// 	if bs == BlockStatusInvalid {
+// 		return []byte("\"invalid\""), nil
+// 	}
+// 	if bs == BlockStatusCommitted {
+// 		return []byte("\"committed\""), nil
+// 	}
+// 	if bs == BlockStatusDirectlyFinalized {
+// 		return []byte("\"directly_finalized\""), nil
+// 	}
+// 	if bs == BlockStatusIndirectlyFinalized {
+// 		return []byte("\"indirectly_finalized\""), nil
+// 	}
+// 	return []byte("\"trusted\""), nil
+// }
+
 // ExtendedBlock is wrapper over Block, containing extra information related to the block.
 type ExtendedBlock struct {
 	*Block
@@ -257,4 +280,17 @@ func (eb *ExtendedBlock) String() string {
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash().String()
+}
+
+type ExtendedBlockInnerJSON ExtendedBlock
+
+// MarshalJSON implements json.Marshaler
+func (eb *ExtendedBlock) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ExtendedBlockInnerJSON
+		Hash common.Hash
+	}{
+		ExtendedBlockInnerJSON: ExtendedBlockInnerJSON(*eb),
+		Hash:                   eb.Hash(),
+	})
 }
