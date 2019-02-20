@@ -117,7 +117,7 @@ func (t *ThetaRPCServer) serve() {
 	ll := netutil.LimitListener(l, viper.GetInt(common.CfgRPCMaxConnections))
 	t.listener = ll
 
-	logger.Fatal(t.server.Serve(ll))
+	logger.Info(t.server.Serve(ll))
 }
 
 // Stop notifies all goroutines to stop without blocking.

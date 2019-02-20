@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
 	"path"
 	"strings"
 	"time"
@@ -72,9 +74,30 @@ func runStart(cmd *cobra.Command, args []string) {
 		SnapshotPath: snapshotPath,
 	}
 	n := node.NewNode(params)
-	n.Start(context.Background())
 
-	n.Wait()
+	// trap Ctrl+C and call cancel on the context
+	ctx, cancel := context.WithCancel(context.Background())
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt)
+	done := make(chan struct{})
+	go func() {
+		<-c
+		signal.Stop(c)
+		cancel()
+		// Wait at most 5 seconds before forcefully shutting down.
+		<-time.After(time.Duration(5) * time.Second)
+		close(done)
+	}()
+
+	n.Start(ctx)
+
+	go func() {
+		n.Wait()
+		close(done)
+	}()
+
+	<-done
+	log.Info("Theta shutting down...Bye!")
 }
 
 func loadOrCreateKey() (*crypto.PrivateKey, error) {
