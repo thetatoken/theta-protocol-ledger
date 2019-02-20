@@ -18,11 +18,11 @@ import (
 
 // splitRuleCmd represents the split rule command
 // Example:
-//		thetacli tx split_rule --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000
+//		thetacli tx split_rule --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --duration=1000
 var splitRuleCmd = &cobra.Command{
 	Use:     "split_rule",
 	Short:   "Initiate or update a split rule",
-	Example: `thetacli tx split_rule --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --chain="" --duration=1000`,
+	Example: `thetacli tx split_rule --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --seq=8 --resource_id=die_another_day --addresses=2E833968E5bB786Ae419c4d13189fB081Cc43bab,9F1233798E905E173560071255140b4A8aBd3Ec6 --percentages=30,30 --duration=1000`,
 	Run:     doSplitRuleCmd,
 }
 

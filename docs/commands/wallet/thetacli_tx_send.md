@@ -13,12 +13,13 @@ thetacli tx send [flags]
 ### Examples
 
 ```
-thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=900000 --seq=1
+thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1
 ```
 
 ### Options
 
 ```
+      --async           block until tx has been included in the blockchain
       --chain string    Chain ID
       --fee string      Fee (default "1000000000000wei")
       --from string     Address to send from

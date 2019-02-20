@@ -32,12 +32,16 @@ type SplitRuleJSON struct {
 
 }
 
-func NewSplitRuleJSON(a SplitRule) SplitRuleJSON {
-	return SplitRuleJSON{
-		InitiatorAddress: a.InitiatorAddress,
-		ResourceID:       a.ResourceID,
-		Splits:           a.Splits,
-		EndBlockHeight:   common.JSONUint64(a.EndBlockHeight),
+func NewSplitRuleJSON(a *SplitRule) *SplitRuleJSON {
+	if a == nil {
+		return nil
+	} else {
+		return &SplitRuleJSON{
+			InitiatorAddress: a.InitiatorAddress,
+			ResourceID:       a.ResourceID,
+			Splits:           a.Splits,
+			EndBlockHeight:   common.JSONUint64(a.EndBlockHeight),
+		}
 	}
 }
 
@@ -50,8 +54,12 @@ func (a SplitRuleJSON) SplitRule() SplitRule {
 	}
 }
 
-func (a SplitRule) MarshalJSON() ([]byte, error) {
-	return json.Marshal(NewSplitRuleJSON(a))
+func (a *SplitRule) MarshalJSON() ([]byte, error) {
+	if a == nil {
+		return []byte("{}"), nil
+	} else {
+		return json.Marshal(NewSplitRuleJSON(a))
+	}
 }
 
 func (a *SplitRule) UnmarshalJSON(data []byte) error {
@@ -65,7 +73,7 @@ func (a *SplitRule) UnmarshalJSON(data []byte) error {
 
 func (sc *SplitRule) String() string {
 	if sc == nil {
-		return "nil-SlashIntent"
+		return "nil-SplitRule"
 	}
 	return fmt.Sprintf("SplitRule{%v %v %v %v}",
 		sc.InitiatorAddress.Hex(), string(sc.ResourceID), sc.Splits, sc.EndBlockHeight)

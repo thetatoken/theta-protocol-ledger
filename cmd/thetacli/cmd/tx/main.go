@@ -31,6 +31,7 @@ var (
 	purposeFlag                  uint8
 	sourceFlag                   string
 	holderFlag                   string
+	asyncFlag                    bool
 )
 
 // TxCmd represents the Tx command
