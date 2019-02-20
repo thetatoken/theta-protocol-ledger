@@ -272,34 +272,43 @@ func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
 	if endHeight > targetEndHeight {
 		endHeight = targetEndHeight
 	}
-	err = ledger.PruneStateForRange(processedHeight+1, endHeight)
+
+	startHeight := processedHeight + 1
+	if endHeight < startHeight {
+		errMsg := fmt.Sprintf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
+		logger.Warnf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+
+	lastFinalizedBlock := ledger.consensus.GetLastFinalizedBlock()
+	if endHeight >= lastFinalizedBlock.Height {
+		errMsg := fmt.Sprintf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
+		logger.Warnf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+
+	// Need to save the progress before pruning -- in case the program exits during pruning (e.g. Ctrl+C),
+	// the states that are already pruned do not get pruned again
+	kvStore.Put(state.StatePruningProgressKey(), endHeight)
+
+	err = ledger.pruneStateForRange(startHeight, endHeight)
 	if err != nil {
 		logger.Warnf("Unable to pruning state: %v", err)
 		return err
 	}
 
-	processedHeight = endHeight
-	kvStore.Put(state.StatePruningProgressKey(), processedHeight)
-
 	return nil
 }
 
-// PruneStateForRange prunes states from startHeight to endHeight (inclusive for both end)
-func (ledger *Ledger) PruneStateForRange(startHeight, endHeight uint64) error {
-	if endHeight < startHeight {
-		return fmt.Errorf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
-	}
-
+// pruneStateForRange prunes states from startHeight to endHeight (inclusive for both end)
+func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 	logger.Infof("Prune state from height %v to %v", startHeight, endHeight)
 
 	db := ledger.State().DB()
 	consensus := ledger.consensus
 	chain := ledger.chain
-
 	lastFinalizedBlock := consensus.GetLastFinalizedBlock()
-	if endHeight >= lastFinalizedBlock.Height {
-		return fmt.Errorf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
-	}
+
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
 	stateHashMap := make(map[string]bool)

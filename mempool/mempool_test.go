@@ -492,10 +492,6 @@ func (tl *TestLedger) PruneState(endHeight uint64) error {
 	return nil
 }
 
-func (tl *TestLedger) PruneStateForRange(startHeight, endHeight uint64) error {
-	return nil
-}
-
 type TestNetworkMessageInterceptor struct {
 	lock             *sync.Mutex
 	ReceivedMessages chan p2ptypes.Message
