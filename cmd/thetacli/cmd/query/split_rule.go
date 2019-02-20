@@ -1,14 +1,12 @@
 package query
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
-	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/rpc"
 
 	rpcc "github.com/ybbus/jsonrpc"
@@ -16,18 +14,18 @@ import (
 
 // splitRuleCmd represents the split_rule command.
 // Example:
-//		thetacli query split_rule --resource_id=0x3FACC98BCCAD124
+//		thetacli query split_rule --resource_id=vid2dz369du0mkwcrb9
 var splitRuleCmd = &cobra.Command{
 	Use:     "split_rule",
 	Short:   "Get split rule status",
-	Example: `thetacli query split_rule --resource_id=0x3FACC98BCCAD124`,
+	Example: `thetacli query split_rule --resource_id=vid2dz369du0mkwcrb9`,
 	Run:     doSplitRuleCmd,
 }
 
 func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	resourceID := hex.EncodeToString(common.Bytes(resourceIDFlag))
+	resourceID := resourceIDFlag
 	res, err := client.Call("theta.GetSplitRule", rpc.GetSplitRuleArgs{ResourceID: resourceID})
 	if err != nil {
 		utils.Error("Failed to get split rule details: %v\n", err)
