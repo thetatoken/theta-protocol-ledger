@@ -97,7 +97,9 @@ func runStart(cmd *cobra.Command, args []string) {
 	}()
 
 	<-done
-	log.Info("Theta shutting down...Bye!")
+	log.Infof("")
+	log.Infof("Graceful exit.")
+	printExitBanner()
 }
 
 func loadOrCreateKey() (*crypto.PrivateKey, error) {
@@ -116,21 +118,7 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 		return nil, fmt.Errorf("Multiple encrypted keys detected under %v. Please keep only one key.", path.Join(keysDir, "encrypted"))
 	}
 
-	fmt.Println("")
-	fmt.Println("")
-	fmt.Println(" ######################################################### ")
-	fmt.Println("#                                                         #")
-	fmt.Println("#  _    _      _ _         _______ _          _           #")
-	fmt.Println("#  | |  | |    | | |       |__   __| |        | |         #")
-	fmt.Println("#  | |__| | ___| | | ___      | |  | |__   ___| |_ __ _   #")
-	fmt.Println("#  |  __  |/ _ \\ | |/ _ \\     | |  | '_ \\ / _ \\ __/ _` |  #")
-	fmt.Println("#  | |  | |  __/ | | (_) |    | |  | | | |  __/ || (_| |  #")
-	fmt.Println("#  |_|  |_|\\___|_|_|\\___/     |_|  |_| |_|\\___|\\__\\__,_|  #")
-	fmt.Println("#                                                         #")
-	fmt.Println("#                                                         #")
-	fmt.Println(" ######################################################### ")
-	fmt.Println("")
-	fmt.Println("")
+	printWelcomeBanner()
 
 	var password string
 	var nodeAddrss common.Address
@@ -216,4 +204,41 @@ func printCountdown() {
 		time.Sleep(1 * time.Second)
 	}
 	fmt.Printf("\n\n")
+}
+
+func printWelcomeBanner() {
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println(" ######################################################### ")
+	fmt.Println("#                                                         #")
+	fmt.Println("#  _    _      _ _         _______ _          _           #")
+	fmt.Println("#  | |  | |    | | |       |__   __| |        | |         #")
+	fmt.Println("#  | |__| | ___| | | ___      | |  | |__   ___| |_ __ _   #")
+	fmt.Println("#  |  __  |/ _ \\ | |/ _ \\     | |  | '_ \\ / _ \\ __/ _` |  #")
+	fmt.Println("#  | |  | |  __/ | | (_) |    | |  | | | |  __/ || (_| |  #")
+	fmt.Println("#  |_|  |_|\\___|_|_|\\___/     |_|  |_| |_|\\___|\\__\\__,_|  #")
+	fmt.Println("#                                                         #")
+	fmt.Println("#                                                         #")
+	fmt.Println(" ######################################################### ")
+	fmt.Println("")
+	fmt.Println("")
+}
+
+func printExitBanner() {
+	fmt.Println("")
+	fmt.Println("")
+	fmt.Println(" #################################################### ")
+	fmt.Println("#                                                    #")
+	fmt.Println("#  ____               _______ _          _           #")
+	fmt.Println("#  |  _ \\             |__   __| |        | |         #")
+	fmt.Println("#  | |_) |_   _  ___     | |  | |__   ___| |_ __ _   #")
+	fmt.Println("#  |  _ <| | | |/ _ \\    | |  | '_ \\ / _ \\ __/ _` |  #")
+	fmt.Println("#  | |_) | |_| |  __/    | |  | | | |  __/ || (_| |  #")
+	fmt.Println("#  |____/ \\__, |\\___|    |_|  |_| |_|\\___|\\__\\__,_|  #")
+	fmt.Println("#          __/ |                                     #")
+	fmt.Println("#         |___/                                      #")
+	fmt.Println("#                                                    #")
+	fmt.Println(" #################################################### ")
+	fmt.Println("")
+	fmt.Println("")
 }
