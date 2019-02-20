@@ -57,6 +57,9 @@ func (c HTTPClient) Call(name string, args []interface{}, result interface{}) er
 	if err != nil {
 		return err
 	}
+	if res.Error != nil {
+		return res.Error
+	}
 	return res.GetObject(result)
 }
 
