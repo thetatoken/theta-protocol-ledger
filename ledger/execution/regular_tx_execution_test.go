@@ -1198,4 +1198,6 @@ func TestSplitRuleTxTargetAddressAlsoSplits(t *testing.T) {
 	assert.Equal(uint64(0), et.state().Delivered().GetAccount(bob.Address).Sequence)
 	assert.Equal(uint64(1), et.state().Delivered().GetAccount(carol.Address).Sequence)     // seq=1 due to servicePaymentTx
 	assert.Equal(uint64(1), et.state().Delivered().GetAccount(initiator.Address).Sequence) // seq=1 due to splitRuleTx
+	assert.Equal(1, len(et.state().Delivered().GetAccount(alice.Address).ReservedFunds))
+	assert.True(et.state().Delivered().GetAccount(alice.Address).ReservedFunds[0].UsedFund.IsPositive())
 }
