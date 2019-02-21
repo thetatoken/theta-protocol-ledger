@@ -130,6 +130,8 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 		var account *types.Account
 		if addr == targetAddress {
 			account = targetAccount
+		} else if addr == sourceAddress {
+			account = sourceAccount
 		} else {
 			account = getOrMakeAccount(view, addr)
 		}
