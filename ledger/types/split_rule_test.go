@@ -13,7 +13,7 @@ func TestSplitRuleJSON(t *testing.T) {
 	assert := assert.New(t)
 	require := require.New(t)
 
-	splitRule := SplitRule{
+	splitRule := &SplitRule{
 		EndBlockHeight: math.MaxUint64,
 	}
 

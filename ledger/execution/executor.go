@@ -141,6 +141,9 @@ func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
 		txHash, processResult = txExecutor.process(chainID, view, tx)
+		if processResult.IsError() {
+			logger.Warnf("Tx processing error: %v", processResult.Message)
+		}
 	} else {
 		processResult = result.Error("Unknown tx type")
 	}
