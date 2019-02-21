@@ -19,6 +19,7 @@ import (
 
 const RequestTimeout = 10 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
+const MaxInventoryRequestInterval = 30 * time.Second
 const RequestQuotaPerSecond = 1000
 
 type RequestState uint8
@@ -86,7 +87,7 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 
 		wg: &sync.WaitGroup{},
 
-		lastInventoryRequest: time.Now(),
+		lastInventoryRequest: time.Unix(0, 0),
 
 		syncMgr:    syncMgr,
 		chain:      syncMgr.chain,
@@ -182,14 +183,16 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
-	inventoryRequestIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
-	if hasUndownloadedBlocks && inventoryRequestIntervalPassed {
+	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
+	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
+	if hasUndownloadedBlocks {
 		rm.logger.WithFields(log.Fields{
 			"pendingBlocks":     rm.pendingBlocks.Len(),
 			"orphan blocks":     len(rm.pendingBlocksByParent),
 			"current chain tip": rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
 		}).Info("Fast sync in progress")
-
+	}
+	if maxIntervalPassed || (hasUndownloadedBlocks && minIntervalPassed) {
 		rm.lastInventoryRequest = time.Now()
 		req := rm.buildInventoryRequest()
 
