@@ -225,8 +225,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return false
 	}
 
-	validators := e.validatorManager.GetValidatorSet(block.Hash())
-
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -262,6 +260,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("HCC must be ancestor")
 		return false
 	}
+	validators := e.validatorManager.GetValidatorSet(block.Hash())
 	if !block.HCC.IsValid(validators) {
 		e.logger.WithFields(log.Fields{
 			"parent":    block.Parent.Hex(),
@@ -553,6 +552,10 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 	block, err := e.Chain().FindBlock(hash)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"block": hash.Hex()}).Debug("checkCC: Block hash in vote is not found")
+		return
+	}
+	// Skip invalid block.
+	if block.Status.IsInvalid() {
 		return
 	}
 	// Skip if block is still pending.
