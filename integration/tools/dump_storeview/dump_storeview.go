@@ -31,41 +31,51 @@ func handleError(err error) {
 }
 
 func printUsage() {
-	fmt.Println("Usage: dump_storeview -config=<path_to_config_home> -height=<height>")
+	fmt.Println("Usage: dump_storeview -config=<path_to_config_home> -height=<height> -state_hash=<state_hash>")
 }
 
 func main() {
 	configPathPtr := flag.String("config", "", "path to ukuele config home")
 	heightPtr := flag.Uint64("height", 0, "height of storeview block")
+	stateHashPtr := flag.String("state_hash", "", "hash of state root")
 	flag.Parse()
 	configPath := *configPathPtr
 	height := *heightPtr
+	stateHashStr := *stateHashPtr
+	heightStr := strconv.FormatUint(height, 10)
 
 	mainDBPath := path.Join(configPath, "db", "main")
 	refDBPath := path.Join(configPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 	handleError(err)
 
-	root := core.NewBlock()
-	store := kvstore.NewKVStore(db)
-	chain := blockchain.NewChain(root.ChainID, store, root)
+	var sv *state.StoreView
+	var filename string
+	if len(stateHashStr) != 0 {
+		stateHash := common.HexToHash(stateHashStr)
+		sv = state.NewStoreView(0, stateHash, db)
+		filename = "theta_sv_dump-" + stateHashStr
+	} else {
+		root := core.NewBlock()
+		store := kvstore.NewKVStore(db)
+		chain := blockchain.NewChain(root.ChainID, store, root)
 
-	var finalizedBlock *core.ExtendedBlock
-	blocks := chain.FindBlocksByHeight(height)
-	for _, block := range blocks {
-		if block.Status.IsFinalized() {
-			finalizedBlock = block
-			break
+		var finalizedBlock *core.ExtendedBlock
+		blocks := chain.FindBlocksByHeight(height)
+		for _, block := range blocks {
+			if block.Status.IsFinalized() {
+				finalizedBlock = block
+				break
+			}
 		}
-	}
-	if finalizedBlock == nil {
-		handleError(fmt.Errorf("Finalized block not found for height %v", height))
+		if finalizedBlock == nil {
+			handleError(fmt.Errorf("Finalized block not found for height %v", height))
+		}
+
+		sv = state.NewStoreView(finalizedBlock.Height, finalizedBlock.StateHash, db)
+		filename = "theta_sv_dump-" + heightStr
 	}
 
-	sv := state.NewStoreView(finalizedBlock.Height, finalizedBlock.StateHash, db)
-
-	heightStr := strconv.FormatUint(height, 10)
-	filename := "theta_sv_dump-" + heightStr
 	dumpPath := path.Join(configPath, filename)
 	file, err := os.Create(dumpPath)
 	if err != nil {
