@@ -174,7 +174,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 
 	lfbHeight := m.consensus.GetLastFinalizedBlock().Height
 	q := []common.Hash{start}
-	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize {
+	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize-1 {
 		curr := q[0]
 		q = q[1:]
 		block, err := m.chain.FindBlock(curr)
@@ -209,6 +209,14 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 			// Enqueue all children.
 			q = append(q, block.Children...)
 		}
+	}
+
+	// Add last finalized block in the end so that receiver is aware of latest network state.
+	ret = append(ret, m.consensus.GetLastFinalizedBlock().Hash().Hex())
+
+	// Make sure response is in size limit.
+	if len(ret) > dispatcher.MaxInventorySize {
+		ret = ret[:dispatcher.MaxInventorySize-1]
 	}
 	return ret
 }

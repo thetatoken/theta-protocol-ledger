@@ -246,12 +246,13 @@ func TestCollectBlocks(t *testing.T) {
 	sm := NewSyncManager(initChain, consensus, net1, dispatch, mockMsgConsumer)
 
 	blocks := sm.collectBlocks(core.GetTestBlock("A1").Hash(), core.GetTestBlock("A5").Hash())
-	// Expected blocks: [A1, A2, A3, A4, D4, A5]
-	assert.Equal(6, len(blocks))
+	// Expected blocks: [A1, A2, A3, A4, D4, A5, A3]
+	assert.Equal(7, len(blocks))
 	assert.Equal(core.GetTestBlock("A1").Hash().Hex(), blocks[0])
 	assert.Equal(core.GetTestBlock("A2").Hash().Hex(), blocks[1])
 	assert.Equal(core.GetTestBlock("A3").Hash().Hex(), blocks[2])
 	assert.Equal(core.GetTestBlock("A4").Hash().Hex(), blocks[3])
 	assert.Equal(core.GetTestBlock("D4").Hash().Hex(), blocks[4])
 	assert.Equal(core.GetTestBlock("A5").Hash().Hex(), blocks[5])
+	assert.Equal(core.GetTestBlock("A3").Hash().Hex(), blocks[6])
 }

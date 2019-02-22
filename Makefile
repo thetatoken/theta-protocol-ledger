@@ -9,6 +9,10 @@ build: gen_version
 	go build ./cmd/...
 	go build ./integration/...
 
+# Build binaries for Linux platform.
+linux: gen_version
+	integration/build/build.sh
+
 install: gen_version
 	go install ./cmd/...
 	go install ./integration/...
@@ -35,6 +39,7 @@ tools:
 
 clean:
 	@rm -rf ./vendor
+	@rm -rf ./build
 
 gen_doc:
 	cd ./docs/commands/;go build -o generator.exe; ./generator.exe
