@@ -151,6 +151,7 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 
 	view.SetAccount(sourceAddress, sourceAccount)
+	view.SetAccount(targetAddress, targetAccount)
 	for account := range accCoinsMap {
 		view.SetAccount(account.Address, account)
 	}
