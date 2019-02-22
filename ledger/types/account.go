@@ -38,8 +38,8 @@ func NewAccountJSON(acc Account) AccountJSON {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: common.JSONUint64(acc.LastUpdatedBlockHeight),
-		Root:                   acc.Root,
-		CodeHash:               acc.CodeHash,
+		Root:     acc.Root,
+		CodeHash: acc.CodeHash,
 	}
 }
 
@@ -49,8 +49,8 @@ func (acc AccountJSON) Account() Account {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: uint64(acc.LastUpdatedBlockHeight),
-		Root:                   acc.Root,
-		CodeHash:               acc.CodeHash,
+		Root:     acc.Root,
+		CodeHash: acc.CodeHash,
 	}
 }
 

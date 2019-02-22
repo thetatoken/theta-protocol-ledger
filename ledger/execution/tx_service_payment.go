@@ -120,29 +120,40 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 	splitRule := view.GetSplitRule(resourceID)
 
 	fullTransferAmount := tx.Source.Coins
-	splitSuccess, coinsMap, accountAddressMap := exec.splitPayment(view, splitRule, resourceID, targetAddress, targetAccount, fullTransferAmount)
+	splitSuccess, addrCoinsMap := exec.splitPayment(view, splitRule, resourceID, targetAddress, fullTransferAmount)
 	if !splitSuccess {
 		return common.Hash{}, result.Error("Failed to split payment")
 	}
 
+	accCoinsMap := map[*types.Account]types.Coins{}
+	for addr, coins := range addrCoinsMap {
+		var account *types.Account
+		if addr == targetAddress {
+			account = targetAccount
+		} else if addr == sourceAddress {
+			account = sourceAccount
+		} else {
+			account = getOrMakeAccount(view, addr)
+		}
+		accCoinsMap[account] = coins
+	}
+
 	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
-	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(coinsMap, currentBlockHeight, reserveSequence, tx)
+	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(accCoinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
 		view.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
+		// should charge after transfer the fund, so an empty address has some fund to pay the tx fee
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 
 	view.SetAccount(sourceAddress, sourceAccount)
-	for account := range coinsMap {
-		address, exists := accountAddressMap[account]
-		if !exists {
-			panic(fmt.Sprintf("Cannot find address for account: %v", account))
-		}
-		view.SetAccount(address, account)
+	view.SetAccount(targetAddress, targetAccount)
+	for account := range accCoinsMap {
+		view.SetAccount(account.Address, account)
 	}
 
 	txHash := types.TxID(chainID, tx)
@@ -150,48 +161,51 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 }
 
 func (exec *ServicePaymentTxExecutor) splitPayment(view *st.StoreView, splitRule *types.SplitRule, resourceID string,
-	targetAddress common.Address, targetAccount *types.Account, fullAmount types.Coins) (bool, map[*types.Account]types.Coins, map[*types.Account](common.Address)) {
-	coinsMap := map[*types.Account]types.Coins{}
-	accountAddressMap := map[*types.Account](common.Address){}
+	targetAddress common.Address, fullAmount types.Coins) (bool, map[common.Address]types.Coins) {
+	addressCoinsMap := map[common.Address]types.Coins{}
 
 	// no splitRule associated with the resourceID, full payment goes to the target account
 	if splitRule == nil {
-		coinsMap[targetAccount] = fullAmount
-		accountAddressMap[targetAccount] = targetAddress
-		return true, coinsMap, accountAddressMap
+		addressCoinsMap[targetAddress] = fullAmount
+		return true, addressCoinsMap
 	}
 
 	// the splitRule has expired, full payment goes to the target account. also delete the splitRule
 	if exec.state.Height() > splitRule.EndBlockHeight {
-		coinsMap[targetAccount] = fullAmount
+		addressCoinsMap[targetAddress] = fullAmount
 		view.DeleteSplitRule(resourceID)
-		accountAddressMap[targetAccount] = targetAddress
-		return true, coinsMap, accountAddressMap
+		return true, addressCoinsMap
 	}
 
 	// the splitRule is valid, split the payment among the participated addresses
 	remainingAmount := fullAmount
 	for _, split := range splitRule.Splits {
 		splitAddress := split.Address
-		splitAccount := getOrMakeAccount(view, splitAddress)
 		percentage := split.Percentage
 		if percentage > 100 || percentage < 0 {
 			continue
 		}
 
 		splitAmount := fullAmount.CalculatePercentage(percentage)
-		coinsMap[splitAccount] = splitAmount
-		accountAddressMap[splitAccount] = splitAddress
+		if _, exists := addressCoinsMap[splitAddress]; exists {
+			addressCoinsMap[splitAddress] = splitAmount.Plus(addressCoinsMap[splitAddress])
+		} else {
+			addressCoinsMap[splitAddress] = splitAmount
+		}
 		remainingAmount = remainingAmount.Minus(splitAmount)
 	}
 
-	if !remainingAmount.IsNonnegative() {
-		return false, coinsMap, accountAddressMap
+	if !remainingAmount.IsNonnegative() { // so that the sum of percentage cannot be > 100
+		return false, addressCoinsMap
 	}
-	coinsMap[targetAccount] = remainingAmount
-	accountAddressMap[targetAccount] = targetAddress
 
-	return true, coinsMap, accountAddressMap
+	if _, exists := addressCoinsMap[targetAddress]; exists { // the targetAddress could be included in the splitRule.Splits list
+		addressCoinsMap[targetAddress] = remainingAmount.Plus(addressCoinsMap[targetAddress])
+	} else {
+		addressCoinsMap[targetAddress] = remainingAmount
+	}
+
+	return true, addressCoinsMap
 }
 
 func (exec *ServicePaymentTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {

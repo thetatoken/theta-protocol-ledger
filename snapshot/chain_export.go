@@ -59,10 +59,11 @@ func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, cha
 		if finalizedBlock.Height <= startHeight {
 			break
 		}
-		finalizedBlock, err = chain.FindBlock(finalizedBlock.Parent)
+		parentBlock, err := chain.FindBlock(finalizedBlock.Parent)
 		if err != nil {
-			return 0, "", fmt.Errorf("Failed to get parent block %v, %v", finalizedBlock.Parent, err)
+			return 0, "", fmt.Errorf("Failed to get parent block at height %v, %v", finalizedBlock.Height, err)
 		}
+		finalizedBlock = parentBlock
 	}
 
 	return actualEndHeight, filename, nil
