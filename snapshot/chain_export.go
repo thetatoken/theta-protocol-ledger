@@ -16,9 +16,9 @@ import (
 	"github.com/thetatoken/theta/store/database"
 )
 
-func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, startHeight, endHeight uint64, backupDir string) (actualEndHeight uint64, backupFile string, err error) {
+func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, startHeight, endHeight uint64, backupDir string) (actualStartHeight, actualEndHeight uint64, backupFile string, err error) {
 	if startHeight > endHeight {
-		return 0, "", errors.New("start height must be <= end height")
+		return 0, 0, "", errors.New("start height must be <= end height")
 	}
 
 	var finalizedBlock *core.ExtendedBlock
@@ -36,7 +36,7 @@ func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, cha
 	}
 
 	if finalizedBlock == nil {
-		return 0, "", fmt.Errorf("There's no finalized block between height %v and %v", startHeight, endHeight)
+		return 0, 0, "", fmt.Errorf("There's no finalized block between height %v and %v", startHeight, endHeight)
 	}
 
 	currentTime := time.Now().UTC()
@@ -44,7 +44,7 @@ func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, cha
 	backupPath := path.Join(backupDir, filename)
 	file, err := os.Create(backupPath)
 	if err != nil {
-		return 0, "", err
+		return 0, 0, "", err
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
@@ -61,12 +61,15 @@ func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, cha
 		}
 		parentBlock, err := chain.FindBlock(finalizedBlock.Parent)
 		if err != nil {
-			return 0, "", fmt.Errorf("Failed to get parent block at height %v, %v", finalizedBlock.Height, err)
+			filename = "theta_chain-" + strconv.FormatUint(finalizedBlock.Height, 10) + "-" + strconv.FormatUint(actualEndHeight, 10) + "-" + currentTime.Format("2006-01-02")
+			actualBackupPath := path.Join(backupDir, filename)
+			os.Rename(backupPath, actualBackupPath)
+			return finalizedBlock.Height, actualEndHeight, filename, nil
 		}
 		finalizedBlock = parentBlock
 	}
 
-	return actualEndHeight, filename, nil
+	return startHeight, actualEndHeight, filename, nil
 }
 
 func writeBlock(writer *bufio.Writer, block *core.BackupBlock) error {
