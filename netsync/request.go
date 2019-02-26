@@ -187,7 +187,7 @@ func (rm *RequestManager) tryToDownload() {
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 
 	if maxIntervalPassed || (hasUndownloadedBlocks && minIntervalPassed) {
-		if hasUndownloadedBlocks {
+		if hasUndownloadedBlocks && rm.pendingBlocks.Len() > 1 {
 			rm.logger.WithFields(log.Fields{
 				"pendingBlocks":     rm.pendingBlocks.Len(),
 				"orphan blocks":     len(rm.pendingBlocksByParent),
