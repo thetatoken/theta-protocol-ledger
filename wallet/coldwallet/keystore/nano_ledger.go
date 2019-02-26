@@ -323,7 +323,7 @@ func (w *ledgerDriver) ledgerSign(derivationPath []uint32, txrlp common.Bytes) (
 	}
 	// Extract the Ethereum signature and do a sanity validation
 	if len(reply) != 65 {
-		return common.Address{}, nil, errors.New("reply lacks signature")
+		return common.Address{}, nil, errors.New("Reply lacks signature. Please make sure to set \"Contract Data\" to Yes, and \"Browser Support\" to No")
 	}
 
 	sigBytes := append(reply[1:], reply[0])
