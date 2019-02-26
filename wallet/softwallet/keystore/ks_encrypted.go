@@ -41,6 +41,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/pborman/uuid"
 
@@ -129,11 +130,19 @@ func (ks KeystoreEncrypted) ListKeyAddresses() ([]common.Address, error) {
 }
 
 func (ks KeystoreEncrypted) GetKey(address common.Address, auth string) (*Key, error) {
-	filePath := ks.getFilePath(address)
-	keyjson, err := ioutil.ReadFile(filePath)
+	var keyjson []byte
+	var err error
+	for af := allLowerCase; af <= allUpperCase; af++ { // try all formats
+		filePath := ks.getFilePath(address, af)
+		keyjson, err = ioutil.ReadFile(filePath)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
+
 	key, err := decryptKey(keyjson, auth)
 	if err != nil {
 		return nil, err
@@ -147,7 +156,7 @@ func (ks KeystoreEncrypted) GetKey(address common.Address, auth string) (*Key, e
 
 func (ks KeystoreEncrypted) StoreKey(key *Key, auth string) error {
 	address := key.Address
-	filePath := ks.getFilePath(address)
+	filePath := ks.getFilePath(address, mixedCase)
 	keyjson, err := encryptKey(key, auth, ks.scryptN, ks.scryptP)
 	if err != nil {
 		return err
@@ -161,13 +170,24 @@ func (ks KeystoreEncrypted) DeleteKey(address common.Address, auth string) error
 		return err
 	}
 
-	filePath := ks.getFilePath(address)
-	err = deleteKeyFile(filePath)
-	return err
+	for af := allLowerCase; af <= allUpperCase; af++ { // try all formats
+		filePath := ks.getFilePath(address, af)
+		deleteKeyFile(filePath)
+	}
+
+	return nil
 }
 
-func (ks KeystoreEncrypted) getFilePath(address common.Address) string {
-	filePath := path.Join(ks.keysDirPath, address.Hex()[2:])
+func (ks KeystoreEncrypted) getFilePath(address common.Address, addrFormat AddressFormat) string {
+	var filePath string
+	addrStr := address.Hex()[2:]
+	if addrFormat == allLowerCase {
+		filePath = path.Join(ks.keysDirPath, strings.ToLower(addrStr))
+	} else if addrFormat == allUpperCase {
+		filePath = path.Join(ks.keysDirPath, strings.ToUpper(addrStr))
+	} else {
+		filePath = path.Join(ks.keysDirPath, addrStr)
+	}
 	return filePath
 }
 

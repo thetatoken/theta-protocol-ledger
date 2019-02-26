@@ -8,6 +8,7 @@ import (
 	"path"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/pborman/uuid"
 	"github.com/thetatoken/theta/common"
@@ -60,12 +61,20 @@ func (ks KeystorePlain) ListKeyAddresses() ([]common.Address, error) {
 }
 
 func (ks KeystorePlain) GetKey(address common.Address, auth string) (*Key, error) {
-	filePath := ks.getFilePath(address)
-	fd, err := os.Open(filePath)
+	var fd *os.File
+	var err error
+	for af := allLowerCase; af <= allUpperCase; af++ { // try all formats
+		filePath := ks.getFilePath(address, af)
+		fd, err = os.Open(filePath)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
 	defer fd.Close()
+
 	plainKeyJs := new(plainKeyJSON)
 	if err := json.NewDecoder(fd).Decode(plainKeyJs); err != nil {
 		return nil, err
@@ -95,7 +104,7 @@ func (ks KeystorePlain) GetKey(address common.Address, auth string) (*Key, error
 
 func (ks KeystorePlain) StoreKey(key *Key, auth string) error {
 	address := key.Address
-	filePath := ks.getFilePath(address)
+	filePath := ks.getFilePath(address, mixedCase)
 	plainKeyJs := &plainKeyJSON{
 		Address:    hex.EncodeToString(key.Address[:]),
 		PrivateKey: hex.EncodeToString(key.PrivateKey.ToBytes()),
@@ -110,13 +119,24 @@ func (ks KeystorePlain) StoreKey(key *Key, auth string) error {
 }
 
 func (ks KeystorePlain) DeleteKey(address common.Address, auth string) error {
-	filePath := ks.getFilePath(address)
-	err := deleteKeyFile(filePath)
-	return err
+	for af := allLowerCase; af <= allUpperCase; af++ { // try all formats
+		filePath := ks.getFilePath(address, af)
+		deleteKeyFile(filePath)
+	}
+
+	return nil
 }
 
-func (ks KeystorePlain) getFilePath(address common.Address) string {
-	filePath := path.Join(ks.keysDirPath, address.Hex()[2:])
+func (ks KeystorePlain) getFilePath(address common.Address, addrFormat AddressFormat) string {
+	var filePath string
+	addrStr := address.Hex()[2:]
+	if addrFormat == allLowerCase {
+		filePath = path.Join(ks.keysDirPath, strings.ToLower(addrStr))
+	} else if addrFormat == allUpperCase {
+		filePath = path.Join(ks.keysDirPath, strings.ToUpper(addrStr))
+	} else {
+		filePath = path.Join(ks.keysDirPath, addrStr)
+	}
 	return filePath
 }
 

@@ -8,6 +8,14 @@ import (
 	"github.com/thetatoken/theta/common"
 )
 
+type AddressFormat int
+
+const (
+	allLowerCase AddressFormat = iota
+	mixedCase
+	allUpperCase
+)
+
 type Keystore interface {
 
 	// List the addresses of all the stored keys
