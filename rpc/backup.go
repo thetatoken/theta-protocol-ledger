@@ -42,8 +42,9 @@ type BackupChainArgs struct {
 }
 
 type BackupChainResult struct {
-	ActualEndHeight uint64 `json:"actual_end_height"`
-	ChainFile       string `json:"chain_file"`
+	ActualStartHeight uint64 `json:"actual_start_height"`
+	ActualEndHeight   uint64 `json:"actual_end_height"`
+	ChainFile         string `json:"chain_file"`
 }
 
 func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChainResult) error {
@@ -58,7 +59,8 @@ func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChain
 		os.MkdirAll(backupDir, os.ModePerm)
 	}
 
-	actualEndHeight, chainFile, err := snapshot.ExportChainBackup(db, consensus, chain, startHeight, endHeight, backupDir)
+	actualStartHeight, actualEndHeight, chainFile, err := snapshot.ExportChainBackup(db, consensus, chain, startHeight, endHeight, backupDir)
+	result.ActualStartHeight = actualStartHeight
 	result.ActualEndHeight = actualEndHeight
 	result.ChainFile = chainFile
 

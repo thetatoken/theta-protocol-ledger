@@ -211,13 +211,14 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 		}
 	}
 
-	// Add last finalized block in the end so that receiver is aware of latest network state.
-	ret = append(ret, m.consensus.GetLastFinalizedBlock().Hash().Hex())
-
 	// Make sure response is in size limit.
 	if len(ret) > dispatcher.MaxInventorySize {
 		ret = ret[:dispatcher.MaxInventorySize-1]
 	}
+
+	// Add last finalized block in the end so that receiver is aware of latest network state.
+	ret = append(ret, m.consensus.GetLastFinalizedBlock().Hash().Hex())
+
 	return ret
 }
 
