@@ -17,7 +17,25 @@ The Theta Blockchain Ledger is a Proof-of-Stake decentralized ledger designed fo
 
 ### On Mac OS X
 
-Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. 
+
+Open the `profile` file with the following command.
+```
+open /etc/profile
+```
+
+Add the following environment variables.
+```bash
+export GOPATH=$HOME/go
+export PATH=$GOPATH/bin:$PATH
+export GOBIN=$GOPATH/bin
+
+# optional
+export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
+```
+
+
+The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command.
 
 ```
 brew install go@1.9
@@ -30,7 +48,13 @@ Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/sr
 git clone https://github.com/thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
-Install [glide](https://github.com/Masterminds/glide). Then execute the following commands to download all dependencies:
+Install [glide](https://github.com/Masterminds/glide) with the following command.
+
+```
+brew install glide 
+```
+
+Then execute the following commands to download all dependencies:
 
 ```
 export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
