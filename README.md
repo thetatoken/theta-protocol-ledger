@@ -74,24 +74,31 @@ brew install jq
 
 ### On Windows
 
-On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator)
+On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator).
 
 ```bash
 @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
 ```
 
-Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
+Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command.
 
 ```
 choco install golang --version 1.9.7 --force
 ```
 
-Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
+Create a `go` folder in the c:\Users\username folder with the following command.
+
+```
+mkdir %USERPROFILE%\go
+
+```
+
+Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command.
 
 ```
 choco install make --source=cygwin
 ```
-To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\cygwin64\etc` folder.
+To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\tools\cygwin64\etc` folder.
 And set the db_home location to windows as below.
 
 ```
