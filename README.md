@@ -21,7 +21,7 @@ Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`.
 
 Open the `profile` file with the following command.
 ```
-open /etc/profile
+nano /etc/profile
 ```
 
 Add the following environment variables.
@@ -33,6 +33,8 @@ export GOBIN=$GOPATH/bin
 # optional
 export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 ```
+
+Save the file with `Crtl + o`. Hit `enter` to overwrite the file and close it with `Ctrl + x`.
 
 
 The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command.
@@ -61,6 +63,10 @@ export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 cd $THETA_HOME
 make get_vendor_deps
 ```
+
+If you see errors when running the command `make get_vendor_deps` you can try to run the `make get_vendor_deps` cmd with sudo or root.
+
+
 Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the following command
 ```
 brew install jq
