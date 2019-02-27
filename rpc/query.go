@@ -145,6 +145,21 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	return nil
 }
 
+// ------------------------------ GetPendingTransactions -----------------------------------
+
+type GetPendingTransactionsArgs struct {
+}
+
+type GetPendingTransactionsResult struct {
+	TxHashes []string `json:"tx_hashes"`
+}
+
+func (t *ThetaRPCService) GetPendingTransactions(args *GetPendingTransactionsArgs, result *GetPendingTransactionsResult) (err error) {
+	pendingTxHashes := t.mempool.GetCandidateTransactionHashes()
+	result.TxHashes = pendingTxHashes
+	return nil
+}
+
 // ------------------------------ GetBlock -----------------------------------
 
 type GetBlockArgs struct {

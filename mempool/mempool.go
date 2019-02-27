@@ -334,6 +334,27 @@ func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) bool {
 	return true
 }
 
+// GetCandidateTransactions returns all the currently candidate transactions
+func (mp *Mempool) GetCandidateTransactionHashes() []string {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+
+	txHashes := []string{}
+	txgElemList := mp.candidateTxs.ElementList()
+	for _, txgElem := range *txgElemList {
+		txg := txgElem.(*mempoolTransactionGroup)
+		txElemList := txg.txs.ElementList()
+		for _, txElem := range *txElemList {
+			tx := txElem.(*mempoolTransaction)
+			rawTx := tx.rawTransaction
+			txHash := "0x" + getTransactionHash(rawTx)
+			txHashes = append(txHashes, txHash)
+		}
+	}
+
+	return txHashes
+}
+
 // Flush removes all transactions from the Mempool and the transactionBookkeeper
 func (mp *Mempool) Flush() {
 	mp.mutex.Lock()
