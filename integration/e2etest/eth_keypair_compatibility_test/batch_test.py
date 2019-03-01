@@ -61,7 +61,7 @@ def BatchTest(init_faucet_seq):
   print("")
 
   faucet_seq = init_faucet_seq
-  for idx in range(100):
+  for idx in range(500):
     print("----------------------------------------------------------------")
     print(">>>> TEST %s"%(idx))
 
@@ -90,8 +90,9 @@ def BatchTest(init_faucet_seq):
 #
 # __MAIN__
 #
-# Before running this script, we need to launch both the `theta` and `thetacli` daemon for the testnet 
-# at port 16888 and 16889 respectively
+# Before running this script, we need to launch both the `theta` and `thetacli` daemon connected 
+# to the testnet, and running  at port 16888 and 16889 respectively. Also need to install Geth
+# to generate new ethereum accounts
 #
 if __name__ == '__main__':
   if len(sys.argv) != 1:
