@@ -149,7 +149,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	}
 
 	currentTime := time.Now().UTC()
-	filename := "theta_snapshot-" + sv.Hash().String() + "-" + strconv.FormatUint(sv.Height(), 10) + "-" + currentTime.Format("2006-01-02")
+	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
 	snapshotPath := path.Join(snapshotDir, filename)
 	file, err := os.Create(snapshotPath)
 	if err != nil {

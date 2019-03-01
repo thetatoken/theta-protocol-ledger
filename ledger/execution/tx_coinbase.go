@@ -51,7 +51,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 		return res
 	}
 
-	proposerAccount, res := getInput(view, tx.Proposer)
+	proposerAccount, res := getOrMakeInput(view, tx.Proposer)
 	if res.IsError() {
 		return res
 	}
