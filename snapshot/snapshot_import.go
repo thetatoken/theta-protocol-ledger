@@ -201,6 +201,9 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 	var provenValSet *core.ValidatorSet
 	var err error
 	if secondBlock.Height != core.GenesisBlockHeight {
+		if metadata.TailTrio.First.Header.Height > metadata.ProofTrios[len(metadata.ProofTrios)-1].First.Header.Height {
+			metadata.ProofTrios = append(metadata.ProofTrios, metadata.TailTrio)
+		}
 		provenValSet, err = checkProofTrios(metadata.ProofTrios, db)
 		if err != nil {
 			return err
