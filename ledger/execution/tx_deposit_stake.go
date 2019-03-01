@@ -120,7 +120,8 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 	if hl == nil {
 		hl = &types.HeightList{}
 	}
-	hl.Append(view.Height())
+	blockHeight := view.Height() + 1
+	hl.Append(blockHeight)
 	view.UpdateStakeTransactionHeightList(hl)
 
 	sourceAccount.Sequence++

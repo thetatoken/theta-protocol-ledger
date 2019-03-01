@@ -201,9 +201,6 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 	var provenValSet *core.ValidatorSet
 	var err error
 	if secondBlock.Height != core.GenesisBlockHeight {
-		if metadata.TailTrio.First.Header.Height > metadata.ProofTrios[len(metadata.ProofTrios)-1].First.Header.Height {
-			metadata.ProofTrios = append(metadata.ProofTrios, metadata.TailTrio)
-		}
 		provenValSet, err = checkProofTrios(metadata.ProofTrios, db)
 		if err != nil {
 			return err
@@ -219,6 +216,8 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 }
 
 func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) (*core.ValidatorSet, error) {
+	logger.Debugf("Check validator set change proofs...")
+
 	var provenValSet *core.ValidatorSet // the proven validator set so far
 	var err error
 	for idx, blockTrio := range proofTrios {
@@ -250,6 +249,8 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 				return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
 			}
 		}
+
+		logger.Debugf("Block height: %v, Currently proven validator set: %v", first.Header.Height, provenValSet)
 	}
 
 	return provenValSet, nil
