@@ -356,8 +356,9 @@ type GetVcpResult struct {
 }
 
 type BlockHashVcpPair struct {
-	BlockHash common.Hash
-	Vcp       *core.ValidatorCandidatePool
+	BlockHash  common.Hash
+	Vcp        *core.ValidatorCandidatePool
+	HeightList *types.HeightList
 }
 
 func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVcpResult) (err error) {
@@ -376,10 +377,11 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 		stateRoot := b.StateHash
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
 		vcp := blockStoreView.GetValidatorCandidatePool()
-
+		hl := blockStoreView.GetStakeTransactionHeightList()
 		blockHashVcpPairs = append(blockHashVcpPairs, BlockHashVcpPair{
-			BlockHash: blockHash,
-			Vcp:       vcp,
+			BlockHash:  blockHash,
+			Vcp:        vcp,
+			HeightList: hl,
 		})
 	}
 
