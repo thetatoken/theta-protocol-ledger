@@ -90,7 +90,6 @@ Create a `go` folder in the c:\Users\username folder with the following command.
 
 ```
 mkdir %USERPROFILE%\go
-
 ```
 
 Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command.
@@ -117,7 +116,7 @@ Then, use the installed [Cygwin terminal](https://www.cygwin.com/) to run the fo
 git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
-Install [Glide](https://github.com/Masterminds/glide). 
+Install [Glide](https://github.com/Masterminds/glide/releases). 
 Then execute the following commands to download all dependencies:
 
 ```bash
