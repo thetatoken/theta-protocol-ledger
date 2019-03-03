@@ -126,6 +126,8 @@ make tools
 glide install
 ```
 
+Install [TDM-GCC](http://tdm-gcc.tdragon.net/download) for compiling files written in C.
+
 
 ## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `theta` and `thetacli` are generated. `theta` can be regarded as the launcher of the Theta Ledger node, and `thetacli` is a wallet with command line tools to interact with the ledger. 
