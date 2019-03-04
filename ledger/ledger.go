@@ -66,24 +66,24 @@ func (ledger *Ledger) State() *st.LedgerState {
 
 // GetScreenedSnapshot returns a snapshot of screened ledger state to query about accounts, etc.
 func (ledger *Ledger) GetScreenedSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Screened().Copy()
 }
 
 // GetDeliveredSnapshot returns a snapshot of delivered ledger state to query about accounts, etc.
 func (ledger *Ledger) GetDeliveredSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Delivered().Copy()
 }
 
 // GetFinalizedSnapshot returns a snapshot of finalized ledger state to query about accounts, etc.
 func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Finalized().Copy()
 }

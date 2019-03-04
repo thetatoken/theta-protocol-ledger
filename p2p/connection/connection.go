@@ -48,7 +48,7 @@ type Connection struct {
 	flushTimer *timer.ThrottleTimer // flush writes as necessary but throttled
 	pingTimer  *timer.RepeatTimer   // send pings periodically
 
-	pendingPings uint
+	pendingPings uint32
 
 	config ConnectionConfig
 
@@ -71,7 +71,7 @@ type ConnectionConfig struct {
 	PacketBatchSize    int64
 	FlushThrottle      time.Duration
 	PingTimeout        time.Duration
-	MaxPendingPings    uint
+	MaxPendingPings    uint32
 }
 
 // MessageParser parses the raw message bytes to type p2ptypes.Message
@@ -291,7 +291,7 @@ func (conn *Connection) sendRoutine() {
 }
 
 func (conn *Connection) sendPingSignal() error {
-	if conn.pendingPings >= conn.config.MaxPendingPings {
+	if atomic.LoadUint32(&conn.pendingPings) >= conn.config.MaxPendingPings {
 		conn.onError(nil)
 		logger.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
@@ -307,7 +307,7 @@ func (conn *Connection) sendPingSignal() error {
 	}
 	conn.sendMonitor.Update(int(1))
 	conn.flush()
-	conn.pendingPings++
+	atomic.AddUint32(&conn.pendingPings, 1)
 	return nil
 }
 
@@ -365,7 +365,7 @@ func (conn *Connection) recvRoutine() {
 		}
 
 		//conn.pingTimer.Reset() // TODO: replace with lightweight Reset()
-		conn.pendingPings = 0
+		atomic.StoreUint32(&conn.pendingPings, 0)
 	}
 }
 

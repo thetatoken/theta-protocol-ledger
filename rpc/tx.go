@@ -48,6 +48,9 @@ func (m *TxCallbackManager) AddCallback(txHash common.Hash, cb func(*core.Block)
 }
 
 func (m *TxCallbackManager) RemoveCallback(txHash common.Hash) (cb *Callback, exists bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	key := txHash.Hex()
 	cb, exists = m.txHashToCallback[key]
 	if exists {
@@ -57,6 +60,9 @@ func (m *TxCallbackManager) RemoveCallback(txHash common.Hash) (cb *Callback, ex
 }
 
 func (m *TxCallbackManager) Trim() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	i := 0
 	for ; i < len(m.callbacks); i++ {
 		cb := m.callbacks[i]
