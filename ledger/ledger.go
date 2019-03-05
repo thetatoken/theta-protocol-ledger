@@ -460,7 +460,7 @@ func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]commo
 	validators := ledger.valMgr.GetValidatorSet(extBlk.Hash()).Validators()
 
 	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
-	ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
+	//ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
 }
 
 // addCoinbaseTx adds a Coinbase transaction

@@ -29,8 +29,8 @@ type Executor struct {
 	consensus core.ConsensusEngine
 	valMgr    core.ValidatorManager
 
-	coinbaseTxExec       *CoinbaseTxExecutor
-	slashTxExec          *SlashTxExecutor
+	coinbaseTxExec *CoinbaseTxExecutor
+	// slashTxExec          *SlashTxExecutor
 	sendTxExec           *SendTxExecutor
 	reserveFundTxExec    *ReserveFundTxExecutor
 	releaseFundTxExec    *ReleaseFundTxExecutor
@@ -46,11 +46,11 @@ type Executor struct {
 // NewExecutor creates a new instance of Executor
 func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
 	executor := &Executor{
-		state:                state,
-		consensus:            consensus,
-		valMgr:               valMgr,
-		coinbaseTxExec:       NewCoinbaseTxExecutor(state, consensus, valMgr),
-		slashTxExec:          NewSlashTxExecutor(consensus, valMgr),
+		state:          state,
+		consensus:      consensus,
+		valMgr:         valMgr,
+		coinbaseTxExec: NewCoinbaseTxExecutor(state, consensus, valMgr),
+		// slashTxExec:          NewSlashTxExecutor(consensus, valMgr),
 		sendTxExec:           NewSendTxExecutor(),
 		reserveFundTxExec:    NewReserveFundTxExecutor(state),
 		releaseFundTxExec:    NewReleaseFundTxExecutor(state),
@@ -156,8 +156,8 @@ func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
 	switch tx.(type) {
 	case *types.CoinbaseTx:
 		txExecutor = exec.coinbaseTxExec
-	case *types.SlashTx:
-		txExecutor = exec.slashTxExec
+	// case *types.SlashTx:
+	// 	txExecutor = exec.slashTxExec
 	case *types.SendTx:
 		txExecutor = exec.sendTxExec
 	case *types.ReserveFundTx:

@@ -737,7 +737,7 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
 	_, res = et.executor.getTxExecutor(servicePaymentTx4).process(et.chainID, et.state().Delivered(), servicePaymentTx4)
 	assert.True(res.IsOK(), res.Message)
-	assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
+	//assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
 }
 
 func TestServicePaymentTxExpiration(t *testing.T) {
@@ -784,72 +784,72 @@ func TestServicePaymentTxExpiration(t *testing.T) {
 	log.Infof("Service payment check message: %v", res.Message)
 }
 
-func TestSlashTx(t *testing.T) {
-	assert := assert.New(t)
-	et, resourceID, alice, bob, _, _, _, _ := setupForServicePayment(assert)
+// func TestSlashTx(t *testing.T) {
+// 	assert := assert.New(t)
+// 	et, resourceID, alice, bob, _, _, _, _ := setupForServicePayment(assert)
 
-	proposer := et.accProposer
-	proposerInitBalance := proposer.Account.Balance
-	et.acc2State(proposer)
-	log.Infof("Proposer's Address: %v", proposer.Address.Hex())
+// 	proposer := et.accProposer
+// 	proposerInitBalance := proposer.Account.Balance
+// 	et.acc2State(proposer)
+// 	log.Infof("Proposer's Address: %v", proposer.Address.Hex())
 
-	et.state().Commit()
+// 	et.state().Commit()
 
-	txFee := getMinimumTxFee()
+// 	txFee := getMinimumTxFee()
 
-	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.Address)
-	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
-	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
-	aliceReservedFund := retrievedAliceAccount.ReservedFunds[0].InitialFund
-	expectedAliceSlashedAmount := aliceCollateral.Plus(aliceReservedFund)
+// 	retrievedAliceAccount := et.state().Delivered().GetAccount(alice.Address)
+// 	assert.Equal(1, len(retrievedAliceAccount.ReservedFunds))
+// 	aliceCollateral := retrievedAliceAccount.ReservedFunds[0].Collateral
+// 	aliceReservedFund := retrievedAliceAccount.ReservedFunds[0].InitialFund
+// 	expectedAliceSlashedAmount := aliceCollateral.Plus(aliceReservedFund)
 
-	// Simulate micropayment #1 between Alice and Bob, which is an overspend
-	payAmount1 := int64(8000 * txFee)
-	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
-	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
-	assert.True(res.IsOK(), res.Message)
+// 	// Simulate micropayment #1 between Alice and Bob, which is an overspend
+// 	payAmount1 := int64(8000 * txFee)
+// 	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+// 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 10*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+// 	_ = createServicePaymentTx(et.chainID, &alice, &bob, 50*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+// 	servicePaymentTx1 := createServicePaymentTx(et.chainID, &alice, &bob, payAmount1, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+// 	res := et.executor.getTxExecutor(servicePaymentTx1).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx1)
+// 	assert.True(res.IsOK(), res.Message)
 
-	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
-	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
-	assert.True(res.IsOK(), res.Message)
-	assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
+// 	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
+// 	_, res = et.executor.getTxExecutor(servicePaymentTx1).process(et.chainID, et.state().Delivered(), servicePaymentTx1)
+// 	assert.True(res.IsOK(), res.Message)
+// 	assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
 
-	slashIntent := et.state().Delivered().GetSlashIntents()[0]
+// 	slashIntent := et.state().Delivered().GetSlashIntents()[0]
 
-	et.state().Commit()
+// 	et.state().Commit()
 
-	// Test the slashTx
-	slashTx := &types.SlashTx{
-		Proposer: types.TxInput{
-			Address:  proposer.Address,
-			Sequence: 1,
-		},
-		SlashedAddress:  slashIntent.Address,
-		ReserveSequence: slashIntent.ReserveSequence,
-		SlashProof:      slashIntent.Proof,
-	}
-	signBytes := slashTx.SignBytes(et.chainID)
-	slashTx.Proposer.Signature = proposer.Sign(signBytes)
+// 	// Test the slashTx
+// 	slashTx := &types.SlashTx{
+// 		Proposer: types.TxInput{
+// 			Address:  proposer.Address,
+// 			Sequence: 1,
+// 		},
+// 		SlashedAddress:  slashIntent.Address,
+// 		ReserveSequence: slashIntent.ReserveSequence,
+// 		SlashProof:      slashIntent.Proof,
+// 	}
+// 	signBytes := slashTx.SignBytes(et.chainID)
+// 	slashTx.Proposer.Signature = proposer.Sign(signBytes)
 
-	res = et.executor.getTxExecutor(slashTx).sanityCheck(et.chainID, et.state().Delivered(), slashTx)
-	assert.True(res.IsOK(), res.Message)
-	_, res = et.executor.getTxExecutor(slashTx).process(et.chainID, et.state().Delivered(), slashTx)
-	assert.True(res.IsOK(), res.Message)
+// 	res = et.executor.getTxExecutor(slashTx).sanityCheck(et.chainID, et.state().Delivered(), slashTx)
+// 	assert.True(res.IsOK(), res.Message)
+// 	_, res = et.executor.getTxExecutor(slashTx).process(et.chainID, et.state().Delivered(), slashTx)
+// 	assert.True(res.IsOK(), res.Message)
 
-	retrievedProposerAccount := et.state().Delivered().GetAccount(proposer.Address)
-	assert.Equal(proposerInitBalance.Plus(expectedAliceSlashedAmount), retrievedProposerAccount.Balance) // slashed tokens transferred to the proposer
+// 	retrievedProposerAccount := et.state().Delivered().GetAccount(proposer.Address)
+// 	assert.Equal(proposerInitBalance.Plus(expectedAliceSlashedAmount), retrievedProposerAccount.Balance) // slashed tokens transferred to the proposer
 
-	retrievedAliceAccountAfterSlash := et.state().Delivered().GetAccount(alice.Address)
-	assert.Equal(0, len(retrievedAliceAccountAfterSlash.ReservedFunds)) // Alice is slashed
+// 	retrievedAliceAccountAfterSlash := et.state().Delivered().GetAccount(alice.Address)
+// 	assert.Equal(0, len(retrievedAliceAccountAfterSlash.ReservedFunds)) // Alice is slashed
 
-	log.Infof("Proposer initial balance: %v", proposerInitBalance)
-	log.Infof("Alice collateral: %v", aliceCollateral)
-	log.Infof("Alice reserved fund: %v", aliceReservedFund)
-	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
-}
+// 	log.Infof("Proposer initial balance: %v", proposerInitBalance)
+// 	log.Infof("Alice collateral: %v", aliceCollateral)
+// 	log.Infof("Alice reserved fund: %v", aliceReservedFund)
+// 	log.Infof("Proposer final balance: %v", retrievedProposerAccount.Balance)
+// }
 
 func TestSplitRuleTxNormalExecution(t *testing.T) {
 	assert := assert.New(t)

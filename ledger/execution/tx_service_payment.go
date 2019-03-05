@@ -140,9 +140,9 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 
 	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
-	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(accCoinsMap, currentBlockHeight, reserveSequence, tx)
+	shouldSlash, _ := sourceAccount.TransferReservedFund(accCoinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
-		view.AddSlashIntent(slashIntent)
+		//view.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
 		// should charge after transfer the fund, so an empty address has some fund to pay the tx fee
