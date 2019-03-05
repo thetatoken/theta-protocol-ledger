@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/hexutil"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 )
@@ -116,7 +117,7 @@ type BroadcastRawTransactionResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransaction(
 	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
-	txBytes, err := hex.DecodeString(args.TxBytes)
+	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err
 	}
@@ -160,7 +161,7 @@ type BroadcastRawTransactionAsyncResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
-	txBytes, err := hex.DecodeString(args.TxBytes)
+	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err
 	}
@@ -171,4 +172,13 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	logger.Infof("Broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	return t.mempool.InsertTransaction(txBytes)
+}
+
+// -------------------------- Utilities -------------------------- //
+
+func decodeTxHexBytes(txBytes string) ([]byte, error) {
+	if hexutil.Has0xPrefix(txBytes) {
+		txBytes = txBytes[2:]
+	}
+	return hex.DecodeString(txBytes)
 }
