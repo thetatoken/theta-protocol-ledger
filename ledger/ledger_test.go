@@ -63,17 +63,17 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 	startTime := time.Now()
 
 	// Propose block transactions
-	_, blockTxs, res := ledger.ProposeBlockTxs()
+	_, blockTxs, res := ledger.ProposeBlockTxs(nil)
 
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
 	log.Infof("Execution time for block proposal: %v", elapsed)
 
 	// Transaction counts sanity checks
-	expectedTotalNumTx := core.MaxNumRegularTxsPerBlock + 1
+	expectedTotalNumTx := core.MaxNumRegularTxsPerBlock // since we passed nil to ProposeBlockTxs(), we don't have the CoinbaseTx in the block
 	assert.Equal(expectedTotalNumTx, len(blockTxs))
 	assert.True(res.IsOK())
-	assert.Equal(numMempoolTxs-expectedTotalNumTx+1, mempool.Size())
+	assert.Equal(numMempoolTxs-expectedTotalNumTx, mempool.Size())
 
 	// Transaction sanity checks
 	var prevSendTx *types.SendTx
@@ -82,13 +82,13 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 		tx, err := types.TxFromBytes(rawTx)
 		assert.Nil(err)
 		switch tx.(type) {
-		case *types.CoinbaseTx:
-			assert.Equal(0, idx) // The first tx needs to be a coinbase transaction
-			coinbaseTx := tx.(*types.CoinbaseTx)
-			signBytes := coinbaseTx.SignBytes(chainID)
-			ledger.consensus.PrivateKey().PublicKey().VerifySignature(signBytes, coinbaseTx.Proposer.Signature)
+		// case *types.CoinbaseTx:
+		// 	assert.Equal(0, idx) // The first tx needs to be a coinbase transaction
+		// 	coinbaseTx := tx.(*types.CoinbaseTx)
+		// 	signBytes := coinbaseTx.SignBytes(chainID)
+		// 	ledger.consensus.PrivateKey().PublicKey().VerifySignature(signBytes, coinbaseTx.Proposer.Signature)
 		case *types.SendTx:
-			assert.True(idx > 0)
+			assert.True(idx >= 0)
 			currSendTx := tx.(*types.SendTx)
 			if prevSendTx != nil {
 				// mempool should works like a priority queue, for the same type of tx (i.e. SendTx),
@@ -326,7 +326,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta1; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs()
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(b6)
 	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
 	assert.True(res.IsOK())
 
@@ -340,7 +340,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta2; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs()
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(b6)
 	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
 	assert.True(res.IsOK())
 

@@ -161,7 +161,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
-func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
@@ -174,7 +174,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 
 	// Add special transactions
 	rawTxCandidates := []common.Bytes{}
-	ledger.addSpecialTransactions(view, &rawTxCandidates)
+	ledger.addSpecialTransactions(block, view, &rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
 	regularRawTxs := ledger.mempool.ReapUnsafe(core.MaxNumRegularTxsPerBlock)
@@ -453,11 +453,18 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
-func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]common.Bytes) {
-	extBlk := ledger.consensus.GetLastFinalizedBlock()
-	epoch := ledger.consensus.GetEpoch()
-	proposer := ledger.valMgr.GetProposer(extBlk.Hash(), epoch)
-	validators := ledger.valMgr.GetValidatorSet(extBlk.Hash()).Validators()
+func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {
+	if block == nil {
+		logger.Warnf("addSpecialTransactions: block is nil")
+		return
+	}
+
+	// Note 1: Should call GetNextProposer() with the hash of the parent block, since the current block is not fully assembled yet
+	// Note 2: GetNextProposer() should use the current epoch instead of the parent's epoch, since different epochs might have different proposers
+	// Note 3: Similarly, should call GetNextValidatorSet() on the hash of the parent block
+	parentBlkHash := block.Parent
+	proposer := ledger.valMgr.GetNextProposer(parentBlkHash, block.Epoch)
+	validators := ledger.valMgr.GetNextValidatorSet(parentBlkHash).Validators()
 
 	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
 	//ledger.addSlashTxs(view, &proposer, &validators, rawTxs)

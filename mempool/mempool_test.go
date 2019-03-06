@@ -468,7 +468,7 @@ func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*core.TxInfo, result.Result)
 	return txInfo, result.OK
 }
 
-func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (tl *TestLedger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	return common.Hash{}, []common.Bytes{}, result.OK
 }
 

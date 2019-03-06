@@ -752,7 +752,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.HCC.Votes = e.chain.FindVotesByHash(block.HCC.BlockHash).UniqueVoter()
 
 	// Add Txs.
-	newRoot, txs, result := e.ledger.ProposeBlockTxs()
+	newRoot, txs, result := e.ledger.ProposeBlockTxs(block)
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
 		return core.Proposal{}, err
