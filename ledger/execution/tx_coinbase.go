@@ -32,7 +32,7 @@ func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine
 
 func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.CoinbaseTx)
-	validatorAddresses := getValidatorAddresses(exec.consensus, exec.valMgr)
+	validatorAddresses := getValidatorAddresses(exec.consensus.GetLedger(), exec.valMgr)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()

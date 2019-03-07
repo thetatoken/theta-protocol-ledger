@@ -110,7 +110,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	numInAccs := 5
 	accOut, accIns := prepareInitLedgerState(ledger, numInAccs)
 
-	coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
+	//coinbaseTxBytes := newRawCoinbaseTx(chainID, ledger, 1)
 	sendTx1Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[0], false)
 	sendTx2Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[1], false)
 	sendTx3Bytes := newRawSendTx(chainID, 1, true, accOut, accIns[2], false)
@@ -120,7 +120,7 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	txFee := getMinimumTxFee()
 
 	blockRawTxs := []common.Bytes{
-		coinbaseTxBytes,
+		//coinbaseTxBytes,
 		sendTx1Bytes, sendTx2Bytes, sendTx3Bytes, sendTx4Bytes, sendTx5Bytes,
 	}
 	expectedStateRoot := common.HexToHash("0d7bff2377e3638b82b09c21b7d0636ed593d2225164cb9b67f7296432194c58")

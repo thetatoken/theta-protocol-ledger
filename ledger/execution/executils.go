@@ -35,9 +35,14 @@ import (
 // }
 
 // getValidatorAddresses returns validators' addresses
-func getValidatorAddresses(consensus core.ConsensusEngine, valMgr core.ValidatorManager) []common.Address {
-	extBlk := consensus.GetLastFinalizedBlock()
-	validators := valMgr.GetValidatorSet(extBlk.Hash()).Validators()
+func getValidatorAddresses(ledger core.Ledger, valMgr core.ValidatorManager) []common.Address {
+	currentBlock := ledger.GetCurrentBlock()
+	if currentBlock == nil {
+		panic("ledger.currentBlock is nil")
+	}
+	parentBlkHash := currentBlock.Parent
+	validators := valMgr.GetNextValidatorSet(parentBlkHash).Validators()
+
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
 		validatorAddresses[i] = v.Address

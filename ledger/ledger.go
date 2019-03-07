@@ -33,10 +33,11 @@ var _ core.Ledger = (*Ledger)(nil)
 // Ledger implements the core.Ledger interface
 //
 type Ledger struct {
-	chain     *blockchain.Chain
-	consensus core.ConsensusEngine
-	valMgr    core.ValidatorManager
-	mempool   *mp.Mempool
+	chain        *blockchain.Chain
+	consensus    core.ConsensusEngine
+	valMgr       core.ValidatorManager
+	mempool      *mp.Mempool
+	currentBlock *core.Block
 
 	mu       *sync.RWMutex // Lock for accessing ledger state.
 	state    *st.LedgerState
@@ -62,6 +63,11 @@ func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, co
 // State returns the state of the ledger
 func (ledger *Ledger) State() *st.LedgerState {
 	return ledger.state
+}
+
+// GetCurrentBlock returns the block currently being processed
+func (ledger *Ledger) GetCurrentBlock() *core.Block {
+	return ledger.currentBlock
 }
 
 // GetScreenedSnapshot returns a snapshot of screened ledger state to query about accounts, etc.
@@ -215,8 +221,11 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
-	blockRawTxs := block.Txs
-	expectedStateRoot := block.StateHash
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
+	blockRawTxs := ledger.currentBlock.Txs
+	expectedStateRoot := ledger.currentBlock.StateHash
 
 	view := ledger.state.Delivered()
 
