@@ -206,7 +206,7 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 // ApplyBlockTxs applies the given block transactions. If any of the transactions failed, it returns
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
-func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
@@ -214,6 +214,9 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
+
+	blockRawTxs := block.Txs
+	expectedStateRoot := block.StateHash
 
 	view := ledger.state.Delivered()
 

@@ -472,7 +472,7 @@ func (tl *TestLedger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 	return common.Hash{}, []common.Bytes{}, result.OK
 }
 
-func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+func (tl *TestLedger) ApplyBlockTxs(block *core.Block) result.Result {
 	return result.OK
 }
 

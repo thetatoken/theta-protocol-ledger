@@ -125,7 +125,8 @@ func TestLedgerApplyBlockTxs(t *testing.T) {
 	}
 	expectedStateRoot := common.HexToHash("0d7bff2377e3638b82b09c21b7d0636ed593d2225164cb9b67f7296432194c58")
 
-	res := ledger.ApplyBlockTxs(blockRawTxs, expectedStateRoot)
+	block := &core.Block{BlockHeader: &core.BlockHeader{StateHash: expectedStateRoot}, Txs: blockRawTxs}
+	res := ledger.ApplyBlockTxs(block)
 	require.True(res.IsOK(), res.Message)
 
 	//
@@ -326,8 +327,12 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta1; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(b6)
-	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	blockX := &core.Block{BlockHeader: &core.BlockHeader{
+		Height:    es.state.Height() + 1,
+		StateHash: expectedStateHash,
+	}, Txs: []common.Bytes{}}
+	res = es.consensus.GetLedger().ApplyBlockTxs(blockX)
 	assert.True(res.IsOK())
 
 	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)
@@ -340,8 +345,12 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta2; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(b6)
-	res = es.consensus.GetLedger().ApplyBlockTxs([]common.Bytes{}, expectedStateHash)
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	blockY := &core.Block{BlockHeader: &core.BlockHeader{
+		Height:    es.state.Height() + 1,
+		StateHash: expectedStateHash,
+	}, Txs: []common.Bytes{}}
+	res = es.consensus.GetLedger().ApplyBlockTxs(blockY)
 	assert.True(res.IsOK())
 
 	srcAcc = es.state.Delivered().GetAccount(withdrawSourcePrivAcc.Address)

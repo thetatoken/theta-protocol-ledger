@@ -30,7 +30,7 @@ type TxInfo struct {
 type Ledger interface {
 	ScreenTx(rawTx common.Bytes) (priority *TxInfo, res result.Result)
 	ProposeBlockTxs(block *Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
-	ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result
+	ApplyBlockTxs(block *Block) result.Result
 	ResetState(height uint64, rootHash common.Hash) result.Result
 	FinalizeState(height uint64, rootHash common.Hash) result.Result
 	GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*ValidatorCandidatePool, error)

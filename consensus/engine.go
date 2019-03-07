@@ -365,7 +365,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		}).Error("Failed to reset state to parent.StateHash")
 		return
 	}
-	result = e.ledger.ApplyBlockTxs(block.Txs, block.StateHash)
+	result = e.ledger.ApplyBlockTxs(block)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":           result.String(),
