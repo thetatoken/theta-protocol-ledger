@@ -376,6 +376,9 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 		blockHash := b.Hash()
 		stateRoot := b.StateHash
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the VCP for height %v does not exists, it might have been pruned", height)
+		}
 		vcp := blockStoreView.GetValidatorCandidatePool()
 		hl := blockStoreView.GetStakeTransactionHeightList()
 		blockHashVcpPairs = append(blockHashVcpPairs, BlockHashVcpPair{
