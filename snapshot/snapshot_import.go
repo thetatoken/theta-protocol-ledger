@@ -356,7 +356,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 			HasValidatorUpdate: hl.Contains(firstBlock.Height),
 		}
 		firstBlockHash := firstBlock.BlockHeader.Hash()
-		kvstore.Put(firstBlockHash[:], firstExt)
+
+		existingFirstExt := core.ExtendedBlock{}
+		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
+			kvstore.Put(firstBlockHash[:], firstExt)
+		}
 	}
 
 	secondExt := core.ExtendedBlock{
@@ -366,7 +370,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		HasValidatorUpdate: hl.Contains(secondBlock.Height),
 	}
 	secondBlockHash := secondBlock.BlockHeader.Hash()
-	kvstore.Put(secondBlockHash[:], secondExt)
+
+	existingSecondExt := core.ExtendedBlock{}
+	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
+		kvstore.Put(secondBlockHash[:], secondExt)
+	}
 
 	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
 		// TODO: this would lead to mismatch between the proven and retrieved validator set,
