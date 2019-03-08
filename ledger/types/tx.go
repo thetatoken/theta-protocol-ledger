@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
@@ -65,7 +66,7 @@ func TxID(chainID string, tx Tx) common.Hash {
 func jsonEscape(str string) string {
 	escapedBytes, err := json.Marshal(str)
 	if err != nil {
-		panic(fmt.Sprintf("Error json-escaping a string: %v", str))
+		log.Panicf("Error json-escaping a string: %v", str)
 	}
 	return string(escapedBytes)
 }
@@ -73,7 +74,7 @@ func jsonEscape(str string) string {
 func encodeToBytes(str string) []byte {
 	encodedBytes, err := rlp.EncodeToBytes(str)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to encode %v: %v", str, err))
+		log.Panicf("Failed to encode %v: %v", str, err)
 	}
 	return encodedBytes
 }
@@ -879,7 +880,7 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 		new(big.Int).SetUint64(0),
 		signBytes})
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	return signBytes
 }

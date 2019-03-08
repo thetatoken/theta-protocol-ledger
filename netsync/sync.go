@@ -146,7 +146,7 @@ func (sm *SyncManager) processMessage(message p2ptypes.Message) {
 	default:
 		sm.logger.WithFields(log.Fields{
 			"message": message,
-		}).Panic("Received unknown message")
+		}).Warn("Received unknown message")
 	}
 }
 
@@ -181,7 +181,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 		if err != nil {
 			m.logger.WithFields(log.Fields{
 				"hash": curr.Hex(),
-			}).Error("Failed to find block with given hash")
+			}).Debug("Failed to find block with given hash")
 			return ret
 		}
 		ret = append(ret, curr.Hex())
@@ -197,7 +197,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 					m.logger.WithFields(log.Fields{
 						"err":  err,
 						"hash": curr,
-					}).Error("Failed to load block")
+					}).Debug("Failed to load block")
 					return ret
 				}
 				if block.Status.IsFinalized() {
@@ -236,7 +236,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		if start.IsEmpty() {
 			m.logger.WithFields(log.Fields{
 				"channelID": req.ChannelID,
-			}).Warn("No start hash can be found in local chain")
+			}).Debug("No start hash can be found in local chain")
 			return
 		}
 
@@ -251,7 +251,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		}).Debug("Sending inventory response")
 		m.dispatcher.SendInventory([]string{peerID}, resp)
 	default:
-		m.logger.WithFields(log.Fields{"channelID": req.ChannelID}).Error("Unsupported channelID in received InvRequest")
+		m.logger.WithFields(log.Fields{"channelID": req.ChannelID}).Warn("Unsupported channelID in received InvRequest")
 	}
 
 }
@@ -271,7 +271,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": resp.ChannelID,
-		}).Error("Unsupported channelID in received Inventory Request")
+		}).Warn("Unsupported channelID in received Inventory Request")
 	}
 }
 
@@ -286,7 +286,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 					"channelID": data.ChannelID,
 					"hashStr":   hashStr,
 					"err":       err,
-				}).Error("Failed to find hash string locally")
+				}).Debug("Failed to find hash string locally")
 				return
 			}
 
@@ -310,7 +310,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
-		}).Error("Unsupported channelID in received DataRequest")
+		}).Warn("Unsupported channelID in received DataRequest")
 	}
 }
 
@@ -324,7 +324,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
+			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
 		m.handleBlock(block)
@@ -336,7 +336,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
+			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
 		m.handleVote(vote)
@@ -348,14 +348,14 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
-			}).Error("Failed to decode DataResponse payload")
+			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
 		m.handleProposal(proposal)
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
-		}).Error("Unsupported channelID in received DataResponse")
+		}).Warn("Unsupported channelID in received DataResponse")
 	}
 }
 

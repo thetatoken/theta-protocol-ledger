@@ -88,7 +88,7 @@ func (sv *StoreView) Save() common.Hash {
 	logger.Infof("Commit to data store, height: %v, rootHash: %v", sv.height+1, rootHash.Hex())
 
 	if err != nil {
-		panic(fmt.Sprintf("Failed to save the StoreView: %v", err))
+		log.Panicf("Failed to save the StoreView: %v", err)
 	}
 	return rootHash
 }
@@ -147,8 +147,8 @@ func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	acc := &types.Account{}
 	err := types.FromBytes(data, acc)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading account %X error: %v",
-			data, err.Error()))
+		log.Panicf("Error reading account %X error: %v",
+			data, err.Error())
 	}
 	return acc
 }
@@ -157,8 +157,8 @@ func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
 	accBytes, err := types.ToBytes(acc)
 	if err != nil {
-		panic(fmt.Sprintf("Error writing account %v error: %v",
-			acc, err.Error()))
+		log.Panicf("Error writing account %v error: %v",
+			acc, err.Error())
 	}
 	sv.Set(AccountKey(addr), accBytes)
 }
@@ -202,8 +202,8 @@ func (sv *StoreView) GetSplitRule(resourceID string) *types.SplitRule {
 	splitRule := &types.SplitRule{}
 	err := types.FromBytes(data, splitRule)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading splitRule %X error: %v",
-			data, err.Error()))
+		log.Panicf("Error reading splitRule %X error: %v",
+			data, err.Error())
 	}
 	return splitRule
 }
@@ -212,8 +212,8 @@ func (sv *StoreView) GetSplitRule(resourceID string) *types.SplitRule {
 func (sv *StoreView) SetSplitRule(resourceID string, splitRule *types.SplitRule) {
 	splitRuleBytes, err := types.ToBytes(splitRule)
 	if err != nil {
-		panic(fmt.Sprintf("Error writing splitRule %v error: %v",
-			splitRule, err.Error()))
+		log.Panicf("Error writing splitRule %v error: %v",
+			splitRule, err.Error())
 	}
 	sv.Set(SplitRuleKey(resourceID), splitRuleBytes)
 }
@@ -234,7 +234,7 @@ func (sv *StoreView) DeleteExpiredSplitRules(currentBlockHeight uint64) bool {
 		var splitRule types.SplitRule
 		err := types.FromBytes(value, &splitRule)
 		if err != nil {
-			panic(fmt.Sprintf("Error reading splitRule %X error: %v", value, err.Error()))
+			log.Panicf("Error reading splitRule %X error: %v", value, err.Error())
 		}
 
 		expired := (splitRule.EndBlockHeight < currentBlockHeight)
@@ -264,8 +264,8 @@ func (sv *StoreView) GetValidatorCandidatePool() *core.ValidatorCandidatePool {
 	vcp := &core.ValidatorCandidatePool{}
 	err := types.FromBytes(data, vcp)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading validator candidate pool %X, error: %v",
-			data, err.Error()))
+		log.Panicf("Error reading validator candidate pool %X, error: %v",
+			data, err.Error())
 	}
 	return vcp
 }
@@ -274,8 +274,8 @@ func (sv *StoreView) GetValidatorCandidatePool() *core.ValidatorCandidatePool {
 func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePool) {
 	vcpBytes, err := types.ToBytes(vcp)
 	if err != nil {
-		panic(fmt.Sprintf("Error writing validator candidate pool %v, error: %v",
-			vcp, err.Error()))
+		log.Panicf("Error writing validator candidate pool %v, error: %v",
+			vcp, err.Error())
 	}
 	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
 }
@@ -290,8 +290,8 @@ func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
 	hl := &types.HeightList{}
 	err := types.FromBytes(data, hl)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading height list %X, error: %v",
-			data, err.Error()))
+		log.Panicf("Error reading height list %X, error: %v",
+			data, err.Error())
 	}
 	return hl
 }
@@ -300,8 +300,8 @@ func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
 func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
 	hlBytes, err := types.ToBytes(hl)
 	if err != nil {
-		panic(fmt.Sprintf("Error writing height list %v, error: %v",
-			hl, err.Error()))
+		log.Panicf("Error writing height list %v, error: %v",
+			hl, err.Error())
 	}
 	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
@@ -403,7 +403,7 @@ func (sv *StoreView) AddRefund(gas uint64) {
 
 func (sv *StoreView) SubRefund(gas uint64) {
 	if gas > sv.refund {
-		panic("Refund counter below zero")
+		log.Panic("Refund counter below zero")
 	}
 	sv.refund -= gas
 }
@@ -431,12 +431,12 @@ func (sv *StoreView) GetState(addr common.Address, key common.Hash) common.Hash 
 	}
 	enc, err := sv.getAccountStorage(account).TryGet(key[:])
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	if len(enc) > 0 {
 		_, content, _, err := rlp.Split(enc)
 		if err != nil {
-			panic(err)
+			log.Panic(err)
 		}
 		return common.BytesToHash(content)
 	}
@@ -458,7 +458,7 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	tree.TryUpdate(key[:], v)
 	root, err := tree.Commit()
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 
 	account.Root = root
@@ -501,7 +501,7 @@ func (sv *StoreView) RevertToSnapshot(root common.Hash) {
 	var err error
 	sv.store, err = sv.store.Revert(root) // revert to one of the previous roots
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 }
 

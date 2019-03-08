@@ -65,7 +65,7 @@ func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create temporary db for snapshot verification: %v", err))
+		log.Panicf("Failed to create temporary db for snapshot verification: %v", err)
 	}
 	mainTmpDBPath := path.Join(tmpdbRoot, "main")
 	refTmpDBPath := path.Join(tmpdbRoot, "ref")

@@ -2,7 +2,7 @@ package node
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -62,7 +62,7 @@ func NewNode(params *Params) *Node {
 	if currentHeight <= params.Root.Height {
 		snapshotPath := params.SnapshotPath
 		if _, err := snapshot.ImportSnapshot(snapshotPath, params.DB); err != nil {
-			panic(fmt.Sprintf("Failed to load snapshot: %v, err: %v", snapshotPath, err))
+			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
 		}
 	}
 

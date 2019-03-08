@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -115,11 +116,11 @@ func (s *LedgerState) Commit() common.Hash {
 	var err error
 	s.checked, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Errorf("Commit: failed to copy to the checked view: %v", err))
+		log.Panicf("Commit: failed to copy to the checked view: %v", err)
 	}
 	s.screened, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Errorf("Commit: failed to copy to the screened view: %v", err))
+		log.Panicf("Commit: failed to copy to the screened view: %v", err)
 	}
 	return hash
 }

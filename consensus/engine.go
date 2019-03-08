@@ -209,8 +209,8 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
 	default:
+		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
-		panic(fmt.Sprintf("Unknown message type: %v", m))
 	}
 
 	return false
@@ -444,6 +444,7 @@ func (e *ConsensusEngine) vote() {
 	if shouldRepeatVote {
 		block, err := e.chain.FindBlock(lastVote.Block)
 		if err != nil {
+			// Should not happen
 			log.Panic(err)
 		}
 		// Recreating vote so that it has updated epoch and signature.
