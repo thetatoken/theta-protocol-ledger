@@ -176,6 +176,9 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
 	view := ledger.state.Checked()
 
 	// Add special transactions

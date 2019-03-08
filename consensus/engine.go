@@ -260,8 +260,8 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("HCC must be ancestor")
 		return false
 	}
-	validators := e.validatorManager.GetValidatorSet(block.Hash())
-	if !block.HCC.IsValid(validators) {
+	hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+	if !block.HCC.IsValid(hccValidators) {
 		e.logger.WithFields(log.Fields{
 			"parent":    block.Parent.Hex(),
 			"block":     block.Hash().Hex(),
@@ -572,7 +572,7 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 		return
 	}
 
-	votes := e.chain.FindVotesByHash(hash)
+	votes := e.chain.FindVotesByHash(hash).UniqueVoter()
 	validators := e.validatorManager.GetValidatorSet(hash)
 	if validators.HasMajority(votes) {
 		e.processCCBlock(block)
