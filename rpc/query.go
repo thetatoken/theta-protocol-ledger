@@ -11,6 +11,7 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/version"
 )
 
@@ -113,6 +114,7 @@ const (
 	TxStatusNotFound  = "not_found"
 	TxStatusPending   = "pending"
 	TxStatusFinalized = "finalized"
+	TxStatusAbandoned = "abandoned"
 )
 
 func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTransactionResult) (err error) {
@@ -120,12 +122,22 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return errors.New("Transanction hash must be specified")
 	}
 	hash := common.HexToHash(args.Hash)
+	result.TxHash = hash
+
 	raw, block, found := t.chain.FindTxByHash(hash)
 	if !found {
-		result.Status = TxStatusNotFound
+		txStatus, exists := t.mempool.GetTransactionStatus(args.Hash)
+		if exists {
+			if txStatus == mempool.TxStatusAbandoned {
+				result.Status = TxStatusAbandoned
+			} else {
+				result.Status = TxStatusPending
+			}
+		} else {
+			result.Status = TxStatusNotFound
+		}
 		return nil
 	}
-	result.TxHash = hash
 	result.BlockHash = block.Hash()
 	result.BlockHeight = common.JSONUint64(block.Height)
 

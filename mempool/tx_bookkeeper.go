@@ -17,16 +17,23 @@ const defaultMaxNumTxs = uint(200000)
 type transactionBookkeeper struct {
 	mutex *sync.Mutex
 
-	txMap  map[string]bool // map: transaction hash -> bool
-	txList list.List       // FIFO list of transaction hashes
+	txMap  map[string]TxStatus // map: transaction hash -> bool
+	txList list.List           // FIFO list of transaction hashes
 
 	maxNumTxs uint
 }
 
+type TxStatus int
+
+const (
+	TxStatusPending TxStatus = iota
+	TxStatusAbandoned
+)
+
 func createTransactionBookkeeper(maxNumTxs uint) transactionBookkeeper {
 	return transactionBookkeeper{
 		mutex:     &sync.Mutex{},
-		txMap:     make(map[string]bool),
+		txMap:     make(map[string]TxStatus),
 		maxNumTxs: maxNumTxs,
 	}
 }
@@ -34,7 +41,7 @@ func createTransactionBookkeeper(maxNumTxs uint) transactionBookkeeper {
 func (tb *transactionBookkeeper) reset() {
 	tb.mutex.Lock()
 	defer tb.mutex.Unlock()
-	tb.txMap = make(map[string]bool)
+	tb.txMap = make(map[string]TxStatus)
 	tb.txList.Init()
 }
 
@@ -44,6 +51,14 @@ func (tb *transactionBookkeeper) hasSeen(rawTx common.Bytes) bool {
 	txhash := getTransactionHash(rawTx)
 	_, exists := tb.txMap[txhash]
 	return exists
+}
+
+// getStatus returns a tx status and a boolean of whether the tx is known.
+func (tb *transactionBookkeeper) getStatus(txhash string) (TxStatus, bool) {
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
+	txStatus, ok := tb.txMap[txhash]
+	return txStatus, ok
 }
 
 func (tb *transactionBookkeeper) record(rawTx common.Bytes) bool {
@@ -62,10 +77,21 @@ func (tb *transactionBookkeeper) record(rawTx common.Bytes) bool {
 		tb.txList.Remove(popped)
 	}
 
-	tb.txMap[txhash] = true
+	tb.txMap[txhash] = TxStatusPending
 	tb.txList.PushBack(txhash)
 
 	return true
+}
+
+func (tb *transactionBookkeeper) markAbandoned(rawTx common.Bytes) {
+	tb.mutex.Lock()
+	defer tb.mutex.Unlock()
+
+	txhash := getTransactionHash(rawTx)
+	if _, exists := tb.txMap[txhash]; !exists {
+		return
+	}
+	tb.txMap[txhash] = TxStatusAbandoned
 }
 
 func (tb *transactionBookkeeper) remove(rawTx common.Bytes) {

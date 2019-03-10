@@ -321,6 +321,7 @@ func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
 			checkTxRes := mp.ledger.ScreenTxUnsafe(mempoolTx.rawTransaction)
 			if !checkTxRes.IsOK() {
 				invalidTxs = append(invalidTxs, mempoolTx.rawTransaction)
+				mp.txBookeepper.markAbandoned(mempoolTx.rawTransaction)
 			}
 		}
 	}
@@ -351,6 +352,10 @@ func (mp *Mempool) removeTxs(committedRawTxs []common.Bytes) {
 	for _, elem := range elemsTobeRemoved {
 		mp.candidateTxs.Remove(elem.GetIndex())
 	}
+}
+
+func (mp *Mempool) GetTransactionStatus(hash string) (TxStatus, bool) {
+	return mp.txBookeepper.getStatus(hash)
 }
 
 // GetCandidateTransactions returns all the currently candidate transactions
