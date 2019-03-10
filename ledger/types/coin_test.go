@@ -58,6 +58,25 @@ func TestInvalidCoin(t *testing.T) {
 	assert.True(ret2.ThetaWei.Cmp(big.NewInt(456)) == 0)
 }
 
+func TestcCoinsRLPNil(t *testing.T) {
+	assert := assert.New(t)
+
+	a := Coins{}
+	rawA, err := rlp.EncodeToBytes(a)
+	assert.Nil(err)
+
+	b := &Coins{}
+	rlp.DecodeBytes(rawA, b)
+
+	assert.NotNil(b.ThetaWei)
+	assert.NotNil(b.TFuelWei)
+
+	c := NewCoins(0, 0)
+	rawC, err := rlp.EncodeToBytes(c)
+	assert.Nil(err)
+	assert.Equal(rawC, rawA)
+}
+
 func TestCoinsRLPCollision(t *testing.T) {
 	assert := assert.New(t)
 
