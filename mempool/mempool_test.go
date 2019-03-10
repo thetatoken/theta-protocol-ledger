@@ -238,8 +238,7 @@ func TestMempoolUpdate(t *testing.T) {
 		common.Bytes("tx4"), // intentionally repeated tx
 	}
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 	assert.Equal(5, mempool.Size())
 
 	log.Infof("----- Reap all remaining transactions -----")
@@ -279,8 +278,7 @@ func TestMempoolUpdateAndInsert(t *testing.T) {
 		common.Bytes("tx1"),
 	}
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 	assert.Equal(2, mempool.Size())
 
 	// tx4 and tx1 are from the same address.
@@ -316,8 +314,7 @@ func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
 
 	t1 := time.Now()
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 
 	t2 := time.Now()
 	elapsedA := t2.Sub(t1)
@@ -456,6 +453,11 @@ func newTestLedger() core.Ledger {
 			3022,
 		},
 	}
+}
+
+func (tl *TestLedger) ScreenTxUnsafe(rawTx common.Bytes) result.Result {
+	_, res := tl.ScreenTx(rawTx)
+	return res
 }
 
 func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*core.TxInfo, result.Result) {

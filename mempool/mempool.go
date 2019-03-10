@@ -299,15 +299,36 @@ func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
 // Update removes the committed transactions from the transaction candidate list
 // RUNTIME COMPLEXITY: O(k + n), where k is the number committed raw transactions,
 // and n is the number of transactions in the candidate pool.
-func (mp *Mempool) Update(committedRawTxs []common.Bytes) bool {
+func (mp *Mempool) Update(committedRawTxs []common.Bytes) {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
-	return mp.UpdateUnsafe(committedRawTxs)
+	mp.UpdateUnsafe(committedRawTxs)
 }
 
 // UpdateUnsafe is the non-locking version of Update. Caller must call Mempool.Lock() before
 // calling this method.
-func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) bool {
+func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
+	mp.removeTxs(committedRawTxs)
+
+	// Remove Txs that have become obsolete.
+	invalidTxs := []common.Bytes{}
+	txGroups := mp.candidateTxs.ElementList()
+	for _, txGroupEl := range *txGroups {
+		txGroup := txGroupEl.(*mempoolTransactionGroup)
+		txs := txGroup.txs.ElementList()
+		for _, txEl := range *txs {
+			mempoolTx := txEl.(*mempoolTransaction)
+			checkTxRes := mp.ledger.ScreenTxUnsafe(mempoolTx.rawTransaction)
+			if !checkTxRes.IsOK() {
+				invalidTxs = append(invalidTxs, mempoolTx.rawTransaction)
+			}
+		}
+	}
+	logger.Debugf("Removing %d obsolete Txs: %v", len(invalidTxs), invalidTxs)
+	mp.removeTxs(invalidTxs)
+}
+
+func (mp *Mempool) removeTxs(committedRawTxs []common.Bytes) {
 	committedRawTxMap := make(map[string]bool)
 	for _, rawtx := range committedRawTxs {
 		committedRawTxMap[string(rawtx)] = true
@@ -330,8 +351,6 @@ func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) bool {
 	for _, elem := range elemsTobeRemoved {
 		mp.candidateTxs.Remove(elem.GetIndex())
 	}
-
-	return true
 }
 
 // GetCandidateTransactions returns all the currently candidate transactions

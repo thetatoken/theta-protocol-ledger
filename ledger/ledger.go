@@ -136,6 +136,18 @@ func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, e
 	return &block, nil
 }
 
+// ScreenTxUnsafe screens the given transaction without locking.
+func (ledger *Ledger) ScreenTxUnsafe(rawTx common.Bytes) (res result.Result) {
+	var tx types.Tx
+	tx, err := types.TxFromBytes(rawTx)
+	if err != nil {
+		return result.Error("Error decoding tx: %v", err)
+	}
+
+	_, res = ledger.executor.ScreenTx(tx)
+	return res
+}
+
 // ScreenTx screens the given transaction
 func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res result.Result) {
 	var tx types.Tx

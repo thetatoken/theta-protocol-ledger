@@ -29,6 +29,7 @@ type TxInfo struct {
 //
 type Ledger interface {
 	GetCurrentBlock() *Block
+	ScreenTxUnsafe(rawTx common.Bytes) result.Result
 	ScreenTx(rawTx common.Bytes) (priority *TxInfo, res result.Result)
 	ProposeBlockTxs(block *Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
 	ApplyBlockTxs(block *Block) result.Result
