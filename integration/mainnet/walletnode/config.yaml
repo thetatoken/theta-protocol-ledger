@@ -3,7 +3,7 @@ storage:
   statePruningRetainedBlocks: 128
 p2p:
   port: 16000
-  seeds: 18.218.16.108:21000,18.191.88.191:21000,18.222.201.29:21000
+  seeds: 3.18.35.120:21000,18.224.234.179:21000,3.18.96.195:21000
 rpc:
   enabled: true
 log:
