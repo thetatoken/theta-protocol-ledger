@@ -62,10 +62,13 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 	if err != nil {
 		return err
 	}
+
 	account := ledgerState.GetAccount(address)
 	if account == nil {
 		return fmt.Errorf("Account with address %s is not found", address.Hex())
 	}
+	account.UpdateToHeight(ledgerState.Height())
+
 	result.Account = account
 	return nil
 }
