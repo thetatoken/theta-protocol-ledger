@@ -227,6 +227,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		"channelID":   req.ChannelID,
 		"startHashes": req.Starts,
 		"endHash":     req.End,
+		"peerID":      peerID,
 	}).Debug("Received inventory request")
 
 	switch req.ChannelID {
@@ -236,6 +237,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		if start.IsEmpty() {
 			m.logger.WithFields(log.Fields{
 				"channelID": req.ChannelID,
+				"peerID":    peerID,
 			}).Debug("No start hash can be found in local chain")
 			return
 		}
@@ -248,6 +250,7 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		m.logger.WithFields(log.Fields{
 			"channelID":         resp.ChannelID,
 			"len(resp.Entries)": len(resp.Entries),
+			"peerID":            peerID,
 		}).Debug("Sending inventory response")
 		m.dispatcher.SendInventory([]string{peerID}, resp)
 	default:
@@ -260,6 +263,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	m.logger.WithFields(log.Fields{
 		"channelID":   resp.ChannelID,
 		"InvResponse": resp,
+		"peerID":      peerID,
 	}).Debug("Received Inventory Response")
 
 	switch resp.ChannelID {
@@ -271,6 +275,7 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": resp.ChannelID,
+			"peerID":    peerID,
 		}).Warn("Unsupported channelID in received Inventory Request")
 	}
 }
@@ -286,6 +291,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 					"channelID": data.ChannelID,
 					"hashStr":   hashStr,
 					"err":       err,
+					"peerID":    peerID,
 				}).Debug("Failed to find hash string locally")
 				return
 			}
@@ -293,7 +299,8 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 			payload, err := rlp.EncodeToBytes(block.Block)
 			if err != nil {
 				m.logger.WithFields(log.Fields{
-					"block": block,
+					"block":  block,
+					"peerID": peerID,
 				}).Error("Failed to encode block")
 				return
 			}
@@ -304,6 +311,7 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 			m.logger.WithFields(log.Fields{
 				"channelID": data.ChannelID,
 				"hashStr":   hashStr,
+				"peerID":    peerID,
 			}).Debug("Sending requested block")
 			m.dispatcher.SendData([]string{peerID}, data)
 		}
@@ -324,6 +332,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
+				"peerID":    peerID,
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
@@ -336,6 +345,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
+				"peerID":    peerID,
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
@@ -348,6 +358,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"channelID": data.ChannelID,
 				"payload":   data.Payload,
 				"error":     err,
+				"peerID":    peerID,
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
