@@ -166,13 +166,16 @@ func TestParseCoinAmount(t *testing.T) {
 	assert.True(tmp.Mul(big.NewInt(1), weiMultiply).Cmp(ret) == 0)
 
 	ret, ok = ParseCoinAmount("0.0000001e3")
-	assert.False(ok)
+	assert.True(ok)
 
 	ret, ok = ParseCoinAmount("100000wei")
 	assert.True(ok)
 	assert.True(big.NewInt(100000).Cmp(ret) == 0)
 
 	ret, ok = ParseCoinAmount("1e3wei")
+
+	t.Logf("1e3wei => %v\n", ret)
+
 	assert.True(ok)
 	assert.True(big.NewInt(1000).Cmp(ret) == 0)
 

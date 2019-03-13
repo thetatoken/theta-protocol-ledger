@@ -178,13 +178,17 @@ func ParseCoinAmount(in string) (*big.Int, bool) {
 		inWei = true
 		in = in[:len(in)-3]
 	}
-	f, ok := new(big.Float).SetString(in)
-	if !ok || f.Sign() < 0 || !f.IsInt() {
+
+	f, ok := new(big.Float).SetPrec(1024).SetString(in)
+	if !ok || f.Sign() < 0 {
 		return nil, false
 	}
-	ret, _ := f.Int(nil)
+
 	if !inWei {
-		return ret.Mul(ret, new(big.Int).SetUint64(1e18)), true
+		f = f.Mul(f, new(big.Float).SetPrec(1024).SetUint64(1e18))
 	}
+
+	ret, _ := f.Int(nil)
+
 	return ret, true
 }
