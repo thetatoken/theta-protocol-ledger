@@ -66,12 +66,6 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 		return result.Error(errMsg)
 	}
 
-	// Verify target
-	if targetAccount.Sequence+1 != tx.Target.Sequence {
-		return result.Error("ServicePayment: Got %v, expected %v. (acc.seq=%v)",
-			tx.Target.Sequence, targetAccount.Sequence+1, targetAccount.Sequence)
-	}
-
 	targetSignBytes := tx.TargetSignBytes(chainID)
 	if !tx.Target.Signature.Verify(targetSignBytes, targetAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
@@ -148,7 +142,6 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 		// should charge after transfer the fund, so an empty address has some fund to pay the tx fee
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
-	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 
 	view.SetAccount(sourceAddress, sourceAccount)
 	view.SetAccount(targetAddress, targetAccount)
