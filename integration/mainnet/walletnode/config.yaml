@@ -1,5 +1,6 @@
 # Theta configuration
 storage:
+  statePruningInterval: 4
   statePruningRetainedBlocks: 128
 p2p:
   port: 16000
