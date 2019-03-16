@@ -750,7 +750,8 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	block.Proposer = e.privateKey.PublicKey().Address()
 	block.Timestamp = big.NewInt(time.Now().Unix())
 	block.HCC.BlockHash = e.state.GetHighestCCBlock().Hash()
-	block.HCC.Votes = e.chain.FindVotesByHash(block.HCC.BlockHash).UniqueVoter()
+	hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+	block.HCC.Votes = e.chain.FindVotesByHash(block.HCC.BlockHash).UniqueVoter().FilterByValidators(hccValidators)
 
 	// Add Txs.
 	newRoot, txs, result := e.ledger.ProposeBlockTxs(block)
@@ -776,6 +777,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	// Add votes that might help peers progress, e.g. votes on last CC block and latest epoch
 	// votes.
 	lastCC := e.state.GetHighestCCBlock()
+	lastCCValidators := e.validatorManager.GetValidatorSet(lastCC.Hash())
 	lastCCVotes := e.chain.FindVotesByHash(lastCC.Hash())
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
@@ -783,7 +785,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 			e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
 		}
 	}
-	proposal.Votes = lastCCVotes.Merge(epochVotes).UniqueVoterAndBlock()
+	proposal.Votes = lastCCVotes.Merge(epochVotes).UniqueVoterAndBlock().FilterByValidators(lastCCValidators)
 
 	return proposal, nil
 }

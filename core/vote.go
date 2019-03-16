@@ -280,6 +280,17 @@ func (s *VoteSet) UniqueVoter() *VoteSet {
 	return ret
 }
 
+// FilterByValidators removes votes from non-validators.
+func (s *VoteSet) FilterByValidators(validators *ValidatorSet) *VoteSet {
+	ret := NewVoteSet()
+	for _, vote := range s.votes {
+		if _, err := validators.GetValidator(vote.ID); err == nil {
+			ret.AddVote(vote)
+		}
+	}
+	return ret
+}
+
 // VoteByID implements sort.Interface for []Vote based on Voter's ID.
 type VoteByID []Vote
 
