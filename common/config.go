@@ -38,6 +38,9 @@ const (
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 
+	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
+	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
+
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
 	// CfgRPCPort sets the port of RPC service.

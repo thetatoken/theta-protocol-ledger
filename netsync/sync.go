@@ -2,6 +2,7 @@ package netsync
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -134,14 +135,33 @@ func (sm *SyncManager) HandleMessage(msg p2ptypes.Message) (err error) {
 }
 
 func (sm *SyncManager) processMessage(message p2ptypes.Message) {
+	inboundAllowed := true
+	// If whitelist is set, only process message from peers in the whitelist.
+	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
+		inboundAllowed = false
+		whitelist := strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
+		for _, peerID := range whitelist {
+			if strings.ToLower(peerID) == strings.ToLower(message.PeerID) {
+				inboundAllowed = true
+				break
+			}
+		}
+	}
+
 	switch content := message.Content.(type) {
 	case dispatcher.InventoryRequest:
 		sm.handleInvRequest(message.PeerID, &content)
 	case dispatcher.InventoryResponse:
+		if !inboundAllowed {
+			return
+		}
 		sm.handleInvResponse(message.PeerID, &content)
 	case dispatcher.DataRequest:
 		sm.handleDataRequest(message.PeerID, &content)
 	case dispatcher.DataResponse:
+		if !inboundAllowed {
+			return
+		}
 		sm.handleDataResponse(message.PeerID, &content)
 	default:
 		sm.logger.WithFields(log.Fields{
