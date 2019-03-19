@@ -322,6 +322,40 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 	}
 }
 
+func Fuzz(data []byte) int {
+	if len(data) == 0 {
+		return -1
+	}
+	if data[0]%4 == 0 {
+		block := core.NewBlock()
+		err := rlp.DecodeBytes(data[1:], block)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if data[0]%4 == 1 {
+		vote := core.Vote{}
+		err := rlp.DecodeBytes(data[1:], &vote)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if data[0]%4 == 2 {
+		proposal := &core.Proposal{}
+		err := rlp.DecodeBytes(data[1:], proposal)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if _, err := decodeMessage(data); err != nil {
+		return 1
+	}
+	return 0
+}
+
 func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
