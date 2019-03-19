@@ -17,7 +17,7 @@ install: gen_version
 	go install ./cmd/...
 	go install ./integration/...
 
-test: test_unit test_integration test_cluster_deployment
+test: test_unit #test_integration test_cluster_deployment
 
 test_unit:
 	go test `glide novendor` -tags=unit
