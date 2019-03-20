@@ -447,6 +447,10 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		return
 	}
 
+	if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		return
+	}
+
 	sm.requestMgr.AddBlock(block)
 
 	sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{

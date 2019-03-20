@@ -217,14 +217,6 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
-	// Basic validations.
-	if res := block.Validate(); res.IsError() {
-		e.logger.WithFields(log.Fields{
-			"err": res.String(),
-		}).Warn("Block is invalid")
-		return false
-	}
-
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
