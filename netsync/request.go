@@ -18,6 +18,7 @@ import (
 )
 
 const RequestTimeout = 10 * time.Second
+const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 30 * time.Second
 const RequestQuotaPerSecond = 1000
@@ -34,6 +35,7 @@ type PendingBlock struct {
 	block      *core.Block
 	peers      []string
 	lastUpdate time.Time
+	createdAt  time.Time
 	status     RequestState
 }
 
@@ -41,6 +43,7 @@ func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
 	return &PendingBlock{
 		hash:       x,
 		lastUpdate: time.Now(),
+		createdAt:  time.Now(),
 		peers:      peerIds,
 		status:     RequestToSendDataReq,
 	}
@@ -48,6 +51,10 @@ func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
 
 func (pb *PendingBlock) HasTimedOut() bool {
 	return time.Since(pb.lastUpdate) > RequestTimeout
+}
+
+func (pb *PendingBlock) HasExpired() bool {
+	return time.Since(pb.createdAt) > Expiration
 }
 
 func (pb *PendingBlock) UpdateTimestamp() {
@@ -207,8 +214,13 @@ func (rm *RequestManager) tryToDownload() {
 		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	}
 
+	elToRemove := []*list.Element{}
 	for curr := rm.pendingBlocks.Front(); rm.quota != 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
+		if pendingBlock.HasExpired() {
+			elToRemove = append(elToRemove, curr)
+			continue
+		}
 		if pendingBlock.block != nil {
 			continue
 		}
@@ -234,12 +246,53 @@ func (rm *RequestManager) tryToDownload() {
 			continue
 		}
 	}
+
+	for _, el := range elToRemove {
+		pendingBlock := el.Value.(*PendingBlock)
+		hash := pendingBlock.hash.Hex()
+		rm.logger.WithFields(log.Fields{
+			"block": hash,
+		}).Debug("Removing outdated block")
+		rm.removeEl(el)
+	}
+}
+
+func (rm *RequestManager) removeEl(el *list.Element) {
+	pendingBlock := el.Value.(*PendingBlock)
+	hash := pendingBlock.hash.Hex()
+
+	delete(rm.pendingBlocksByHash, hash)
+
+	if pendingBlock.block != nil {
+		parent := pendingBlock.block.Parent.Hex()
+		if blocks, ok := rm.pendingBlocksByParent[parent]; ok {
+			found := -1
+			for idx, block := range blocks {
+				if block.Hash() == pendingBlock.block.Hash() {
+					found = idx
+					break
+				}
+			}
+			if found != -1 {
+				blocks = append(blocks[:found], blocks[found+1:]...)
+				rm.pendingBlocksByParent[parent] = blocks
+			}
+			if len(rm.pendingBlocksByParent[parent]) == 0 {
+				delete(rm.pendingBlocksByParent, parent)
+			}
+		}
+	}
+
+	rm.pendingBlocks.Remove(el)
 }
 
 func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
+	rm.addHash(x, peerIDs)
+}
 
+func (rm *RequestManager) addHash(x common.Hash, peerIDs []string) {
 	if _, err := rm.chain.FindBlock(x); err == nil {
 		return
 	}
@@ -275,6 +328,9 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
+	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
+		rm.addHash(block.Hash(), []string{})
+	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		pendingBlock.block = block
