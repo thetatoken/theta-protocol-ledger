@@ -390,6 +390,11 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"block.Hash":   block.Hash().Hex(),
+			"block.Parent": block.Parent.Hex(),
+			"peer":         peerID,
+		}).Debug("Received block")
 		m.handleBlock(block)
 	case common.ChannelIDVote:
 		vote := core.Vote{}
@@ -403,6 +408,12 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"vote.Hash":  vote.Block.Hex(),
+			"vote.ID":    vote.ID.Hex(),
+			"vote.Epoch": vote.Epoch,
+			"peer":       peerID,
+		}).Debug("Received vote")
 		m.handleVote(vote)
 	case common.ChannelIDProposal:
 		proposal := &core.Proposal{}
@@ -416,6 +427,10 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"proposal": proposal,
+			"peer":     peerID,
+		}).Debug("Received proposal")
 		m.handleProposal(proposal)
 	default:
 		m.logger.WithFields(log.Fields{
@@ -425,10 +440,6 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 }
 
 func (sm *SyncManager) handleProposal(p *core.Proposal) {
-	sm.logger.WithFields(log.Fields{
-		"proposal": p,
-	}).Debug("Received proposal")
-
 	if p.Votes != nil {
 		for _, vote := range p.Votes.Votes() {
 			sm.handleVote(vote)
@@ -438,11 +449,6 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
-	sm.logger.WithFields(log.Fields{
-		"block.Hash":   block.Hash().Hex(),
-		"block.Parent": block.Parent.Hex(),
-	}).Debug("Received block")
-
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
 		return
 	}
@@ -460,12 +466,6 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {
-	sm.logger.WithFields(log.Fields{
-		"vote.Hash":  vote.Block.Hex(),
-		"vote.ID":    vote.ID.Hex(),
-		"vote.Epoch": vote.Epoch,
-	}).Debug("Received vote")
-
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
 	for _, v := range votes {
 		// Check if vote already processed.
