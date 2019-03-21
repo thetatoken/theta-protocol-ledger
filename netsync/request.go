@@ -196,10 +196,10 @@ func (rm *RequestManager) tryToDownload() {
 	if maxIntervalPassed || (hasUndownloadedBlocks && minIntervalPassed) {
 		if hasUndownloadedBlocks && rm.pendingBlocks.Len() > 1 {
 			rm.logger.WithFields(log.Fields{
-				"pendingBlocks":     rm.pendingBlocks.Len(),
-				"orphan blocks":     len(rm.pendingBlocksByParent),
-				"current chain tip": rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
-			}).Info("Fast sync in progress")
+				"pending block hashes": rm.pendingBlocks.Len() - len(rm.pendingBlocksByParent),
+				"orphan blocks":        len(rm.pendingBlocksByParent),
+				"current chain tip":    rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
+			}).Info("Sync progress")
 		}
 
 		rm.lastInventoryRequest = time.Now()
