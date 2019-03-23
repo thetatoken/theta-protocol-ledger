@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	EmptyRootHash = calculateRootHash([]common.Bytes{})
+	EmptyRootHash = CalculateRootHash([]common.Bytes{})
 )
 
 // Block represents a block in chain.
@@ -53,11 +53,11 @@ func (b *Block) AddTxs(txs []common.Bytes) {
 
 // updateTxHash calculate transaction root hash.
 func (b *Block) updateTxHash() {
-	b.TxHash = calculateRootHash(b.Txs)
+	b.TxHash = CalculateRootHash(b.Txs)
 	b.ReceiptHash = EmptyRootHash
 }
 
-func calculateRootHash(items []common.Bytes) common.Hash {
+func CalculateRootHash(items []common.Bytes) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
 	for i := 0; i < len(items); i++ {

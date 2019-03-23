@@ -13,6 +13,7 @@ import (
 
 var cfgPath string
 var snapshotPath string
+var chainImportDirPath string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -34,6 +35,7 @@ func init() {
 
 	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
 	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", "", "snapshot path")
+	RootCmd.PersistentFlags().StringVar(&chainImportDirPath, "chain_import", "", "chain import path")
 	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 }
 

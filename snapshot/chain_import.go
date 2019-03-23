@@ -26,7 +26,6 @@ func ImportChainBackup(filePath string) (*core.BackupBlock, error) {
 			return nil, fmt.Errorf("Failed to read backup record, %v", err)
 		}
 
-		backupBlock.Next = block
 		block = backupBlock
 	}
 

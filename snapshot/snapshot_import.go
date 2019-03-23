@@ -7,7 +7,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"strconv"
+	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -49,9 +51,9 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
-	logger.Printf("Loading snapshot from: %v", filePath)
-	blockHeader, err := loadSnapshot(filePath, db)
+func ImportSnapshot(snapshotFilePath, chainImportDirPath string, db database.Database) (*core.BlockHeader, error) {
+	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
+	blockHeader, err := loadSnapshot(snapshotFilePath, chainImportDirPath, db)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +62,8 @@ func ImportSnapshot(filePath string, db database.Database) (*core.BlockHeader, e
 }
 
 // ValidateSnapshot validates the snapshot using a temporary database
-func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
-	logger.Printf("Verifying snapshot: %v", filePath)
+func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockHeader, error) {
+	logger.Printf("Verifying snapshot: %v", snapshotFilePath)
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
 	if err != nil {
@@ -76,30 +78,35 @@ func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
 
 	tmpdb, err := backend.NewLDBDatabase(mainTmpDBPath, refTmpDBPath, 256, 0)
 
-	blockHeader, err := loadSnapshot(filePath, tmpdb)
+	blockHeader, err := loadSnapshot(snapshotFilePath, chainImportDirPath, tmpdb)
 	if err != nil {
 		return nil, err
 	}
 	logger.Printf("Snapshot verified.")
 
-	return blockHeader, nil
-}
-
-func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
-	file, err := os.Open(filePath)
+	err = loadChain(chainImportDirPath, tmpdb)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+
+	return blockHeader, nil
+}
+
+func loadSnapshot(snapshotFilePath, chainImportDirPath string, db database.Database) (*core.BlockHeader, error) {
+	snapshotFile, err := os.Open(snapshotFilePath)
+	if err != nil {
+		return nil, err
+	}
+	defer snapshotFile.Close()
 
 	// ------------------------------ Load State ------------------------------ //
 
 	metadata := core.SnapshotMetadata{}
-	err = core.ReadRecord(file, &metadata)
+	err = core.ReadRecord(snapshotFile, &metadata)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
-	sv, _, err := loadState(file, db)
+	sv, _, err := loadState(snapshotFile, db)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +127,115 @@ func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
-
 	return secondBlockHeader, nil
+}
+
+func loadChain(chainImportDirPath string, db database.Database) error {
+	if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
+		fileInfos, err := ioutil.ReadDir(chainImportDirPath)
+		if err != nil {
+			return fmt.Errorf("Failed to read chain import directory %v: %v", chainImportDirPath, err)
+		}
+
+		var chainFileNames []string
+		for _, fileInfo := range fileInfos {
+			chainFileNames = append(chainFileNames, fileInfo.Name())
+		}
+
+		sort.Slice(chainFileNames, func(i, j int) bool {
+			start1, _ := getChainBoundary(chainFileNames[i])
+			start2, _ := getChainBoundary(chainFileNames[j])
+			return start1 < start2
+		})
+
+		var currHeight uint64
+		var lastBlock *core.ExtendedBlock
+		for _, fileName := range chainFileNames {
+			start, end := getChainBoundary(fileName)
+			if start != currHeight {
+				return fmt.Errorf("Missing chain file starting at height %v", currHeight)
+			}
+			chainFilePath := path.Join(chainImportDirPath, fileName)
+			lastBlock, err = loadChainSegment(chainFilePath, start, end, lastBlock, db)
+			currHeight = end + 1
+		}
+	}
+	return nil
+}
+
+func loadChainSegment(filePath string, start, end uint64, lastBlock *core.ExtendedBlock, db database.Database) (*core.ExtendedBlock, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	kvstore := kvstore.NewKVStore(db)
+
+	var count uint64
+	for {
+		backupBlock := &core.BackupBlock{}
+		err := core.ReadRecord(file, backupBlock)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("Failed to read backup record, %v", err)
+		}
+
+		block := backupBlock.Block
+
+		if res := block.Validate(); res.IsError() {
+			return nil, fmt.Errorf("Block's header is invalid, %v", block.Height)
+		}
+		if block.TxHash != core.CalculateRootHash(block.Txs) {
+			return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
+		}
+
+		if count == 0 && block.Height != start {
+			return nil, fmt.Errorf("First block height doesn't match, %v : %v", block.Height, start)
+		}
+		count++
+		if lastBlock == nil {
+			_, err := checkGenesisBlock(block.BlockHeader, db)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			if block.Height != lastBlock.Height+1 {
+				return nil, fmt.Errorf("Block height missing at %v", lastBlock.Height+1)
+			}
+			if block.Parent != lastBlock.Hash() {
+				return nil, fmt.Errorf("Block has invalid parent at %v", block.Height)
+			}
+		}
+		lastBlock = block
+
+		blockHash := block.Hash()
+		existingBlock := core.ExtendedBlock{}
+		if kvstore.Get(blockHash[:], &existingBlock) != nil {
+			kvstore.Put(blockHash[:], block)
+		}
+	}
+	if lastBlock.Height != end {
+		return nil, fmt.Errorf("Last block height doesn't match, %v : %v", lastBlock.Height, end)
+	}
+	if count != end-start+1 {
+		return nil, fmt.Errorf("Expect %v blocks, but actually got %v", end-start+1, count)
+	}
+
+	return lastBlock, nil
+}
+
+func getChainBoundary(filename string) (start, end uint64) {
+	filename = filename[len("theta_chain-"):]
+	idx := strings.Index(filename, "-")
+	startStr := filename[:idx]
+	start, _ = strconv.ParseUint(startStr, 10, 64)
+	filename = filename[idx+1:]
+	filename = filename[:strings.Index(filename, "-")]
+	end, _ = strconv.ParseUint(filename, 10, 64)
+	return
 }
 
 func loadState(file *os.File, db database.Database) (*state.StoreView, common.Hash, error) {
