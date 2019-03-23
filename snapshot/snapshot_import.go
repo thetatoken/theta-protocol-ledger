@@ -84,7 +84,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockH
 	}
 	logger.Printf("Snapshot verified.")
 
-	err = loadChain(chainImportDirPath, tmpdb)
+	err = loadChain(chainImportDirPath, blockHeader, tmpdb)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func loadSnapshot(snapshotFilePath, chainImportDirPath string, db database.Datab
 	return secondBlockHeader, nil
 }
 
-func loadChain(chainImportDirPath string, db database.Database) error {
+func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, db database.Database) error {
 	if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
 		fileInfos, err := ioutil.ReadDir(chainImportDirPath)
 		if err != nil {
@@ -155,15 +155,18 @@ func loadChain(chainImportDirPath string, db database.Database) error {
 			if start != currHeight {
 				return fmt.Errorf("Missing chain file starting at height %v", currHeight)
 			}
+			if start > snapshotBlockHeader.Height {
+				break
+			}
 			chainFilePath := path.Join(chainImportDirPath, fileName)
-			lastBlock, err = loadChainSegment(chainFilePath, start, end, lastBlock, db)
+			lastBlock, err = loadChainSegment(chainFilePath, start, end, lastBlock, snapshotBlockHeader, db)
 			currHeight = end + 1
 		}
 	}
 	return nil
 }
 
-func loadChainSegment(filePath string, start, end uint64, lastBlock *core.ExtendedBlock, db database.Database) (*core.ExtendedBlock, error) {
+func loadChainSegment(filePath string, start, end uint64, lastBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, db database.Database) (*core.ExtendedBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -185,6 +188,7 @@ func loadChainSegment(filePath string, start, end uint64, lastBlock *core.Extend
 
 		block := backupBlock.Block
 
+		// check block itself
 		if res := block.Validate(); res.IsError() {
 			return nil, fmt.Errorf("Block's header is invalid, %v", block.Height)
 		}
@@ -192,10 +196,10 @@ func loadChainSegment(filePath string, start, end uint64, lastBlock *core.Extend
 			return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
 		}
 
+		// check agaist parent
 		if count == 0 && block.Height != start {
 			return nil, fmt.Errorf("First block height doesn't match, %v : %v", block.Height, start)
 		}
-		count++
 		if lastBlock == nil {
 			_, err := checkGenesisBlock(block.BlockHeader, db)
 			if err != nil {
@@ -209,14 +213,25 @@ func loadChainSegment(filePath string, start, end uint64, lastBlock *core.Extend
 				return nil, fmt.Errorf("Block has invalid parent at %v", block.Height)
 			}
 		}
-		lastBlock = block
 
+		// check against snapshot block
 		blockHash := block.Hash()
+		if block.Height == snapshotBlockHeader.Height {
+			if blockHash != snapshotBlockHeader.Hash() {
+				return nil, fmt.Errorf("Chain loading reached snapshot block, but block hash doesn't match, %v : %v", blockHash, snapshotBlockHeader.Hash())
+			}
+			break
+		}
+
 		existingBlock := core.ExtendedBlock{}
 		if kvstore.Get(blockHash[:], &existingBlock) != nil {
 			kvstore.Put(blockHash[:], block)
 		}
+
+		count++
+		lastBlock = block
 	}
+
 	if lastBlock.Height != end {
 		return nil, fmt.Errorf("Last block height doesn't match, %v : %v", lastBlock.Height, end)
 	}
