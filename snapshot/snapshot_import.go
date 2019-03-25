@@ -145,28 +145,38 @@ func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader,
 		sort.Slice(chainFileNames, func(i, j int) bool {
 			start1, _ := getChainBoundary(chainFileNames[i])
 			start2, _ := getChainBoundary(chainFileNames[j])
-			return start1 < start2
+			return start1 > start2
 		})
 
-		var currHeight uint64
-		var lastBlock *core.ExtendedBlock
+		var blockEnd uint64
+		var prevBlock *core.ExtendedBlock
 		for _, fileName := range chainFileNames {
 			start, end := getChainBoundary(fileName)
-			if start != currHeight {
-				return fmt.Errorf("Missing chain file starting at height %v", currHeight)
-			}
 			if start > snapshotBlockHeader.Height {
-				break
+				continue
 			}
+			if end < snapshotBlockHeader.Height {
+				if end != blockEnd {
+					return fmt.Errorf("Missing chain file ending at height %v", blockEnd)
+				}
+			}
+
 			chainFilePath := path.Join(chainImportDirPath, fileName)
-			lastBlock, err = loadChainSegment(chainFilePath, start, end, lastBlock, snapshotBlockHeader, db)
-			currHeight = end + 1
+			prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, db)
+			if err != nil {
+				return err
+			}
+			blockEnd = start - 1
+		}
+
+		if prevBlock.Height != core.GenesisBlockHeight {
+			return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
 		}
 	}
 	return nil
 }
 
-func loadChainSegment(filePath string, start, end uint64, lastBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, db database.Database) (*core.ExtendedBlock, error) {
+func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, db database.Database) (*core.ExtendedBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -185,42 +195,60 @@ func loadChainSegment(filePath string, start, end uint64, lastBlock *core.Extend
 			}
 			return nil, fmt.Errorf("Failed to read backup record, %v", err)
 		}
-
 		block := backupBlock.Block
 
-		// check block itself
-		if res := block.Validate(); res.IsError() {
-			return nil, fmt.Errorf("Block's header is invalid, %v", block.Height)
-		}
-		if block.TxHash != core.CalculateRootHash(block.Txs) {
-			return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
+		if count == 0 {
+			if block.Height != end {
+				return nil, fmt.Errorf("Last block height doesn't match, %v : %v", block.Height, end)
+			}
 		}
 
-		// check agaist parent
-		if count == 0 && block.Height != start {
-			return nil, fmt.Errorf("First block height doesn't match, %v : %v", block.Height, start)
+		if block.Height > snapshotBlockHeader.Height {
+			count++
+			continue
 		}
-		if lastBlock == nil {
+
+		// check block itself
+		if block.Height == core.GenesisBlockHeight {
 			_, err := checkGenesisBlock(block.BlockHeader, db)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			if block.Height != lastBlock.Height+1 {
-				return nil, fmt.Errorf("Block height missing at %v", lastBlock.Height+1)
+			if res := block.Validate(); res.IsError() {
+				return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
 			}
-			if block.Parent != lastBlock.Hash() {
-				return nil, fmt.Errorf("Block has invalid parent at %v", block.Height)
+			if block.TxHash != core.CalculateRootHash(block.Txs) {
+				return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
 			}
 		}
+		// if block.TxHash != core.CalculateRootHash(block.Txs) {
+		// 	return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
+		// }
+
+		blockHash := block.Hash()
 
 		// check against snapshot block
-		blockHash := block.Hash()
 		if block.Height == snapshotBlockHeader.Height {
 			if blockHash != snapshotBlockHeader.Hash() {
 				return nil, fmt.Errorf("Chain loading reached snapshot block, but block hash doesn't match, %v : %v", blockHash, snapshotBlockHeader.Hash())
 			}
-			break
+		} else {
+			// check chaining
+			if block.Height != prevBlock.Height-1 {
+				return nil, fmt.Errorf("Block height missing at %v", prevBlock.Height-1)
+			}
+			if prevBlock.Parent != blockHash {
+				return nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.Height, prevBlock.Parent, blockHash)
+			}
+
+			// check against genesis block
+			if block.Height == core.GenesisBlockHeight {
+				_, err := checkGenesisBlock(block.BlockHeader, db)
+				if err != nil {
+					return nil, err
+				}
+			}
 		}
 
 		existingBlock := core.ExtendedBlock{}
@@ -229,17 +257,20 @@ func loadChainSegment(filePath string, start, end uint64, lastBlock *core.Extend
 		}
 
 		count++
-		lastBlock = block
+		prevBlock = block
 	}
 
-	if lastBlock.Height != end {
-		return nil, fmt.Errorf("Last block height doesn't match, %v : %v", lastBlock.Height, end)
+	if prevBlock == nil {
+		return nil, fmt.Errorf("Empty chain file for height %v to %v", start, end)
+	}
+	if prevBlock.Height != start {
+		return nil, fmt.Errorf("Chain file for height %v to %v has first block height %v", start, end, prevBlock.Height)
 	}
 	if count != end-start+1 {
 		return nil, fmt.Errorf("Expect %v blocks, but actually got %v", end-start+1, count)
 	}
 
-	return lastBlock, nil
+	return prevBlock, nil
 }
 
 func getChainBoundary(filename string) (start, end uint64) {
