@@ -63,7 +63,7 @@ func NewNode(params *Params) *Node {
 	if currentHeight <= params.Root.Height {
 		snapshotPath := params.SnapshotPath
 		chainImportDirPath := params.ChainImportDirPath
-		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, params.DB); err != nil {
+		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chain, params.DB); err != nil {
 			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
 		}
 	}

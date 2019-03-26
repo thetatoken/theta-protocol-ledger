@@ -11,8 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
@@ -51,13 +53,20 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(snapshotFilePath, chainImportDirPath string, db database.Database) (*core.BlockHeader, error) {
+func ImportSnapshot(snapshotFilePath, chainImportDirPath string, chain *blockchain.Chain, db database.Database) (*core.BlockHeader, error) {
 	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
 	blockHeader, err := loadSnapshot(snapshotFilePath, chainImportDirPath, db)
 	if err != nil {
 		return nil, err
 	}
 	logger.Printf("Snapshot loaded successfully.")
+
+	// load previous chain, if any
+	err = loadChain(chainImportDirPath, blockHeader, chain, db)
+	if err != nil {
+		return nil, err
+	}
+
 	return blockHeader, nil
 }
 
@@ -84,7 +93,8 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockH
 	}
 	logger.Printf("Snapshot verified.")
 
-	err = loadChain(chainImportDirPath, blockHeader, tmpdb)
+	// load previous chain, if any
+	err = loadChain(chainImportDirPath, blockHeader, nil, tmpdb)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +140,7 @@ func loadSnapshot(snapshotFilePath, chainImportDirPath string, db database.Datab
 	return secondBlockHeader, nil
 }
 
-func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, db database.Database) error {
+func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, chain *blockchain.Chain, db database.Database) error {
 	if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
 		fileInfos, err := ioutil.ReadDir(chainImportDirPath)
 		if err != nil {
@@ -162,7 +172,7 @@ func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader,
 			}
 
 			chainFilePath := path.Join(chainImportDirPath, fileName)
-			prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, db)
+			prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, chain, db)
 			if err != nil {
 				return err
 			}
@@ -172,11 +182,13 @@ func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader,
 		if prevBlock.Height != core.GenesisBlockHeight {
 			return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
 		}
+
+		logger.Printf("Chain loaded successfully.")
 	}
 	return nil
 }
 
-func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, db database.Database) (*core.ExtendedBlock, error) {
+func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, chain *blockchain.Chain, db database.Database) (*core.ExtendedBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -254,6 +266,13 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		existingBlock := core.ExtendedBlock{}
 		if kvstore.Get(blockHash[:], &existingBlock) != nil {
 			kvstore.Put(blockHash[:], block)
+		}
+		if chain != nil {
+			if block.ChainID != chain.ChainID {
+				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			}
+			chain.AddBlockByHeightIndex(block.Height, blockHash)
+			chain.AddTxsToIndex(block, true)
 		}
 
 		count++
