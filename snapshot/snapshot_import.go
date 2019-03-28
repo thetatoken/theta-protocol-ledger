@@ -238,19 +238,22 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			var proofTrio core.SnapshotBlockTrio
 			for {
 				proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
-				if proofTrio.First.Header.Height <= block.Height {
+				if proofTrio.First.Header.Height+2 <= block.Height || len(metadata.ProofTrios) == 1 {
 					break
 				}
+				provenValSet = nil
 				metadata.ProofTrios = metadata.ProofTrios[:len(metadata.ProofTrios)-1]
 			}
 
-			if proofTrio.First.Header.Height == core.GenesisBlockHeight {
-				provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
-			} else {
-				provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
-			}
-			if err != nil {
-				return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+			if provenValSet == nil {
+				if proofTrio.First.Header.Height == core.GenesisBlockHeight {
+					provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
+				} else {
+					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
+				}
+				if err != nil {
+					return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+				}
 			}
 		}
 		// if block.TxHash != core.CalculateRootHash(block.Txs) {
