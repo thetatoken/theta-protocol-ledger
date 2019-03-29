@@ -43,6 +43,8 @@ const (
 
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
+	// CfgRPCAddress sets the binding address of RPC service.
+	CfgRPCAddress = "rpc.address"
 	// CfgRPCPort sets the port of RPC service.
 	CfgRPCPort = "rpc.port"
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
@@ -81,6 +83,7 @@ func init() {
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 
+	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 
