@@ -41,6 +41,8 @@ type SyncManager struct {
 
 	incoming chan p2ptypes.Message
 
+	whitelist []string
+
 	logger *log.Entry
 }
 
@@ -56,6 +58,10 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network 
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
+
+	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
+		sm.whitelist = strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
+	}
 
 	logger := util.GetLoggerForModule("sync")
 	if viper.GetBool(common.CfgLogPrintSelfID) {
@@ -137,10 +143,9 @@ func (sm *SyncManager) HandleMessage(msg p2ptypes.Message) (err error) {
 func (sm *SyncManager) processMessage(message p2ptypes.Message) {
 	inboundAllowed := true
 	// If whitelist is set, only process message from peers in the whitelist.
-	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
+	if len(sm.whitelist) > 0 {
 		inboundAllowed = false
-		whitelist := strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
-		for _, peerID := range whitelist {
+		for _, peerID := range sm.whitelist {
 			if strings.ToLower(peerID) == strings.ToLower(message.PeerID) {
 				inboundAllowed = true
 				break
