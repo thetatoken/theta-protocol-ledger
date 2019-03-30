@@ -179,11 +179,13 @@ func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader,
 			blockEnd = start - 1
 		}
 
-		if prevBlock.Height != core.GenesisBlockHeight {
-			return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
-		}
+		if prevBlock != nil {
+			if prevBlock.Height != core.GenesisBlockHeight {
+				return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
+			}
 
-		logger.Printf("Chain loaded successfully.")
+			logger.Printf("Chain loaded successfully.")
+		}
 	}
 	return nil
 }
@@ -198,6 +200,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 	kvstore := kvstore.NewKVStore(db)
 
 	var count uint64
+	var proofTrio, prevTrio core.SnapshotBlockTrio
 	for {
 		backupBlock := &core.BackupBlock{}
 		err := core.ReadRecord(file, backupBlock)
@@ -235,7 +238,6 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
 			}
 
-			var proofTrio core.SnapshotBlockTrio
 			for {
 				proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
 				if proofTrio.First.Header.Height+2 <= block.Height || len(metadata.ProofTrios) == 1 {
@@ -243,6 +245,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				}
 				provenValSet = nil
 				metadata.ProofTrios = metadata.ProofTrios[:len(metadata.ProofTrios)-1]
+				prevTrio = proofTrio
 			}
 
 			if provenValSet == nil {
@@ -293,13 +296,21 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		existingBlock := core.ExtendedBlock{}
 		if kvstore.Get(blockHash[:], &existingBlock) != nil {
 			kvstore.Put(blockHash[:], block)
-		}
-		if chain != nil {
-			if block.ChainID != chain.ChainID {
-				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+
+			if chain != nil {
+				if block.ChainID != chain.ChainID {
+					return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+				}
+				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddTxsToIndex(block, true)
 			}
-			chain.AddBlockByHeightIndex(block.Height, blockHash)
-			chain.AddTxsToIndex(block, true)
+		} else if chain != nil {
+			if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
+				existingBlock.Txs = block.Txs
+				existingBlock.HasValidatorUpdate = true
+				kvstore.Put(blockHash[:], existingBlock)
+				chain.AddTxsToIndex(block, true)
+			}
 		}
 
 		count++
