@@ -55,7 +55,7 @@ func (s SVStack) peek() *state.StoreView {
 // ImportSnapshot loads the snapshot into the given database
 func ImportSnapshot(snapshotFilePath, chainImportDirPath string, chain *blockchain.Chain, db database.Database) (*core.BlockHeader, error) {
 	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
-	blockHeader, metadata, err := loadSnapshot(snapshotFilePath, chainImportDirPath, db)
+	blockHeader, metadata, err := loadSnapshot(snapshotFilePath, db)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockH
 
 	tmpdb, err := backend.NewLDBDatabase(mainTmpDBPath, refTmpDBPath, 256, 0)
 
-	blockHeader, metadata, err := loadSnapshot(snapshotFilePath, chainImportDirPath, tmpdb)
+	blockHeader, metadata, err := loadSnapshot(snapshotFilePath, tmpdb)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +102,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockH
 	return blockHeader, nil
 }
 
-func loadSnapshot(snapshotFilePath, chainImportDirPath string, db database.Database) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHeader, *core.SnapshotMetadata, error) {
 	snapshotFile, err := os.Open(snapshotFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -141,50 +141,52 @@ func loadSnapshot(snapshotFilePath, chainImportDirPath string, db database.Datab
 }
 
 func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
-	if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
-		fileInfos, err := ioutil.ReadDir(chainImportDirPath)
-		if err != nil {
-			return fmt.Errorf("Failed to read chain import directory %v: %v", chainImportDirPath, err)
-		}
-
-		var chainFileNames []string
-		for _, fileInfo := range fileInfos {
-			chainFileNames = append(chainFileNames, fileInfo.Name())
-		}
-
-		sort.Slice(chainFileNames, func(i, j int) bool {
-			start1, _ := getChainBoundary(chainFileNames[i])
-			start2, _ := getChainBoundary(chainFileNames[j])
-			return start1 > start2
-		})
-
-		var blockEnd uint64
-		var prevBlock *core.ExtendedBlock
-		for _, fileName := range chainFileNames {
-			start, end := getChainBoundary(fileName)
-			if start > snapshotBlockHeader.Height {
-				continue
-			}
-			if end < snapshotBlockHeader.Height {
-				if end != blockEnd {
-					return fmt.Errorf("Missing chain file ending at height %v", blockEnd)
-				}
-			}
-
-			chainFilePath := path.Join(chainImportDirPath, fileName)
-			prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, metadata, chain, db)
+	if len(chainImportDirPath) != 0 {
+		if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
+			fileInfos, err := ioutil.ReadDir(chainImportDirPath)
 			if err != nil {
-				return err
-			}
-			blockEnd = start - 1
-		}
-
-		if prevBlock != nil {
-			if prevBlock.Height != core.GenesisBlockHeight {
-				return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
+				return fmt.Errorf("Failed to read chain import directory %v: %v", chainImportDirPath, err)
 			}
 
-			logger.Printf("Chain loaded successfully.")
+			var chainFileNames []string
+			for _, fileInfo := range fileInfos {
+				chainFileNames = append(chainFileNames, fileInfo.Name())
+			}
+
+			sort.Slice(chainFileNames, func(i, j int) bool {
+				start1, _ := getChainBoundary(chainFileNames[i])
+				start2, _ := getChainBoundary(chainFileNames[j])
+				return start1 > start2
+			})
+
+			var blockEnd uint64
+			var prevBlock *core.ExtendedBlock
+			for _, fileName := range chainFileNames {
+				start, end := getChainBoundary(fileName)
+				if start > snapshotBlockHeader.Height {
+					continue
+				}
+				if end < snapshotBlockHeader.Height {
+					if end != blockEnd {
+						return fmt.Errorf("Missing chain file ending at height %v", blockEnd)
+					}
+				}
+
+				chainFilePath := path.Join(chainImportDirPath, fileName)
+				prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, metadata, chain, db)
+				if err != nil {
+					return err
+				}
+				blockEnd = start - 1
+			}
+
+			if prevBlock != nil {
+				if prevBlock.Height != core.GenesisBlockHeight {
+					return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
+				}
+
+				logger.Printf("Chain loaded successfully.")
+			}
 		}
 	}
 	return nil

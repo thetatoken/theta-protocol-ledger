@@ -59,9 +59,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	if len(snapshotPath) == 0 {
 		snapshotPath = path.Join(cfgPath, "snapshot")
 	}
-	if len(chainImportDirPath) == 0 {
-		chainImportDirPath = path.Join(cfgPath, "chain_import")
-	}
+
 	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath)
 	if err != nil {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
