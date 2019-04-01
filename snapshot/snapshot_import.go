@@ -293,23 +293,23 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			}
 		}
 
-		existingBlock := core.ExtendedBlock{}
-		if kvstore.Get(blockHash[:], &existingBlock) != nil {
-			kvstore.Put(blockHash[:], block)
-
-			if chain != nil {
-				if block.ChainID != chain.ChainID {
-					return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
-				}
+		if chain != nil {
+			if block.ChainID != chain.ChainID {
+				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			}
+			existingBlock := core.ExtendedBlock{}
+			if kvstore.Get(blockHash[:], &existingBlock) != nil {
+				kvstore.Put(blockHash[:], block)
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
-			}
-		} else if chain != nil {
-			if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
-				existingBlock.Txs = block.Txs
-				existingBlock.HasValidatorUpdate = true
-				kvstore.Put(blockHash[:], existingBlock)
-				chain.AddTxsToIndex(block, true)
+			} else {
+				if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
+					existingBlock.Txs = block.Txs
+					existingBlock.HasValidatorUpdate = true
+					kvstore.Put(blockHash[:], existingBlock)
+					chain.AddBlockByHeightIndex(block.Height, blockHash)
+					chain.AddTxsToIndex(block, true)
+				}
 			}
 		}
 
