@@ -2,13 +2,29 @@
 
 package coldwallet
 
-// import (
-// 	"testing"
+import (
+	"fmt"
+	"testing"
 
-// 	"github.com/thetatoken/theta/common"
-// )
+	"github.com/thetatoken/theta/wallet/coldwallet"
+	ks "github.com/thetatoken/theta/wallet/coldwallet/keystore"
 
-// func TestNanoLedgerSWalletBasics(t *testing.T) {
-// 	address := common.HexToAddress("0x0a19d7BB0d855d66DC6aEdA739E9Df27f71B62A0")
+	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/theta/core"
+)
 
-// }
+func TestCreateColdWalletLedger(t *testing.T) {
+	assert := assert.New(t)
+	core.ResetTestBlocks()
+	//TODO: change ledgerHub to trazorHub
+	hub, err := newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xf1d0, -1, ks.NewLedgerDriver)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create hub: %v", err))
+	}
+	cold_wallet, err := coldwallet.NewColdWallet()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create wallet: %v", err))
+	}
+
+	assert.NotNil(cold_wallet)
+}

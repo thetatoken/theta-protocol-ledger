@@ -21,7 +21,7 @@ import (
 )
 
 func TestConsensusBaseCase(t *testing.T) {
-	assert := assert.New(t)
+	assert := assert.New(t) //what's this
 
 	viper.Set(common.CfgLogPrintSelfID, true)
 
