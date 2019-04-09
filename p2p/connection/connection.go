@@ -2,8 +2,10 @@ package connection
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -335,6 +337,20 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 
 // --------------------- Recv goroutine --------------------- //
 
+func Fuzz(data []byte) int {
+	buff := bytes.NewBuffer(data)
+	var packet Packet
+	if err := decodePacket(buff, &packet); err != nil {
+		return 1
+	}
+	return 0
+}
+
+func decodePacket(r io.Reader, p *Packet) error {
+	s := rlp.NewStream(r, maxPayloadSize*1024)
+	return s.Decode(p)
+}
+
 func (conn *Connection) recvRoutine() {
 	//defer conn.wg.Done() // NOTE: rlp.Decode() is a blocking call
 	defer conn.recover()
@@ -351,7 +367,7 @@ func (conn *Connection) recvRoutine() {
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
 		var packet Packet
-		err := rlp.Decode(conn.bufReader, &packet)
+		err := decodePacket(conn.bufReader, &packet)
 		if err != nil {
 			logger.Errorf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return

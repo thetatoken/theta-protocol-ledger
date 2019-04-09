@@ -105,12 +105,13 @@ func (t *ThetaRPCServer) mainLoop() {
 }
 
 func (t *ThetaRPCServer) serve() {
+	address := viper.GetString(common.CfgRPCAddress)
 	port := viper.GetString(common.CfgRPCPort)
-	l, err := net.Listen("tcp", ":"+port)
+	l, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
 		logger.WithFields(log.Fields{"error": err}).Fatal("Failed to create listener")
 	} else {
-		logger.WithFields(log.Fields{"port": port}).Info("RPC server started")
+		logger.WithFields(log.Fields{"address": address, "port": port}).Info("RPC server started")
 	}
 	defer l.Close()
 

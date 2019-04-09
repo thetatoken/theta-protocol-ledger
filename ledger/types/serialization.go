@@ -8,6 +8,8 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
+const maxTxSize = 1024 * 1024
+
 // ----------------- Common -------------------
 
 func ToBytes(a interface{}) ([]byte, error) {
@@ -35,52 +37,72 @@ const (
 	TxWithdrawStake
 )
 
+func Fuzz(data []byte) int {
+	if len(data) == 0 {
+		return -1
+	}
+	if data[0]%3 == 0 {
+		if _, ok := ParseCoinAmount(string(data[1:])); ok {
+			return 1
+		}
+		return 0
+	}
+	if data[0]%3 == 1 {
+		if _, err := TxFromBytes(data[1:]); err != nil {
+			return 1
+		}
+		return 0
+	}
+	return -1
+}
+
 func TxFromBytes(raw []byte) (Tx, error) {
 	var txType TxType
 	buff := bytes.NewBuffer(raw)
-	err := rlp.Decode(buff, &txType)
+	s := rlp.NewStream(buff, maxTxSize)
+	err := s.Decode(&txType)
 	if err != nil {
 		return nil, err
 	}
 	if txType == TxCoinbase {
 		data := &CoinbaseTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxSlash {
 		data := &SlashTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxSend {
 		data := &SendTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxReserveFund {
 		data := &ReserveFundTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxReleaseFund {
 		data := &ReleaseFundTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxServicePayment {
 		data := &ServicePaymentTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxSplitRule {
 		data := &SplitRuleTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxSmartContract {
 		data := &SmartContractTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxDepositStake {
 		data := &DepositStakeTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else if txType == TxWithdrawStake {
 		data := &WithdrawStakeTx{}
-		err = rlp.Decode(buff, data)
+		err = s.Decode(data)
 		return data, err
 	} else {
 		return nil, fmt.Errorf("Unknown TX type: %v", txType)
