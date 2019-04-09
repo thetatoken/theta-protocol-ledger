@@ -10,12 +10,10 @@ import (
 	ks "github.com/thetatoken/theta/wallet/coldwallet/keystore"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thetatoken/theta/core"
 )
 
 func TestCreateColdWalletLedger(t *testing.T) {
 	assert := assert.New(t)
-	core.ResetTestBlocks()
 	//TODO: change ledgerHub to trazorHub
 	hub, err := newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xf1d0, -1, ks.NewLedgerDriver)
 	if err != nil {
