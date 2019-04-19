@@ -6,6 +6,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/thetatoken/theta/wallet/coldwallet"
 	cw "github.com/thetatoken/theta/wallet/coldwallet"
 	sw "github.com/thetatoken/theta/wallet/softwallet"
 	"github.com/thetatoken/theta/wallet/types"
@@ -28,7 +29,15 @@ func OpenWallet(cfgPath string, walletType types.WalletType, encrypted bool) (ty
 			return nil, err
 		}
 	} else {
-		hub, err := cw.NewLedgerHub() // only support Ledger Nano S for now
+		var hub *coldwallet.Hub
+		var err error
+		// only support Ledger Nano S and Trezor for now
+		if walletType == types.WalletTypeColdNano {
+			hub, err = cw.NewLedgerHub()
+		} else {
+			hub, err = cw.NewTrezorHub()
+		}
+
 		if err != nil {
 			return nil, err
 		}

@@ -869,16 +869,27 @@ func (tx *WithdrawStakeTx) String() string {
 
 // --------------- Utils --------------- //
 
+type EthereumTx struct {
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
+	GasLimit     uint64          `json:"gas"      gencodec:"required"`
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`
+}
+
 // Need to add the following prefix to the tx signbytes to be compatible with
 // the Ethereum tx format
 func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
-	signBytes, err := rlp.EncodeToBytes([]interface{}{
-		uint64(0),
-		new(big.Int).SetUint64(0),
-		uint64(0),
-		common.Address{},
-		new(big.Int).SetUint64(0),
-		signBytes})
+	ethTx := EthereumTx{
+		AccountNonce: uint64(0),
+		Price:        new(big.Int).SetUint64(0),
+		GasLimit:     uint64(0),
+		Recipient:    &common.Address{},
+		Amount:       new(big.Int).SetUint64(0),
+		Payload:      signBytes,
+	}
+	signBytes, err := rlp.EncodeToBytes(ethTx)
 	if err != nil {
 		log.Panic(err)
 	}

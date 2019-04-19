@@ -9,7 +9,8 @@ type WalletType int
 
 const (
 	WalletTypeSoft WalletType = iota
-	WalletTypeCold
+	WalletTypeColdNano
+	WalletTypeColdTrezor
 )
 
 type Wallet interface {

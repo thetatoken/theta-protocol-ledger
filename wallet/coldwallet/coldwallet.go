@@ -39,6 +39,8 @@ func NewColdWallet(hub *Hub, deviceInfo hid.DeviceInfo) (*ColdWallet, error) {
 	scheme := hub.scheme
 	if scheme == LedgerScheme {
 		driver = ks.NewLedgerDriver()
+	} else if scheme == TrezorScheme {
+		driver = ks.NewTrezorDriver()
 	} else {
 		panic(fmt.Sprintf("Unsupported cold wallet driver scheme: %v", LedgerScheme))
 	}
@@ -109,13 +111,14 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	}
 	w.addressPathMap = make(map[common.Address]types.DerivationPath)
 
-	derivationPath := types.DefaultRootDerivationPath // TODO: support non-default derived path
+	//derivationPath := types.DefaultRootDerivationPath // TODO: support non-default derived path
+
+	derivationPath := types.DefaultBaseDerivationPath
 	derivedAddress, err := w.driver.Derive(derivationPath)
 	if err != nil {
 		return err
 	}
 	w.addressPathMap[derivedAddress] = derivationPath
-
 	return nil
 }
 

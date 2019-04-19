@@ -82,7 +82,7 @@ func NewLedgerDriver() Driver {
 	return &ledgerDriver{}
 }
 
-// Status implements usbwallet.driver, returning various states the Ledger can
+// Status implements keystore.Driver, returning various states the Ledger can
 // currently be in.
 func (w *ledgerDriver) Status() (string, error) {
 	if w.failure != nil {
@@ -104,7 +104,7 @@ func (w *ledgerDriver) offline() bool {
 	return w.version == [3]byte{0, 0, 0}
 }
 
-// Open implements usbwallet.driver, attempting to initialize the connection to the
+// Open implements keystore.Driver, attempting to initialize the connection to the
 // Ledger hardware wallet. The Ledger does not require a user password, so that
 // parameter is silently discarded.
 func (w *ledgerDriver) Open(device io.ReadWriter, password string) error {
@@ -125,14 +125,14 @@ func (w *ledgerDriver) Open(device io.ReadWriter, password string) error {
 	return nil
 }
 
-// Close implements usbwallet.driver, cleaning up and metadata maintained within
+// Close implements keystore.Driver, cleaning up and metadata maintained within
 // the Ledger driver.
 func (w *ledgerDriver) Close() error {
 	w.browser, w.version = false, [3]byte{}
 	return nil
 }
 
-// Heartbeat implements usbwallet.driver, performing a sanity check against the
+// Heartbeat implements keystore.Driver, performing a sanity check against the
 // Ledger to see if it's still online.
 func (w *ledgerDriver) Heartbeat() error {
 	if _, err := w.ledgerVersion(); err != nil && err != errLedgerInvalidVersionReply {
@@ -142,13 +142,13 @@ func (w *ledgerDriver) Heartbeat() error {
 	return nil
 }
 
-// Derive implements usbwallet.driver, sending a derivation request to the Ledger
+// Derive implements keystore.Driver, sending a derivation request to the Ledger
 // and returning the Ethereum address located on that derivation path.
 func (w *ledgerDriver) Derive(path types.DerivationPath) (common.Address, error) {
 	return w.ledgerDerive(path)
 }
 
-// SignTx implements usbwallet.driver, sending the transaction to the Ledger and
+// SignTx implements keystore.Driver, sending the transaction to the Ledger and
 // waiting for the user to confirm or deny the transaction.
 //
 // Note, if the version of the Ethereum application running on the Ledger wallet is
