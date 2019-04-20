@@ -88,13 +88,6 @@ func (w *trezorDriver) Status() (string, error) {
 	return fmt.Sprintf("Trezor v%d.%d.%d '%s' online", w.version[0], w.version[1], w.version[2], w.label), w.failure
 }
 
-func pack(packed *[6]byte, msgType uint16, serLen uint32) {
-	// logger.Printf("...........................msgType: %v", msgType)
-	// logger.Printf("...........................serLen %v", serLen)
-	binary.BigEndian.PutUint16(packed[:2], msgType)
-	binary.BigEndian.PutUint32(packed[2:], serLen)
-}
-
 // Open implements keystore.Driver, attempting to initialize the connection to
 // the Trezor hardware wallet. Initializing the Trezor is a two or three phase operation:
 func (w *trezorDriver) Open(device io.ReadWriter, passphrase string) error {
@@ -118,9 +111,10 @@ func (w *trezorDriver) Open(device io.ReadWriter, passphrase string) error {
 	w.version = [3]uint32{w.bridge.Features.GetMajorVersion(), w.bridge.Features.GetMinorVersion(), w.bridge.Features.GetPatchVersion()}
 	w.label = w.bridge.Features.GetLabel()
 	logger.Printf("============ Version: %v, Label: %v", w.version, w.label)
+	logger.Printf("============ Features: %v", w.bridge.Features)
 
 	w.device, w.failure = device, nil
-	return w.bridge.CheckFirmwareVersion(true)
+	return w.bridge.CheckFirmwareVersion(w.version, false)
 }
 
 // Close implements keystore.Driver, cleaning up and metadata maintained within
@@ -513,4 +507,9 @@ func (w *trezorDriver) trezorWrite(request proto.Message) error {
 
 func (w *trezorDriver) trezorRead() (interface{}, trezor.MessageType, error) {
 	return w.bridge.CallRawRead()
+}
+
+func pack(packed *[6]byte, msgType uint16, serLen uint32) {
+	binary.BigEndian.PutUint16(packed[:2], msgType)
+	binary.BigEndian.PutUint32(packed[2:], serLen)
 }

@@ -26,12 +26,12 @@ const OUTDATED_FIRMWARE_ERROR = `Your Trezor firmware is out of date. Update it 
 trezorctl firmware-update
 Or visit https://wallet.trezor.io/`
 
-var TREZORD_VERSION_MODERN = [3]int{2, 0, 25}
+var TREZORD_VERSION_MODERN = [3]uint32{2, 0, 25}
 
-// MINIMUM_FIRMWARE_VERSION = {
-//     "1": (1, 8, 0),
-//     "T": (2, 1, 0),
-// }
+var MINIMUM_FIRMWARE_VERSION = map[string][3]uint32{
+	"1": [3]uint32{1, 8, 0},
+	"T": [3]uint32{2, 1, 0},
+}
 
 type BridgeTransport struct {
 	Device   Device
@@ -75,19 +75,22 @@ func (b *BridgeTransport) CallRawRead() (interface{}, MessageType, error) {
 	return b.read("read", nil)
 }
 
-func (b *BridgeTransport) isOutdated() bool {
+func (b *BridgeTransport) isOutdated(version [3]uint32) bool {
 	if b.Features.BootloaderMode {
 		return false
 	}
 
-	// model = self.features.model or "1"
-	// required_version = MINIMUM_FIRMWARE_VERSION[model]
-	// return self.version < required_version
-	return true //temp
+	var requiredVersion [3]uint32
+	if b.Device.Product == 0x53c0 { // model 1
+		requiredVersion = MINIMUM_FIRMWARE_VERSION["1"]
+	} else if b.Device.Product == 0x53c1 { // model T
+		requiredVersion = MINIMUM_FIRMWARE_VERSION["T"]
+	}
+	return isTupleLT(version, requiredVersion)
 }
 
-func (b *BridgeTransport) CheckFirmwareVersion(warnOnly bool) error {
-	if b.isOutdated() {
+func (b *BridgeTransport) CheckFirmwareVersion(version [3]uint32, warnOnly bool) error {
+	if b.isOutdated(version) {
 		if warnOnly {
 			fmt.Println(OUTDATED_FIRMWARE_ERROR)
 		} else {
@@ -102,17 +105,21 @@ func isLegacy() bool {
 	callBridge("configure", "", &config)
 
 	strs := strings.Split(config.Version, ".")
-	tuple := [3]int{}
-	tuple[0], _ = strconv.Atoi(strs[0])
-	tuple[1], _ = strconv.Atoi(strs[1])
-	tuple[2], _ = strconv.Atoi(strs[2])
-	if tuple[0] < TREZORD_VERSION_MODERN[0] {
+	t0, _ := strconv.Atoi(strs[0])
+	t1, _ := strconv.Atoi(strs[1])
+	t2, _ := strconv.Atoi(strs[2])
+	tuple := [3]uint32{uint32(t0), uint32(t1), uint32(t2)}
+	return isTupleLT(tuple, TREZORD_VERSION_MODERN)
+}
+
+func isTupleLT(tuple1, tuple2 [3]uint32) bool {
+	if tuple1[0] < tuple2[0] {
 		return true
-	} else if tuple[0] == TREZORD_VERSION_MODERN[0] {
-		if tuple[1] < TREZORD_VERSION_MODERN[1] {
+	} else if tuple1[0] == tuple2[0] {
+		if tuple1[1] < tuple2[1] {
 			return true
-		} else if tuple[1] == TREZORD_VERSION_MODERN[1] {
-			if tuple[2] < TREZORD_VERSION_MODERN[2] {
+		} else if tuple1[1] == tuple2[1] {
+			if tuple1[2] < tuple2[2] {
 				return true
 			}
 		}
