@@ -234,7 +234,9 @@ func (b *BridgeTransport) read(action string, data []byte) (interface{}, Message
 	fmt.Printf("----------------->>> msgType: %v\n", int32(msgType))
 	fmt.Printf("----------------->>> data: %v\n", respData[6:])
 	fmt.Printf("----------------->>> str: %v\n", string(respData[6:]))
-	resp, err := LoadMessage(strings.NewReader(string(respData[6:])), MessageType(msgType))
+	maxLimit := int32(1<<31 - 1)
+	target := GetEmptyObj(MessageType(msgType))
+	resp, err := LoadMessage(strings.NewReader(string(respData[6:])), target, &maxLimit)
 	return resp, MessageType(msgType), err
 }
 

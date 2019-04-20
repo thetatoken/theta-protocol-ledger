@@ -7,13 +7,11 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/golang/protobuf/proto"
 )
 
 var ErrKeyNotFound = errors.New("KeyNotFound")
 
-func loadUvarint(reader io.Reader) (uint, error) {
+func loadUvarint(reader io.Reader, limit *int32) (uint, error) {
 	buffer := make([]byte, 1)
 	result := uint(0)
 	shift := uint(0)
@@ -23,10 +21,14 @@ func loadUvarint(reader io.Reader) (uint, error) {
 		if res == 0 {
 			break
 		}
+		if *limit <= 0 {
+			return 0, fmt.Errorf("read limit exceeded")
+		}
 		_, err := reader.Read(buffer)
 		if err != nil {
 			return 0, err
 		}
+		*limit--
 		byt = buffer[0]
 		result += uint(byt&0x7F) << shift
 		shift += 7
@@ -78,239 +80,9 @@ func uint2Sint(n uint) int {
 type ProtoField struct {
 	field   reflect.Value
 	ftype   string
+	pbtype  string
 	fname   string
 	isArray bool
-}
-
-func getEmptyObj(msgType MessageType) interface{} {
-	tname := MessageType_name[int32(msgType)]
-	tname = strings.Split(tname, "_")[1]
-	tname = "trezor." + tname
-
-	t := proto.MessageType(tname).Elem()
-
-	switch msgType {
-	case 0:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Initialize)
-		return &v
-	case 1:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Ping)
-		return &v
-	case 2:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Success)
-		return &v
-	case 3:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Failure)
-		return &v
-	case 4:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ChangePin)
-		return &v
-	case 5:
-		v := reflect.Indirect(reflect.New(t)).Interface().(WipeDevice)
-		return &v
-	case 6:
-		v := reflect.Indirect(reflect.New(t)).Interface().(FirmwareErase)
-		return &v
-	case 7:
-		v := reflect.Indirect(reflect.New(t)).Interface().(FirmwareUpload)
-		return &v
-	case 8:
-		v := reflect.Indirect(reflect.New(t)).Interface().(FirmwareRequest)
-		return &v
-	case 9:
-		v := reflect.Indirect(reflect.New(t)).Interface().(GetEntropy)
-		return &v
-	case 10:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Entropy)
-		return &v
-	case 11:
-		v := reflect.Indirect(reflect.New(t)).Interface().(GetPublicKey)
-		return &v
-	case 12:
-		v := reflect.Indirect(reflect.New(t)).Interface().(PublicKey)
-		return &v
-	case 13:
-		v := reflect.Indirect(reflect.New(t)).Interface().(LoadDevice)
-		return &v
-	case 14:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ResetDevice)
-		return &v
-	case 15:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SignTx)
-		return &v
-	case 16:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SimpleSignTx)
-		return &v
-	case 17:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Features)
-		return &v
-	case 18:
-		v := reflect.Indirect(reflect.New(t)).Interface().(PinMatrixRequest)
-		return &v
-	case 19:
-		v := reflect.Indirect(reflect.New(t)).Interface().(PinMatrixAck)
-		return &v
-	case 20:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Cancel)
-		return &v
-	case 21:
-		v := reflect.Indirect(reflect.New(t)).Interface().(TxRequest)
-		return &v
-	case 22:
-		v := reflect.Indirect(reflect.New(t)).Interface().(TxAck)
-		return &v
-	case 23:
-		v := reflect.Indirect(reflect.New(t)).Interface().(CipherKeyValue)
-		return &v
-	case 24:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ClearSession)
-		return &v
-	case 25:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ApplySettings)
-		return &v
-	case 26:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ButtonRequest)
-		return &v
-	case 27:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ButtonAck)
-		return &v
-	case 28:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ApplyFlags)
-		return &v
-	case 29:
-		v := reflect.Indirect(reflect.New(t)).Interface().(GetAddress)
-		return &v
-	case 30:
-		v := reflect.Indirect(reflect.New(t)).Interface().(Address)
-		return &v
-	case 32:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SelfTest)
-		return &v
-	case 34:
-		v := reflect.Indirect(reflect.New(t)).Interface().(BackupDevice)
-		return &v
-	case 35:
-		v := reflect.Indirect(reflect.New(t)).Interface().(EntropyRequest)
-		return &v
-	case 36:
-		v := reflect.Indirect(reflect.New(t)).Interface().(EntropyAck)
-		return &v
-	case 38:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SignMessage)
-		return &v
-	case 39:
-		v := reflect.Indirect(reflect.New(t)).Interface().(VerifyMessage)
-		return &v
-	case 40:
-		v := reflect.Indirect(reflect.New(t)).Interface().(MessageSignature)
-		return &v
-	case 41:
-		v := reflect.Indirect(reflect.New(t)).Interface().(PassphraseRequest)
-		return &v
-	case 42:
-		v := reflect.Indirect(reflect.New(t)).Interface().(PassphraseAck)
-		return &v
-	case 43:
-		v := reflect.Indirect(reflect.New(t)).Interface().(EstimateTxSize)
-		return &v
-	case 44:
-		v := reflect.Indirect(reflect.New(t)).Interface().(TxSize)
-		return &v
-	case 45:
-		v := reflect.Indirect(reflect.New(t)).Interface().(RecoveryDevice)
-		return &v
-	case 46:
-		v := reflect.Indirect(reflect.New(t)).Interface().(WordRequest)
-		return &v
-	case 47:
-		v := reflect.Indirect(reflect.New(t)).Interface().(WordAck)
-		return &v
-	case 48:
-		v := reflect.Indirect(reflect.New(t)).Interface().(CipheredKeyValue)
-		return &v
-	case 49:
-		v := reflect.Indirect(reflect.New(t)).Interface().(EncryptMessage)
-		return &v
-	case 50:
-		v := reflect.Indirect(reflect.New(t)).Interface().(EncryptedMessage)
-		return &v
-	case 51:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DecryptMessage)
-		return &v
-	case 52:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DecryptedMessage)
-		return &v
-	case 53:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SignIdentity)
-		return &v
-	case 54:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SignedIdentity)
-		return &v
-	case 55:
-		v := reflect.Indirect(reflect.New(t)).Interface().(GetFeatures)
-		return &v
-	case 56:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaGetAddress)
-		return &v
-	case 57:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaAddress)
-		return &v
-	case 58:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaSignTx)
-		return &v
-	case 59:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaTxRequest)
-		return &v
-	case 60:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaTxAck)
-		return &v
-	case 61:
-		v := reflect.Indirect(reflect.New(t)).Interface().(GetECDHSessionKey)
-		return &v
-	case 62:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ECDHSessionKey)
-		return &v
-	case 63:
-		v := reflect.Indirect(reflect.New(t)).Interface().(SetU2FCounter)
-		return &v
-	case 64:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaSignMessage)
-		return &v
-	case 65:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaVerifyMessage)
-		return &v
-	case 66:
-		v := reflect.Indirect(reflect.New(t)).Interface().(ThetaMessageSignature)
-		return &v
-	case 100:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkDecision)
-		return &v
-	case 101:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkGetState)
-		return &v
-	case 102:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkState)
-		return &v
-	case 103:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkStop)
-		return &v
-	case 104:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkLog)
-		return &v
-	case 110:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkMemoryRead)
-		return &v
-	case 111:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkMemory)
-		return &v
-	case 112:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkMemoryWrite)
-		return &v
-	case 113:
-		v := reflect.Indirect(reflect.New(t)).Interface().(DebugLinkFlashErase)
-		return &v
-	}
-	return nil
 }
 
 func getWireType(ftype string) (res uint) {
@@ -330,7 +102,8 @@ func getWireType(ftype string) (res uint) {
 	return
 }
 
-func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
+// func LoadMessage(reader io.Reader, msgType MessageType, limit *int32) (interface{}, error) {
+func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{}, error) {
 	// tname := MessageType_name[msgType]
 	// tname = strings.Split(tname, "_")[1]
 	// typeName := "trezor." + tname
@@ -339,7 +112,7 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 	//v := reflect.Indirect(reflect.New(t)).Interface()
 
 	fields := make(map[uint]ProtoField)
-	target := getEmptyObj(msgType)
+	// target := getEmptyObj(msgType)
 	v := reflect.ValueOf(target).Elem()
 
 	if v.Kind() != reflect.Struct {
@@ -349,25 +122,29 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 	for i := 0; i < v.NumField(); i++ {
 		f := ProtoField{}
 		f.field = v.Field(i)
+		f.ftype = f.field.Type().String()
 		tags := v.Type().Field(i).Tag.Get("protobuf")
 		if len(tags) == 0 {
 			continue
 		}
 		tagArray := strings.Split(tags, ",")
-		f.ftype = f.field.Type().String()
+		f.pbtype = tagArray[0]
 		key, _ := strconv.Atoi(tagArray[1])
+		fields[uint(key)] = f
 		for _, tag := range tagArray {
 			if tag == "rep" {
 				f.isArray = true
 				break
 			}
 		}
-		fields[uint(key)] = f
 	}
 
-	fmt.Printf(">>>>>>>>>>>FIELDS>>>>>>>>>>>> %v, %v\n", msgType, fields)
+	fmt.Printf(">>>>>>>>>>>FIELDS>>>>>>>>>>>> msgType: %v, fields: %v\n", reflect.TypeOf(target).String(), fields)
 	for {
-		fkey, err := loadUvarint(reader)
+		if *limit <= 0 {
+			return nil, fmt.Errorf("read limit exceeded")
+		}
+		fkey, err := loadUvarint(reader, limit)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -380,12 +157,12 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 
 		var field ProtoField
 		var ok bool
-		fmt.Printf(">>>>>>>>>>>HERE>>>>>>>>>>>> %v, %v, %v\n", ftag, wtype, fields[ftag])
 		if field, ok = fields[ftag]; !ok {
+			fmt.Printf("Unknown field tag %v for type %v", ftag, reflect.TypeOf(target).String())
 			if wtype == 0 {
-				loadUvarint(reader)
+				loadUvarint(reader, limit)
 			} else if wtype == 2 {
-				ivalue, err := loadUvarint(reader)
+				ivalue, err := loadUvarint(reader, limit)
 				if err != nil {
 					return nil, err
 				}
@@ -395,43 +172,24 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 				if err != nil {
 					return nil, err
 				}
+				*limit -= int32(ivalue)
 			} else {
 				return nil, fmt.Errorf("Unknow protobuf field")
 			}
 			continue
 		}
 
-		//     fname, ftype, fflags = field
+		fmt.Printf(">>>>>>>>>>>Field>>>>>>>>>>>> ftag: %v, wtype: %v, ftype: %v\n", ftag, wtype, fields[ftag])
+
 		if wtype != getWireType(field.ftype) {
 			return nil, fmt.Errorf("Parsed wire type differs from the schema")
 		}
 
-		ivalue, err := loadUvarint(reader)
+		ivalue, err := loadUvarint(reader, limit)
 		if err != nil {
-			// fmt.Printf(">>>>>>>>>>>IVALUE ERROR>>>>>>>>>>>> %v\n", err)
 			return nil, err
 		}
 		fmt.Printf(">>>>>>>>>>>IVALUE>>>>>>>>>>>>ivalue: %v, ftype: %v, isArray: %v\n", ivalue, field.ftype, field.isArray)
-
-		if field.ftype == "int8" {
-
-		} else if field.ftype == "int16" {
-
-		} else if field.ftype == "int32" {
-
-		} else if field.ftype == "int64" {
-
-		} else if field.ftype == "bool" {
-
-		} else if field.ftype == "[]uint8" { // bytes
-
-		} else if field.ftype == "string" { // UnicodeType
-
-		} else if field.ftype == "struct {}" {
-			//TODO
-		} else {
-
-		}
 
 		if strings.HasPrefix(field.ftype, "uint") {
 			if field.isArray {
@@ -477,8 +235,7 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 					field.field.Set(reflect.ValueOf(n))
 				}
 			} else {
-				// field.field.SetInt(int64(uint2Sint(ivalue)))
-				field.field.SetInt(int64(ivalue)) // TODO
+				field.field.SetInt(int64(uint2Sint(ivalue)))
 			}
 		} else if field.ftype == "bool" {
 			if field.isArray {
@@ -495,6 +252,7 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+			*limit -= int32(ivalue)
 
 			if field.isArray {
 				i := field.field.Interface()
@@ -512,6 +270,7 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 			if err != nil {
 				return nil, err
 			}
+			*limit -= int32(ivalue)
 
 			if field.isArray {
 				i := field.field.Interface()
@@ -522,11 +281,11 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 				field.field.SetString(string(bytes))
 			}
 		} else if field.ftype == "struct {}" {
-			/*********** TEMP **********/
+			// skip it for now
 			if wtype == 0 {
-				loadUvarint(reader)
+				loadUvarint(reader, limit)
 			} else if wtype == 2 {
-				ivalue, err := loadUvarint(reader)
+				ivalue, err := loadUvarint(reader, limit)
 				if err != nil {
 					return nil, err
 				}
@@ -536,16 +295,36 @@ func LoadMessage(reader io.Reader, msgType MessageType) (interface{}, error) {
 				if err != nil {
 					return nil, err
 				}
+				*limit -= int32(ivalue)
 			} else {
-				return nil, fmt.Errorf("Unknow protobuf field")
+				return nil, fmt.Errorf("Unknow field wtype")
 			}
-			/*********** TEMP **********/
-
-			// field.field.Set()
-			// field.fvalue = load_message(LimitedReader(reader, ivalue), ftype)
 		} else {
-			fmt.Printf("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= unknown ftype: %v\n", field.ftype)
-			field.field.SetInt(int64(ivalue))
+			if field.pbtype == "varint" {
+				field.field.SetInt(int64(ivalue))
+			} else {
+				// tname := strings.Trim(field.ftype, "*")
+				// t := proto.MessageType(tname).Elem()
+
+				// skip it for now
+				if wtype == 0 {
+					loadUvarint(reader, limit)
+				} else if wtype == 2 {
+					ivalue, err := loadUvarint(reader, limit)
+					if err != nil {
+						return nil, err
+					}
+
+					buffer := make([]byte, ivalue)
+					_, err = reader.Read(buffer)
+					if err != nil {
+						return nil, err
+					}
+					*limit -= int32(ivalue)
+				} else {
+					return nil, fmt.Errorf("Unknow field wtype")
+				}
+			}
 		}
 	}
 	fmt.Printf(">>>>>>>>>>>LOADED MESSAGE>>>>>>>>>>>> %v\n", target)
