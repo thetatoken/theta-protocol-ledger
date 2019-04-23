@@ -348,7 +348,8 @@ func (tx *SendTx) SignBytes(chainID string) []byte {
 	}
 	txBytes, _ := TxToBytes(tx)
 	signBytes = append(signBytes, txBytes...)
-	signBytes = addPrefixForSignBytes(signBytes)
+	signBytes = addPrefixForSignBytesAndRecipient(signBytes, &tx.Outputs[0].Address)
+	// signBytes = addPrefixForSignBytes(signBytes)
 
 	for i := range tx.Inputs {
 		tx.Inputs[i].Signature = sigz[i]
@@ -881,11 +882,15 @@ type EthereumTx struct {
 // Need to add the following prefix to the tx signbytes to be compatible with
 // the Ethereum tx format
 func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
+	return addPrefixForSignBytesAndRecipient(signBytes, &common.Address{})
+}
+
+func addPrefixForSignBytesAndRecipient(signBytes common.Bytes, recipient *common.Address) common.Bytes {
 	ethTx := EthereumTx{
 		AccountNonce: uint64(0),
 		Price:        new(big.Int).SetUint64(0),
 		GasLimit:     uint64(0),
-		Recipient:    &common.Address{},
+		Recipient:    recipient,
 		Amount:       new(big.Int).SetUint64(0),
 		Payload:      signBytes,
 	}

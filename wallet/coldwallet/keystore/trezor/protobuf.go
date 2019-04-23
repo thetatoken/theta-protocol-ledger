@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+
+	"github.com/thetatoken/theta/common"
 )
 
 var ErrKeyNotFound = errors.New("KeyNotFound")
@@ -451,8 +453,7 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 			}
 		}
 
-		// fmt.Printf("<<<<<<<<<<<<< fname: %v, ftag: %v, WType: %v, fkey: %v, ftype: %v, isArray: %v\n", fname, ftag, getWireType(ftype), fkey, ftype, isArray)
-		// fmt.Printf("<<<<<<<<<<<<< repvalue size >>>>>>>>>>>> %v\n", len(repvalue))
+		fmt.Printf("<<<<<<<<<<<<< fname: %v, ftag: %v, WType: %v, fkey: %v, ftype: %v, isArray: %v\n", fname, ftag, getWireType(ftype), fkey, ftype, isArray)
 		for _, svalue := range repvalue {
 			dumpUvarint(writer, fkey)
 
@@ -479,6 +480,7 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 				}
 				dumpUvarint(writer, b)
 			} else if stype == "[]uint8" { // bytes
+				fmt.Printf("<<<<<<<<<<<<< svalue ([]uint8): %v\n", common.Bytes2Hex(svalue.([]byte)))
 				dumpUvarint(writer, uint(len(svalue.([]byte))))
 				writer.Write(svalue.([]byte))
 			} else if stype == "string" { // UnicodeType

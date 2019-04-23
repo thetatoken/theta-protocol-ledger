@@ -59,6 +59,7 @@ type Device struct {
 }
 
 func (b *BridgeTransport) CallRaw(data []byte) (interface{}, MessageType, error) {
+	fmt.Printf("############# CALLING RAW ########### data: %v\n", data)
 	err := b.write("post", data, nil)
 	if err != nil {
 		return nil, 0, err
@@ -80,13 +81,14 @@ func (b *BridgeTransport) isOutdated(version [3]uint32) bool {
 		return false
 	}
 
-	var requiredVersion [3]uint32
-	if b.Device.Product == 0x53c0 { // model 1
-		requiredVersion = MINIMUM_FIRMWARE_VERSION["1"]
-	} else if b.Device.Product == 0x53c1 { // model T
-		requiredVersion = MINIMUM_FIRMWARE_VERSION["T"]
-	}
-	return isTupleLT(version, requiredVersion)
+	// var requiredVersion [3]uint32
+	// if b.Device.Product == 0x53c0 { // model 1
+	// 	requiredVersion = MINIMUM_FIRMWARE_VERSION["1"]
+	// } else if b.Device.Product == 0x53c1 { // model T
+	// 	requiredVersion = MINIMUM_FIRMWARE_VERSION["T"]
+	// }
+	// return isTupleLT(version, requiredVersion)
+	return false
 }
 
 func (b *BridgeTransport) CheckFirmwareVersion(version [3]uint32, warnOnly bool) error {
@@ -261,6 +263,18 @@ func convertBytePair(pair []byte) byte {
 	s := string(pair)
 	b, _ := strconv.ParseUint(s, 16, 0)
 	return byte(b)
+}
+
+func RevertBytes(bytes []byte) (res []byte) {
+	for i := range bytes {
+		res = append(res, revertBytePair(bytes[i])...)
+	}
+	return
+}
+
+func revertBytePair(b byte) []byte {
+	hex := common.Bytes2Hex([]byte{b})
+	return []byte{hex[0], hex[1]}
 }
 
 // func callBridgeRead(uri, dataStr string) ([]byte, error) {

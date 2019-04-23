@@ -652,7 +652,7 @@ message ThetaSignTx {
 	bytes nonce = 2;			// <=256 bit unsigned big endian
 	bytes gas_price = 3;			// <=256 bit unsigned big endian (in wei)
 	bytes gas_limit = 4;			// <=256 bit unsigned big endian
-	bytes to = 5;				// 160 bit address hash
+	bytes to = 11;				// 160 bit address hash
 	bytes value = 6;			// <=256 bit unsigned big endian (in wei)
 	bytes data_initial_chunk = 7;		// The initial data chunk (<= 1024 bytes)
 	*uint32 data_length = 8;		// Length of transaction payload

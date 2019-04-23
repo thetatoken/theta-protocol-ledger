@@ -260,47 +260,26 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 
 	tx := &tp.EthereumTx{}
 	err = rlp.DecodeBytes(txrlp, tx)
+	logger.Printf("===============>>>>>>>>>>>> Tx: %v\n", tx.Payload)
 
 	// Create the transaction initiation message
 	data := tx.Payload
 	length := uint32(len(data))
 
-	// request := &trezor.ThetaSignTx{
-	// 	AddressN:   derivationPath,
-	// 	Nonce:      new(big.Int).SetUint64(0).Bytes(),
-	// 	GasPrice:   new(big.Int).SetUint64(0).Bytes(),
-	// 	GasLimit:   new(big.Int).SetUint64(0).Bytes(),
-	// 	Value:      new(big.Int).SetUint64(0).Bytes(),
-	// 	ChainId:    uint32(1),
-	// 	DataLength: length,
-	// }
-
 	logger.Printf(">>>>>> txrlp: %v\n", hex.EncodeToString(txrlp))
 	logger.Printf(">>>>>> data:  %v\n", hex.EncodeToString(data))
 
-	// nonceBytes := make([]byte, 8)
-	// gasLimitBytes := make([]byte, 8)
-	// binary.LittleEndian.PutUint64(nonceBytes, uint64(0))
-	// binary.LittleEndian.PutUint64(gasLimitBytes, uint64(0))
-
-	// request := &trezor.ThetaSignTx{
-	// 	AddressN: derivationPath,
-	// 	Nonce:    nonceBytes,
-	// 	GasPrice: new(big.Int).SetUint64(0).Bytes(),
-	// 	GasLimit: gasLimitBytes,
-	// 	Value:    new(big.Int).SetUint64(0).Bytes(),
-	// 	// ChainId:    uint32(1),
-	// 	DataLength: length,
-	// }
-
+	to := *(tx.Recipient)
+	logger.Printf("===============>>>>>>>>>>>> To: %v\n", common.Bytes2Hex(to[:]))
 	request := &trezor.ThetaSignTx{
-		AddressN:   derivationPath,
-		Nonce:      new(big.Int).SetUint64(0).Bytes(),
-		GasPrice:   new(big.Int).SetUint64(0).Bytes(),
-		GasLimit:   new(big.Int).SetUint64(0).Bytes(),
-		To:         common.Address{}.Bytes(),
-		Value:      new(big.Int).SetUint64(0).Bytes(),
-		ChainId:    uint32(1),
+		AddressN: derivationPath,
+		Nonce:    new(big.Int).SetUint64(0).Bytes(),
+		GasPrice: new(big.Int).SetUint64(0).Bytes(),
+		GasLimit: new(big.Int).SetUint64(0).Bytes(),
+		To:       []byte("0000000000000000000000000000000000000000"),
+		// To:    to.Bytes(),
+		Value: new(big.Int).SetUint64(0).Bytes(),
+		// ChainId:    uint32(1),
 		DataLength: length,
 	}
 
@@ -326,9 +305,9 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 	response := res.(*trezor.ThetaTxRequest)
 
 	logger.Printf("====================== ThetaTxRequest DataLength: %v\n", response.DataLength)
-	logger.Printf("====================== ThetaTxRequest SignatureV: %v - %v\n", response.SignatureV, response.GetSignatureV())
-	logger.Printf("====================== ThetaTxRequest SignatureS: %v - %v\n", response.SignatureS, response.GetSignatureS())
-	logger.Printf("====================== ThetaTxRequest SignatureR: %v - %v\n", response.SignatureR, response.GetSignatureR())
+	logger.Printf("====================== ThetaTxRequest SignatureV: %v\n", response.SignatureV)
+	logger.Printf("====================== ThetaTxRequest SignatureS: %v\n", common.Bytes2Hex(response.SignatureS))
+	logger.Printf("====================== ThetaTxRequest SignatureR: %v\n", common.Bytes2Hex(response.SignatureR))
 
 	for response.DataLength != 0 && int(response.DataLength) <= len(data) {
 		chunk := data[:response.DataLength]
@@ -352,7 +331,7 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 	if len(sigBytes) != 65 {
 		return common.Address{}, nil, errors.New("Signature bytes should be 65 bytes lone")
 	}
-	sigBytes[64] -= byte(37)
+	sigBytes[64] -= byte(27)
 	logger.Printf("====================== sigBytes[64]: %v\n", sigBytes[64])
 
 	logger.Printf("====================== sigBytes: %v\n", hex.EncodeToString(sigBytes))
@@ -487,8 +466,7 @@ func (w *trezorDriver) trezorExchange(request proto.Message) (interface{}, trezo
 	var header [6]byte
 	pack(&header, uint16(trezor.MessageType_value[tname]), uint32(len(data)))
 	data = append(header[:], data...)
-	// logger.Printf("...........................tname: %v, Header: %v", tname, uint16(trezor.MessageType_value[tname]))
-	// logger.Printf("...........................data: %v, len: %v", data, uint32(len(data)))
+
 	return w.bridge.CallRaw(data)
 }
 

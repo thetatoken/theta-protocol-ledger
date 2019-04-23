@@ -3058,15 +3058,15 @@ func (m *TxAck) GetTx() *TransactionType {
 // @next ThetaTxRequest
 // @next Failure
 type ThetaSignTx struct {
-	AddressN             []uint32 `protobuf:"varint,1,rep,packed,name=address_n,json=addressN,proto3" json:"address_n,omitempty"`
-	Nonce                []byte   `protobuf:"bytes,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
-	GasPrice             []byte   `protobuf:"bytes,3,opt,name=gas_price,json=gasPrice,proto3" json:"gas_price,omitempty"`
-	GasLimit             []byte   `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`
-	To                   []byte   `protobuf:"bytes,5,opt,name=to,proto3" json:"to,omitempty"`
-	Value                []byte   `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
-	DataInitialChunk     []byte   `protobuf:"bytes,7,opt,name=data_initial_chunk,json=dataInitialChunk,proto3" json:"data_initial_chunk,omitempty"`
-	DataLength           uint32   `protobuf:"varint,8,opt,name=data_length,json=dataLength,proto3" json:"data_length,omitempty"`
-	ChainId              uint32   `protobuf:"varint,9,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
+	AddressN         []uint32 `protobuf:"varint,1,rep,packed,name=address_n,json=addressN,proto3" json:"address_n,omitempty"`
+	Nonce            []byte   `protobuf:"bytes,2,opt,name=nonce,proto3" json:"nonce,omitempty"`
+	GasPrice         []byte   `protobuf:"bytes,3,opt,name=gas_price,json=gasPrice,proto3" json:"gas_price,omitempty"`
+	GasLimit         []byte   `protobuf:"bytes,4,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`
+	To               []byte   `protobuf:"bytes,11,opt,name=to,proto3" json:"to,omitempty"`
+	Value            []byte   `protobuf:"bytes,6,opt,name=value,proto3" json:"value,omitempty"`
+	DataInitialChunk []byte   `protobuf:"bytes,7,opt,name=data_initial_chunk,json=dataInitialChunk,proto3" json:"data_initial_chunk,omitempty"`
+	DataLength       uint32   `protobuf:"varint,8,opt,name=data_length,json=dataLength,proto3" json:"data_length,omitempty"`
+	// ChainId              uint32   `protobuf:"varint,9,opt,name=chain_id,json=chainId,proto3" json:"chain_id,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -3153,12 +3153,12 @@ func (m *ThetaSignTx) GetDataLength() uint32 {
 	return 0
 }
 
-func (m *ThetaSignTx) GetChainId() uint32 {
-	if m != nil {
-		return m.ChainId
-	}
-	return 0
-}
+// func (m *ThetaSignTx) GetChainId() uint32 {
+// 	if m != nil {
+// 		return m.ChainId
+// 	}
+// 	return 0
+// }
 
 //*
 // Response: Device asks for more data from transaction payload, or returns the signature.
