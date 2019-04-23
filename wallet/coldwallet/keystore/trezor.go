@@ -246,11 +246,6 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 	}
 	response := res.(*trezor.ThetaTxRequest)
 
-	logger.Printf("====================== ThetaTxRequest DataLength: %v\n", response.DataLength)
-	logger.Printf("====================== ThetaTxRequest SignatureV: %v\n", response.SignatureV)
-	logger.Printf("====================== ThetaTxRequest SignatureS: %v\n", common.Bytes2Hex(response.SignatureS))
-	logger.Printf("====================== ThetaTxRequest SignatureR: %v\n", common.Bytes2Hex(response.SignatureR))
-
 	for response.DataLength != 0 && int(response.DataLength) <= len(data) {
 		chunk := data[:response.DataLength]
 		data = data[response.DataLength:]
