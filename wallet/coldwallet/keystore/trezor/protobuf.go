@@ -7,8 +7,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-
-	"github.com/thetatoken/theta/common"
 )
 
 var ErrKeyNotFound = errors.New("KeyNotFound")
@@ -114,7 +112,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 	//v := reflect.Indirect(reflect.New(t)).Interface()
 
 	fields := make(map[uint]ProtoField)
-	// target := getEmptyObj(msgType)
 	v := reflect.ValueOf(target).Elem()
 
 	if v.Kind() != reflect.Struct {
@@ -141,7 +138,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 		}
 	}
 
-	fmt.Printf(">>>>>>>>>>>FIELDS>>>>>>>>>>>> msgType: %v, fields: %v\n", reflect.TypeOf(target).String(), fields)
 	for {
 		if *limit <= 0 {
 			return nil, fmt.Errorf("read limit exceeded")
@@ -160,7 +156,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 		var field ProtoField
 		var ok bool
 		if field, ok = fields[ftag]; !ok {
-			fmt.Printf("Unknown field tag %v for type %v", ftag, reflect.TypeOf(target).String())
 			if wtype == 0 {
 				loadUvarint(reader, limit)
 			} else if wtype == 2 {
@@ -181,8 +176,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 			continue
 		}
 
-		fmt.Printf(">>>>>>>>>>>Field>>>>>>>>>>>> ftag: %v, wtype: %v, ftype: %v\n", ftag, wtype, fields[ftag])
-
 		if wtype != getWireType(field.ftype) {
 			return nil, fmt.Errorf("Parsed wire type differs from the schema")
 		}
@@ -191,7 +184,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf(">>>>>>>>>>>IVALUE>>>>>>>>>>>>ivalue: %v, ftype: %v, isArray: %v\n", ivalue, field.ftype, field.isArray)
 
 		if strings.HasPrefix(field.ftype, "uint") {
 			if field.isArray {
@@ -264,8 +256,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 			} else {
 				field.field.SetBytes(bytes)
 			}
-
-			fmt.Printf(">>>>>>>>>>> FIELD (bytes) >>>>>>>>>>>> %v\n", field.field)
 		} else if field.ftype == "string" { // UnicodeType
 			bytes := make([]byte, ivalue)
 			_, err = reader.Read(bytes)
@@ -305,9 +295,6 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 			if field.pbtype == "varint" {
 				field.field.SetInt(int64(ivalue))
 			} else {
-				// tname := strings.Trim(field.ftype, "*")
-				// t := proto.MessageType(tname).Elem()
-
 				// skip it for now
 				if wtype == 0 {
 					loadUvarint(reader, limit)
@@ -329,13 +316,12 @@ func LoadMessage(reader io.Reader, target interface{}, limit *int32) (interface{
 			}
 		}
 	}
-	fmt.Printf(">>>>>>>>>>>LOADED MESSAGE>>>>>>>>>>>> %v\n", target)
+
 	return target, nil
 }
 
 func DumpMessage(writer io.Writer, msg interface{}) error {
 	v := reflect.ValueOf(msg).Elem()
-	fmt.Printf("<<<<<<<<<<<<< DUMP MESSAGE >>>>>>>>>>>> %v\n", v.NumField())
 	for i := 0; i < v.NumField(); i++ {
 		field := v.Field(i)
 
@@ -365,8 +351,6 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 		ftag, _ := strconv.Atoi(tagArray[1])
 		fkey := (uint(ftag) << 3) | getWireType(ftype)
 
-		fmt.Printf("<<<<<<<<<<<<< >>>>>>>>>>>> ftype: %v, isArray: %v\n", ftype, isArray)
-
 		var repvalue []interface{}
 		var stype string
 		if !isArray {
@@ -379,67 +363,56 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 			stype = ftype[2:]
 
 			if stype == "uint8" {
-				// repvalue = append(repvalue, field.Interface().([]uint8)[:])
 				arr := field.Interface().([]uint8)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "uint16" {
-				// repvalue = append(repvalue, field.Interface().([]uint16))
 				arr := field.Interface().([]uint16)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "uint32" {
-				// repvalue = append(repvalue, field.Interface().([]uint32))
 				arr := field.Interface().([]uint32)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "uint64" {
-				// repvalue = append(repvalue, field.Interface().([]uint64))
 				arr := field.Interface().([]uint64)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "int8" {
-				// repvalue = append(repvalue, field.Interface().([]int8))
 				arr := field.Interface().([]int8)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "int16" {
-				// repvalue = append(repvalue, field.Interface().([]int16))
 				arr := field.Interface().([]int16)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "int32" {
-				// repvalue = append(repvalue, field.Interface().([]int32))
 				arr := field.Interface().([]uint32)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "int64" {
-				// repvalue = append(repvalue, field.Interface().([]int64))
 				arr := field.Interface().([]int64)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "bool" {
-				// repvalue = append(repvalue, field.Interface().([]bool))
 				arr := field.Interface().([]bool)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "[]uint8" { // bytes
-				// repvalue = append(repvalue, field.Interface().([][]uint8))
 				arr := field.Interface().([][]uint8)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
 				}
 			} else if stype == "string" { // UnicodeType
-				// repvalue = append(repvalue, field.Interface().([]string))
 				arr := field.Interface().([]string)[:]
 				for _, n := range arr {
 					repvalue = append(repvalue, n)
@@ -448,12 +421,10 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 				//TODO
 			} else {
 				//TODO
-				fmt.Printf("############### stype: %v\n", stype)
 				continue
 			}
 		}
 
-		fmt.Printf("<<<<<<<<<<<<< fname: %v, ftag: %v, WType: %v, fkey: %v, ftype: %v, isArray: %v\n", fname, ftag, getWireType(ftype), fkey, ftype, isArray)
 		for _, svalue := range repvalue {
 			dumpUvarint(writer, fkey)
 
@@ -480,7 +451,6 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 				}
 				dumpUvarint(writer, b)
 			} else if stype == "[]uint8" { // bytes
-				fmt.Printf("<<<<<<<<<<<<< svalue ([]uint8): %v\n", common.Bytes2Hex(svalue.([]byte)))
 				dumpUvarint(writer, uint(len(svalue.([]byte))))
 				writer.Write(svalue.([]byte))
 			} else if stype == "string" { // UnicodeType
@@ -490,7 +460,6 @@ func DumpMessage(writer io.Writer, msg interface{}) error {
 				//TODO
 			} else {
 				//TODO
-				fmt.Printf("############### stype: %v\n", stype)
 				continue
 			}
 		}

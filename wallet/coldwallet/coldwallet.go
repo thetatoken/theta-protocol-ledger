@@ -91,7 +91,7 @@ func (w *ColdWallet) NewKey(password string) (common.Address, error) {
 }
 
 // Neither address nor password is used by the function, silently ignored
-func (w *ColdWallet) Unlock(address common.Address, password string) error {
+func (w *ColdWallet) Unlock(address common.Address, password string, derivationPath types.DerivationPath) error {
 	w.stateLock.Lock() // State lock is enough since there's no connection yet at this point
 	defer w.stateLock.Unlock()
 
@@ -111,9 +111,6 @@ func (w *ColdWallet) Unlock(address common.Address, password string) error {
 	}
 	w.addressPathMap = make(map[common.Address]types.DerivationPath)
 
-	//derivationPath := types.DefaultRootDerivationPath // TODO: support non-default derived path
-
-	derivationPath := types.DefaultBaseDerivationPath
 	derivedAddress, err := w.driver.Derive(derivationPath)
 	if err != nil {
 		return err

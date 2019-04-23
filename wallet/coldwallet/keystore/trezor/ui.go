@@ -60,8 +60,9 @@ func (ui *TrezorUI) GetPin(code PinMatrixRequestType) string {
 		pin := prompt(fmt.Sprintf("Please enter %v: ", desc))
 		// except click.Abort:
 		//     raise Cancelled from None
+		fmt.Println()
 		if _, err := strconv.Atoi(pin); err != nil {
-			fmt.Println("\nNon-numerical PIN provided, please try again")
+			fmt.Println("Non-numerical PIN provided, please try again")
 		} else {
 			return pin
 		}

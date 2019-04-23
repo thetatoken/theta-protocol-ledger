@@ -19,11 +19,11 @@ import (
 
 // sendCmd represents the send command
 // Example:
-//		thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1
+//		thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --path "m/44'/60'/0'/0/0" --theta=10 --tfuel=9 --seq=1 --wallet=trezor
 var sendCmd = &cobra.Command{
 	Use:     "send",
 	Short:   "Send tokens",
-	Example: `thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1`,
+	Example: `thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --path "m/44'/60'/0'/0/0" --theta=10 --tfuel=9 --seq=1 --wallet=trezor`,
 	Run:     doSendCmd,
 }
 
@@ -37,7 +37,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
+	wallet, fromAddress, err := walletUnlockWithPath(cmd, fromFlag, pathFlag)
 	if err != nil {
 		return
 	}
@@ -122,6 +122,7 @@ func init() {
 	sendCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")
+	sendCmd.Flags().StringVar(&pathFlag, "path", "", "Wallet derivation path")
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
 	sendCmd.Flags().StringVar(&tfuelAmountFlag, "tfuel", "0", "TFuel amount")

@@ -13,13 +13,6 @@ import (
 	"github.com/thetatoken/theta/common"
 )
 
-// // USB vendor/product IDs for Trezors
-// DEV_TREZOR1 = (0x534C, 0x0001)
-// DEV_TREZOR2 = (0x1209, 0x53C1)
-// DEV_TREZOR2_BL = (0x1209, 0x53C0)
-
-// TREZORS = {DEV_TREZOR1, DEV_TREZOR2, DEV_TREZOR2_BL}
-
 const TREZORD_HOST = "http://127.0.0.1:21325"
 
 const OUTDATED_FIRMWARE_ERROR = `Your Trezor firmware is out of date. Update it with the following command:
@@ -42,7 +35,7 @@ type BridgeTransport struct {
 }
 
 type Session struct {
-	Session string `json:"session"`
+	Session string
 }
 
 type Config struct {
@@ -59,7 +52,6 @@ type Device struct {
 }
 
 func (b *BridgeTransport) CallRaw(data []byte) (interface{}, MessageType, error) {
-	fmt.Printf("############# CALLING RAW ########### data: %v\n", data)
 	err := b.write("post", data, nil)
 	if err != nil {
 		return nil, 0, err
@@ -68,11 +60,11 @@ func (b *BridgeTransport) CallRaw(data []byte) (interface{}, MessageType, error)
 	return b.read("read", nil)
 }
 
-func (b *BridgeTransport) CallRawWrite(data []byte) error {
+func (b *BridgeTransport) WriteRaw(data []byte) error {
 	return b.write("post", data, nil)
 }
 
-func (b *BridgeTransport) CallRawRead() (interface{}, MessageType, error) {
+func (b *BridgeTransport) ReadRaw() (interface{}, MessageType, error) {
 	return b.read("read", nil)
 }
 
@@ -81,14 +73,13 @@ func (b *BridgeTransport) isOutdated(version [3]uint32) bool {
 		return false
 	}
 
-	// var requiredVersion [3]uint32
-	// if b.Device.Product == 0x53c0 { // model 1
-	// 	requiredVersion = MINIMUM_FIRMWARE_VERSION["1"]
-	// } else if b.Device.Product == 0x53c1 { // model T
-	// 	requiredVersion = MINIMUM_FIRMWARE_VERSION["T"]
-	// }
-	// return isTupleLT(version, requiredVersion)
-	return false
+	var requiredVersion [3]uint32
+	if b.Device.Product == 0x53c0 {
+		requiredVersion = MINIMUM_FIRMWARE_VERSION["1"]
+	} else if b.Device.Product == 0x53c1 {
+		requiredVersion = MINIMUM_FIRMWARE_VERSION["1"] //TODO: should be Model T
+	}
+	return isTupleLT(version, requiredVersion)
 }
 
 func (b *BridgeTransport) CheckFirmwareVersion(version [3]uint32, warnOnly bool) error {
@@ -177,13 +168,8 @@ func (b *BridgeTransport) EndSession() {
 
 func callBridge(uri, dataStr string, target interface{}) ([]byte, error) {
 	url := TREZORD_HOST + "/" + uri
-	// req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
-
-	fmt.Printf("<<<<<<<<<<<<<<<< CALL BRIDGE >>>>>>>>>>>>>> %v, %v\n", url, dataStr)
-
 	req, err := http.NewRequest("POST", url, strings.NewReader(dataStr))
 	req.Header.Set("Origin", "https://python.trezor.io")
-
 	client := &http.Client{Timeout: time.Second * 10}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -192,16 +178,13 @@ func callBridge(uri, dataStr string, target interface{}) ([]byte, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Printf("~~~~~~~~~~~~~~write~~~~~~~~~~~~~~~calling bridge: %v failed with code %v: %v, %v", uri, resp.StatusCode, resp.Proto, resp.Body)
 		return nil, fmt.Errorf("trezord: %v failed with code %v: %v, %v", uri, resp.StatusCode, resp.Proto, resp.Body)
 	}
 
-	fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~Resp -> status: %v, body: %v\n", resp.Status, resp.Body)
 	if target != nil {
 		return nil, json.NewDecoder(resp.Body).Decode(target)
-	} else {
-		return ioutil.ReadAll(resp.Body)
 	}
+	return ioutil.ReadAll(resp.Body)
 }
 
 func (b *BridgeTransport) write(action string, data []byte, target interface{}) error {
@@ -214,6 +197,11 @@ func (b *BridgeTransport) write(action string, data []byte, target interface{}) 
 	uri := action + "/" + session
 	_, err := callBridge(uri, common.Bytes2Hex(data), target)
 	return err
+}
+
+func Pack(packed *[6]byte, msgType uint16, serLen uint32) {
+	binary.BigEndian.PutUint16(packed[:2], msgType)
+	binary.BigEndian.PutUint32(packed[2:], serLen)
 }
 
 func unpack(packed [6]byte) (msgType uint16, serLen uint32) {
@@ -240,9 +228,6 @@ func (b *BridgeTransport) read(action string, data []byte) (interface{}, Message
 	copy(header[:], respData[:6])
 
 	msgType, _ := unpack(header)
-	fmt.Printf("----------------->>> msgType: %v\n", int32(msgType))
-	fmt.Printf("----------------->>> data: %v\n", respData[6:])
-	fmt.Printf("----------------->>> str: %v\n", string(respData[6:]))
 	maxLimit := int32(1<<31 - 1)
 	target := GetEmptyObj(MessageType(msgType))
 	resp, err := LoadMessage(strings.NewReader(string(respData[6:])), target, &maxLimit)
@@ -276,25 +261,3 @@ func revertBytePair(b byte) []byte {
 	hex := common.Bytes2Hex([]byte{b})
 	return []byte{hex[0], hex[1]}
 }
-
-// func callBridgeRead(uri, dataStr string) ([]byte, error) {
-// 	url := TREZORD_HOST + "/" + uri
-// 	// req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
-// 	req, err := http.NewRequest("POST", url, strings.NewReader(dataStr))
-// 	req.Header.Set("Origin", "https://python.trezor.io")
-
-// 	client := &http.Client{Timeout: time.Second * 10}
-// 	fmt.Printf("<<<<<<<<<<<<<<<< CALL BRIDGE >>>>>>>>>>>>>> url: %v\n", url)
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		return nil, nil
-// 	}
-// 	defer resp.Body.Close()
-
-// 	if resp.StatusCode != 200 {
-// 		fmt.Printf("~~~~~~~~~~~~~~read~~~~~~~~~~~~~~~calling bridge: %v failed with code %v: %v, %v", uri, resp.StatusCode, resp.Proto, resp.Body)
-// 		return nil, fmt.Errorf("trezord: %v failed with code %v: %v, %v", uri, resp.StatusCode, resp.Proto, resp.Body)
-// 	}
-// 	fmt.Printf("~~~~~~~~~~~~~~~~~~~~~~~~~Resp -> status: %v, body: %v\n", resp.Status, resp.Body)
-// 	return ioutil.ReadAll(resp.Body)
-// }

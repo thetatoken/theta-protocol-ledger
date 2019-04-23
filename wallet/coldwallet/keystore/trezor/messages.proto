@@ -343,7 +343,7 @@ message Address {
  * @prev ThetaGetAddress
  */
 message ThetaAddress {
-	bytes address = 1;		// Coin address as an Theta 160 bit hash
+	bytes address = 2;		// Coin address as an Theta 160 bit hash
 }
 
 /**
