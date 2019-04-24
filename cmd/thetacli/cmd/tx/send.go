@@ -38,7 +38,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 	}
 
 	wallet, fromAddress, err := walletUnlockWithPath(cmd, fromFlag, pathFlag)
-	if err != nil {
+	if err != nil || wallet == nil {
 		return
 	}
 	defer wallet.Lock(fromAddress)

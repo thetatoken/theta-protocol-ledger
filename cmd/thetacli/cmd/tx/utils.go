@@ -31,7 +31,7 @@ func walletUnlockWithPath(cmd *cobra.Command, addressStr string, path string) (w
 		cfgPath := cmd.Flag("config").Value.String()
 		wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
 	} else {
-		derivationPath, err := parseDerivationPath(path)
+		derivationPath, err := parseDerivationPath(path, walletType)
 		if err != nil {
 			return nil, common.Address{}, err
 		}
@@ -46,6 +46,7 @@ func ColdWalletUnlock(walletType wtypes.WalletType, derivationPath types.Derivat
 		fmt.Printf("Failed to open wallet: %v\n", err)
 		return nil, common.Address{}, err
 	}
+
 	err = wallet.Unlock(common.Address{}, "", derivationPath)
 	if err != nil {
 		fmt.Printf("Failed to unlock wallet: %v\n", err)
@@ -106,9 +107,17 @@ func getWalletType(cmd *cobra.Command) (walletType wtypes.WalletType) {
 	return walletType
 }
 
-func parseDerivationPath(nstr string) (types.DerivationPath, error) {
+func parseDerivationPath(nstr string, walletType wtypes.WalletType) (types.DerivationPath, error) {
 	if len(nstr) == 0 {
-		nstr = "m/44'/60'/0'/0/0"
+		if walletType == wtypes.WalletTypeColdNano {
+			// nstr = "m/44'/60'/0'/0"
+			return types.DefaultRootDerivationPath, nil
+		} else if walletType == wtypes.WalletTypeColdTrezor {
+			// nstr = "m/44'/60'/0'/0/0"
+			return types.DefaultBaseDerivationPath, nil
+		} else {
+			return nil, fmt.Errorf("can't parse derivation path for soft wallet")
+		}
 	}
 
 	n := strings.Split(nstr, "/")
@@ -127,8 +136,6 @@ func parseDerivationPath(nstr string) (types.DerivationPath, error) {
 		derivationPath = append(derivationPath, uint32(p))
 	}
 
-	//     return [str_to_harden(x) for x in n]
-	//     raise ValueError("Invalid BIP32 path", nstr)
 	return derivationPath, nil
 }
 
