@@ -869,7 +869,7 @@ func (tx *WithdrawStakeTx) String() string {
 
 // --------------- Utils --------------- //
 
-type EthereumTx struct {
+type EthereumTxWrapper struct {
 	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
 	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
 	GasLimit     uint64          `json:"gas"      gencodec:"required"`
@@ -881,7 +881,7 @@ type EthereumTx struct {
 // Need to add the following prefix to the tx signbytes to be compatible with
 // the Ethereum tx format
 func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
-	ethTx := EthereumTx{
+	ethTx := EthereumTxWrapper{
 		AccountNonce: uint64(0),
 		Price:        new(big.Int).SetUint64(0),
 		GasLimit:     uint64(0),

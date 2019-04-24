@@ -210,7 +210,7 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 	}
 	defer w.bridge.EndSession()
 
-	tx := &tp.EthereumTx{}
+	tx := &tp.EthereumTxWrapper{}
 	err = rlp.DecodeBytes(txrlp, tx)
 
 	// Create the transaction initiation message
