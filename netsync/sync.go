@@ -2,6 +2,7 @@ package netsync
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -40,6 +41,8 @@ type SyncManager struct {
 
 	incoming chan p2ptypes.Message
 
+	whitelist []string
+
 	logger *log.Entry
 }
 
@@ -55,6 +58,10 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network 
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
+
+	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
+		sm.whitelist = strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
+	}
 
 	logger := util.GetLoggerForModule("sync")
 	if viper.GetBool(common.CfgLogPrintSelfID) {
@@ -134,14 +141,32 @@ func (sm *SyncManager) HandleMessage(msg p2ptypes.Message) (err error) {
 }
 
 func (sm *SyncManager) processMessage(message p2ptypes.Message) {
+	inboundAllowed := true
+	// If whitelist is set, only process message from peers in the whitelist.
+	if len(sm.whitelist) > 0 {
+		inboundAllowed = false
+		for _, peerID := range sm.whitelist {
+			if strings.ToLower(peerID) == strings.ToLower(message.PeerID) {
+				inboundAllowed = true
+				break
+			}
+		}
+	}
+
 	switch content := message.Content.(type) {
 	case dispatcher.InventoryRequest:
 		sm.handleInvRequest(message.PeerID, &content)
 	case dispatcher.InventoryResponse:
+		if !inboundAllowed {
+			return
+		}
 		sm.handleInvResponse(message.PeerID, &content)
 	case dispatcher.DataRequest:
 		sm.handleDataRequest(message.PeerID, &content)
 	case dispatcher.DataResponse:
+		if !inboundAllowed {
+			return
+		}
 		sm.handleDataResponse(message.PeerID, &content)
 	default:
 		sm.logger.WithFields(log.Fields{
@@ -322,6 +347,40 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 	}
 }
 
+func Fuzz(data []byte) int {
+	if len(data) == 0 {
+		return -1
+	}
+	if data[0]%4 == 0 {
+		block := core.NewBlock()
+		err := rlp.DecodeBytes(data[1:], block)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if data[0]%4 == 1 {
+		vote := core.Vote{}
+		err := rlp.DecodeBytes(data[1:], &vote)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if data[0]%4 == 2 {
+		proposal := &core.Proposal{}
+		err := rlp.DecodeBytes(data[1:], proposal)
+		if err != nil {
+			return 1
+		}
+		return 0
+	}
+	if _, err := decodeMessage(data); err != nil {
+		return 1
+	}
+	return 0
+}
+
 func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
@@ -336,6 +395,11 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"block.Hash":   block.Hash().Hex(),
+			"block.Parent": block.Parent.Hex(),
+			"peer":         peerID,
+		}).Debug("Received block")
 		m.handleBlock(block)
 	case common.ChannelIDVote:
 		vote := core.Vote{}
@@ -349,6 +413,12 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"vote.Hash":  vote.Block.Hex(),
+			"vote.ID":    vote.ID.Hex(),
+			"vote.Epoch": vote.Epoch,
+			"peer":       peerID,
+		}).Debug("Received vote")
 		m.handleVote(vote)
 	case common.ChannelIDProposal:
 		proposal := &core.Proposal{}
@@ -362,6 +432,10 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
+		m.logger.WithFields(log.Fields{
+			"proposal": proposal,
+			"peer":     peerID,
+		}).Debug("Received proposal")
 		m.handleProposal(proposal)
 	default:
 		m.logger.WithFields(log.Fields{
@@ -371,10 +445,6 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 }
 
 func (sm *SyncManager) handleProposal(p *core.Proposal) {
-	sm.logger.WithFields(log.Fields{
-		"proposal": p,
-	}).Debug("Received proposal")
-
 	if p.Votes != nil {
 		for _, vote := range p.Votes.Votes() {
 			sm.handleVote(vote)
@@ -384,12 +454,11 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
-	sm.logger.WithFields(log.Fields{
-		"block.Hash":   block.Hash().Hex(),
-		"block.Parent": block.Parent.Hex(),
-	}).Debug("Received block")
-
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
+		return
+	}
+
+	if res := block.Validate(sm.chain.ChainID); res.IsError() {
 		return
 	}
 
@@ -402,12 +471,6 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {
-	sm.logger.WithFields(log.Fields{
-		"vote.Hash":  vote.Block.Hex(),
-		"vote.ID":    vote.ID.Hex(),
-		"vote.Epoch": vote.Epoch,
-	}).Debug("Received vote")
-
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
 	for _, v := range votes {
 		// Check if vote already processed.

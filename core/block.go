@@ -57,6 +57,18 @@ func (b *Block) updateTxHash() {
 	b.ReceiptHash = EmptyRootHash
 }
 
+// Validate checks the block is legitimate.
+func (b *Block) Validate(chainID string) result.Result {
+	res := b.BlockHeader.Validate(chainID)
+	if res.IsError() {
+		return res
+	}
+	if b.TxHash != calculateRootHash(b.Txs) {
+		return result.Error("TxHash does not match")
+	}
+	return result.OK
+}
+
 func calculateRootHash(items []common.Bytes) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
@@ -145,7 +157,10 @@ func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
 }
 
 // Validate checks the header is legitimate.
-func (h *BlockHeader) Validate() result.Result {
+func (h *BlockHeader) Validate(chainID string) result.Result {
+	if chainID != h.ChainID {
+		return result.Error("ChainID mismatch")
+	}
 	if h.Parent.IsEmpty() {
 		return result.Error("Parent is empty")
 	}
