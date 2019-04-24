@@ -23,7 +23,6 @@ package keystore
 
 import (
 	"bytes"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -268,7 +267,6 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, txrlp common.Bytes) (
 		return common.Address{}, nil, errors.New("Signature bytes should be 65 bytes lone")
 	}
 	sigBytes[64] -= byte(27)
-	logger.Printf("====================== sigBytes: %v\n", hex.EncodeToString(sigBytes))
 
 	// Create the correct signer and signature
 	signature, err := crypto.SignatureFromBytes(sigBytes)

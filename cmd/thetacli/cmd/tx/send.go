@@ -12,6 +12,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rpc"
+	wtypes "github.com/thetatoken/theta/wallet/types"
 
 	"github.com/ybbus/jsonrpc"
 	rpcc "github.com/ybbus/jsonrpc"
@@ -19,17 +20,25 @@ import (
 
 // sendCmd represents the send command
 // Example:
-//		thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --path "m/44'/60'/0'/0/0" --theta=10 --tfuel=9 --seq=1 --wallet=trezor
+//		thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1
+//		thetacli tx send --chain="privatenet" --path "m/44'/60'/0'/0/0" --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1 --wallet=trezor
+//		thetacli tx send --chain="privatenet" --path "m/44'/60'/0'/0" --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1 --wallet=nano
 var sendCmd = &cobra.Command{
 	Use:     "send",
 	Short:   "Send tokens",
-	Example: `thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --path "m/44'/60'/0'/0/0" --theta=10 --tfuel=9 --seq=1 --wallet=trezor`,
+	Example: `thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=9F1233798E905E173560071255140b4A8aBd3Ec6 --theta=10 --tfuel=9 --seq=1`,
 	Run:     doSendCmd,
 }
 
 func doSendCmd(cmd *cobra.Command, args []string) {
-	if len(fromFlag) == 0 || len(toFlag) == 0 {
-		utils.Error("The from and to address cannot be empty")
+	walletType := getWalletType(cmd)
+	if walletType == wtypes.WalletTypeSoft && len(fromFlag) == 0 {
+		utils.Error("The from address cannot be empty") // we don't need to specify the "from address" for hardware wallets
+		return
+	}
+
+	if len(toFlag) == 0 {
+		utils.Error("The to address cannot be empty")
 		return
 	}
 	if fromFlag == toFlag {
@@ -127,11 +136,11 @@ func init() {
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
 	sendCmd.Flags().StringVar(&tfuelAmountFlag, "tfuel", "0", "TFuel amount")
 	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
-	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
+	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano|trezor)")
 	sendCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
 
 	sendCmd.MarkFlagRequired("chain")
-	sendCmd.MarkFlagRequired("from")
+	//sendCmd.MarkFlagRequired("from")
 	sendCmd.MarkFlagRequired("to")
 	sendCmd.MarkFlagRequired("seq")
 }
