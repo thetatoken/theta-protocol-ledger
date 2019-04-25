@@ -1275,6 +1275,7 @@ func TestSplitRuleHundredPercSplits(t *testing.T) {
 	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
 	et.acc2State(initiator)
 
+	// 100% of the payment are split, 0% left for the target account
 	splitAlice := types.Split{
 		Address:    alice.Address,
 		Percentage: 70,
@@ -1332,6 +1333,291 @@ func TestSplitRuleHundredPercSplits(t *testing.T) {
 	aliceReservedFund := types.Coins{TFuelWei: big.NewInt(2001 * txFee), ThetaWei: big.NewInt(0)}
 	reserveFundTxFee := types.NewCoins(0, getMinimumTxFee())
 	servicePaymentTxFee := types.NewCoins(0, txFee)
+
+	assert.Equal(aliceInitBalance.Minus(aliceReservedFund).Minus(reserveFundTxFee).Plus(aliceSplitCoins), aliceFinalBalance)
+	assert.Equal(bobInitBalance.Plus(bobSplitCoins), bobFinalBalance)
+	assert.Equal(carolInitBalance.Plus(carolSplitCoins).Minus(servicePaymentTxFee), carolFinalBalance)
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(alice.Address).Sequence) // seq=1 due to reserveFundTx
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(bob.Address).Sequence)
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(carol.Address).Sequence)     // target's seq should not increase after servicePaymentTx
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(initiator.Address).Sequence) // seq=1 due to splitRuleTx
+	assert.Equal(1, len(et.state().Delivered().GetAccount(alice.Address).ReservedFunds))
+	assert.True(et.state().Delivered().GetAccount(alice.Address).ReservedFunds[0].UsedFund.IsPositive())
+}
+
+func TestSplitRuleOverHundredPercSplits(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, _, _, _, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	txFee := getMinimumTxFee()
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	et.acc2State(initiator)
+
+	splitAlice := types.Split{
+		Address:    alice.Address,
+		Percentage: 91,
+	}
+
+	splitBob := types.Split{
+		Address:    alice.Address,
+		Percentage: 10,
+	}
+
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.Address,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitAlice, splitBob},
+		Duration: uint64(99999),
+	}
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.False(res.IsOK(), res.Message) // should be rejected
+}
+
+func TestSplitRuleSingleHundredPercSplits(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	txFee := getMinimumTxFee()
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	et.acc2State(initiator)
+
+	// 100% of the payment are split, 0% left for the target account
+	splitAlice := types.Split{
+		Address:    alice.Address,
+		Percentage: 100,
+	}
+
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.Address,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitAlice}, // Alice splits all the payment, leaving nothing to Carol
+		Duration: uint64(99999),
+	}
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+
+	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	payAmount := int64(1000 * txFee)
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+
+	// Alice send the service payment to Carol, whose address is included in the split address list
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 100*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 500*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &carol, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	aliceFinalBalance := et.state().Delivered().GetAccount(alice.Address).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.Address).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.Address).Balance
+	log.Infof("Bob's final balance:   %v", bobFinalBalance)
+	log.Infof("Carol's final balance: %v", carolFinalBalance)
+
+	// Check the balances of the relevant accounts
+	aliceSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount * 100 / 100), ThetaWei: big.NewInt(0)}
+	carolSplitCoins := types.Coins{TFuelWei: big.NewInt(0), ThetaWei: big.NewInt(0)} // Carol should get nothing
+	aliceReservedFund := types.Coins{TFuelWei: big.NewInt(2001 * txFee), ThetaWei: big.NewInt(0)}
+	reserveFundTxFee := types.NewCoins(0, getMinimumTxFee())
+	servicePaymentTxFee := types.NewCoins(0, txFee)
+
+	assert.Equal(aliceInitBalance.Minus(aliceReservedFund).Minus(reserveFundTxFee).Plus(aliceSplitCoins), aliceFinalBalance)
+	assert.Equal(carolInitBalance.Plus(carolSplitCoins).Minus(servicePaymentTxFee), carolFinalBalance)
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(alice.Address).Sequence) // seq=1 due to reserveFundTx
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(bob.Address).Sequence)
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(carol.Address).Sequence)     // target's seq should not increase after servicePaymentTx
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(initiator.Address).Sequence) // seq=1 due to splitRuleTx
+	assert.Equal(1, len(et.state().Delivered().GetAccount(alice.Address).ReservedFunds))
+	assert.True(et.state().Delivered().GetAccount(alice.Address).ReservedFunds[0].UsedFund.IsPositive())
+}
+
+func TestSplitRuleSplitZeroPercSplits(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	txFee := getMinimumTxFee()
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	et.acc2State(initiator)
+
+	splitAlice := types.Split{
+		Address:    alice.Address,
+		Percentage: 0,
+	}
+
+	splitBob := types.Split{
+		Address:    bob.Address,
+		Percentage: 0,
+	}
+
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.Address,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitAlice, splitBob}, // Alice and Bob split the payment, leaving nothing to Carol
+		Duration: uint64(99999),
+	}
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+
+	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	payAmount := int64(1000 * txFee)
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+
+	// Alice send the service payment to Carol, whose address is included in the split address list
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 100*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 500*txFee, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &carol, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	aliceFinalBalance := et.state().Delivered().GetAccount(alice.Address).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.Address).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.Address).Balance
+	log.Infof("Bob's final balance:   %v", bobFinalBalance)
+	log.Infof("Carol's final balance: %v", carolFinalBalance)
+
+	// Check the balances of the relevant accounts
+	aliceSplitCoins := types.Coins{TFuelWei: big.NewInt(0), ThetaWei: big.NewInt(0)}
+	bobSplitCoins := types.Coins{TFuelWei: big.NewInt(0), ThetaWei: big.NewInt(0)}
+	carolSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount), ThetaWei: big.NewInt(0)} // Carol should get 100%
+	aliceReservedFund := types.Coins{TFuelWei: big.NewInt(2001 * txFee), ThetaWei: big.NewInt(0)}
+	reserveFundTxFee := types.NewCoins(0, getMinimumTxFee())
+	servicePaymentTxFee := types.NewCoins(0, txFee)
+
+	assert.Equal(aliceInitBalance.Minus(aliceReservedFund).Minus(reserveFundTxFee).Plus(aliceSplitCoins), aliceFinalBalance)
+	assert.Equal(bobInitBalance.Plus(bobSplitCoins), bobFinalBalance)
+	assert.Equal(carolInitBalance.Plus(carolSplitCoins).Minus(servicePaymentTxFee), carolFinalBalance)
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(alice.Address).Sequence) // seq=1 due to reserveFundTx
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(bob.Address).Sequence)
+	assert.Equal(uint64(0), et.state().Delivered().GetAccount(carol.Address).Sequence)     // target's seq should not increase after servicePaymentTx
+	assert.Equal(uint64(1), et.state().Delivered().GetAccount(initiator.Address).Sequence) // seq=1 due to splitRuleTx
+	assert.Equal(1, len(et.state().Delivered().GetAccount(alice.Address).ReservedFunds))
+	assert.True(et.state().Delivered().GetAccount(alice.Address).ReservedFunds[0].UsedFund.IsPositive())
+}
+
+func TestSplitRuleTxSplitPaymentRounding(t *testing.T) {
+	assert := assert.New(t)
+	et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance := setupForServicePayment(assert)
+	log.Infof("Bob's initial balance:   %v", bobInitBalance)
+	log.Infof("Carol's initial balance: %v", carolInitBalance)
+
+	txFee := getMinimumTxFee()
+
+	initiator := types.MakeAcc("User David")
+	initiator.Balance = types.Coins{TFuelWei: big.NewInt(10000 * txFee), ThetaWei: big.NewInt(0)}
+	et.acc2State(initiator)
+
+	splitAlice := types.Split{
+		Address:    alice.Address,
+		Percentage: 27,
+	}
+	splitBob := types.Split{
+		Address:    bob.Address,
+		Percentage: 19,
+	}
+	splitCarol := types.Split{
+		Address:    carol.Address,
+		Percentage: 17,
+	}
+	splitRuleTx := &types.SplitRuleTx{
+		Fee:        types.NewCoins(0, txFee),
+		ResourceID: resourceID,
+		Initiator: types.TxInput{
+			Address:  initiator.Address,
+			Sequence: 1,
+		},
+		Splits:   []types.Split{splitAlice, splitCarol, splitBob, splitCarol}, // intentionally repeat splitCarol here
+		Duration: uint64(99999),
+	}
+	signBytes := splitRuleTx.SignBytes(et.chainID)
+	splitRuleTx.Initiator.Signature = initiator.Sign(signBytes)
+
+	res := et.executor.getTxExecutor(splitRuleTx).sanityCheck(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+	_, res = et.executor.getTxExecutor(splitRuleTx).process(et.chainID, et.state().Delivered(), splitRuleTx)
+	assert.True(res.IsOK(), res.Message)
+
+	// Simulate micropayment #1 between Alice and Bob, Carol should get a cut
+	payAmount := int64(7238923) // down-rounding should occur for Alice and Bob's split calculation
+	srcSeq, tgtSeq, paymentSeq, reserveSeq := 1, 1, 1, 1
+
+	// Alice send the service payment to Carol, whose address is included in the split address list
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 100, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	_ = createServicePaymentTx(et.chainID, &alice, &carol, 500, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	servicePaymentTx := createServicePaymentTx(et.chainID, &alice, &carol, payAmount, srcSeq, tgtSeq, paymentSeq, reserveSeq, resourceID)
+	res = et.executor.getTxExecutor(servicePaymentTx).sanityCheck(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	assert.Equal(0, len(et.state().Delivered().GetSlashIntents()))
+	_, res = et.executor.getTxExecutor(servicePaymentTx).process(et.chainID, et.state().Delivered(), servicePaymentTx)
+	assert.True(res.IsOK(), res.Message)
+
+	et.state().Commit()
+
+	aliceFinalBalance := et.state().Delivered().GetAccount(alice.Address).Balance
+	bobFinalBalance := et.state().Delivered().GetAccount(bob.Address).Balance
+	carolFinalBalance := et.state().Delivered().GetAccount(carol.Address).Balance
+	log.Infof("Bob's final balance:   %v", bobFinalBalance)
+	log.Infof("Carol's final balance: %v", carolFinalBalance)
+
+	// Check the balances of the relevant accounts
+	aliceSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount * 27 / 100), ThetaWei: big.NewInt(0)}
+	bobSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount * 19 / 100), ThetaWei: big.NewInt(0)}
+	carolSplitCoins := types.Coins{TFuelWei: big.NewInt(payAmount - payAmount*27/100 - payAmount*19/100), ThetaWei: big.NewInt(0)}
+	aliceReservedFund := types.Coins{TFuelWei: big.NewInt(2001 * txFee), ThetaWei: big.NewInt(0)}
+	reserveFundTxFee := types.NewCoins(0, getMinimumTxFee())
+	servicePaymentTxFee := types.NewCoins(0, txFee)
+	log.Infof("Payment amount: %v TFuelWei", payAmount)
+	log.Infof("Alice's split : %v TFuelWei", aliceSplitCoins.TFuelWei)
+	log.Infof("Bob's   split : %v TFuelWei", bobSplitCoins.TFuelWei)
+	log.Infof("Carol's split : %v TFuelWei", carolSplitCoins.TFuelWei)
 
 	assert.Equal(aliceInitBalance.Minus(aliceReservedFund).Minus(reserveFundTxFee).Plus(aliceSplitCoins), aliceFinalBalance)
 	assert.Equal(bobInitBalance.Plus(bobSplitCoins), bobFinalBalance)
