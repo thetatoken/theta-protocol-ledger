@@ -2,10 +2,8 @@ package connection
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -53,6 +51,9 @@ type Connection struct {
 	pendingPings uint32
 
 	config ConnectionConfig
+
+	rmu, wmu sync.Mutex
+	rw       *rlpxFrameRW
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -298,12 +299,12 @@ func (conn *Connection) sendPingSignal() error {
 		logger.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 	}
-	pingPacket := Packet{
+	pingPacket := &Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PingSignal},
 		IsEOF:     byte(0x01),
 	}
-	err := rlp.Encode(conn.bufWriter, pingPacket)
+	err := conn.writePacket(pingPacket)
 	if err != nil {
 		return err
 	}
@@ -314,12 +315,12 @@ func (conn *Connection) sendPingSignal() error {
 }
 
 func (conn *Connection) sendPongSignal() error {
-	pongPacket := Packet{
+	pongPacket := &Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PongSignal},
 		IsEOF:     byte(0x01),
 	}
-	err := rlp.Encode(conn.bufWriter, pongPacket)
+	err := conn.writePacket(pongPacket)
 	if err != nil {
 		return err
 	}
@@ -337,18 +338,31 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 
 // --------------------- Recv goroutine --------------------- //
 
-func Fuzz(data []byte) int {
-	buff := bytes.NewBuffer(data)
-	var packet Packet
-	if err := decodePacket(buff, &packet); err != nil {
-		return 1
+func (conn *Connection) readPacket() (*Packet, error) {
+	// Plaintext transport.
+	if conn.rw == nil {
+		panic("conn.rw == nil ")
+		packet := &Packet{}
+		s := rlp.NewStream(conn.bufReader, maxPayloadSize*1024)
+		err := s.Decode(packet)
+		return packet, err
 	}
-	return 0
+	// Encrypted transport.
+	conn.rmu.Lock()
+	defer conn.rmu.Unlock()
+	return conn.rw.ReadPacket()
 }
 
-func decodePacket(r io.Reader, p *Packet) error {
-	s := rlp.NewStream(r, maxPayloadSize*1024)
-	return s.Decode(p)
+func (conn *Connection) writePacket(packet *Packet) error {
+	// Plaintext transport.
+	if conn.rw == nil {
+		panic("conn.rw == nil ")
+		return rlp.Encode(conn.bufWriter, packet)
+	}
+	// Encrypted transport.
+	conn.wmu.Lock()
+	defer conn.wmu.Unlock()
+	return conn.rw.WritePacket(packet)
 }
 
 func (conn *Connection) recvRoutine() {
@@ -366,8 +380,7 @@ func (conn *Connection) recvRoutine() {
 		// Block until recvMonitor allows reading
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
-		var packet Packet
-		err := decodePacket(conn.bufReader, &packet)
+		packet, err := conn.readPacket()
 		if err != nil {
 			logger.Errorf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return
@@ -375,9 +388,9 @@ func (conn *Connection) recvRoutine() {
 		conn.recvMonitor.Update(int(1))
 		switch packet.ChannelID {
 		case common.ChannelIDPing:
-			conn.handlePingPong(&packet)
+			conn.handlePingPong(packet)
 		default:
-			conn.handleReceivedPacket(&packet)
+			conn.handleReceivedPacket(packet)
 		}
 
 		//conn.pingTimer.Reset() // TODO: replace with lightweight Reset()
@@ -477,7 +490,7 @@ func (conn *Connection) sendPacket() (success bool, exhausted bool) {
 		return true, true // Nothing to be sent
 	}
 
-	nonemptyPacket, numBytes, err := channel.sendPacketTo(conn.bufWriter)
+	nonemptyPacket, numBytes, err := channel.sendPacketTo(conn)
 	if err != nil {
 		return false, !nonemptyPacket
 	}

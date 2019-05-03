@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -142,12 +144,29 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
+	var remotePub *crypto.PublicKey
+	if os.Getenv("ROGUE_KEY") == "1" {
+		remotePub, err = peer.connection.DoEncHandshake(
+			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(sourceNodeInfo.PrivKey.PublicKey()))
+	} else {
+		remotePub, err = peer.connection.DoEncHandshake(
+			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
+	}
+	if err != nil {
+		logger.Errorf("Error during handshake/key exchange: %v", err)
+		return err
+	}
+	if remotePub.Address() != targetNodePubKey.Address() {
+		err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
+		logger.Errorf("Error during handshake/key exchange: %v", err)
+		return err
+	}
 	if !peer.isOutbound {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
 	}
 
-	logger.Infof("Handshake completed, target address: %v, target public key: %v",
-		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
+	logger.Infof("Handshake completed, target address: %v, target public key: %v, address: %v",
+		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()), targetNodePubKey.Address())
 
 	return nil
 }

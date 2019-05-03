@@ -191,7 +191,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := messenger.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}

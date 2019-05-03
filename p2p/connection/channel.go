@@ -1,10 +1,7 @@
 package connection
 
 import (
-	"io"
-
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/rlp"
 )
 
 //
@@ -79,19 +76,24 @@ func (ch *Channel) receivePacket(packet *Packet) ([]byte, bool) {
 }
 
 // sendPacketTo serializes and sends the next packet to the given writer
-func (ch *Channel) sendPacketTo(writer io.Writer) (nonemptyPacket bool, numBytes int, err error) {
+func (ch *Channel) sendPacketTo(conn *Connection) (nonemptyPacket bool, numBytes int, err error) {
 	packet := ch.sendBuf.emitPacket(ch.id)
 	if packet.isEmpty() {
 		return false, int(0), nil
 	}
 
-	// TODO: shall we use rlp.Encode() instead? But that won't return the num of bytes encoded
-	packetBytes, err := rlp.EncodeToBytes(packet)
+	// // TODO: shall we use rlp.Encode() instead? But that won't return the num of bytes encoded
+	// packetBytes, err := rlp.EncodeToBytes(packet)
+	// if err != nil {
+	// 	return true, int(0), nil
+	// }
+	err = conn.writePacket(&packet)
 	if err != nil {
 		return true, int(0), nil
 	}
+	numBytes = 0
 
-	numBytes, err = writer.Write(packetBytes)
+	// numBytes, err = writer.Write(packetBytes)
 	return true, numBytes, err
 }
 
