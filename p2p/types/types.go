@@ -26,6 +26,9 @@ type NodeInfo struct {
 	Port        uint16
 }
 
+// ExtraInfo is a placeholder for extra protocol version for forward compatibility.
+type ExtraInfo [2048]byte
+
 // CreateNodeInfo creates an instance of NodeInfo
 func CreateNodeInfo(pubKey *crypto.PublicKey, port uint16) NodeInfo {
 	nodeInfo := NodeInfo{

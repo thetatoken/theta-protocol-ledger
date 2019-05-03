@@ -341,7 +341,6 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 func (conn *Connection) readPacket() (*Packet, error) {
 	// Plaintext transport.
 	if conn.rw == nil {
-		panic("conn.rw == nil ")
 		packet := &Packet{}
 		s := rlp.NewStream(conn.bufReader, maxPayloadSize*1024)
 		err := s.Decode(packet)
@@ -356,7 +355,6 @@ func (conn *Connection) readPacket() (*Packet, error) {
 func (conn *Connection) writePacket(packet *Packet) error {
 	// Plaintext transport.
 	if conn.rw == nil {
-		panic("conn.rw == nil ")
 		return rlp.Encode(conn.bufWriter, packet)
 	}
 	// Encrypted transport.

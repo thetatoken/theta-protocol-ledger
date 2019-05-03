@@ -6,11 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	cmn "github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	cn "github.com/thetatoken/theta/p2p/connection"
@@ -120,7 +121,13 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
-		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), sourceNodeInfo) },
+		func() {
+			nodeInfo := &p2ptypes.NodeInfo{
+				PubKeyBytes: sourceNodeInfo.PubKeyBytes,
+				Port:        0,
+			}
+			sendError = rlp.Encode(peer.connection.GetNetconn(), nodeInfo)
+		},
 		func() {
 			s := rlp.NewStream(peer.connection.GetNetconn(), 1024)
 			recvError = s.Decode(&targetPeerNodeInfo)
@@ -144,23 +151,48 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
-	var remotePub *crypto.PublicKey
-	if os.Getenv("ROGUE_KEY") == "1" {
-		remotePub, err = peer.connection.DoEncHandshake(
-			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(sourceNodeInfo.PrivKey.PublicKey()))
-	} else {
-		remotePub, err = peer.connection.DoEncHandshake(
+	if targetPeerNodeInfo.Port == 0 {
+		// Forward compatibility.
+		targetExtraInfo := &p2ptypes.ExtraInfo{}
+		cmn.Parallel(
+			func() {
+				extraNodeInfo := &p2ptypes.ExtraInfo{}
+				sendError = rlp.Encode(peer.connection.GetNetconn(), extraNodeInfo)
+			},
+			func() {
+				s := rlp.NewStream(peer.connection.GetNetconn(), 4096)
+				recvError = s.Decode(targetExtraInfo)
+			},
+		)
+		if sendError != nil {
+			logger.Errorf("Error during handshake/send extra info: %v", sendError)
+			return sendError
+		}
+		if recvError != nil {
+			logger.Errorf("Error during handshake/recv extra info: %v", recvError)
+			return recvError
+		}
+
+		remotePub, err := peer.connection.DoEncHandshake(
 			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
+		if err != nil {
+			logger.Errorf("Error during handshake/key exchange: %v", err)
+			return err
+		} else {
+			if remotePub.Address() != targetNodePubKey.Address() {
+				err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
+				logger.Errorf("Error during handshake/key exchange: %v", err)
+				return err
+			}
+		}
+		logger.Infof("Using encrypted transport for peer: %v", targetNodePubKey.Address())
+	} else if viper.GetBool(common.CfgP2PPlainTextSupport) {
+		logger.Infof("Using plaintext transport for peer: %v", targetNodePubKey.Address())
+	} else {
+		logger.Errorf("Plaintext transport is not enabled")
+		return fmt.Errorf("Plaintext transport is not enabled")
 	}
-	if err != nil {
-		logger.Errorf("Error during handshake/key exchange: %v", err)
-		return err
-	}
-	if remotePub.Address() != targetNodePubKey.Address() {
-		err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
-		logger.Errorf("Error during handshake/key exchange: %v", err)
-		return err
-	}
+
 	if !peer.isOutbound {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
 	}
