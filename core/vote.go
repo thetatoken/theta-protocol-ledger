@@ -125,6 +125,12 @@ func (v Vote) Validate() result.Result {
 	return result.OK
 }
 
+// Hash calculates vote's hash.
+func (v Vote) Hash() common.Hash {
+	raw, _ := rlp.EncodeToBytes(v)
+	return crypto.Keccak256Hash(raw)
+}
+
 // VoteSet represents a set of votes on a proposal.
 type VoteSet struct {
 	votes map[string]Vote // Voter ID to vote
