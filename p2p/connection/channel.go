@@ -82,11 +82,6 @@ func (ch *Channel) sendPacketTo(conn *Connection) (nonemptyPacket bool, numBytes
 		return false, int(0), nil
 	}
 
-	// // TODO: shall we use rlp.Encode() instead? But that won't return the num of bytes encoded
-	// packetBytes, err := rlp.EncodeToBytes(packet)
-	// if err != nil {
-	// 	return true, int(0), nil
-	// }
 	err = conn.writePacket(&packet)
 	if err != nil {
 		return true, int(0), nil
