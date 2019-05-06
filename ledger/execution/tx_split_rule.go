@@ -101,6 +101,10 @@ func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, tra
 		return common.Hash{}, res
 	}
 
+	if !chargeFee(initiatorAccount, tx.Fee) {
+		return common.Hash{}, result.Error("failed to charge transaction fee")
+	}
+
 	currentBlockHeight := view.Height()
 	view.DeleteExpiredSplitRules(currentBlockHeight)
 
@@ -129,10 +133,6 @@ func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, tra
 
 	if !success {
 		return common.Hash{}, result.Error("failed to add or update split rule")
-	}
-
-	if !chargeFee(initiatorAccount, tx.Fee) {
-		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
 
 	initiatorAccount.Sequence++
