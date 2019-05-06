@@ -60,17 +60,17 @@ func testSoftWalletBasics(t *testing.T, ksType KeystoreType) {
 	err = wallet.UpdatePassword(addr, password1, password2) // update password for a closed password
 	assert.Nil(err)
 
-	err = wallet.Unlock(addr, password1)
+	err = wallet.Unlock(addr, password1, nil)
 	if ksType == KeystoreTypeEncrypted {
 		assert.NotNil(err)
 	}
-	err = wallet.Unlock(addr, password2)
+	err = wallet.Unlock(addr, password2, nil)
 	assert.Nil(err)
 	err = wallet.Lock(addr)
 	assert.Nil(err)
 
 	password3 := "Kdaw82892fDWO"
-	err = wallet.Unlock(addr, password2)
+	err = wallet.Unlock(addr, password2, nil)
 	assert.Nil(err)
 	err = wallet.UpdatePassword(addr, password2, password3) // update password for a unlocked password
 	assert.Nil(err)
@@ -94,7 +94,7 @@ func testSoftWalletBasics(t *testing.T, ksType KeystoreType) {
 	} else {
 		assert.Nil(err)
 	}
-	err = wallet.Unlock(addr, password3)
+	err = wallet.Unlock(addr, password3, nil)
 	assert.NotNil(err)
 }
 
