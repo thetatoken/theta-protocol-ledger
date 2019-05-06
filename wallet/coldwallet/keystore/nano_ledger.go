@@ -439,7 +439,7 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 		}
 	}
 	if len(reply) == 0 {
-		return w.ledgerExchange(opcode, p1, p2, data)
+		return nil, fmt.Errorf("Reply is empty")
 	}
 	return reply[:len(reply)-2], nil
 }
