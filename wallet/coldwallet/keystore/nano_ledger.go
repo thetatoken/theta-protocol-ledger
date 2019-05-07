@@ -110,7 +110,7 @@ func (w *ledgerDriver) offline() bool {
 func (w *ledgerDriver) Open(device io.ReadWriter, password string) error {
 	w.device, w.failure = device, nil
 
-	_, err := w.Derive(types.DefaultBaseDerivationPath)
+	_, err := w.Derive(types.DefaultRootDerivationPath)
 	if err != nil {
 		// Ethereum app is not running or in browser mode, nothing more to do, return
 		if err == errLedgerReplyInvalidHeader {
@@ -437,6 +437,9 @@ func (w *ledgerDriver) ledgerExchange(opcode ledgerOpcode, p1 ledgerParam1, p2 l
 			reply = append(reply, payload[:left]...)
 			break
 		}
+	}
+	if len(reply) == 0 {
+		return nil, fmt.Errorf("Reply is empty")
 	}
 	return reply[:len(reply)-2], nil
 }
