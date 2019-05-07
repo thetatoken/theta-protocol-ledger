@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/thetatoken/theta/rlp"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/common"
@@ -12,24 +12,40 @@ import (
 
 func TestDefaultChannelEnqueueShortMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := createDefaultChannel(common.ChannelIDTransaction)
-
-	assert.Equal(common.ChannelIDTransaction, ch.getID())
-
+	port := 43253
 	msgBytes := []byte("hello world")
-	success := ch.enqueueMessage(msgBytes)
-	assert.True(success)
-	assert.True(ch.hasPacketToSend())
 
-	strBuf := bytes.NewBufferString("")
-	nonempty, numBytes, err := ch.sendPacketTo(strBuf)
-	assert.True(nonempty)
-	assert.True(numBytes > len(msgBytes))
+	go func() {
+		netconn := p2ptypes.GetTestNetconn(port)
+		defer netconn.Close()
+		ch := createDefaultChannel(common.ChannelIDTransaction)
+		assert.Equal(common.ChannelIDTransaction, ch.getID())
+
+		ch.enqueueMessage(msgBytes)
+		cfg := GetDefaultConnectionConfig()
+		conn := CreateConnection(netconn, cfg)
+
+		nonemptyPacket, _, err := ch.sendPacketTo(conn)
+		assert.True(nonemptyPacket)
+		assert.Nil(err)
+		conn.flush()
+	}()
+
+	listener := p2ptypes.GetTestListener(port)
+
+	lnetconn, err := listener.Accept()
+
 	assert.Nil(err)
-	t.Logf("numBytes: %v", numBytes)
+	defer lnetconn.Close()
+	cfg := GetDefaultConnectionConfig()
+	lconn := CreateConnection(lnetconn, cfg)
 
-	var decodedPacket Packet
-	rlp.Decode(strBuf, &decodedPacket)
+	assert.Nil(err)
+
+	decodedPacket, err := lconn.readPacket()
+
+	assert.Nil(err)
+	assert.Equal(common.ChannelIDTransaction, decodedPacket.ChannelID)
 	t.Logf("decodedPacket.ChannelID: %v", decodedPacket.ChannelID)
 	t.Logf("decodedPacket.Bytes: %v", string(decodedPacket.Bytes))
 	t.Logf("decodedPacket.IsEOF: %v", decodedPacket.IsEOF)
@@ -41,33 +57,51 @@ func TestDefaultChannelEnqueueShortMsg(t *testing.T) {
 
 func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 	assert := assert.New(t)
-	ch := createDefaultChannel(common.ChannelIDTransaction)
-
-	assert.Equal(common.ChannelIDTransaction, ch.getID())
+	port := 43253
 
 	partStr := "0123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345" // 256 Bytes
 	longStr := ""
 	numParts := 4096
+
 	for i := 0; i < numParts; i++ {
 		longStr += partStr
 	}
 	assert.Equal(1024*1024, len(longStr)) // 1MB message
-
 	longBytes := []byte(longStr)
-	success := ch.enqueueMessage(longBytes)
-	assert.True(success)
-	assert.True(ch.hasPacketToSend())
 
-	strBuf := bytes.NewBufferString("")
-	totalBytes := 0
+	go func() {
+		netconn := p2ptypes.GetTestNetconn(port)
+		defer netconn.Close()
+		ch := createDefaultChannel(common.ChannelIDTransaction)
+		assert.Equal(common.ChannelIDTransaction, ch.getID())
+
+		ch.enqueueMessage(longBytes)
+		cfg := GetDefaultConnectionConfig()
+		conn := CreateConnection(netconn, cfg)
+		for {
+			nonemptyPacket, _, err := ch.sendPacketTo(conn)
+
+			assert.Nil(err)
+			if !nonemptyPacket {
+				break
+			}
+			conn.flush()
+
+		}
+	}()
+
+	listener := p2ptypes.GetTestListener(port)
 	recvStr := ""
-	for {
-		_, numBytes, err := ch.sendPacketTo(strBuf)
-		totalBytes += numBytes
-		assert.Nil(err)
+	lnetconn, err := listener.Accept()
+	assert.Nil(err)
+	defer lnetconn.Close()
+	cfg := GetDefaultConnectionConfig()
+	lconn := CreateConnection(lnetconn, cfg)
+	assert.Nil(err)
 
-		var decodedPacket Packet
-		rlp.Decode(strBuf, &decodedPacket)
+	for {
+		decodedPacket, err := lconn.readPacket()
+		assert.Nil(err)
 		assert.Equal(common.ChannelIDTransaction, decodedPacket.ChannelID)
 
 		recvStr += string(decodedPacket.Bytes)
@@ -76,12 +110,9 @@ func TestDefaultChannelEnqueueLongMsg(t *testing.T) {
 		}
 	}
 
-	assert.True(totalBytes > len(partStr)*numParts)
-	assert.Equal(longStr, recvStr)
-
-	t.Logf("totalBytes: %v", totalBytes)
-	//t.Logf("Long string sent: %v", longStr)
-	//t.Logf("received string: %v", recvStr)
+	assert.True(len(longBytes) >= len(partStr)*numParts)
+	assert.Equal(longStr, recvStr, "recvStr: %v", recvStr)
+	t.Logf("totalBytes: %v", len(longBytes))
 }
 
 func TestDefaultChannelAttemptEnqueueMsg(t *testing.T) {

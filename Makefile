@@ -20,7 +20,7 @@ install: gen_version
 test: test_unit #test_integration test_cluster_deployment
 
 test_unit:
-	go test `glide novendor` -tags=unit
+	go test -timeout 30s `glide novendor` -tags=unit
 
 test_integration:
 	go test `glide novendor` -tags=integration
