@@ -22,6 +22,8 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
 
+const maxExtraHandshakeInfo = 4096
+
 //
 // Peer models a peer node in a network
 //
@@ -153,15 +155,39 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 
 	if targetPeerNodeInfo.Port == 0 {
 		// Forward compatibility.
-		targetExtraInfo := &p2ptypes.ExtraInfo{}
+		localChainID := viper.GetString(common.CfgGenesisChainID)
 		cmn.Parallel(
 			func() {
-				extraNodeInfo := &p2ptypes.ExtraInfo{}
-				sendError = rlp.Encode(peer.connection.GetNetconn(), extraNodeInfo)
+				sendError = rlp.Encode(peer.connection.GetNetconn(), localChainID)
+				if sendError != nil {
+					return
+				}
+				sendError = rlp.Encode(peer.connection.GetNetconn(), "EOH")
 			},
 			func() {
-				s := rlp.NewStream(peer.connection.GetNetconn(), 4096)
-				recvError = s.Decode(targetExtraInfo)
+				s := rlp.NewStream(peer.connection.GetNetconn(), maxExtraHandshakeInfo)
+				var msg string
+				recvError = s.Decode(&msg)
+				if recvError != nil {
+					return
+				}
+				if msg == "EOH" {
+					return
+				}
+				if msg != localChainID {
+					recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
+					return
+				}
+				log.Infof("Peer ChainID: %v", msg)
+				for {
+					recvError = s.Decode(&msg)
+					if recvError != nil {
+						return
+					}
+					if msg == "EOH" {
+						return
+					}
+				}
 			},
 		)
 		if sendError != nil {

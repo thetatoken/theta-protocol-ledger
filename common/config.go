@@ -7,6 +7,8 @@ import (
 const (
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
+	// CfgGenesisChainID defines the chainID.
+	CfgGenesisChainID = "genesis.chainID"
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"

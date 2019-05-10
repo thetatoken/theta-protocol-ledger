@@ -65,6 +65,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
+	viper.Set(common.CfgGenesisChainID, root.ChainID)
+
 	params := &node.Params{
 		ChainID:      root.ChainID,
 		PrivateKey:   privKey,
