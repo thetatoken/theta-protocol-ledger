@@ -75,10 +75,11 @@ func NewLedgerHub() (*Hub, error) {
 	return newHub(LedgerScheme, 0x2c97, []uint16{0x0000 /* Ledger Blue */, 0x0001 /* Ledger Nano S */}, 0xf1d0, -1, ks.NewLedgerDriver)
 }
 
-// // newTrezorHub creates a new hardware wallet manager for Trezor devices.
-// func newTrezorHub() (*Hub, error) {
-// 	return newHub(TrezorScheme, 0x534c, []uint16{0x0001 /* Trezor 1 */}, 0xff00, 0, newTrezorDriver)
-// }
+// NewTrezorHub creates a new hardware wallet manager for Trezor devices.
+func NewTrezorHub() (*Hub, error) {
+	// return newHub(TrezorScheme, 0x534c, []uint16{0x0001 /* Trezor 1 */}, 0xff00, -1, ks.NewTrezorDriver) // trezor firmware version <= 1.6
+	return newHub(TrezorScheme, 0x1209, []uint16{0x53c0, 0x53C1}, 0xf1d0, -1, ks.NewTrezorDriver)
+}
 
 // newHub creates a new hardware wallet manager for generic USB devices.
 func newHub(scheme string, vendorID uint16, productIDs []uint16, usageID uint16, endpointID int, makeDriver func() ks.Driver) (*Hub, error) {

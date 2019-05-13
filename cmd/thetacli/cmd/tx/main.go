@@ -9,6 +9,7 @@ var (
 	chainIDFlag                  string
 	fromFlag                     string
 	toFlag                       string
+	pathFlag                     string
 	seqFlag                      uint64
 	thetaAmountFlag              string
 	tfuelAmountFlag              string

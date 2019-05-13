@@ -43,6 +43,10 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	sourceAddress := tx.Source.Address
 	targetAddress := tx.Target.Address
 
+	if sourceAddress == targetAddress {
+		return result.Error("Source and target address for the service payment cannot be identical: %v", sourceAddress)
+	}
+
 	sourceAccount, res := getInput(view, tx.Source)
 	if res.IsError() {
 		return res

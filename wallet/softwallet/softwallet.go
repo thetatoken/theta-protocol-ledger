@@ -99,7 +99,7 @@ func (w *SoftWallet) NewKey(password string) (common.Address, error) {
 }
 
 // Unlock unlocks a key if the password is correct
-func (w *SoftWallet) Unlock(address common.Address, password string) error {
+func (w *SoftWallet) Unlock(address common.Address, password string, derivationPath types.DerivationPath) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

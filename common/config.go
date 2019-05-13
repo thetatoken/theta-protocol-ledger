@@ -38,8 +38,13 @@ const (
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 
+	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
+	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
+
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
+	// CfgRPCAddress sets the binding address of RPC service.
+	CfgRPCAddress = "rpc.address"
 	// CfgRPCPort sets the port of RPC service.
 	CfgRPCPort = "rpc.port"
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
@@ -78,6 +83,7 @@ func init() {
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 
+	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 

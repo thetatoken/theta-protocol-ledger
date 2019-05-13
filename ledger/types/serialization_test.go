@@ -1,6 +1,7 @@
 package types
 
 import (
+	"encoding/hex"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -155,6 +156,35 @@ func TestTx(t *testing.T) {
 	assert.Equal(tx1.(*SplitRuleTx).Initiator.Address, tx2.(*SplitRuleTx).Initiator.Address)
 	assert.Equal(tx1.(*SplitRuleTx).Splits, tx2.(*SplitRuleTx).Splits)
 	assert.Equal(tx1.(*SplitRuleTx).Duration, tx2.(*SplitRuleTx).Duration)
+}
+
+func TestFuzz(t *testing.T) {
+	var input []byte
+
+	input, _ = hex.DecodeString("364535343135343634313378")
+	t.Logf("input: %v\n%v", input, hex.EncodeToString(input))
+	TxFromBytes(input)
+
+	input, _ = hex.DecodeString("01ff30bdf1bfbf51efe4da94a36578706c696329742074ab1b90efbfbd306173c28080808094a365a36578706c696329741074ab1b90efbf4c774fbdeb00bd306173")
+	TxFromBytes(input)
+
+	input, _ = hex.DecodeString("05ffef30993030303030ff3030303030303030bd303030303030")
+	TxFromBytes(input)
+
+	input, _ = hex.DecodeString("e803ffbf30303030303030f4b2303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030da943030303030303030303030303030303030303030c230303030c23030ff3030303030303030bd303030303030")
+	Fuzz(input)
+
+	input, _ = hex.DecodeString("fd07fdfdfdfdfdfd51fdfdfdfdfd3030943030303030303030303030303030303030303030fd303030303030bd302f30303030")
+	Fuzz(input)
+
+	input, _ = hex.DecodeString("0106ff3030303030303030f4b2303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030bd303030303030")
+	Fuzz(input)
+
+	input, _ = hex.DecodeString("303645343833313134393035")
+	Fuzz(input)
+
+	input, _ = hex.DecodeString("e803ffbf30303030303030f4b2303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030303030da943030303030303030303030303030303030303030c230303030c23030ff3030303030303030bd303030303030")
+	Fuzz(input)
 }
 
 func getTestAddress(addr string) common.Address {

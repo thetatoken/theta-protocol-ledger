@@ -65,7 +65,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg: &sync.WaitGroup{},
+		wg:                         &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -274,6 +274,13 @@ func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDAddr
 		Addresses: peerIDAddrs,
 	}
 	peer.Send(common.ChannelIDPeerDiscovery, message)
+}
+
+func Fuzz(data []byte) int {
+	if _, err := decodePeerDiscoveryMessage(data); err != nil {
+		return 1
+	}
+	return 0
 }
 
 func decodePeerDiscoveryMessage(msgBytes common.Bytes) (message PeerDiscoveryMessage, err error) {

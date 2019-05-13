@@ -39,6 +39,14 @@ func (mmh *MempoolMessageHandler) EncodeMessage(message interface{}) (common.Byt
 	return rlp.EncodeToBytes(message)
 }
 
+func Fuzz(data []byte) int {
+	var dataResponse dp.DataResponse
+	if err := rlp.DecodeBytes(data, &dataResponse); err != nil {
+		return 1
+	}
+	return 0
+}
+
 // ParseMessage implements the p2p.MessageHandler interface
 func (mmh *MempoolMessageHandler) ParseMessage(peerID string, channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (types.Message, error) {
 	var dataResponse dp.DataResponse
