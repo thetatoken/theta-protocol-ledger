@@ -6,9 +6,13 @@ import (
 	"encoding/json"
 	"io"
 	"math/big"
+	"sync"
+
+	lru "github.com/hashicorp/golang-lru"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/hexutil"
+	"github.com/thetatoken/theta/crypto/sha3"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -296,4 +300,76 @@ func PublicKeyFromBytes(pkBytes common.Bytes) (*PublicKey, error) {
 func SignatureFromBytes(sigBytes common.Bytes) (*Signature, error) {
 	sig := &Signature{data: sigBytes}
 	return sig, nil
+}
+
+type signatureCache struct {
+	rw    *sync.RWMutex
+	cache *lru.Cache
+
+	// // Metrics
+	// count    uint32
+	// hitCount uint32
+	// time     uint64
+}
+
+const enableSigCache = true
+
+func (sc *signatureCache) Verify(sig *Signature, msg common.Bytes, addr common.Address) bool {
+	// defer func(start time.Time) {
+	// 	elapsed := time.Since(start)
+	// 	atomic.AddUint64(&sc.time, uint64(elapsed.Nanoseconds()))
+
+	// 	count := atomic.LoadUint32(&sc.count)
+	// 	if count%10 == 0 {
+	// 		hitCount := atomic.LoadUint32(&sc.hitCount)
+	// 		totalTime := atomic.LoadUint64(&sc.time)
+	// 		log.Debugf("SigCache: enabled: %v, signatureCache.Verify(): count: %d, hitCount: %d, hit rate: %.2f, time: %dns, avg op time: %.2f",
+	// 			enableSigCache, count, hitCount, float32(hitCount)/float32(count), totalTime, float64(totalTime)/float64(count))
+	// 	}
+	// }(time.Now())
+
+	// atomic.AddUint32(&sc.count, 1)
+
+	hasher := sha3.NewKeccak256()
+	if sig == nil || len(sig.data) != 65 {
+		return false
+	}
+	addrRaw := addr.Bytes()
+	if len(addrRaw) != 20 {
+		return false
+	}
+	hasher.Write(sig.data)
+	hasher.Write(msg)
+	hasher.Write(addrRaw)
+	var key [32]byte
+	hasher.Sum(key[:0])
+
+	if enableSigCache {
+		sc.rw.RLock()
+		result, ok := sc.cache.Get(key)
+		sc.rw.RUnlock()
+		if ok {
+			// atomic.AddUint32(&sc.hitCount, 1)
+			// log.Debugf("SigCache cache hit: key: %v, addr: %v", hex.EncodeToString(key[:]), addr.Hex())
+			return result.(bool)
+		}
+	}
+
+	sigResult := sig.Verify(msg, addr)
+	if enableSigCache {
+		sc.rw.Lock()
+		sc.cache.Add(key, sigResult)
+		sc.rw.Unlock()
+	}
+	return sigResult
+}
+
+var SigCache *signatureCache
+
+func init() {
+	lruSigCache, _ := lru.New(8094)
+	SigCache = &signatureCache{
+		cache: lruSigCache,
+		rw:    &sync.RWMutex{},
+	}
 }

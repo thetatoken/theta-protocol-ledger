@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"crypto/rand"
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -200,6 +202,82 @@ func TestSignaureVerifyBytes(t *testing.T) {
 
 	anotherAddr := common.BytesToAddress(common.Bytes("hello"))
 	assert.False(sig1.Verify(msg1, anotherAddr))
+}
+
+func TestSignaureCacheVerifyBytes(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, pubKey, err := TEST_GenerateKeyPairWithSeed("test_seed")
+	assert.Nil(err)
+	addr := pubKey.Address()
+
+	msg1 := common.Bytes("Hello world!")
+	msg2 := common.Bytes("Foo bar!")
+	sig1, err := privKey.Sign(msg1)
+	assert.Nil(err)
+	sig2, err := privKey.Sign(msg2)
+	assert.Nil(err)
+	assert.True(SigCache.Verify(sig1, msg1, addr))
+	assert.False(SigCache.Verify(sig2, msg1, addr))
+
+	// Should not panic
+	nilSig := (*Signature)(nil)
+	assert.False(SigCache.Verify(nilSig, msg1, addr))
+
+	emptySig, err := SignatureFromBytes(common.Bytes{})
+	assert.Nil(err)
+	assert.False(SigCache.Verify(emptySig, msg1, addr))
+
+	emptyAddr := common.BytesToAddress(common.Bytes{})
+	assert.False(SigCache.Verify(sig1, msg1, emptyAddr))
+
+	anotherAddr := common.BytesToAddress(common.Bytes("hello"))
+	assert.False(SigCache.Verify(sig1, msg1, anotherAddr))
+}
+
+func BenchmarkSignaureVerify(b *testing.B) {
+	privKeys := []*PrivateKey{}
+	addrs := []common.Address{}
+	sigs := []*Signature{}
+	msgs := [][]byte{}
+	for i := 0; i < b.N; i++ {
+		privKey, pubKey, _ := TEST_GenerateKeyPairWithSeed(fmt.Sprintf("test_seed%d", i))
+		privKeys = append(privKeys, privKey)
+		addrs = append(addrs, pubKey.Address())
+		msg := make([]byte, 4096)
+		rand.Read(msg)
+		sig, _ := privKey.Sign(msg)
+		sigs = append(sigs, sig)
+		msgs = append(msgs, msg)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		sigs[i].Verify(msgs[i], addrs[i])
+	}
+}
+
+// BenchmarkCacheSignaureVerify is to verify checking cache does not add too much overhead(~ 3%).
+func BenchmarkCacheSignaureVerify(b *testing.B) {
+	privKeys := []*PrivateKey{}
+	addrs := []common.Address{}
+	sigs := []*Signature{}
+	msgs := [][]byte{}
+	for i := 0; i < b.N; i++ {
+		privKey, pubKey, _ := TEST_GenerateKeyPairWithSeed(fmt.Sprintf("test_seed%d", i))
+		privKeys = append(privKeys, privKey)
+		addrs = append(addrs, pubKey.Address())
+		msg := make([]byte, 4096)
+		rand.Read(msg)
+		sig, _ := privKey.Sign(msg)
+		sigs = append(sigs, sig)
+		msgs = append(msgs, msg)
+	}
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		SigCache.Verify(sigs[i], msgs[i], addrs[i])
+	}
 }
 
 func TestSignatureVerification1(t *testing.T) {

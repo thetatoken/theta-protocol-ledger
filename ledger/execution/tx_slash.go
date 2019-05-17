@@ -6,6 +6,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -51,7 +52,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
-	if !tx.Proposer.Signature.Verify(signBytes, proposerAccount.Address) {
+	if !crypto.SigCache.Verify(tx.Proposer.Signature, signBytes, proposerAccount.Address) {
 		return result.Error("SignBytes: %X", signBytes)
 	}
 
@@ -165,7 +166,7 @@ func (exec *SlashTxExecutor) verifySlashProof(chainID string, slashedAccount *ty
 			}
 
 			sourceSignedBytes := servicePaymentTx.SourceSignBytes(chainID)
-			if !servicePaymentTx.Source.Signature.Verify(sourceSignedBytes, slashedAccount.Address) {
+			if !crypto.SigCache.Verify(servicePaymentTx.Source.Signature, sourceSignedBytes, slashedAccount.Address) {
 				return false // servicePaymentTx not signed by the slashed account
 			}
 

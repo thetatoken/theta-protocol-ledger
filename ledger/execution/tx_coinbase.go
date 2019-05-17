@@ -6,6 +6,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -58,7 +59,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	// verify the proposer's signature
 	signBytes := tx.SignBytes(chainID)
-	if !tx.Proposer.Signature.Verify(signBytes, proposerAccount.Address) {
+	if !crypto.SigCache.Verify(tx.Proposer.Signature, signBytes, proposerAccount.Address) {
 		return result.Error("SignBytes: %X", signBytes)
 	}
 

@@ -176,7 +176,7 @@ func (h *BlockHeader) Validate(chainID string) result.Result {
 	if h.Signature == nil || h.Signature.IsEmpty() {
 		return result.Error("Block is not signed")
 	}
-	if !h.Signature.Verify(h.SignBytes(), h.Proposer) {
+	if !crypto.SigCache.Verify(h.Signature, h.SignBytes(), h.Proposer) {
 		return result.Error("Signature verification failed")
 	}
 	return result.OK

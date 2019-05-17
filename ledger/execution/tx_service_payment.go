@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -64,14 +65,14 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 
 	// Verify source
 	sourceSignBytes := tx.SourceSignBytes(chainID)
-	if !tx.Source.Signature.Verify(sourceSignBytes, sourceAccount.Address) {
+	if !crypto.SigCache.Verify(tx.Source.Signature, sourceSignBytes, sourceAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		logger.Infof(errMsg)
 		return result.Error(errMsg)
 	}
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
-	if !tx.Target.Signature.Verify(targetSignBytes, targetAccount.Address) {
+	if !crypto.SigCache.Verify(tx.Target.Signature, targetSignBytes, targetAccount.Address) {
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on target signature, addr: %v", targetAddress.Hex())
 		logger.Infof(errMsg)
 		return result.Error(errMsg)

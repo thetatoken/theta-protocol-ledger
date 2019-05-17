@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -189,7 +190,7 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	}
 
 	// Check signatures
-	if !in.Signature.Verify(signBytes, acc.Address) {
+	if !crypto.SigCache.Verify(in.Signature, signBytes, acc.Address) {
 		return result.Error("Signature verification failed, SignBytes: %v",
 			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}

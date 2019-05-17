@@ -119,7 +119,7 @@ func (v Vote) Validate() result.Result {
 	if v.Signature == nil || v.Signature.IsEmpty() {
 		return result.Error("Vote is not signed")
 	}
-	if !v.Signature.Verify(v.SignBytes(), v.ID) {
+	if !crypto.SigCache.Verify(v.Signature, v.SignBytes(), v.ID) {
 		return result.Error("Signature verification failed")
 	}
 	return result.OK
