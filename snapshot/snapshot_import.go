@@ -233,7 +233,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				return nil, err
 			}
 		} else {
-			if res := block.Validate(); res.IsError() {
+			if res := block.Validate(chain.ChainID); res.IsError() {
 				return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
 			}
 			if block.TxHash != core.CalculateRootHash(block.Txs) {
