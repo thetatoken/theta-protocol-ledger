@@ -10,13 +10,11 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/blockchain"
-	cns "github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/rlp"
-	"github.com/thetatoken/theta/store/database"
 )
 
-func ExportChainBackup(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, startHeight, endHeight uint64, backupDir string) (actualStartHeight, actualEndHeight uint64, backupFile string, err error) {
+func ExportChainBackup(chain *blockchain.Chain, startHeight, endHeight uint64, backupDir string) (actualStartHeight, actualEndHeight uint64, backupFile string, err error) {
 	if startHeight > endHeight {
 		return 0, 0, "", errors.New("start height must be <= end height")
 	}

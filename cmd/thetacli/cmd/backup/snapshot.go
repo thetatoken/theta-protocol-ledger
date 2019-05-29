@@ -12,6 +12,10 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
+var (
+	heightFlag uint64
+)
+
 // snapshotCmd represents the snapshot backup command.
 // Example:
 //		thetacli backup snapshot
@@ -26,7 +30,7 @@ var snapshotCmd = &cobra.Command{
 func doSnapshotCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.BackupSnapshot", rpc.BackupSnapshotArgs{Config: configFlag})
+	res, err := client.Call("theta.BackupSnapshot", rpc.BackupSnapshotArgs{Config: configFlag, Height: heightFlag})
 	if err != nil {
 		utils.Error("Failed to get backup snapshot call details: %v\n", err)
 	}
@@ -43,4 +47,5 @@ func doSnapshotCmd(cmd *cobra.Command, args []string) {
 func init() {
 	snapshotCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
 	snapshotCmd.MarkFlagRequired("config")
+	snapshotCmd.Flags().Uint64Var(&heightFlag, "height", 0, "Snapshot height")
 }

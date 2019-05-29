@@ -62,7 +62,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath string, chain *blockcha
 	logger.Printf("Snapshot loaded successfully.")
 
 	// load previous chain, if any
-	err = loadChain(chainImportDirPath, blockHeader, metadata, chain, db)
+	err = loadPrevChain(chainImportDirPath, blockHeader, metadata, chain, db)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath string) (*core.BlockH
 	logger.Printf("Snapshot verified.")
 
 	// load previous chain, if any
-	err = loadChain(chainImportDirPath, blockHeader, metadata, nil, tmpdb)
+	err = loadPrevChain(chainImportDirPath, blockHeader, metadata, nil, tmpdb)
 	if err != nil {
 		return nil, err
 	}
@@ -140,7 +140,27 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	return secondBlockHeader, &metadata, nil
 }
 
-func loadChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
+func GrowChain(snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
+	// i := 0
+	// for ; i < len(core.HardcodeBlockHashes) && core.HardcodeBlockHashes[i].Height <= snapshotBlockHeader.Height; i++ {
+	// }
+
+	height := snapshotBlockHeader.Height + 1
+	for {
+		blocks := chain.FindBlocksByHeight(height)
+		if len(blocks) == 0 {
+			break
+		}
+
+		for _, block := range blocks {
+			if block.Status.IsDirectlyFinalized() {
+			}
+		}
+	}
+	return nil
+}
+
+func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
 	if len(chainImportDirPath) != 0 {
 		if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
 			fileInfos, err := ioutil.ReadDir(chainImportDirPath)
@@ -236,9 +256,6 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			if res := block.Validate(chain.ChainID); res.IsError() {
 				return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
 			}
-			if block.TxHash != core.CalculateRootHash(block.Txs) {
-				return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
-			}
 
 			for {
 				proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
@@ -261,9 +278,6 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				}
 			}
 		}
-		// if block.TxHash != core.CalculateRootHash(block.Txs) {
-		// 	return nil, fmt.Errorf("Block's TxHash doesn't match, %v", block.Height)
-		// }
 
 		// check votes
 		if err := validateVotes(provenValSet, block.BlockHeader, backupBlock.Votes); err != nil {
