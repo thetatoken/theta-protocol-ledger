@@ -12,10 +12,6 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	heightFlag uint64
-)
-
 // snapshotCmd represents the snapshot backup command.
 // Example:
 //		thetacli backup snapshot

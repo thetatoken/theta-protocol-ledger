@@ -13,25 +13,21 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-var (
-	endBlockHashFlag common.Hash
-)
-
 // correctionCmd represents the chain correction command.
 // Example:
 //		thetacli backup correction
-var correctionCmd = &cobra.Command{
+var chainCorrectionCmd = &cobra.Command{
 	Use:     "correction",
 	Short:   "backup correction",
 	Long:    `Backup correction.`,
 	Example: `thetacli backup correction`,
-	Run:     doCorrectionCmd,
+	Run:     doChainCorrectionCmd,
 }
 
-func doCorrectionCmd(cmd *cobra.Command, args []string) {
+func doChainCorrectionCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.BackupChain", rpc.BackupChainArgs{Start: startFlag, End: endFlag, Config: configFlag})
+	res, err := client.Call("theta.BackupChainCorrection", rpc.BackupChainCorrectionArgs{RollbackHeight: heightFlag, EndBlockHash: common.HexToHash(hashFlag), Config: configFlag})
 	if err != nil {
 		utils.Error("Failed to get backup chain call details: %v\n", err)
 	}
@@ -46,10 +42,10 @@ func doCorrectionCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	chainCmd.Flags().Uint64Var(&startFlag, "start", 0, "Starting block height")
-	chainCmd.Flags().Uint64Var(&endFlag, "end", 0, "Ending block height")
-	chainCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
-	chainCmd.MarkFlagRequired("start")
-	chainCmd.MarkFlagRequired("end")
-	chainCmd.MarkFlagRequired("config")
+	chainCorrectionCmd.Flags().Uint64Var(&heightFlag, "rollback_height", 0, "Rollback block height")
+	chainCorrectionCmd.Flags().StringVar(&hashFlag, "end_block_hash", "", "Ending block hash")
+	chainCorrectionCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
+	chainCorrectionCmd.MarkFlagRequired("rollback_height")
+	chainCorrectionCmd.MarkFlagRequired("end_block_hash")
+	chainCorrectionCmd.MarkFlagRequired("config")
 }

@@ -70,9 +70,9 @@ func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChain
 // ------------------------------- BackupChainCorrection -----------------------------------
 
 type BackupChainCorrectionArgs struct {
-	Start        uint64      `json:"start"`
-	EndBlockHash common.Hash `json:"end_block_hash"`
-	Config       string      `json:"config"`
+	RollbackHeight uint64      `json:"rollback_height"`
+	EndBlockHash   common.Hash `json:"end_block_hash"`
+	Config         string      `json:"config"`
 }
 
 type BackupChainCorrectionResult struct {
@@ -83,7 +83,7 @@ type BackupChainCorrectionResult struct {
 
 func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs, result *BackupChainCorrectionResult) error {
 	chain := t.chain
-	startHeight := args.Start
+	rollbackHeight := args.RollbackHeight
 	endBlockHash := args.EndBlockHash
 
 	backupDir := path.Join(args.Config, "backup", "chain_correction")
@@ -91,7 +91,7 @@ func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs,
 		os.MkdirAll(backupDir, os.ModePerm)
 	}
 
-	chainFile, err := snapshot.ExportChainCorrection(chain, startHeight, endBlockHash, backupDir)
+	chainFile, err := snapshot.ExportChainCorrection(chain, rollbackHeight, endBlockHash, backupDir)
 	// result.StartHeight = actualStartHeight
 	// result.StartBlockHash = startBlockHash
 	result.ChainFile = chainFile

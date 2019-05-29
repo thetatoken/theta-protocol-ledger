@@ -27,25 +27,25 @@ func (stack BHStack) pop() (BHStack, common.Hash) {
 	return stack[:l-1], stack[l-1]
 }
 
-func (stack BHStack) peek() common.Hash {
-	l := len(stack)
-	if l == 0 {
-		return common.Hash{}
-	}
-	return stack[l-1]
-}
+// func (stack BHStack) peek() common.Hash {
+// 	l := len(stack)
+// 	if l == 0 {
+// 		return common.Hash{}
+// 	}
+// 	return stack[l-1]
+// }
 
-func ExportChainCorrection(chain *blockchain.Chain, startHeight uint64, endBlockHash common.Hash, backupDir string) (backupFile string, err error) {
+func ExportChainCorrection(chain *blockchain.Chain, rollbackHeight uint64, endBlockHash common.Hash, backupDir string) (backupFile string, err error) {
 	block, err := chain.FindBlock(endBlockHash)
 	if err != nil {
 		return "", fmt.Errorf("Can't find block for hash %v", endBlockHash)
 	}
 
-	if startHeight > block.Height {
-		return "", errors.New("Start height must be <= end height")
+	if rollbackHeight >= block.Height {
+		return "", errors.New("Start height must be < end height")
 	}
 
-	filename := "theta_chain_correction-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(block.Height, 10)
+	filename := "theta_chain_correction-" + strconv.FormatUint(rollbackHeight, 10) + "-" + strconv.FormatUint(block.Height, 10)
 	backupPath := path.Join(backupDir, filename)
 	file, err := os.Create(backupPath)
 	if err != nil {
@@ -62,7 +62,7 @@ func ExportChainCorrection(chain *blockchain.Chain, startHeight uint64, endBlock
 		bh := block.UpdateHash()
 		bhStack = bhStack.push(bh)
 
-		if block.Height <= startHeight {
+		if block.Height <= rollbackHeight {
 			break
 		}
 		parentBlock, err := chain.FindBlock(block.Parent)
