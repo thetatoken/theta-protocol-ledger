@@ -43,13 +43,14 @@ type Node struct {
 }
 
 type Params struct {
-	ChainID            string
-	PrivateKey         *crypto.PrivateKey
-	Root               *core.Block
-	Network            p2p.Network
-	DB                 database.Database
-	SnapshotPath       string
-	ChainImportDirPath string
+	ChainID             string
+	PrivateKey          *crypto.PrivateKey
+	Root                *core.Block
+	Network             p2p.Network
+	DB                  database.Database
+	SnapshotPath        string
+	ChainImportDirPath  string
+	ChainCorrectionPath string
 }
 
 func NewNode(params *Params) *Node {
@@ -63,7 +64,8 @@ func NewNode(params *Params) *Node {
 	if currentHeight <= params.Root.Height {
 		snapshotPath := params.SnapshotPath
 		chainImportDirPath := params.ChainImportDirPath
-		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chain, params.DB); err != nil {
+		ChainCorrectionPath := params.ChainCorrectionPath
+		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, ChainCorrectionPath, chain, params.DB); err != nil {
 			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
 		}
 	}

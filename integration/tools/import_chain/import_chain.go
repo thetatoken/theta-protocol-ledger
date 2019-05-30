@@ -56,11 +56,11 @@ func main() {
 	store := kvstore.NewKVStore(db)
 	chain := blockchain.NewChain(root.ChainID, store, root)
 
-	_, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath)
+	_, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, "")
 	if err != nil {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
-	if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chain, db); err != nil {
+	if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, "", chain, db); err != nil {
 		log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
 	}
 

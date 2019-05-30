@@ -60,20 +60,21 @@ func runStart(cmd *cobra.Command, args []string) {
 		snapshotPath = path.Join(cfgPath, "snapshot")
 	}
 
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath)
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
 	if err != nil {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
 	params := &node.Params{
-		ChainID:            root.ChainID,
-		PrivateKey:         privKey,
-		Root:               root,
-		Network:            network,
-		DB:                 db,
-		SnapshotPath:       snapshotPath,
-		ChainImportDirPath: chainImportDirPath,
+		ChainID:             root.ChainID,
+		PrivateKey:          privKey,
+		Root:                root,
+		Network:             network,
+		DB:                  db,
+		SnapshotPath:        snapshotPath,
+		ChainImportDirPath:  chainImportDirPath,
+		ChainCorrectionPath: chainCorrectionPath,
 	}
 	n := node.NewNode(params)
 

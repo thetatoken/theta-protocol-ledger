@@ -27,6 +27,10 @@ func (stack BHStack) pop() (BHStack, common.Hash) {
 	return stack[:l-1], stack[l-1]
 }
 
+func (stack BHStack) isEmpty() bool {
+	return len(stack) == 0
+}
+
 // func (stack BHStack) peek() common.Hash {
 // 	l := len(stack)
 // 	if l == 0 {
@@ -77,10 +81,6 @@ func ExportChainCorrection(chain *blockchain.Chain, rollbackHeight uint64, endBl
 	for {
 		bhStack, bh = bhStack.pop()
 
-		if (bh == common.Hash{}) {
-			break
-		}
-
 		if (parentBH != common.Hash{}) {
 			block, _ := chain.FindBlock(bh)
 			block.Parent = parentBH
@@ -89,17 +89,26 @@ func ExportChainCorrection(chain *blockchain.Chain, rollbackHeight uint64, endBl
 		parentBH = bh
 
 		bhStackRev = bhStackRev.push(bh)
+
+		if bhStack.isEmpty() {
+			break
+		}
 	}
 
 	for {
 		bhStackRev, bh = bhStackRev.pop()
 
-		if (bh == common.Hash{}) {
-			break
+		block, err := chain.FindBlock(bh)
+		if err != nil {
+			return "", fmt.Errorf("Cannot find block for hash %v", bh)
 		}
 
 		backupBlock := &core.BackupBlock{Block: block}
 		writeBlock(writer, backupBlock)
+
+		if bhStackRev.isEmpty() {
+			break
+		}
 	}
 
 	return filename, nil
