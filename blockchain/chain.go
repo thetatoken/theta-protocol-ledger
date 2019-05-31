@@ -266,6 +266,10 @@ func (ch *Chain) saveBlock(block *core.ExtendedBlock) error {
 	return ch.store.Put(hash[:], *block)
 }
 
+func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {
+	return ch.saveBlock(block)
+}
+
 // FindBlock tries to retrieve a block by hash.
 func (ch *Chain) FindBlock(hash common.Hash) (*core.ExtendedBlock, error) {
 	ch.mu.RLock()

@@ -184,7 +184,6 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 	kvstore := kvstore.NewKVStore(db)
 
 	var count uint64
-	// var proofTrio, prevTrio core.SnapshotBlockTrio
 	var prevBlock *core.ExtendedBlock
 	for {
 		backupBlock := &core.BackupBlock{}
@@ -208,45 +207,6 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			return nil, nil, fmt.Errorf("Block height is %v, must be > than snapshot height %v", block.Height, snapshotBlockHeader.Height)
 		}
 
-		// // check block itself
-		// var provenValSet *core.ValidatorSet
-		// if block.Height == core.GenesisBlockHeight {
-		// 	provenValSet, err = checkGenesisBlock(block.BlockHeader, db)
-		// 	if err != nil {
-		// 		return nil, err
-		// 	}
-		// } else {
-		// 	if res := block.Validate(chain.ChainID); res.IsError() {
-		// 		return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
-		// 	}
-
-		// 	for {
-		// 		proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
-		// 		if proofTrio.First.Header.Height+2 <= block.Height || len(metadata.ProofTrios) == 1 {
-		// 			break
-		// 		}
-		// 		provenValSet = nil
-		// 		metadata.ProofTrios = metadata.ProofTrios[:len(metadata.ProofTrios)-1]
-		// 		prevTrio = proofTrio
-		// 	}
-
-		// 	if provenValSet == nil {
-		// 		if proofTrio.First.Header.Height == core.GenesisBlockHeight {
-		// 			provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
-		// 		} else {
-		// 			provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
-		// 		}
-		// 		if err != nil {
-		// 			return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
-		// 		}
-		// 	}
-		// }
-
-		// // check votes
-		// if err := validateVotes(provenValSet, block.BlockHeader, backupBlock.Votes); err != nil {
-		// 	return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
-		// }
-
 		blockHash := block.Hash()
 
 		if prevBlock != nil {
@@ -265,12 +225,13 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			}
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
+				block.Status = core.BlockStatusTrusted
 				kvstore.Put(blockHash[:], block)
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				existingBlock.Txs = block.Txs
-				existingBlock.HasValidatorUpdate = true
+				existingBlock.Status = core.BlockStatusTrusted
 				kvstore.Put(blockHash[:], existingBlock)
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)

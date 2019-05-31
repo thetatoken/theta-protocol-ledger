@@ -13,21 +13,25 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-// correctionCmd represents the chain correction command.
+var (
+	exclusionTxsFlag []string
+)
+
+// chainCorrectionCmd represents the chain correction command.
 // Example:
-//		thetacli backup correction
+//		thetacli backup chain_correction
 var chainCorrectionCmd = &cobra.Command{
-	Use:     "correction",
-	Short:   "backup correction",
-	Long:    `Backup correction.`,
-	Example: `thetacli backup correction`,
+	Use:     "chain_correction",
+	Short:   "backup chain_correction",
+	Long:    `Backup chain_correction.`,
+	Example: `thetacli backup chain_correction`,
 	Run:     doChainCorrectionCmd,
 }
 
 func doChainCorrectionCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.BackupChainCorrection", rpc.BackupChainCorrectionArgs{RollbackHeight: heightFlag, EndBlockHash: common.HexToHash(hashFlag), Config: configFlag})
+	res, err := client.Call("theta.BackupChainCorrection", rpc.BackupChainCorrectionArgs{SnapshotHeight: heightFlag, EndBlockHash: common.HexToHash(hashFlag), Config: configFlag, ExclusionTxs: exclusionTxsFlag})
 	if err != nil {
 		utils.Error("Failed to get backup chain call details: %v\n", err)
 	}
@@ -42,10 +46,11 @@ func doChainCorrectionCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	chainCorrectionCmd.Flags().Uint64Var(&heightFlag, "rollback_height", 0, "Rollback block height")
+	chainCorrectionCmd.Flags().Uint64Var(&heightFlag, "snapshot_height", 0, "Snapshot height")
 	chainCorrectionCmd.Flags().StringVar(&hashFlag, "end_block_hash", "", "Ending block hash")
 	chainCorrectionCmd.Flags().StringVar(&configFlag, "config", "", "Config dir")
-	chainCorrectionCmd.MarkFlagRequired("rollback_height")
+	chainCorrectionCmd.Flags().StringSliceVar(&exclusionTxsFlag, "exclusion_txs", []string{}, "Exclusion Txs")
+	chainCorrectionCmd.MarkFlagRequired("snapshot_height")
 	chainCorrectionCmd.MarkFlagRequired("end_block_hash")
 	chainCorrectionCmd.MarkFlagRequired("config")
 }
