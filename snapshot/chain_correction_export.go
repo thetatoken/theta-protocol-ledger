@@ -11,6 +11,7 @@ import (
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/types"
 )
 
@@ -34,32 +35,29 @@ func (stack BHStack) isEmpty() bool {
 
 func ExcludeTxs(txs []common.Bytes, exclusionTxs []string, chain *blockchain.Chain) (results []common.Bytes) {
 	for _, tx := range txs {
-		raw, _, found := chain.FindTxByHash(common.BytesToHash(tx))
-		if found {
-			t, err := types.TxFromBytes(raw)
-			if err != nil {
-				continue
-			}
+		t, err := types.TxFromBytes(tx)
+		if err != nil {
+			continue
+		}
 
-			// exclude stake updating txs as well
-			if _, ok := t.(*types.DepositStakeTx); ok {
-				continue
-			}
-			if _, ok := t.(*types.WithdrawStakeTx); ok {
-				continue
-			}
+		// exclude stake updating txs as well
+		if _, ok := t.(*types.DepositStakeTx); ok {
+			continue
+		}
+		if _, ok := t.(*types.WithdrawStakeTx); ok {
+			continue
+		}
 
-			hash := common.Bytes2Hex(tx)
-			found = false
-			for _, exclusion := range exclusionTxs {
-				if hash == exclusion {
-					found = true
-					break
-				}
+		hash := crypto.Keccak256Hash(tx).Hex()
+		found := false
+		for _, exclusion := range exclusionTxs {
+			if hash == exclusion {
+				found = true
+				break
 			}
-			if !found {
-				results = append(results, tx)
-			}
+		}
+		if !found {
+			results = append(results, tx)
 		}
 	}
 	return
@@ -92,7 +90,7 @@ func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBl
 		block.TxHash = core.CalculateRootHash(block.Txs)
 		bh := block.UpdateHash()
 		bhStack = bhStack.push(bh)
-		chain.SaveBlock(block)
+		// chain.SaveBlock(block) //TODO: necessary?
 
 		if block.Height <= snapshotHeight+1 {
 			break
@@ -113,6 +111,7 @@ func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBl
 			block, _ := chain.FindBlock(bh)
 			block.Parent = parentBH
 			bh = block.UpdateHash()
+			chain.SaveBlock(block)
 		}
 		parentBH = bh
 
@@ -128,7 +127,7 @@ func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBl
 
 		block, err := chain.FindBlock(bh)
 		if err != nil {
-			return "", "", fmt.Errorf("Cannot find block for hash %v", bh)
+			return "", "", fmt.Errorf("Cannot find block for hash %v", bh.Hex())
 		}
 
 		backupBlock := &core.BackupBlock{Block: block}
