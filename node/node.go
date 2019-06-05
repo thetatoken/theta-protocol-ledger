@@ -60,24 +60,25 @@ func NewNode(params *Params) *Node {
 	dispatcher := dp.NewDispatcher(params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
-	currentHeight := consensus.GetLastFinalizedBlock().Height
-	if currentHeight <= params.Root.Height {
-		snapshotPath := params.SnapshotPath
-		chainImportDirPath := params.ChainImportDirPath
-		ChainCorrectionPath := params.ChainCorrectionPath
-		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, ChainCorrectionPath, chain, params.DB); err != nil {
-			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
-		}
-	}
-
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
+
 	validatorManager.SetConsensusEngine(consensus)
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
+
+	currentHeight := consensus.GetLastFinalizedBlock().Height
+	if currentHeight <= params.Root.Height {
+		snapshotPath := params.SnapshotPath
+		chainImportDirPath := params.ChainImportDirPath
+		chainCorrectionPath := params.ChainCorrectionPath
+		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath, chain, params.DB, ledger); err != nil {
+			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
+		}
+	}
 
 	node := &Node{
 		Store:            store,

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/thetatoken/theta/ledger"
+
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -53,7 +55,7 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database) (*core.BlockHeader, error) {
+func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (*core.BlockHeader, error) {
 	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
 	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db)
 	if err != nil {
@@ -69,7 +71,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 
 	// load chain correction, if any
 	if len(chainCorrectionPath) != 0 {
-		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db)
+		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
 		if err != nil {
 			return nil, err
 		}
@@ -119,7 +121,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 
 	// load chain correction, if any
 	if len(chainCorrectionPath) != 0 {
-		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, nil, tmpdb)
+		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, nil, tmpdb, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -174,7 +176,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	return secondBlockHeader, &metadata, nil
 }
 
-func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) (headBlock, tailBlock *core.ExtendedBlock, err error) {
+func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (headBlock, tailBlock *core.ExtendedBlock, err error) {
 	chainFile, err := os.Open(chainImportDirPath)
 	if err != nil {
 		return
@@ -185,6 +187,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 
 	var count uint64
 	var prevBlock *core.ExtendedBlock
+	blockStack := make([]*core.ExtendedBlock, 0)
 	for {
 		backupBlock := &core.BackupBlock{}
 		err := core.ReadRecord(chainFile, backupBlock)
@@ -240,6 +243,29 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 
 		count++
 		prevBlock = block
+		blockStack = append(blockStack, block)
+	}
+
+	if ledger != nil {
+		for {
+			num := len(blockStack)
+			if num == 0 {
+				break
+			}
+			block := blockStack[num-1]
+			blockStack = blockStack[:num-1]
+
+			parent, _ := chain.FindBlock(block.Parent)
+			result := ledger.ResetState(parent.Height, parent.StateHash)
+			if result.IsError() {
+				return nil, nil, fmt.Errorf("%v", result.String())
+			}
+
+			result = ledger.ApplyBlockTxs(block.Block)
+			if result.IsError() {
+				return nil, nil, fmt.Errorf("%v", result.String())
+			}
+		}
 	}
 
 	headBlock = prevBlock
