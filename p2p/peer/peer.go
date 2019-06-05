@@ -178,7 +178,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 					recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
 					return
 				}
-				log.Infof("Peer ChainID: %v", msg)
+				logger.Infof("Peer ChainID: %v", msg)
 				for {
 					recvError = s.Decode(&msg)
 					if recvError != nil {
