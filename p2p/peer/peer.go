@@ -115,7 +115,7 @@ func (peer *Peer) Stop() {
 // NOTE: need to call peer.Handshake() before peer.Start()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	remoteAddr := peer.connection.GetNetconn().RemoteAddr()
-	logger.Infof("Handshake with %v...", remoteAddr)
+	logger.Infof("Handshaking with %v...", remoteAddr)
 
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))

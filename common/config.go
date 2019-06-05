@@ -86,7 +86,7 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
-	viper.SetDefault(CfgP2PPlainTextSupport, false)
+	viper.SetDefault(CfgP2PPlainTextSupport, true)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
