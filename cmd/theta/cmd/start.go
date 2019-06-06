@@ -171,7 +171,11 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 
 	} else {
 		prompt := fmt.Sprintf("Please enter the password to launch the Theta node: ")
-		password, err = utils.GetPassword(prompt)
+		if len(nodePassword) != 0 {
+			password = nodePassword
+		} else {
+			password, err = utils.GetPassword(prompt)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get password: %v", err)
 		}
