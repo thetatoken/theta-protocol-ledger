@@ -83,6 +83,7 @@ type BackupChainCorrectionResult struct {
 
 func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs, result *BackupChainCorrectionResult) error {
 	chain := t.chain
+	ledger := t.consensus.GetLedger()
 	snapshotHeight := args.SnapshotHeight
 	endBlockHash := args.EndBlockHash
 	exclusionTxs := args.ExclusionTxs
@@ -92,7 +93,7 @@ func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs,
 		os.MkdirAll(backupDir, os.ModePerm)
 	}
 
-	chainFile, headBlockHash, err := snapshot.ExportChainCorrection(chain, snapshotHeight, endBlockHash, backupDir, exclusionTxs)
+	chainFile, headBlockHash, err := snapshot.ExportChainCorrection(chain, ledger, snapshotHeight, endBlockHash, backupDir, exclusionTxs)
 	result.ChainFile = chainFile
 	result.HeadBlockHash = headBlockHash
 

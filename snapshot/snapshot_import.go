@@ -82,8 +82,6 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
 		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
 
-		logger.Printf("=========--------======== chain correction tail: %v", tailBlock.Height)
-
 		return tailBlock.BlockHeader, nil
 	}
 
@@ -254,14 +252,14 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			}
 			block := blockStack[num-1]
 			blockStack = blockStack[:num-1]
-
 			parent, _ := chain.FindBlock(block.Parent)
+
 			result := ledger.ResetState(parent.Height, parent.StateHash)
 			if result.IsError() {
 				return nil, nil, fmt.Errorf("%v", result.String())
 			}
 
-			result = ledger.ApplyBlockTxs(block.Block)
+			_, result = ledger.ApplyBlockTxsForChainCorrection(block.Block)
 			if result.IsError() {
 				return nil, nil, fmt.Errorf("%v", result.String())
 			}

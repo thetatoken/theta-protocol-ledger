@@ -63,7 +63,7 @@ func ExcludeTxs(txs []common.Bytes, exclusionTxs []string, chain *blockchain.Cha
 	return
 }
 
-func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBlockHash common.Hash, backupDir string, exclusionTxs []string) (backupFile, headBlockHash string, err error) {
+func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshotHeight uint64, endBlockHash common.Hash, backupDir string, exclusionTxs []string) (backupFile, headBlockHash string, err error) {
 	block, err := chain.FindBlock(endBlockHash)
 	if err != nil {
 		return "", "", fmt.Errorf("Can't find block for hash %v", endBlockHash)
@@ -90,7 +90,7 @@ func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBl
 		block.TxHash = core.CalculateRootHash(block.Txs)
 		bh := block.UpdateHash()
 		bhStack = bhStack.push(bh)
-		// chain.SaveBlock(block) //TODO: necessary?
+		chain.SaveBlock(block)
 
 		if block.Height <= snapshotHeight+1 {
 			break
@@ -103,18 +103,34 @@ func ExportChainCorrection(chain *blockchain.Chain, snapshotHeight uint64, endBl
 	}
 
 	var bh common.Hash
-	parentBH := common.Hash{}
+	var parent *core.ExtendedBlock
+	blocks := chain.FindBlocksByHeight(snapshotHeight)
+	for _, block := range blocks {
+		if block.Status.IsDirectlyFinalized() {
+			parent = block
+			break
+		}
+	}
 	for {
 		bhStack, bh = bhStack.pop()
 
-		if (parentBH != common.Hash{}) {
-			block, _ := chain.FindBlock(bh)
-			block.Parent = parentBH
-			bh = block.UpdateHash()
-			chain.SaveBlock(block)
-		}
-		parentBH = bh
+		block, _ := chain.FindBlock(bh)
+		block.Parent = parent.Hash()
 
+		result := ledger.ResetState(parent.Height, parent.StateHash)
+		if result.IsError() {
+			return "", "", fmt.Errorf("%v", result.String())
+		}
+
+		hash, result := ledger.ApplyBlockTxsForChainCorrection(block.Block)
+		if result.IsError() {
+			return "", "", fmt.Errorf("%v", result.String())
+		}
+		block.StateHash = hash
+		bh = block.UpdateHash()
+		chain.SaveBlock(block)
+
+		parent = block
 		bhStackRev = bhStackRev.push(bh)
 
 		if bhStack.isEmpty() {

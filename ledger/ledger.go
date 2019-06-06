@@ -283,6 +283,50 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
+// ApplyBlockTxsForChainCorrection applies all block's txs and re-calculate root hash
+func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common.Hash, result.Result) {
+	ledger.mempool.Lock()
+	defer ledger.mempool.Unlock()
+
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
+	blockRawTxs := ledger.currentBlock.Txs
+
+	view := ledger.state.Delivered()
+
+	currHeight := view.Height()
+	currStateRoot := view.Hash()
+
+	hasValidatorUpdate := false
+	for _, rawTx := range blockRawTxs {
+		tx, err := types.TxFromBytes(rawTx)
+		if err != nil {
+			ledger.resetState(currHeight, currStateRoot)
+			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		if _, ok := tx.(*types.DepositStakeTx); ok {
+			hasValidatorUpdate = true
+		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+			hasValidatorUpdate = true
+		}
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsError() {
+			ledger.resetState(currHeight, currStateRoot)
+			return common.Hash{}, res
+		}
+	}
+
+	ledger.handleDelayedStateUpdates(view)
+
+	ledger.state.Commit() // commit to persistent storage
+
+	return view.Hash(), result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
+}
+
 // PruneState attempts to prune the state up to the targetEndHeight
 func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
 	var processedHeight uint64
