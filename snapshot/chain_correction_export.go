@@ -33,7 +33,7 @@ func (stack BHStack) isEmpty() bool {
 	return len(stack) == 0
 }
 
-func ExcludeTxs(txs []common.Bytes, exclusionTxs []string, chain *blockchain.Chain) (results []common.Bytes) {
+func ExcludeTxs(txs []common.Bytes, exclusionTxMap map[string]bool, chain *blockchain.Chain) (results []common.Bytes) {
 	for _, tx := range txs {
 		t, err := types.TxFromBytes(tx)
 		if err != nil {
@@ -49,14 +49,7 @@ func ExcludeTxs(txs []common.Bytes, exclusionTxs []string, chain *blockchain.Cha
 		}
 
 		hash := crypto.Keccak256Hash(tx).Hex()
-		found := false
-		for _, exclusion := range exclusionTxs {
-			if hash == exclusion {
-				found = true
-				break
-			}
-		}
-		if !found {
+		if _, ok := exclusionTxMap[hash]; !ok {
 			results = append(results, tx)
 		}
 	}
@@ -85,8 +78,13 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	bhStack := make(BHStack, 0)
 	bhStackRev := make(BHStack, 0)
 
+	exclusionTxMap := make(map[string]bool)
+	for _, exclusion := range exclusionTxs {
+		exclusionTxMap[exclusion] = true
+	}
+
 	for {
-		block.Txs = ExcludeTxs(block.Txs, exclusionTxs, chain)
+		block.Txs = ExcludeTxs(block.Txs, exclusionTxMap, chain)
 		block.TxHash = core.CalculateRootHash(block.Txs)
 		bh := block.UpdateHash()
 		bhStack = bhStack.push(bh)

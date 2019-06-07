@@ -13,7 +13,6 @@ import (
 
 var cfgPath string
 var snapshotPath string
-
 var chainImportDirPath string
 var chainCorrectionPath string
 
