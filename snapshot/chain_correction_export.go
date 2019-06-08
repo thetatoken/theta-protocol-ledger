@@ -15,24 +15,6 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 )
 
-type BHStack []common.Hash
-
-func (stack BHStack) push(hash common.Hash) BHStack {
-	return append(stack, hash)
-}
-
-func (stack BHStack) pop() (BHStack, common.Hash) {
-	l := len(stack)
-	if l == 0 {
-		return stack, common.Hash{}
-	}
-	return stack[:l-1], stack[l-1]
-}
-
-func (stack BHStack) isEmpty() bool {
-	return len(stack) == 0
-}
-
 func ExcludeTxs(txs []common.Bytes, exclusionTxMap map[string]bool, chain *blockchain.Chain) (results []common.Bytes) {
 	for _, tx := range txs {
 		t, err := types.TxFromBytes(tx)
@@ -40,6 +22,10 @@ func ExcludeTxs(txs []common.Bytes, exclusionTxMap map[string]bool, chain *block
 			continue
 		}
 
+		// exclude coinbase tx as well
+		if _, ok := t.(*types.CoinbaseTx); ok {
+			continue
+		}
 		// exclude stake updating txs as well
 		if _, ok := t.(*types.DepositStakeTx); ok {
 			continue
@@ -75,8 +61,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	defer file.Close()
 	writer := bufio.NewWriter(file)
 
-	bhStack := make(BHStack, 0)
-	bhStackRev := make(BHStack, 0)
+	var stack []*core.ExtendedBlock
 
 	exclusionTxMap := make(map[string]bool)
 	for _, exclusion := range exclusionTxs {
@@ -86,9 +71,8 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	for {
 		block.Txs = ExcludeTxs(block.Txs, exclusionTxMap, chain)
 		block.TxHash = core.CalculateRootHash(block.Txs)
-		bh := block.UpdateHash()
-		bhStack = bhStack.push(bh)
-		chain.SaveBlock(block)
+		block.UpdateHash()
+		stack = append(stack, block)
 
 		if block.Height <= snapshotHeight+1 {
 			break
@@ -100,7 +84,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		block = parentBlock
 	}
 
-	var bh common.Hash
+	// var bh common.Hash
 	var parent *core.ExtendedBlock
 	blocks := chain.FindBlocksByHeight(snapshotHeight)
 	for _, block := range blocks {
@@ -109,10 +93,8 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 			break
 		}
 	}
-	for {
-		bhStack, bh = bhStack.pop()
-
-		block, _ := chain.FindBlock(bh)
+	for i := len(stack) - 1; i >= 0; i-- {
+		block = stack[i]
 		block.Parent = parent.Hash()
 
 		result := ledger.ResetState(parent.Height, parent.StateHash)
@@ -125,33 +107,18 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 			return "", "", fmt.Errorf("%v", result.String())
 		}
 		block.StateHash = hash
-		bh = block.UpdateHash()
-		chain.SaveBlock(block)
+		block.UpdateHash()
 
 		parent = block
-		bhStackRev = bhStackRev.push(bh)
-
-		if bhStack.isEmpty() {
-			break
-		}
 	}
 
-	for {
-		bhStackRev, bh = bhStackRev.pop()
-
-		block, err := chain.FindBlock(bh)
-		if err != nil {
-			return "", "", fmt.Errorf("Cannot find block for hash %v", bh.Hex())
-		}
+	for i := 0; i < len(stack); i++ {
+		block = stack[i]
 
 		backupBlock := &core.BackupBlock{Block: block}
 		writeBlock(writer, backupBlock)
 
 		headBlockHash = block.Hash().Hex()
-
-		if bhStackRev.isEmpty() {
-			break
-		}
 	}
 
 	return
