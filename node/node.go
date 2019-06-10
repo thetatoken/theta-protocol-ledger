@@ -2,12 +2,20 @@ package node
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"log"
+	"net"
+	"os"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -106,6 +114,36 @@ func (n *Node) Start(ctx context.Context) {
 
 	if viper.GetBool(common.CfgRPCEnabled) {
 		n.RPC.Start(n.ctx)
+	}
+
+	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
+		metrics.Enabled = true
+
+		addr, _ := net.ResolveTCPAddr("tcp", mserver)
+
+		// Use chainID.hostname.Theta as prefix.
+		hostname, err := os.Hostname()
+		if err != nil {
+			// Use random string if hostname is not available.
+			b := make([]byte, 10)
+			rand.Read(b)
+			hostname = hex.EncodeToString(b)
+		}
+		hostname = strings.Replace(hostname, ".", "_", -1)
+		prefix := fmt.Sprintf("%s.Theta.%s", "privatenet", hostname)
+
+		go metrics.CollectProcessMetrics(5 * time.Second)
+		go metrics.Graphite(metrics.DefaultRegistry, 5*time.Second, prefix, addr)
+
+		// Report heartbeat.
+		go func() {
+			c := metrics.GetOrRegisterGauge("heartbeat", nil)
+			for {
+				c.Update(1)
+				time.Sleep(time.Second)
+			}
+
+		}()
 	}
 }
 

@@ -55,6 +55,9 @@ const (
 	// CfgLogPrintSelfID determines whether to print node's ID in log (Useful in simulation when
 	// there are more than one node running).
 	CfgLogPrintSelfID = "log.printSelfID"
+
+	// CfgMetricsServer is the address/port of the Graphite server.
+	CfgMetricsServer = "metrics.server"
 )
 
 // InitialConfig is the default configuartion produced by init command.
