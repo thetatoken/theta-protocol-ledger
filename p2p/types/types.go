@@ -20,14 +20,27 @@ type Message struct {
 // NodeInfo provides the information of the corresponding blockchain node of the peer
 //
 type NodeInfo struct {
-	PubKey      *crypto.PublicKey `rlp:"-"`
-	PubKeyBytes common.Bytes      // needed for RLP serialization
+	PrivKey     *crypto.PrivateKey `rlp:"-"`
+	PubKey      *crypto.PublicKey  `rlp:"-"`
+	PubKeyBytes common.Bytes       // needed for RLP serialization
 	Port        uint16
 }
 
 // CreateNodeInfo creates an instance of NodeInfo
 func CreateNodeInfo(pubKey *crypto.PublicKey, port uint16) NodeInfo {
 	nodeInfo := NodeInfo{
+		PubKey:      pubKey,
+		PubKeyBytes: pubKey.ToBytes(),
+		Port:        port,
+	}
+	return nodeInfo
+}
+
+// CreateLocalNodeInfo creates an instance of NodeInfo
+func CreateLocalNodeInfo(privateKey *crypto.PrivateKey, port uint16) NodeInfo {
+	pubKey := privateKey.PublicKey()
+	nodeInfo := NodeInfo{
+		PrivKey:     privateKey,
 		PubKey:      pubKey,
 		PubKeyBytes: pubKey.ToBytes(),
 		Port:        port,

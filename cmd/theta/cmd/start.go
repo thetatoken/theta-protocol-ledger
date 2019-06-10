@@ -20,6 +20,7 @@ import (
 	"github.com/thetatoken/theta/p2p/messenger"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/version"
 	ks "github.com/thetatoken/theta/wallet/softwallet/keystore"
 )
 
@@ -64,6 +65,8 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
+
+	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
 		ChainID:      root.ChainID,
@@ -168,7 +171,11 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 
 	} else {
 		prompt := fmt.Sprintf("Please enter the password to launch the Theta node: ")
-		password, err = utils.GetPassword(prompt)
+		if len(nodePassword) != 0 {
+			password = nodePassword
+		} else {
+			password, err = utils.GetPassword(prompt)
+		}
 		if err != nil {
 			return nil, fmt.Errorf("Failed to get password: %v", err)
 		}
@@ -191,7 +198,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := messenger.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}
@@ -221,6 +228,8 @@ func printWelcomeBanner() {
 	fmt.Println("#                                                         #")
 	fmt.Println(" ######################################################### ")
 	fmt.Println("")
+	fmt.Println("")
+	fmt.Printf("Version %v, GitHash %s\nBuilt at %s\n", version.Version, version.GitHash, version.Timestamp)
 	fmt.Println("")
 }
 

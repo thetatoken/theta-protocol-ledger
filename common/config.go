@@ -7,6 +7,8 @@ import (
 const (
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
+	// CfgGenesisChainID defines the chainID.
+	CfgGenesisChainID = "genesis.chainID"
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
@@ -37,6 +39,8 @@ const (
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
+	// CfgP2PPlainTextSupport decides whether to support plaintext transport.
+	CfgP2PPlainTextSupport = "p2p.plaintextSupport"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -85,6 +89,7 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
+	viper.SetDefault(CfgP2PPlainTextSupport, true)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")

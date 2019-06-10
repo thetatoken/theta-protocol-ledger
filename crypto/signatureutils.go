@@ -96,4 +96,5 @@ func S256() elliptic.Curve {
 
 var (
 	Ecrecover = ecrecover
+	Sign      = sign
 )
