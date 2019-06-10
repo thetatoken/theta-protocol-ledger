@@ -130,19 +130,22 @@ func (n *Node) Start(ctx context.Context) {
 			hostname = hex.EncodeToString(b)
 		}
 		hostname = strings.Replace(hostname, ".", "_", -1)
-		prefix := fmt.Sprintf("%s.Theta.%s", "privatenet", hostname)
+		chainID := viper.GetString(common.CfgGenesisChainID)
+		if chainID == "" {
+			chainID = "unknown"
+		}
+		prefix := fmt.Sprintf("%s.Theta.%s", chainID, hostname)
 
 		go metrics.CollectProcessMetrics(5 * time.Second)
 		go metrics.Graphite(metrics.DefaultRegistry, 5*time.Second, prefix, addr)
 
 		// Report heartbeat.
 		go func() {
-			c := metrics.GetOrRegisterGauge("heartbeat", nil)
+			c := metrics.GetOrRegisterGauge(metrics.MHeartBeat, nil)
 			for {
 				c.Update(1)
 				time.Sleep(time.Second)
 			}
-
 		}()
 	}
 }
