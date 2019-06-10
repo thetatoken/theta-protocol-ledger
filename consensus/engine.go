@@ -317,10 +317,74 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"error": err,
 			"block": block.Hash().Hex(),
 		}).Fatal("Failed to find block")
-	} else if !eb.Status.IsPending() {
+	}
+
+	if hex, ok := core.HardcodeBlockHashes[eb.Height]; ok {
+		e.handleHardcodeBlock(common.HexToHash(hex))
+	} else {
+		e.handleNormalBlock(eb)
+	}
+}
+
+func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
+	eb, err := e.chain.FindBlock(hash)
+	if err != nil {
+		// Should not happen
+		e.logger.WithFields(log.Fields{
+			"error": err,
+			"block": hash.Hex(),
+		}).Fatal("Failed to find block")
+	}
+	if !eb.Status.IsTrusted() {
+		e.logger.WithFields(log.Fields{
+			"error":        nil,
+			"block.Status": eb.Status,
+			"block":        hash.Hex(),
+		}).Debug("Hardcode block status is not Trusted")
+		return
+	}
+	block := eb.Block
+	parent, err := e.chain.FindBlock(block.Parent)
+	if err != nil {
+		// Should not happen since netsync layer ensures order of blocks.
+		e.logger.WithFields(log.Fields{
+			"error":  err,
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Fatal("Failed to find parent block")
+	}
+
+	result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":            result.Message,
+			"parent.StateHash": parent.StateHash,
+		}).Error("Failed to reset state to parent.StateHash")
+		return
+	}
+	result = e.ledger.ApplyBlockTxs(block)
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":           result.String(),
+			"parent":          block.Parent.Hex(),
+			"block":           block.Hash().Hex(),
+			"block.StateHash": block.StateHash.Hex(),
+		}).Error("Failed to apply block Txs")
+		return
+	}
+
+	e.pruneState(block.Height)
+
+	e.state.SetHighestCCBlock(eb)
+	e.chain.SaveBlock(eb)
+}
+
+func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
+	block := eb.Block
+	if !eb.Status.IsPending() {
 		// Before consensus engine can process the first one, sync layer might send duplicate blocks.
 		e.logger.WithFields(log.Fields{
-			"error":        err,
+			"error":        nil,
 			"block.Status": eb.Status,
 			"block":        block.Hash().Hex(),
 		}).Debug("Ignore processed block")

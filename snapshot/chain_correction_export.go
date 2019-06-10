@@ -42,21 +42,21 @@ func ExcludeTxs(txs []common.Bytes, exclusionTxMap map[string]bool, chain *block
 	return
 }
 
-func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshotHeight uint64, endBlockHash common.Hash, backupDir string, exclusionTxs []string) (backupFile, headBlockHash string, err error) {
+func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshotHeight uint64, endBlockHash common.Hash, backupDir string, exclusionTxs []string) (backupFile string, blockHashMap map[uint64]string, err error) {
 	block, err := chain.FindBlock(endBlockHash)
 	if err != nil {
-		return "", "", fmt.Errorf("Can't find block for hash %v", endBlockHash)
+		return "", nil, fmt.Errorf("Can't find block for hash %v", endBlockHash)
 	}
 
 	if snapshotHeight >= block.Height {
-		return "", "", errors.New("Start height must be < end height")
+		return "", nil, errors.New("Start height must be < end height")
 	}
 
 	backupFile = "theta_chain_correction-" + strconv.FormatUint(snapshotHeight, 10) + "-" + strconv.FormatUint(block.Height, 10)
 	backupPath := path.Join(backupDir, backupFile)
 	file, err := os.Create(backupPath)
 	if err != nil {
-		return "", "", err
+		return "", nil, err
 	}
 	defer file.Close()
 	writer := bufio.NewWriter(file)
@@ -79,7 +79,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		}
 		parentBlock, err := chain.FindBlock(block.Parent)
 		if err != nil {
-			return "", "", fmt.Errorf("Can't find block for %v", block.Hash())
+			return "", nil, fmt.Errorf("Can't find block for %v", block.Hash())
 		}
 		block = parentBlock
 	}
@@ -99,12 +99,12 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 
 		result := ledger.ResetState(parent.Height, parent.StateHash)
 		if result.IsError() {
-			return "", "", fmt.Errorf("%v", result.String())
+			return "", nil, fmt.Errorf("%v", result.String())
 		}
 
 		hash, result := ledger.ApplyBlockTxsForChainCorrection(block.Block)
 		if result.IsError() {
-			return "", "", fmt.Errorf("%v", result.String())
+			return "", nil, fmt.Errorf("%v", result.String())
 		}
 		block.StateHash = hash
 		block.UpdateHash()
@@ -112,13 +112,14 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		parent = block
 	}
 
+	blockHashMap = make(map[uint64]string)
 	for i := 0; i < len(stack); i++ {
 		block = stack[i]
 
 		backupBlock := &core.BackupBlock{Block: block}
 		writeBlock(writer, backupBlock)
 
-		headBlockHash = block.Hash().Hex()
+		blockHashMap[block.Height] = block.Hash().Hex()
 	}
 
 	return

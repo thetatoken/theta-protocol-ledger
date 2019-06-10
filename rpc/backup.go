@@ -77,8 +77,8 @@ type BackupChainCorrectionArgs struct {
 }
 
 type BackupChainCorrectionResult struct {
-	ChainFile     string `json:"chain_correction_file"`
-	HeadBlockHash string `json:"head_block_hash"`
+	ChainFile    string            `json:"chain_correction_file"`
+	BlockHashMap map[uint64]string `json:"block_hash_map"`
 }
 
 func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs, result *BackupChainCorrectionResult) error {
@@ -93,9 +93,9 @@ func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs,
 		os.MkdirAll(backupDir, os.ModePerm)
 	}
 
-	chainFile, headBlockHash, err := snapshot.ExportChainCorrection(chain, ledger, snapshotHeight, endBlockHash, backupDir, exclusionTxs)
+	chainFile, blockHashMap, err := snapshot.ExportChainCorrection(chain, ledger, snapshotHeight, endBlockHash, backupDir, exclusionTxs)
 	result.ChainFile = chainFile
-	result.HeadBlockHash = headBlockHash
+	result.BlockHashMap = blockHashMap
 
 	return err
 }
