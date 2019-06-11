@@ -2,26 +2,19 @@ package node
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
-	"fmt"
 	"log"
-	"net"
-	"os"
-	"strings"
 	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	dp "github.com/thetatoken/theta/dispatcher"
 	ld "github.com/thetatoken/theta/ledger"
 	mp "github.com/thetatoken/theta/mempool"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
 	"github.com/thetatoken/theta/rpc"
@@ -116,38 +109,7 @@ func (n *Node) Start(ctx context.Context) {
 		n.RPC.Start(n.ctx)
 	}
 
-	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
-		metrics.Enabled = true
-
-		addr, _ := net.ResolveTCPAddr("tcp", mserver)
-
-		// Use chainID.hostname.Theta as prefix.
-		hostname, err := os.Hostname()
-		if err != nil {
-			// Use random string if hostname is not available.
-			b := make([]byte, 10)
-			rand.Read(b)
-			hostname = hex.EncodeToString(b)
-		}
-		hostname = strings.Replace(hostname, ".", "_", -1)
-		chainID := viper.GetString(common.CfgGenesisChainID)
-		if chainID == "" {
-			chainID = "unknown"
-		}
-		prefix := fmt.Sprintf("%s.Theta.%s", chainID, hostname)
-
-		go metrics.CollectProcessMetrics(5 * time.Second)
-		go metrics.Graphite(metrics.DefaultRegistry, 5*time.Second, prefix, addr)
-
-		// Report heartbeat.
-		go func() {
-			c := metrics.GetOrRegisterGauge(metrics.MHeartBeat, nil)
-			for {
-				c.Update(1)
-				time.Sleep(time.Second)
-			}
-		}()
-	}
+	metrics.Start(n.ctx)
 }
 
 // Stop notifies all sub components to stop without blocking.
