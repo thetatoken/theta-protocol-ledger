@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -125,8 +126,74 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
+	// check hardcoded block hashes to determine if need to auto rewind
+	heights := make([]uint64, 0, len(core.HardcodeBlockHashes))
+	for k := range core.HardcodeBlockHashes {
+		heights = append(heights, k)
+	}
+	sort.Slice(heights, func(i, j int) bool { return heights[i] < heights[j] })
+
 	// Set ledger state pointer to intial state.
 	lastCC := e.state.GetHighestCCBlock()
+
+	// get the closest hardcoded hash's height below lastCC
+	idx := -1
+	for i, height := range heights {
+		if height <= lastCC.Height {
+			idx = i
+		} else {
+			break
+		}
+	}
+
+	if idx > 0 {
+		needRewind := false
+		// find where to rewind to
+		for idx >= 0 {
+			// check if the finalized block at that height has the same hash as hardcoded
+			var finalizedBlock *core.ExtendedBlock
+			blocks := e.chain.FindBlocksByHeight(heights[idx])
+			for _, block := range blocks {
+				if block.Status.IsFinalized() {
+					finalizedBlock = block
+					break
+				}
+			}
+
+			if finalizedBlock.Hash().Hex() == core.HardcodeBlockHashes[heights[idx]] {
+				break
+			}
+
+			needRewind = true
+			idx--
+		}
+
+		if needRewind {
+			idx++ // last height where block hash varies from hardcoded hash
+
+			for {
+				if lastCC.Height < heights[idx] {
+					break
+				}
+
+				lastCC.Status = core.BlockStatusDisposed
+				e.chain.SaveBlock(lastCC)
+
+				parent, err := e.chain.FindBlock(lastCC.Parent)
+				if err != nil {
+					// Should not happen
+					e.logger.WithFields(log.Fields{
+						"error":  err,
+						"parent": lastCC.Parent.Hex(),
+						"block":  lastCC.Hash().Hex(),
+					}).Fatal("Failed to find parent block")
+				}
+
+				lastCC = parent
+			}
+		}
+	}
+
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
 	e.wg.Add(1)
@@ -329,11 +396,12 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
 	eb, err := e.chain.FindBlock(hash)
 	if err != nil {
-		// Should not happen
+		// block still not synced to DB, wait and retry
 		e.logger.WithFields(log.Fields{
 			"error": err,
 			"block": hash.Hex(),
-		}).Fatal("Failed to find block")
+		}).Warn("Failed to find block")
+		return
 	}
 	if !eb.Status.IsTrusted() {
 		e.logger.WithFields(log.Fields{
@@ -376,7 +444,6 @@ func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
 	e.pruneState(block.Height)
 
 	e.state.SetHighestCCBlock(eb)
-	e.chain.SaveBlock(eb)
 }
 
 func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {

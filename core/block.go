@@ -204,6 +204,7 @@ const (
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
 	BlockStatusTrusted
+	BlockStatusDisposed
 )
 
 func (bs BlockStatus) IsPending() bool {
