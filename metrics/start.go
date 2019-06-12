@@ -21,8 +21,6 @@ func Start(ctx context.Context) {
 		return
 	}
 
-	mlib.Enabled = true
-
 	go reportProcessInfo()
 	go reportHeartBeat()
 	go sendToGraphite(mserver)

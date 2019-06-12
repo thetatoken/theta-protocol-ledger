@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/metrics"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -186,6 +188,8 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 }
 
 func (rm *RequestManager) tryToDownload() {
+	defer rm.reportMetrics()
+
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
@@ -423,4 +427,12 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 		}
 		rm.syncMgr.PassdownMessage(block)
 	}
+}
+
+func (rm *RequestManager) reportMetrics() {
+	pendingHashesCounter := mlib.GetOrRegisterGauge(metrics.MSyncPendingHashes, nil)
+	pendingHashesCounter.Update(int64(rm.pendingBlocks.Len() - len(rm.pendingBlocksByParent)))
+
+	orphanBlocksCounter := mlib.GetOrRegisterGauge(metrics.MSyncOrphanBlocks, nil)
+	orphanBlocksCounter.Update(int64(len(rm.pendingBlocksByParent)))
 }

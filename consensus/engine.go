@@ -11,10 +11,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store"
 )
@@ -310,6 +312,9 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 }
 
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
+	invalidCounter := mlib.GetOrRegisterMeter(metrics.MConsensusInvalidBlock, nil)
+	validCounter := mlib.GetOrRegisterMeter(metrics.MConsensusValidBlock, nil)
+
 	eb, err := e.chain.FindBlock(block.Hash())
 	if err != nil {
 		// Should not happen.
@@ -341,6 +346,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 		e.logger.WithFields(log.Fields{
 			"block.Hash": block.Hash().Hex(),
 		}).Warn("Block is invalid")
+		invalidCounter.Mark(1)
 		return
 	}
 
@@ -365,6 +371,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"block":           block.Hash().Hex(),
 			"block.StateHash": block.StateHash.Hex(),
 		}).Error("Failed to apply block Txs")
+		invalidCounter.Mark(1)
 		return
 	}
 
@@ -378,6 +385,7 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 	}
 
 	e.chain.MarkBlockValid(block.Hash())
+	validCounter.Mark(1)
 
 	// Check and process CC.
 	e.checkCC(block.Hash())
@@ -493,8 +501,13 @@ func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 	// Validate vote.
 	if !e.validateVote(vote) {
+		invalidVoteCounter := mlib.GetOrRegisterMeter(metrics.MConsensusInvalidVote, nil)
+		invalidVoteCounter.Mark(1)
 		return
 	}
+
+	validVoteCounter := mlib.GetOrRegisterMeter(metrics.MConsensusValidVote, nil)
+	validVoteCounter.Mark(1)
 
 	// Save vote.
 	err := e.state.AddVote(&vote)
@@ -642,6 +655,8 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	e.logger.WithFields(log.Fields{"ccBlock.Hash": ccBlock.Hash().Hex(), "c.epoch": e.state.GetEpoch()}).Debug("Updating highestCCBlock")
 	e.state.SetHighestCCBlock(ccBlock)
 	e.chain.CommitBlock(ccBlock.Hash())
+	committedCounter := mlib.GetOrRegisterMeter(metrics.MConsensusCommitted, nil)
+	committedCounter.Mark(1)
 
 	if ccBlock.Parent != ccBlock.HCC.BlockHash {
 		return
@@ -655,6 +670,8 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		return
 	}
 	e.finalizeBlock(parent)
+	finalizedCounter := mlib.GetOrRegisterMeter(metrics.MConsensusFinalized, nil)
+	finalizedCounter.Mark(1)
 }
 
 func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
@@ -678,6 +695,9 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	// Force update TX index on block finalization so that the index doesn't point to
 	// duplicate TX in fork.
 	e.chain.AddTxsToIndex(block, true)
+
+	txCounter := mlib.GetOrRegisterMeter(metrics.MConsensusFinalizedTxs, nil)
+	txCounter.Mark(int64(len(block.Txs)))
 
 	select {
 	case e.finalizedBlocks <- block.Block:

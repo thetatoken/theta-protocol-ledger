@@ -9,7 +9,9 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/store"
 )
 
@@ -238,6 +240,7 @@ func (ch *Chain) CommitBlock(hash common.Hash) {
 func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
+	txCounter := mlib.GetOrRegisterMeter(metrics.MConsensusFinalizedTxs, nil)
 
 	status := core.BlockStatusDirectlyFinalized
 	for !hash.IsEmpty() {
@@ -247,6 +250,9 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 		}
 		block.Status = status
 		status = core.BlockStatusIndirectlyFinalized // Only the first block is marked as directly finalized
+
+		txCounter.Mark(int64(len(block.Txs)))
+
 		err = ch.saveBlock(block)
 		if err != nil {
 			logger.Panic(err)

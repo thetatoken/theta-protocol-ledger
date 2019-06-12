@@ -8,8 +8,10 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/hexutil"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/metrics"
 )
 
 const txTimeout = 60 * time.Second
@@ -117,6 +119,9 @@ type BroadcastRawTransactionResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransaction(
 	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCBroadcastRawTx, nil)
+	c.Mark(1)
+
 	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err
@@ -161,6 +166,9 @@ type BroadcastRawTransactionAsyncResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCBroadcastRawTxAsync, nil)
+	c.Mark(1)
+
 	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err

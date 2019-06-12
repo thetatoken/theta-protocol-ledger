@@ -12,9 +12,11 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/clist"
 	"github.com/thetatoken/theta/common/math"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/common/pqueue"
 	"github.com/thetatoken/theta/core"
 	dp "github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/metrics"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "mempool"})
@@ -171,6 +173,8 @@ func (mp *Mempool) SetLedger(ledger core.Ledger) {
 
 // InsertTransaction inserts the incoming transaction to mempool (submitted by the clients or relayed from peers)
 func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
+	defer mp.reportMetrics()
+
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
@@ -264,6 +268,8 @@ func (mp *Mempool) Reap(maxNumTxs int) []common.Bytes {
 
 // ReapUnsafe is the non-locking version of Reap.
 func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
+	defer mp.reportMetrics()
+
 	if maxNumTxs == 0 {
 		return []common.Bytes{}
 	} else if maxNumTxs < 0 {
@@ -308,6 +314,8 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) {
 // UpdateUnsafe is the non-locking version of Update. Caller must call Mempool.Lock() before
 // calling this method.
 func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
+	defer mp.reportMetrics()
+
 	mp.removeTxs(committedRawTxs)
 
 	// Remove Txs that have become obsolete.
@@ -381,6 +389,7 @@ func (mp *Mempool) GetCandidateTransactionHashes() []string {
 
 // Flush removes all transactions from the Mempool and the transactionBookkeeper
 func (mp *Mempool) Flush() {
+	defer mp.reportMetrics()
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
 
@@ -424,4 +433,9 @@ func (mp *Mempool) broadcastTransactionsRoutine() {
 		next = curr.NextWait()
 		mp.newTxs.Remove(curr) // already broadcasted, should remove
 	}
+}
+
+func (mp *Mempool) reportMetrics() {
+	txCounter := mlib.GetOrRegisterGauge(metrics.MMempoolTxs, nil)
+	txCounter.Update(int64(mp.size))
 }

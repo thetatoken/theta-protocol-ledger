@@ -4,6 +4,8 @@ import (
 	"os"
 	"path"
 
+	mlib "github.com/thetatoken/theta/common/metrics"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/snapshot"
 )
 
@@ -18,6 +20,9 @@ type BackupSnapshotResult struct {
 }
 
 func (t *ThetaRPCService) BackupSnapshot(args *BackupSnapshotArgs, result *BackupSnapshotResult) error {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCBackup, nil)
+	c.Mark(1)
+
 	db := t.ledger.State().DB()
 	consensus := t.consensus
 	chain := t.chain
@@ -48,6 +53,9 @@ type BackupChainResult struct {
 }
 
 func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChainResult) error {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCBackupChain, nil)
+	c.Mark(1)
+
 	db := t.ledger.State().DB()
 	consensus := t.consensus
 	chain := t.chain

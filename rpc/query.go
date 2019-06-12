@@ -7,11 +7,13 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/common"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/mempool"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/version"
 )
 
@@ -27,6 +29,9 @@ type GetVersionResult struct {
 }
 
 func (t *ThetaRPCService) GetVersion(args *GetVersionArgs, result *GetVersionResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetVersion, nil)
+	c.Mark(1)
+
 	result.Version = version.Version
 	result.GitHash = version.GitHash
 	result.Timestamp = version.Timestamp
@@ -47,6 +52,9 @@ type GetAccountResult struct {
 }
 
 func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetAccount, nil)
+	c.Mark(1)
+
 	if args.Address == "" {
 		return errors.New("Address must be specified")
 	}
@@ -84,6 +92,9 @@ type GetSplitRuleResult struct {
 }
 
 func (t *ThetaRPCService) GetSplitRule(args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetSplitRule, nil)
+	c.Mark(1)
+
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
@@ -121,6 +132,9 @@ const (
 )
 
 func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTransactionResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetTx, nil)
+	c.Mark(1)
+
 	if args.Hash == "" {
 		return errors.New("Transanction hash must be specified")
 	}
@@ -170,6 +184,9 @@ type GetPendingTransactionsResult struct {
 }
 
 func (t *ThetaRPCService) GetPendingTransactions(args *GetPendingTransactionsArgs, result *GetPendingTransactionsResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetPendingTx, nil)
+	c.Mark(1)
+
 	pendingTxHashes := t.mempool.GetCandidateTransactionHashes()
 	result.TxHashes = pendingTxHashes
 	return nil
@@ -224,6 +241,9 @@ const (
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetBlock, nil)
+	c.Mark(1)
+
 	if args.Hash.IsEmpty() {
 		return errors.New("Block hash must be specified")
 	}
@@ -274,6 +294,9 @@ type GetBlockByHeightArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetBlockByHeight, nil)
+	c.Mark(1)
+
 	if args.Height == 0 {
 		return errors.New("Block height must be specified")
 	}
@@ -341,6 +364,9 @@ type GetStatusResult struct {
 }
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetStatus, nil)
+	c.Mark(1)
+
 	s := t.consensus.GetSummary()
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
@@ -377,6 +403,9 @@ type BlockHashVcpPair struct {
 }
 
 func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVcpResult) (err error) {
+	c := mlib.GetOrRegisterMeter(metrics.MRPCGetVCP, nil)
+	c.Mark(1)
+
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err

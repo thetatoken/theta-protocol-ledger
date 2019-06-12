@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/p2p"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
@@ -256,6 +258,9 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 }
 
 func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
+	invReqCounter := mlib.GetOrRegisterMeter(metrics.MSyncInvRequestReceived, nil)
+	invReqCounter.Mark(1)
+
 	m.logger.WithFields(log.Fields{
 		"channelID":   req.ChannelID,
 		"startHashes": req.Starts,
@@ -265,7 +270,6 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 
 	switch req.ChannelID {
 	case common.ChannelIDBlock:
-
 		start := m.locateStart(req.Starts)
 		if start.IsEmpty() {
 			m.logger.WithFields(log.Fields{
@@ -286,6 +290,8 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 			"peerID":            peerID,
 		}).Debug("Sending inventory response")
 		m.dispatcher.SendInventory([]string{peerID}, resp)
+		invRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncInvResponseSent, nil)
+		invRespCounter.Mark(1)
 	default:
 		m.logger.WithFields(log.Fields{"channelID": req.ChannelID}).Warn("Unsupported channelID in received InvRequest")
 	}
@@ -298,6 +304,8 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 		"InvResponse": resp,
 		"peerID":      peerID,
 	}).Debug("Received Inventory Response")
+	invRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncInvResponseReceived, nil)
+	invRespCounter.Mark(1)
 
 	switch resp.ChannelID {
 	case common.ChannelIDBlock:
@@ -314,6 +322,9 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 }
 
 func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequest) {
+	dataReqCounter := mlib.GetOrRegisterMeter(metrics.MSyncDataRequestReceived, nil)
+	dataReqCounter.Mark(1)
+
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
 		for _, hashStr := range data.Entries {
@@ -347,6 +358,12 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 				"peerID":    peerID,
 			}).Debug("Sending requested block")
 			m.dispatcher.SendData([]string{peerID}, data)
+
+			dataRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncDataResponseSent, nil)
+			dataRespCounter.Mark(1)
+
+			blockCounter := mlib.GetOrRegisterMeter(metrics.MSyncBlockSent, nil)
+			blockCounter.Mark(1)
 		}
 	default:
 		m.logger.WithFields(log.Fields{
@@ -390,6 +407,9 @@ func Fuzz(data []byte) int {
 }
 
 func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
+	dataRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncDataResponseReceived, nil)
+	dataRespCounter.Mark(1)
+
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
 		block := core.NewBlock()
@@ -462,6 +482,9 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
+	blockCounter := mlib.GetOrRegisterMeter(metrics.MSyncBlockReceived, nil)
+	blockCounter.Mark(1)
+
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
 		return
 	}
@@ -476,9 +499,15 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		ChannelID: common.ChannelIDBlock,
 		Entries:   []string{block.Hash().Hex()},
 	})
+
+	invRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncInvResponseSent, nil)
+	invRespCounter.Mark(1)
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {
+	voteCounter := mlib.GetOrRegisterMeter(metrics.MSyncVoteReceived, nil)
+	voteCounter.Mark(1)
+
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
 	for _, v := range votes {
 		// Check if vote already processed.
@@ -505,4 +534,9 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 		Payload:   payload,
 	}
 	sm.dispatcher.SendData([]string{}, msg)
+
+	dataRespCounter := mlib.GetOrRegisterMeter(metrics.MSyncDataResponseSent, nil)
+	dataRespCounter.Mark(1)
+	voteSentCounter := mlib.GetOrRegisterMeter(metrics.MSyncVoteSent, nil)
+	voteSentCounter.Mark(1)
 }

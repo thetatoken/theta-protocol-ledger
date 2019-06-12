@@ -12,7 +12,9 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/hexutil"
+	mlib "github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/crypto/sha3"
+	"github.com/thetatoken/theta/metrics"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -306,30 +308,13 @@ type signatureCache struct {
 	rw    *sync.RWMutex
 	cache *lru.Cache
 
-	// // Metrics
-	// count    uint32
-	// hitCount uint32
-	// time     uint64
+	// metrics
+	hitRate mlib.Histogram
 }
 
 const enableSigCache = true
 
 func (sc *signatureCache) Verify(sig *Signature, msg common.Bytes, addr common.Address) bool {
-	// defer func(start time.Time) {
-	// 	elapsed := time.Since(start)
-	// 	atomic.AddUint64(&sc.time, uint64(elapsed.Nanoseconds()))
-
-	// 	count := atomic.LoadUint32(&sc.count)
-	// 	if count%10 == 0 {
-	// 		hitCount := atomic.LoadUint32(&sc.hitCount)
-	// 		totalTime := atomic.LoadUint64(&sc.time)
-	// 		log.Debugf("SigCache: enabled: %v, signatureCache.Verify(): count: %d, hitCount: %d, hit rate: %.2f, time: %dns, avg op time: %.2f",
-	// 			enableSigCache, count, hitCount, float32(hitCount)/float32(count), totalTime, float64(totalTime)/float64(count))
-	// 	}
-	// }(time.Now())
-
-	// atomic.AddUint32(&sc.count, 1)
-
 	hasher := sha3.NewKeccak256()
 	if sig == nil || len(sig.data) != 65 {
 		return false
@@ -348,11 +333,12 @@ func (sc *signatureCache) Verify(sig *Signature, msg common.Bytes, addr common.A
 		sc.rw.RLock()
 		result, ok := sc.cache.Get(key)
 		sc.rw.RUnlock()
+
 		if ok {
-			// atomic.AddUint32(&sc.hitCount, 1)
-			// log.Debugf("SigCache cache hit: key: %v, addr: %v", hex.EncodeToString(key[:]), addr.Hex())
+			sc.hitRate.Update(metrics.VPerfSigCacheHit_Hit)
 			return result.(bool)
 		}
+		sc.hitRate.Update(metrics.VPerfSigCacheHit_Miss)
 	}
 
 	sigResult := sig.Verify(msg, addr)
@@ -368,8 +354,11 @@ var SigCache *signatureCache
 
 func init() {
 	lruSigCache, _ := lru.New(8094)
+	s := mlib.NewUniformSample(100)
+	hitRate := mlib.GetOrRegisterHistogram(metrics.MPerfSigCacheHit, nil, s)
 	SigCache = &signatureCache{
-		cache: lruSigCache,
-		rw:    &sync.RWMutex{},
+		cache:   lruSigCache,
+		rw:      &sync.RWMutex{},
+		hitRate: hitRate,
 	}
 }
