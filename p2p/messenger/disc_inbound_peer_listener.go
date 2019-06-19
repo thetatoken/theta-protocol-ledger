@@ -116,10 +116,12 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			logger.Fatalf("net listener error: %v", err)
 		}
 
-		peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
-		if ipl.inboundCallback != nil {
-			ipl.inboundCallback(peer, err)
-		}
+		go func(netconn net.Conn) {
+			peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
+			if ipl.inboundCallback != nil {
+				ipl.inboundCallback(peer, err)
+			}
+		}(netconn)
 	}
 }
 
