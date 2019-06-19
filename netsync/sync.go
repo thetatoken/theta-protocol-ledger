@@ -221,7 +221,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 				if err != nil {
 					m.logger.WithFields(log.Fields{
 						"err":  err,
-						"hash": curr,
+						"hash": curr.Hex(),
 					}).Debug("Failed to load block")
 					return ret
 				}
@@ -455,10 +455,16 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
+		logger.Warnf("<<<<<<< 1111")
 		return
 	}
 
-	if res := block.Validate(sm.chain.ChainID); res.IsError() {
+	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
+		if hash != block.Hash().Hex() {
+			return
+		}
+	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		logger.Warnf("Invalid block: %s", res.String())
 		return
 	}
 

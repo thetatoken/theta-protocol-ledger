@@ -55,6 +55,7 @@ type Params struct {
 
 func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
+	log.Printf("=-=-=-==-=-=-=-= Root: %v, %v", params.Root.Height, params.Root.Hash().Hex())
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewRotatingValidatorManager()
 	dispatcher := dp.NewDispatcher(params.Network)

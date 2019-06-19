@@ -235,7 +235,7 @@ func (ch *Chain) CommitBlock(hash common.Hash) {
 	}
 }
 
-func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
+func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
@@ -243,7 +243,10 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 	for !hash.IsEmpty() {
 		block, err := ch.findBlock(hash)
 		if err != nil || block.Status.IsFinalized() {
-			return
+			return nil
+		}
+		if block.Status == core.BlockStatusDisposed {
+			return errors.New("Cannot finalize disposed branch")
 		}
 		block.Status = status
 		status = core.BlockStatusIndirectlyFinalized // Only the first block is marked as directly finalized
@@ -253,6 +256,7 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) {
 		}
 		hash = block.Parent
 	}
+	return nil
 }
 
 func (ch *Chain) IsOrphan(block *core.Block) bool {

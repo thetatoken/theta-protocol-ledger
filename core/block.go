@@ -238,7 +238,7 @@ func (bs BlockStatus) IsInvalid() bool {
 
 // IsValid returns whether block has been validated.
 func (bs BlockStatus) IsValid() bool {
-	return bs != BlockStatusPending && bs != BlockStatusInvalid
+	return bs != BlockStatusPending && bs != BlockStatusInvalid && bs != BlockStatusDisposed
 }
 
 // func (bs BlockStatus) MarshalJSON() ([]byte, error) {
