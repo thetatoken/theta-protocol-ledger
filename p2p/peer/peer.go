@@ -119,6 +119,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
+	var s *rlp.Stream
 	var sendError error
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
@@ -131,7 +132,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 			sendError = rlp.Encode(peer.connection.GetNetconn(), nodeInfo)
 		},
 		func() {
-			s := rlp.NewStream(peer.connection.GetNetconn(), 1024)
+			s = rlp.NewStream(peer.connection.GetNetconn(), 1024)
 			recvError = s.Decode(&targetPeerNodeInfo)
 		},
 	)
@@ -165,7 +166,6 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 				sendError = rlp.Encode(peer.connection.GetNetconn(), "EOH")
 			},
 			func() {
-				s := rlp.NewStream(peer.connection.GetNetconn(), maxExtraHandshakeInfo)
 				var msg string
 				recvError = s.Decode(&msg)
 				if recvError != nil {
