@@ -203,14 +203,17 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 				lastCC = parent
 			}
 		}
+
+		e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+
+		e.state.SetLastFinalizedBlock(lastCC)
+		e.state.SetHighestCCBlock(lastCC)
+		e.state.SetLastVote(core.Vote{})
+		e.state.SetLastProposal(core.Proposal{})
+		e.Chain().Root()
+	} else {
+		e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 	}
-
-	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
-
-	e.state.SetLastFinalizedBlock(lastCC)
-	e.state.SetHighestCCBlock(lastCC)
-	e.state.SetLastVote(core.Vote{})
-	e.state.SetLastProposal(core.Proposal{})
 
 	logger.Debugf("====================== LastCC: %v, %v", lastCC.Height, lastCC.Hash().Hex())
 

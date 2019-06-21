@@ -55,6 +55,23 @@ type Params struct {
 
 func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
+
+	ht := params.Root.Height
+	for {
+		if _, ok := core.HardcodeBlockHashes[ht+1]; !ok {
+			break
+		}
+		ht++
+	}
+	if ht > params.Root.Height {
+		var block core.ExtendedBlock
+		hash := common.HexToHash(core.HardcodeBlockHashes[ht])
+		err := store.Get(hash[:], &block)
+		if err != nil {
+			log.Fatalf("Failed to get block: %v at height %v, err: %v", core.HardcodeBlockHashes[ht], ht, err)
+		}
+		params.Root = block.Block
+	}
 	log.Printf("=-=-=-==-=-=-=-= Root: %v, %v", params.Root.Height, params.Root.Hash().Hex())
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewRotatingValidatorManager()
