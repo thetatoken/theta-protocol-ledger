@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"runtime/debug"
 	"sync"
@@ -33,6 +34,8 @@ type Connection struct {
 
 	bufReader   *bufio.Reader
 	recvMonitor *flowrate.Monitor
+
+	bufConn io.ReadWriter
 
 	channelGroup ChannelGroup
 	onParse      MessageParser
@@ -67,14 +70,12 @@ type Connection struct {
 // ConnectionConfig specifies the configurations of the Connection
 //
 type ConnectionConfig struct {
-	MinWriteBufferSize int
-	MinReadBufferSize  int
-	SendRate           int64
-	RecvRate           int64
-	PacketBatchSize    int64
-	FlushThrottle      time.Duration
-	PingTimeout        time.Duration
-	MaxPendingPings    uint32
+	SendRate        int64
+	RecvRate        int64
+	PacketBatchSize int64
+	FlushThrottle   time.Duration
+	PingTimeout     time.Duration
+	MaxPendingPings uint32
 }
 
 // MessageParser parses the raw message bytes to type p2ptypes.Message
@@ -119,11 +120,11 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		return nil
 	}
 
-	return &Connection{
+	conn := &Connection{
 		netconn:      netconn,
-		bufWriter:    bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
+		bufWriter:    bufio.NewWriter(netconn),
 		sendMonitor:  flowrate.New(0, 0),
-		bufReader:    bufio.NewReaderSize(netconn, config.MinReadBufferSize),
+		bufReader:    bufio.NewReader(netconn),
 		recvMonitor:  flowrate.New(0, 0),
 		channelGroup: channelGroup,
 		sendPulse:    make(chan bool, 1),
@@ -136,6 +137,11 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 
 		onEncode: defaultMessageEncoder,
 	}
+	conn.bufConn = struct {
+		io.Reader
+		io.Writer
+	}{Reader: conn.bufReader, Writer: conn.netconn}
+	return conn
 }
 
 // GetDefaultConnectionConfig returns the default ConnectionConfig
@@ -507,6 +513,11 @@ func (conn *Connection) sendPacket() (success bool, exhausted bool) {
 // GetNetconn returns the attached network connection
 func (conn *Connection) GetNetconn() net.Conn {
 	return conn.netconn
+}
+
+// GetBufNetconn returns buffered network connection
+func (conn *Connection) GetBufNetconn() io.ReadWriter {
+	return conn.bufConn
 }
 
 func (conn *Connection) stopForError(r interface{}) {

@@ -89,15 +89,15 @@ func (conn *Connection) DoEncHandshake(prv *ecdsa.PrivateKey, dial *ecdsa.Public
 		err error
 	)
 	if dial.X.Cmp(prv.PublicKey.X) < 0 {
-		sec, err = receiverEncHandshake(conn.netconn, prv)
+		sec, err = receiverEncHandshake(conn.bufConn, prv)
 	} else {
-		sec, err = initiatorEncHandshake(conn.netconn, prv, dial)
+		sec, err = initiatorEncHandshake(conn.bufConn, prv, dial)
 	}
 	if err != nil {
 		return nil, err
 	}
 	conn.wmu.Lock()
-	conn.rw = newRLPXFrameRW(conn.netconn, sec)
+	conn.rw = newRLPXFrameRW(conn.bufConn, sec)
 	conn.wmu.Unlock()
 	return crypto.ECDSAToPubKey(sec.Remote.ExportECDSA()), nil
 }
