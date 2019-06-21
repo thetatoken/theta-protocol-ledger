@@ -96,6 +96,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	for i := len(stack) - 1; i >= 0; i-- {
 		block = stack[i]
 		block.Parent = parent.Hash()
+		block.Children = []common.Hash{}
 
 		result := ledger.ResetState(parent.Height, parent.StateHash)
 		if result.IsError() {

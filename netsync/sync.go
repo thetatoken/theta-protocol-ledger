@@ -455,7 +455,6 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
-		logger.Warnf("<<<<<<< 1111")
 		return
 	}
 
@@ -464,7 +463,6 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 			return
 		}
 	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
-		logger.Warnf("Invalid block: %s", res.String())
 		return
 	}
 
