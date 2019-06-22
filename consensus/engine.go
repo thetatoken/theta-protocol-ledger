@@ -711,6 +711,11 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 	if block.Status.IsCommitted() || block.Status.IsFinalized() {
 		return
 	}
+	// Process hardcoded blocks.
+	if block.Status.IsTrusted() {
+		e.processCCBlock(block)
+		return
+	}
 	// Ignore outdated votes.
 	highestCCBlockHeight := e.state.GetHighestCCBlock().Height
 	if block.Height < highestCCBlockHeight {
