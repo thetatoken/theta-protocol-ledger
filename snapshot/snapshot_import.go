@@ -71,7 +71,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 
 	// load chain correction, if any
 	if len(chainCorrectionPath) != 0 {
-		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
+		headBlock, _, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
 		if err != nil {
 			return nil, err
 		}
@@ -82,7 +82,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
 		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
 
-		return tailBlock.BlockHeader, nil
+		// return tailBlock.BlockHeader, nil
 	}
 
 	return snapshotBlockHeader, nil
@@ -119,7 +119,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 
 	// load chain correction, if any
 	if len(chainCorrectionPath) != 0 {
-		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, nil, tmpdb, nil)
+		headBlock, _, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, nil, tmpdb, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +130,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
 		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
 
-		return tailBlock.BlockHeader, nil
+		// return tailBlock.BlockHeader, nil
 	}
 
 	return snapshotBlockHeader, nil
