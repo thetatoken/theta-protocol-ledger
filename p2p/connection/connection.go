@@ -520,6 +520,11 @@ func (conn *Connection) GetBufNetconn() io.ReadWriter {
 	return conn.bufConn
 }
 
+// GetBufReader returns buffered reader for network connection
+func (conn *Connection) GetBufReader() *bufio.Reader {
+	return conn.bufReader
+}
+
 func (conn *Connection) stopForError(r interface{}) {
 	logger.Errorf("Connection error: %v", r)
 	if atomic.CompareAndSwapUint32(&conn.errored, 0, 1) {

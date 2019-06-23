@@ -132,7 +132,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 			sendError = rlp.Encode(peer.connection.GetBufNetconn(), nodeInfo)
 		},
 		func() {
-			s = rlp.NewStream(peer.connection.GetBufNetconn(), 1024)
+			s = rlp.NewStream(peer.connection.GetBufReader(), 1024)
 			recvError = s.Decode(&targetPeerNodeInfo)
 		},
 	)
@@ -145,7 +145,6 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		return recvError
 	}
 	netconn := peer.connection.GetNetconn()
-	netconn.SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
 		logger.Errorf("Error during handshake/recv: %v", err)
@@ -222,6 +221,8 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	if !peer.isOutbound {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
 	}
+
+	netconn.SetDeadline(time.Time{})
 
 	logger.Infof("Handshake completed, target address: %v, target public key: %v, address: %v",
 		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()), targetNodePubKey.Address())
