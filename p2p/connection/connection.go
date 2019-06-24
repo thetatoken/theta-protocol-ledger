@@ -278,7 +278,9 @@ func (conn *Connection) sendRoutine() {
 		var err error
 		select {
 		case <-conn.ctx.Done():
+			conn.wmu.Lock()
 			conn.stopped = true
+			conn.wmu.Unlock()
 			return
 		case <-conn.flushTimer.Ch:
 			conn.flush()
@@ -376,7 +378,9 @@ func (conn *Connection) recvRoutine() {
 	for {
 		select {
 		case <-conn.ctx.Done():
+			conn.wmu.Lock()
 			conn.stopped = true
+			conn.wmu.Unlock()
 			return
 		default:
 		}

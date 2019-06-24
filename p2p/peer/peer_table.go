@@ -108,7 +108,11 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	return &pt.peers
+	ret := make([]*Peer, len(pt.peers))
+	for i, p := range pt.peers {
+		ret[i] = p
+	}
+	return &ret
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
