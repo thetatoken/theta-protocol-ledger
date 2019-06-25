@@ -490,7 +490,6 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	for _, vote := range block.HCC.Votes.Votes() {
 		e.handleVote(vote)
 	}
-
 	e.checkCC(block.HCC.BlockHash)
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
@@ -541,8 +540,8 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	e.vote()
 }
 
-func (e *ConsensusEngine) shouldVote(block *core.ExtendedBlock) bool {
-	return e.shouldVoteByID(e.privateKey.PublicKey().Address(), block.Hash())
+func (e *ConsensusEngine) shouldVote(block common.Hash) bool {
+	return e.shouldVoteByID(e.privateKey.PublicKey().Address(), block)
 }
 
 func (e *ConsensusEngine) shouldVoteByID(id common.Address, block common.Hash) bool {
@@ -554,7 +553,7 @@ func (e *ConsensusEngine) shouldVoteByID(id common.Address, block common.Hash) b
 func (e *ConsensusEngine) vote() {
 	tip := e.GetTipToVote()
 
-	if !e.shouldVote(tip) {
+	if !e.shouldVote(tip.Hash()) {
 		return
 	}
 
