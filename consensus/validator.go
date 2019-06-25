@@ -5,10 +5,11 @@ import (
 	"math/rand"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 )
+
+const MaxValidatorCount int = 31
 
 //
 // -------------------------------- FixedValidatorManager ----------------------------------
@@ -139,7 +140,7 @@ func (m *RotatingValidatorManager) GetNextValidatorSet(blockHash common.Hash) *c
 //
 
 func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
-	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
+	maxNumValidators := MaxValidatorCount
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
 
 	valSet := core.NewValidatorSet()

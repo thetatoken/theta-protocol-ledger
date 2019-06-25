@@ -36,9 +36,9 @@ type Executor struct {
 	releaseFundTxExec    *ReleaseFundTxExecutor
 	servicePaymentTxExec *ServicePaymentTxExecutor
 	splitRuleTxExec      *SplitRuleTxExecutor
-	//smartContractTxExec  *SmartContractTxExecutor
-	depositStakeTxExec  *DepositStakeExecutor
-	withdrawStakeTxExec *WithdrawStakeExecutor
+	// smartContractTxExec *SmartContractTxExecutor
+	// depositStakeTxExec  *DepositStakeExecutor
+	// withdrawStakeTxExec *WithdrawStakeExecutor
 
 	skipSanityCheck bool
 }
@@ -57,9 +57,9 @@ func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr c
 		servicePaymentTxExec: NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:      NewSplitRuleTxExecutor(state),
 		//smartContractTxExec:  NewSmartContractTxExecutor(state),
-		depositStakeTxExec:  NewDepositStakeExecutor(),
-		withdrawStakeTxExec: NewWithdrawStakeExecutor(state),
-		skipSanityCheck:     false,
+		// depositStakeTxExec:  NewDepositStakeExecutor(),
+		// withdrawStakeTxExec: NewWithdrawStakeExecutor(state),
+		skipSanityCheck: false,
 	}
 
 	return executor
@@ -170,10 +170,10 @@ func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
 		txExecutor = exec.splitRuleTxExec
 	// case *types.SmartContractTx:
 	// 	txExecutor = exec.smartContractTxExec
-	case *types.DepositStakeTx:
-		txExecutor = exec.depositStakeTxExec
-	case *types.WithdrawStakeTx:
-		txExecutor = exec.withdrawStakeTxExec
+	// case *types.DepositStakeTx:
+	// 	txExecutor = exec.depositStakeTxExec
+	// case *types.WithdrawStakeTx:
+	// 	txExecutor = exec.withdrawStakeTxExec
 	default:
 		txExecutor = nil
 	}
