@@ -334,7 +334,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	if err != nil {
 		return false
 	}
-	if !hccBlock.Status.IsTrusted() && !hccBlock.Status.IsFinalized() {
+	if !hccBlock.Status.IsFinalized() {
 		hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
 		if !block.HCC.IsValid(hccValidators) {
 			e.logger.WithFields(log.Fields{
