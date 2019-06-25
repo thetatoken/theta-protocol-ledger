@@ -135,7 +135,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 	// Set ledger state pointer to intial state.
 	lastCC := e.state.GetHighestCCBlock()
-	logger.Debugf("-------------------------- initial lastCC: %v, %v", lastCC.Height, lastCC.Hash().Hex())
 
 	// get the closest hardcoded hash's height below lastCC
 	idx := -1
@@ -148,7 +147,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	}
 
 	if idx > 0 {
-		logger.Debugf("====================== idx: %v, %v", idx, heights[idx])
 		needRewind := false
 		// find where to rewind to
 		for idx >= 0 {
@@ -171,16 +169,12 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 				break
 			}
 
-			logger.Debugf("====================== finalizedBlock: %v, %v", finalizedBlock.Height, finalizedBlock.Hash().Hex())
-			logger.Debugf("====================== hardcode: %v, %v", heights[idx], core.HardcodeBlockHashes[heights[idx]])
-
 			needRewind = true
 			idx--
 		}
 
 		if needRewind {
 			idx++ // last height where block hash varies from hardcoded hash
-			logger.Debugf("====================== need rewind to: %v", heights[idx])
 
 			for {
 				if lastCC.Height < heights[idx] {
@@ -212,8 +206,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	}
 
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
-
-	logger.Debugf("====================== LastCC: %v, %v", lastCC.Height, lastCC.Hash().Hex())
 
 	e.wg.Add(1)
 	go e.mainLoop()
@@ -708,7 +700,7 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 		return
 	}
 	// Skip if block already has CC.
-	if block.Status.IsCommitted() || block.Status.IsFinalized() {
+	if block.Status.IsCommitted() || block.Status.IsDirectlyFinalized() || block.Status.IsIndirectlyFinalized() {
 		return
 	}
 	// Process hardcoded blocks.
@@ -773,7 +765,6 @@ func (e *ConsensusEngine) GetTip(includePendingBlockingLeaf bool) *core.Extended
 			stack = append(stack, child)
 		}
 	}
-	logger.Errorf(">>>>>>>>>>>>>>>>>>>> final highest cc block: %v", candidate.Height)
 	return candidate
 }
 

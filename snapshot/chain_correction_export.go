@@ -85,10 +85,11 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	}
 
 	// var bh common.Hash
-	var parent *core.ExtendedBlock
+	var snapshot, parent *core.ExtendedBlock
 	blocks := chain.FindBlocksByHeight(snapshotHeight)
 	for _, block := range blocks {
 		if block.Status.IsDirectlyFinalized() {
+			snapshot = block
 			parent = block
 			break
 		}
@@ -96,6 +97,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	for i := len(stack) - 1; i >= 0; i-- {
 		block = stack[i]
 		block.Parent = parent.Hash()
+		block.HCC.BlockHash = snapshot.Hash()
 		block.Children = []common.Hash{}
 
 		result := ledger.ResetState(parent.Height, parent.StateHash)
