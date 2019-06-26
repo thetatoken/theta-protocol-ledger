@@ -175,6 +175,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 		if needRewind {
 			idx++ // last height where block hash varies from hardcoded hash
+			logger.Infof("------------------ idx: %v, heights[idx]: %v, lastCC.Height: %v", idx, heights[idx], lastCC.Height)
 
 			for {
 				if lastCC.Height < heights[idx] {
@@ -196,13 +197,14 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 				lastCC = parent
 			}
+
+			logger.Infof("==================== lastCC: %v, %v", lastCC.Height, lastCC.Hash().Hex())
 		}
 
 		e.state.SetLastFinalizedBlock(lastCC)
 		e.state.SetHighestCCBlock(lastCC)
 		e.state.SetLastVote(core.Vote{})
 		e.state.SetLastProposal(core.Proposal{})
-		e.Chain().Root()
 	}
 
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)

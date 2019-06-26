@@ -233,7 +233,7 @@ func (bs BlockStatus) IsTrusted() bool {
 }
 
 func (bs BlockStatus) IsInvalid() bool {
-	return bs == BlockStatusInvalid
+	return bs == BlockStatusInvalid || bs == BlockStatusDisposed
 }
 
 // IsValid returns whether block has been validated.
