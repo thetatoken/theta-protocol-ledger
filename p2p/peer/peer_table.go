@@ -53,6 +53,7 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 		for i, p := range pt.peers {
 			if p.ID() == peer.ID() {
 				p.Stop()
+				logger.Warnf("Stopping duplicated peer: %v", p.ID())
 				pt.peers[i] = peer
 				break
 			}

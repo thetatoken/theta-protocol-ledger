@@ -96,6 +96,8 @@ type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
 func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
+	logger.Debugf("Create connection, local: %v, remote: %v", netconn.LocalAddr(), netconn.RemoteAddr())
+
 	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
 	channelHeader := createDefaultChannel(common.ChannelIDHeader)
 	channelBlock := createDefaultChannel(common.ChannelIDBlock)
@@ -190,7 +192,11 @@ func (conn *Connection) CancelConnection() {
 
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
-	conn.netconn.Close()
+	logger.Warnf("Stopping connection, local: %v, remote: %v", conn.GetNetconn().LocalAddr(), conn.GetNetconn().RemoteAddr())
+	err := conn.netconn.Close()
+	if err != nil {
+		logger.Errorf("Failed to close connection: %v", err)
+	}
 	conn.cancel()
 }
 
@@ -304,7 +310,8 @@ func (conn *Connection) sendRoutine() {
 
 func (conn *Connection) sendPingSignal() error {
 	if atomic.LoadUint32(&conn.pendingPings) >= conn.config.MaxPendingPings {
-		conn.onError(nil)
+		//conn.onError(nil)
+		conn.stopForError(nil)
 		logger.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 	}
