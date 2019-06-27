@@ -190,6 +190,7 @@ func (conn *Connection) CancelConnection() {
 
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
+	conn.netconn.Close()
 	conn.cancel()
 }
 
