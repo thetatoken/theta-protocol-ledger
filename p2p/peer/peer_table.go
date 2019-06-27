@@ -52,6 +52,7 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 		// Update existing entry with same ID.
 		for i, p := range pt.peers {
 			if p.ID() == peer.ID() {
+				p.Stop()
 				pt.peers[i] = peer
 				break
 			}
