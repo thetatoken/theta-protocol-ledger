@@ -185,6 +185,8 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 				lastCC.Status = core.BlockStatusDisposed
 				e.chain.SaveBlock(lastCC)
 
+				e.chain.RemoveVotesByHash(lastCC.Hash())
+
 				parent, err := e.chain.FindBlock(lastCC.Parent)
 				if err != nil {
 					// Should not happen
@@ -566,7 +568,9 @@ func (e *ConsensusEngine) vote() {
 		// Voting height should be monotonically increasing.
 		e.logger.WithFields(log.Fields{
 			"lastVote.Height": lastVote.Height,
+			"lastVote.Hash":   lastVote.Block.Hex(),
 			"tip.Height":      tip.Height,
+			"tip.Hash":        tip.Hash().Hex(),
 		}).Debug("Repeating vote at height")
 		shouldRepeatVote = true
 	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC.BlockHash != localHCC {

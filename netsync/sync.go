@@ -482,6 +482,12 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 			return
 		}
 	}
+	// Ignore vote for disposed blocks.
+	if b, err := sm.chain.FindBlock(vote.Block); err == nil {
+		if b.Status == core.BlockStatusDisposed {
+			return
+		}
+	}
 
 	sm.PassdownMessage(vote)
 
