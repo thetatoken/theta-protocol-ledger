@@ -47,6 +47,9 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	if err != nil {
 		return "", nil, fmt.Errorf("Can't find block for hash %v", endBlockHash)
 	}
+	if !block.Status.IsFinalized() {
+		return "", nil, fmt.Errorf("End Block %v is not finalized yet", endBlockHash)
+	}
 
 	if snapshotHeight >= block.Height {
 		return "", nil, errors.New("Start height must be < end height")
