@@ -126,15 +126,21 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
+	// Set ledger state pointer to intial state.
+	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
+	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+
+	e.wg.Add(1)
+	go e.mainLoop()
+}
+
+func (e *ConsensusEngine) autoRewind(lastCC *core.ExtendedBlock) *core.ExtendedBlock {
 	// check hardcoded block hashes to determine if need to auto rewind
 	heights := make([]uint64, 0, len(core.HardcodeBlockHashes))
 	for k := range core.HardcodeBlockHashes {
 		heights = append(heights, k)
 	}
 	sort.Slice(heights, func(i, j int) bool { return heights[i] < heights[j] })
-
-	// Set ledger state pointer to intial state.
-	lastCC := e.state.GetHighestCCBlock()
 
 	// get the closest hardcoded hash's height below lastCC
 	idx := -1
@@ -175,7 +181,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 		if needRewind {
 			idx++ // last height where block hash varies from hardcoded hash
-			logger.Infof("------------------ idx: %v, heights[idx]: %v, lastCC.Height: %v", idx, heights[idx], lastCC.Height)
 
 			for {
 				if lastCC.Height < heights[idx] {
@@ -184,7 +189,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 				lastCC.Status = core.BlockStatusDisposed
 				e.chain.SaveBlock(lastCC)
-
 				e.chain.RemoveVotesByHash(lastCC.Hash())
 
 				parent, err := e.chain.FindBlock(lastCC.Parent)
@@ -199,8 +203,6 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 				lastCC = parent
 			}
-
-			logger.Infof("==================== lastCC: %v, %v", lastCC.Height, lastCC.Hash().Hex())
 		}
 
 		e.state.SetLastFinalizedBlock(lastCC)
@@ -209,10 +211,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 		e.state.SetLastProposal(core.Proposal{})
 	}
 
-	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
-
-	e.wg.Add(1)
-	go e.mainLoop()
+	return lastCC
 }
 
 // Stop notifies all goroutines to stop without blocking.
