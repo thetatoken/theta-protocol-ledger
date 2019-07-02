@@ -75,8 +75,17 @@ func NewNode(params *Params) *Node {
 		snapshotPath := params.SnapshotPath
 		chainImportDirPath := params.ChainImportDirPath
 		chainCorrectionPath := params.ChainCorrectionPath
-		if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath, chain, params.DB, ledger); err != nil {
+		var lastCC *core.ExtendedBlock
+		var err error
+		if _, lastCC, err = snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath, chain, params.DB, ledger); err != nil {
 			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
+		}
+		if lastCC != nil {
+			state := consensus.State()
+			state.SetLastFinalizedBlock(lastCC)
+			state.SetHighestCCBlock(lastCC)
+			state.SetLastVote(core.Vote{})
+			state.SetLastProposal(core.Proposal{})
 		}
 	}
 

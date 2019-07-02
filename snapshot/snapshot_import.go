@@ -55,25 +55,25 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (*core.BlockHeader, error) {
+func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader *core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
 	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
 	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Printf("Snapshot loaded successfully.")
 
 	// load previous chain, if any
 	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, chain, db)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// load chain correction, if any
 	if len(chainCorrectionPath) != 0 {
-		headBlock, _, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
+		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		snapshotBlock := core.ExtendedBlock{}
@@ -82,10 +82,10 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
 		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
 
-		// return tailBlock.BlockHeader, nil
+		lastCC = tailBlock
 	}
 
-	return snapshotBlockHeader, nil
+	return snapshotBlockHeader, lastCC, nil
 }
 
 // ValidateSnapshot validates the snapshot using a temporary database
@@ -129,8 +129,6 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
 		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
-
-		// return tailBlock.BlockHeader, nil
 	}
 
 	return snapshotBlockHeader, nil

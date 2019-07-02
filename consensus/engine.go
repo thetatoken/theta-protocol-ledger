@@ -1002,3 +1002,7 @@ func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
 	endHeight := currentBlockHeight - minimumNumBlocksToRetain
 	e.ledger.PruneState(endHeight)
 }
+
+func (e *ConsensusEngine) State() *State {
+	return e.state
+}

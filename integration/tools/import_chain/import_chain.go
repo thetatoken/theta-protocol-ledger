@@ -60,7 +60,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
-	if _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, "", chain, db, nil); err != nil {
+	if _, _, err := snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, "", chain, db, nil); err != nil {
 		log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
 	}
 
