@@ -126,34 +126,38 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	var password string
 	var nodeAddrss common.Address
 	if numAddrs == 0 {
-		fmt.Println("")
-		fmt.Println("You are launching the Theta Node for the first time. Welcome and please follow the instructions to setup the node.")
-		fmt.Println("")
+		if len(nodePassword) != 0 {
+			password = nodePassword
+		} else {
+			fmt.Println("")
+			fmt.Println("You are launching the Theta Node for the first time. Welcome and please follow the instructions to setup the node.")
+			fmt.Println("")
 
-		firstPrompt := fmt.Sprintf("Please choose your password for the Theta Node: ")
-		firstPassword, err := utils.GetPassword(firstPrompt)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get password: %v", err)
+			firstPrompt := fmt.Sprintf("Please choose your password for the Theta Node: ")
+			firstPassword, err := utils.GetPassword(firstPrompt)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get password: %v", err)
+			}
+			secondPrompt := fmt.Sprintf("Please enter your password again: ")
+			secondPassword, err := utils.GetPassword(secondPrompt)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to get password: %v", err)
+			}
+			if firstPassword != secondPassword {
+				return nil, fmt.Errorf("Passwords do not match")
+			}
+
+			fmt.Println("")
+			fmt.Println("-----------------------------------------------------------------------------------------------------")
+			fmt.Println("IMPORTANT: Please store your password securely. You will need it each time you launch the Theta node.")
+			fmt.Println("-----------------------------------------------------------------------------------------------------")
+			fmt.Println("")
+
+			// fmt.Println("Please press enter to continue..")
+			// utils.GetConfirmation()
+
+			password = firstPassword
 		}
-		secondPrompt := fmt.Sprintf("Please enter your password again: ")
-		secondPassword, err := utils.GetPassword(secondPrompt)
-		if err != nil {
-			return nil, fmt.Errorf("Failed to get password: %v", err)
-		}
-		if firstPassword != secondPassword {
-			return nil, fmt.Errorf("Passwords do not match")
-		}
-
-		fmt.Println("")
-		fmt.Println("-----------------------------------------------------------------------------------------------------")
-		fmt.Println("IMPORTANT: Please store your password securely. You will need it each time you launch the Theta node.")
-		fmt.Println("-----------------------------------------------------------------------------------------------------")
-		fmt.Println("")
-
-		// fmt.Println("Please press enter to continue..")
-		// utils.GetConfirmation()
-
-		password = firstPassword
 
 		privKey, _, err := crypto.GenerateKeyPair()
 		if err != nil {
