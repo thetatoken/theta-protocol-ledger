@@ -49,13 +49,13 @@ type MessengerConfig struct {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(pubKey *crypto.PublicKey, seedPeerNetAddresses []string,
+func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateNodeInfo(pubKey, uint16(port)),
+		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(port)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}

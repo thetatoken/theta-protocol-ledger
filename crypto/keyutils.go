@@ -214,6 +214,26 @@ func zeroBytes(bytes []byte) {
 
 // ----------------------- Crypto Utils for Other Modules ----------------------- //
 
+// PrivKeyToECDSA convert private key to ecdsa.
+func PrivKeyToECDSA(key *PrivateKey) *ecdsa.PrivateKey {
+	return key.privKey
+}
+
+// PubKeyToECDSA convert public key to ecdsa.
+func PubKeyToECDSA(key *PublicKey) *ecdsa.PublicKey {
+	return key.pubKey
+}
+
+// ECDSAToPubKey converts given ecdsa public key to pubkey.
+func ECDSAToPubKey(p *ecdsa.PublicKey) *PublicKey {
+	return &PublicKey{p}
+}
+
+// ECDSAToPrivKey converts given ecdsa public key to pubkey.
+func ECDSAToPrivKey(p *ecdsa.PrivateKey) *PrivateKey {
+	return &PrivateKey{p}
+}
+
 // HexToECDSA parses a secp256k1 private key.
 func HexToECDSA(hexkey string) (*ecdsa.PrivateKey, error) {
 	return hexToECDSA(hexkey)

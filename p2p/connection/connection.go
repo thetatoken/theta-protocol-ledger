@@ -2,7 +2,6 @@ package connection
 
 import (
 	"bufio"
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -36,6 +35,8 @@ type Connection struct {
 	bufReader   *bufio.Reader
 	recvMonitor *flowrate.Monitor
 
+	bufConn io.ReadWriter
+
 	channelGroup ChannelGroup
 	onParse      MessageParser
 	onEncode     MessageEncoder
@@ -54,6 +55,9 @@ type Connection struct {
 
 	config ConnectionConfig
 
+	rmu, wmu sync.Mutex
+	rw       *rlpxFrameRW
+
 	// Life cycle
 	wg      *sync.WaitGroup
 	quit    chan struct{}
@@ -66,14 +70,12 @@ type Connection struct {
 // ConnectionConfig specifies the configurations of the Connection
 //
 type ConnectionConfig struct {
-	MinWriteBufferSize int
-	MinReadBufferSize  int
-	SendRate           int64
-	RecvRate           int64
-	PacketBatchSize    int64
-	FlushThrottle      time.Duration
-	PingTimeout        time.Duration
-	MaxPendingPings    uint32
+	SendRate        int64
+	RecvRate        int64
+	PacketBatchSize int64
+	FlushThrottle   time.Duration
+	PingTimeout     time.Duration
+	MaxPendingPings uint32
 }
 
 // MessageParser parses the raw message bytes to type p2ptypes.Message
@@ -94,6 +96,8 @@ type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
 func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
+	logger.Debugf("Create connection, local: %v, remote: %v", netconn.LocalAddr(), netconn.RemoteAddr())
+
 	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
 	channelHeader := createDefaultChannel(common.ChannelIDHeader)
 	channelBlock := createDefaultChannel(common.ChannelIDBlock)
@@ -118,11 +122,11 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		return nil
 	}
 
-	return &Connection{
+	conn := &Connection{
 		netconn:      netconn,
-		bufWriter:    bufio.NewWriterSize(netconn, config.MinWriteBufferSize),
+		bufWriter:    bufio.NewWriter(netconn),
 		sendMonitor:  flowrate.New(0, 0),
-		bufReader:    bufio.NewReaderSize(netconn, config.MinReadBufferSize),
+		bufReader:    bufio.NewReader(netconn),
 		recvMonitor:  flowrate.New(0, 0),
 		channelGroup: channelGroup,
 		sendPulse:    make(chan bool, 1),
@@ -135,6 +139,11 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 
 		onEncode: defaultMessageEncoder,
 	}
+	conn.bufConn = struct {
+		io.Reader
+		io.Writer
+	}{Reader: conn.bufReader, Writer: conn.netconn}
+	return conn
 }
 
 // GetDefaultConnectionConfig returns the default ConnectionConfig
@@ -183,6 +192,11 @@ func (conn *Connection) CancelConnection() {
 
 // Stop is called whten the connection stops
 func (conn *Connection) Stop() {
+	logger.Warnf("Stopping connection, local: %v, remote: %v", conn.GetNetconn().LocalAddr(), conn.GetNetconn().RemoteAddr())
+	err := conn.netconn.Close()
+	if err != nil {
+		logger.Errorf("Failed to close connection: %v", err)
+	}
 	conn.cancel()
 }
 
@@ -271,7 +285,9 @@ func (conn *Connection) sendRoutine() {
 		var err error
 		select {
 		case <-conn.ctx.Done():
+			conn.wmu.Lock()
 			conn.stopped = true
+			conn.wmu.Unlock()
 			return
 		case <-conn.flushTimer.Ch:
 			conn.flush()
@@ -294,16 +310,17 @@ func (conn *Connection) sendRoutine() {
 
 func (conn *Connection) sendPingSignal() error {
 	if atomic.LoadUint32(&conn.pendingPings) >= conn.config.MaxPendingPings {
-		conn.onError(nil)
+		//conn.onError(nil)
+		conn.stopForError(nil)
 		logger.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 		return fmt.Errorf("Peer not responding to ping %v", conn.netconn.RemoteAddr())
 	}
-	pingPacket := Packet{
+	pingPacket := &Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PingSignal},
 		IsEOF:     byte(0x01),
 	}
-	err := rlp.Encode(conn.bufWriter, pingPacket)
+	err := conn.writePacket(pingPacket)
 	if err != nil {
 		return err
 	}
@@ -314,12 +331,12 @@ func (conn *Connection) sendPingSignal() error {
 }
 
 func (conn *Connection) sendPongSignal() error {
-	pongPacket := Packet{
+	pongPacket := &Packet{
 		ChannelID: common.ChannelIDPing,
 		Bytes:     []byte{p2ptypes.PongSignal},
 		IsEOF:     byte(0x01),
 	}
-	err := rlp.Encode(conn.bufWriter, pongPacket)
+	err := conn.writePacket(pongPacket)
 	if err != nil {
 		return err
 	}
@@ -337,18 +354,29 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 
 // --------------------- Recv goroutine --------------------- //
 
-func Fuzz(data []byte) int {
-	buff := bytes.NewBuffer(data)
-	var packet Packet
-	if err := decodePacket(buff, &packet); err != nil {
-		return 1
+func (conn *Connection) readPacket() (*Packet, error) {
+	// Plaintext transport.
+	if conn.rw == nil {
+		packet := &Packet{}
+		s := rlp.NewStream(conn.bufReader, maxPayloadSize*1024)
+		err := s.Decode(packet)
+		return packet, err
 	}
-	return 0
+	// Encrypted transport.
+	conn.rmu.Lock()
+	defer conn.rmu.Unlock()
+	return conn.rw.ReadPacket()
 }
 
-func decodePacket(r io.Reader, p *Packet) error {
-	s := rlp.NewStream(r, maxPayloadSize*1024)
-	return s.Decode(p)
+func (conn *Connection) writePacket(packet *Packet) error {
+	// Plaintext transport.
+	if conn.rw == nil {
+		return rlp.Encode(conn.bufWriter, packet)
+	}
+	// Encrypted transport.
+	conn.wmu.Lock()
+	defer conn.wmu.Unlock()
+	return conn.rw.WritePacket(packet)
 }
 
 func (conn *Connection) recvRoutine() {
@@ -358,7 +386,9 @@ func (conn *Connection) recvRoutine() {
 	for {
 		select {
 		case <-conn.ctx.Done():
+			conn.wmu.Lock()
 			conn.stopped = true
+			conn.wmu.Unlock()
 			return
 		default:
 		}
@@ -366,8 +396,7 @@ func (conn *Connection) recvRoutine() {
 		// Block until recvMonitor allows reading
 		conn.recvMonitor.Limit(maxPacketTotalSize, atomic.LoadInt64(&conn.config.RecvRate), true)
 
-		var packet Packet
-		err := decodePacket(conn.bufReader, &packet)
+		packet, err := conn.readPacket()
 		if err != nil {
 			logger.Errorf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return
@@ -375,9 +404,9 @@ func (conn *Connection) recvRoutine() {
 		conn.recvMonitor.Update(int(1))
 		switch packet.ChannelID {
 		case common.ChannelIDPing:
-			conn.handlePingPong(&packet)
+			conn.handlePingPong(packet)
 		default:
-			conn.handleReceivedPacket(&packet)
+			conn.handleReceivedPacket(packet)
 		}
 
 		//conn.pingTimer.Reset() // TODO: replace with lightweight Reset()
@@ -477,7 +506,7 @@ func (conn *Connection) sendPacket() (success bool, exhausted bool) {
 		return true, true // Nothing to be sent
 	}
 
-	nonemptyPacket, numBytes, err := channel.sendPacketTo(conn.bufWriter)
+	nonemptyPacket, numBytes, err := channel.sendPacketTo(conn)
 	if err != nil {
 		return false, !nonemptyPacket
 	}
@@ -496,6 +525,16 @@ func (conn *Connection) sendPacket() (success bool, exhausted bool) {
 // GetNetconn returns the attached network connection
 func (conn *Connection) GetNetconn() net.Conn {
 	return conn.netconn
+}
+
+// GetBufNetconn returns buffered network connection
+func (conn *Connection) GetBufNetconn() io.ReadWriter {
+	return conn.bufConn
+}
+
+// GetBufReader returns buffered reader for network connection
+func (conn *Connection) GetBufReader() *bufio.Reader {
+	return conn.bufReader
 }
 
 func (conn *Connection) stopForError(r interface{}) {

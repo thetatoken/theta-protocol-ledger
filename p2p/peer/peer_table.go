@@ -52,6 +52,8 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 		// Update existing entry with same ID.
 		for i, p := range pt.peers {
 			if p.ID() == peer.ID() {
+				p.Stop()
+				logger.Warnf("Stopping duplicated peer: %v", p.ID())
 				pt.peers[i] = peer
 				break
 			}
@@ -108,7 +110,11 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	return &pt.peers
+	ret := make([]*Peer, len(pt.peers))
+	for i, p := range pt.peers {
+		ret[i] = p
+	}
+	return &ret
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.

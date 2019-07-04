@@ -5,6 +5,7 @@ import (
 	"strings"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
@@ -16,6 +17,8 @@ import (
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
 )
+
+const voteCacheLimit = 512
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "netsync"})
 
@@ -44,9 +47,12 @@ type SyncManager struct {
 	whitelist []string
 
 	logger *log.Entry
+
+	voteCache *lru.Cache // Cache for votes
 }
 
 func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2p.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
+	voteCache, _ := lru.New(voteCacheLimit)
 	sm := &SyncManager{
 		chain:      chain,
 		consensus:  cons,
@@ -55,6 +61,8 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network 
 
 		wg:       &sync.WaitGroup{},
 		incoming: make(chan p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
+
+		voteCache: voteCache,
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	network.RegisterMessageHandler(sm)
@@ -490,6 +498,12 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 	}
 
 	sm.PassdownMessage(vote)
+
+	hash := vote.Hash()
+	if sm.voteCache.Contains(hash) {
+		return
+	}
+	sm.voteCache.Add(hash, struct{}{})
 
 	payload, err := rlp.EncodeToBytes(vote)
 	if err != nil {

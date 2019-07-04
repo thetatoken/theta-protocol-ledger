@@ -4,11 +4,14 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	cmn "github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	cn "github.com/thetatoken/theta/p2p/connection"
@@ -18,6 +21,8 @@ import (
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
+
+const maxExtraHandshakeInfo = 4096
 
 //
 // Peer models a peer node in a network
@@ -110,17 +115,24 @@ func (peer *Peer) Stop() {
 // NOTE: need to call peer.Handshake() before peer.Start()
 func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	remoteAddr := peer.connection.GetNetconn().RemoteAddr()
-	logger.Infof("Handshake with %v...", remoteAddr)
+	logger.Infof("Handshaking with %v...", remoteAddr)
 
 	timeout := peer.config.HandshakeTimeout
 	peer.connection.GetNetconn().SetDeadline(time.Now().Add(timeout))
+	var s *rlp.Stream
 	var sendError error
 	var recvError error
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
-		func() { sendError = rlp.Encode(peer.connection.GetNetconn(), sourceNodeInfo) },
 		func() {
-			s := rlp.NewStream(peer.connection.GetNetconn(), 1024)
+			nodeInfo := &p2ptypes.NodeInfo{
+				PubKeyBytes: sourceNodeInfo.PubKeyBytes,
+				Port:        0,
+			}
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), nodeInfo)
+		},
+		func() {
+			s = rlp.NewStream(peer.connection.GetBufReader(), 1024)
 			recvError = s.Decode(&targetPeerNodeInfo)
 		},
 	)
@@ -133,7 +145,6 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		return recvError
 	}
 	netconn := peer.connection.GetNetconn()
-	netconn.SetDeadline(time.Time{})
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
 		logger.Errorf("Error during handshake/recv: %v", err)
@@ -142,12 +153,79 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
+	if targetPeerNodeInfo.Port == 0 {
+		// Forward compatibility.
+		localChainID := viper.GetString(common.CfgGenesisChainID)
+		cmn.Parallel(
+			func() {
+				sendError = rlp.Encode(peer.connection.GetBufNetconn(), localChainID)
+				if sendError != nil {
+					return
+				}
+				sendError = rlp.Encode(peer.connection.GetBufNetconn(), "EOH")
+			},
+			func() {
+				var msg string
+				recvError = s.Decode(&msg)
+				if recvError != nil {
+					return
+				}
+				if msg == "EOH" {
+					return
+				}
+				if msg != localChainID {
+					recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
+					return
+				}
+				logger.Infof("Peer ChainID: %v", msg)
+				for {
+					recvError = s.Decode(&msg)
+					if recvError != nil {
+						return
+					}
+					if msg == "EOH" {
+						return
+					}
+				}
+			},
+		)
+		if sendError != nil {
+			logger.Errorf("Error during handshake/send extra info: %v", sendError)
+			return sendError
+		}
+		if recvError != nil {
+			logger.Errorf("Error during handshake/recv extra info: %v", recvError)
+			return recvError
+		}
+
+		remotePub, err := peer.connection.DoEncHandshake(
+			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
+		if err != nil {
+			logger.Errorf("Error during handshake/key exchange: %v", err)
+			return err
+		} else {
+			if remotePub.Address() != targetNodePubKey.Address() {
+				err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
+				logger.Errorf("Error during handshake/key exchange: %v", err)
+				return err
+			}
+		}
+		logger.Infof("Using encrypted transport for peer: %v", targetNodePubKey.Address())
+	} else if viper.GetBool(common.CfgP2PPlainTextSupport) {
+		logger.Infof("Using plaintext transport for peer: %v", targetNodePubKey.Address())
+	} else {
+		logger.Errorf("Plaintext transport is not enabled")
+		return fmt.Errorf("Plaintext transport is not enabled")
+	}
+
 	if !peer.isOutbound {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
 	}
 
-	logger.Infof("Handshake completed, target address: %v, target public key: %v",
-		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()))
+	netconn.SetDeadline(time.Time{})
+
+	logger.Infof("Handshake completed, target address: %v, target public key: %v, address: %v",
+		remoteAddr, hex.EncodeToString(targetNodePubKey.ToBytes()), targetNodePubKey.Address())
 
 	return nil
 }
