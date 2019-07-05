@@ -4,7 +4,9 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
 )
 
 func TestBlockHash(t *testing.T) {
@@ -35,4 +37,67 @@ func TestCreateTestBlock(t *testing.T) {
 	b12 := CreateTestBlock("b1", "")
 
 	assert.Equal(b11.Hash(), b12.Hash())
+}
+
+func TestBlockBasicValidation(t *testing.T) {
+	require := require.New(t)
+	ResetTestBlocks()
+
+	CreateTestBlock("root", "")
+	b1 := CreateTestBlock("B1", "root")
+	res := b1.Validate("testchain")
+	require.True(res.IsOK())
+
+	res = b1.Validate("anotherchain")
+	require.True(res.IsError())
+	require.Equal("ChainID mismatch", res.Message)
+
+	oldTS := b1.Timestamp
+	b1.Timestamp = nil
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Timestamp is missing", res.Message)
+	b1.Timestamp = oldTS
+
+	oldParent := b1.Parent
+	b1.Parent = common.Hash{}
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Parent is empty", res.Message)
+	b1.Parent = oldParent
+
+	oldProposer := b1.Proposer
+	b1.Proposer = common.Address{}
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Proposer is not specified", res.Message)
+	b1.Proposer = oldProposer
+
+	oldHCC := b1.HCC
+	b1.HCC = CommitCertificate{}
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("HCC is empty", res.Message)
+	b1.HCC = oldHCC
+
+	oldSig := b1.Signature
+	b1.Signature = nil
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Block is not signed", res.Message)
+	b1.Signature = oldSig
+
+	oldSig = b1.Signature
+	b1.Signature = &crypto.Signature{}
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Block is not signed", res.Message)
+	b1.Signature = oldSig
+
+	privKey, _, _ := crypto.GenerateKeyPair()
+	sig, _ := privKey.Sign(b1.SignBytes())
+	b1.SetSignature(sig)
+	res = b1.Validate("testchain")
+	require.True(res.IsError())
+	require.Equal("Signature verification failed", res.Message)
 }

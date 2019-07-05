@@ -74,7 +74,8 @@ func TestSingleBlockValidation(t *testing.T) {
 	b1.Signature, _ = privKey.Sign(b1.SignBytes())
 	chain.AddBlock(b1)
 
-	require.True(ce.validateBlock(b1, chain.Root()))
+	res := ce.validateBlock(b1, chain.Root())
+	require.True(res.IsOK())
 
 	// Invalid blocks.
 	invalidBlock := core.NewBlock()
@@ -82,7 +83,9 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Epoch = 2
 	invalidBlock.Parent = chain.Root().Hash()
 
+	invalidBlock.HCC.BlockHash = invalidBlock.Parent
 	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
 	voteset.AddVote(vote)
 	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
@@ -92,7 +95,14 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err := chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing height")
+	invalidBlock.Height = chain.Root().Height + 1
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsOK(), "Should be valid")
+	invalidBlock.Height = 0
+	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Missing height")
+	require.Equal("Block height is incorrect", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
@@ -100,6 +110,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Parent = chain.Root().Hash()
 
 	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
 	voteset.AddVote(vote)
 	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
@@ -109,7 +120,9 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err = chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing epoch")
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Missing epoch")
+	require.Equal("Block epoch must be greater than parent epoch", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
@@ -118,16 +131,19 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Parent = common.Hash{}
 
 	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
 	voteset.AddVote(vote)
-	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
+	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: chain.Root().Hash()}
 
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
 	invalidBlock.Proposer = privKey.PublicKey().Address()
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err = chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing parent")
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Missing parent")
+	require.Equal("HCC is not ancestor", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
@@ -145,7 +161,9 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err = chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing HCC")
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Missing HCC")
+	require.Equal("Invalid HCC", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
@@ -154,6 +172,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Parent = chain.Root().Hash()
 
 	vote = core.Vote{Block: common.HexToHash("a0b1"), ID: addr}
+	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
 	voteset.AddVote(vote)
 	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: common.HexToHash("a0b1")}
@@ -163,7 +182,9 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	_, err = chain.AddBlock(invalidBlock)
 	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Invalid HCC")
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Invalid HCC")
+	require.Equal("HCC is not ancestor", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
@@ -172,53 +193,24 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Parent = chain.Root().Hash()
 
 	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
+	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
 	voteset.AddVote(vote)
 	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
 
 	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
+	invalidBlock.Proposer = privKey.PublicKey().Address()
+	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
+	_, err = chain.AddBlock(invalidBlock)
+	require.Nil(err)
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.Equal("", res.Message)
+	require.True(res.IsOK())
+
 	invalidBlock.Proposer = common.Address{}
-	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
-	_, err = chain.AddBlock(invalidBlock)
-	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing Proposer")
-
-	invalidBlock = core.NewBlock()
-	invalidBlock.ChainID = chain.ChainID
-	invalidBlock.Height = 1
-	invalidBlock.Epoch = 6
-	invalidBlock.Parent = chain.Root().Hash()
-
-	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
-	voteset = core.NewVoteSet()
-	voteset.AddVote(vote)
-	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
-
-	invalidBlock.Proposer = privKey.PublicKey().Address()
-	invalidBlock.Timestamp = big.NewInt(time.Now().Unix())
-
-	privKey2, _, _ := crypto.GenerateKeyPair()
-	invalidBlock.Signature, _ = privKey2.Sign(invalidBlock.SignBytes())
-	_, err = chain.AddBlock(invalidBlock)
-	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Invalid signature")
-
-	invalidBlock = core.NewBlock()
-	invalidBlock.ChainID = chain.ChainID
-	invalidBlock.Height = 1
-	invalidBlock.Epoch = 6
-	invalidBlock.Parent = chain.Root().Hash()
-
-	vote = core.Vote{Block: invalidBlock.Parent, ID: addr}
-	voteset = core.NewVoteSet()
-	voteset.AddVote(vote)
-	invalidBlock.HCC = core.CommitCertificate{Votes: voteset, BlockHash: invalidBlock.Parent}
-
-	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
-	invalidBlock.Proposer = privKey.PublicKey().Address()
-	_, err = chain.AddBlock(invalidBlock)
-	require.Nil(err)
-	require.False(ce.validateBlock(invalidBlock, chain.Root()), "Missing timestamp")
+	res = ce.validateBlock(invalidBlock, chain.Root())
+	require.True(res.IsError(), "Missing Proposer")
+	require.Equal("Invalid proposer", res.Message)
 }
 
 func TestValidParent(t *testing.T) {
@@ -272,20 +264,22 @@ func TestValidParent(t *testing.T) {
 	eb2, err := chain.AddBlock(b2)
 	require.Nil(err)
 
-	require.False(ce.validateBlock(b2, eb1), "Parent block is invalid")
+	res := ce.validateBlock(b2, eb1)
+	require.True(res.IsError(), "Parent block is invalid")
+	require.Equal("Parent block is invalid", res.Message)
 
 	// HCC: b1 <= b2
 	eb1 = chain.MarkBlockValid(eb1.Hash())
-	require.True(ce.validateBlock(b2, eb1), "Parent block is valid")
+	res = ce.validateBlock(b2, eb1)
+	require.True(res.IsOK(), "Parent block is valid")
 
-	// Validator updating block's child
+	// HCC: b1 <= b3
 	b3 := core.NewBlock()
 	b3.ChainID = chain.ChainID
 	b3.Height = 3
 	b3.Epoch = 3
 	b3.Parent = b2.Hash()
 
-	// b3's HCC is linked to b1
 	vote = core.Vote{Block: b1.Hash(), ID: addr}
 	vote.Sign(privKey)
 	voteset = core.NewVoteSet()
@@ -298,7 +292,8 @@ func TestValidParent(t *testing.T) {
 	_, err = chain.AddBlock(b3)
 	require.Nil(err)
 	eb2 = chain.MarkBlockValid(eb2.Hash())
-	require.True(ce.validateBlock(b3, eb2), "HCC is valid")
+	res = ce.validateBlock(b3, eb2)
+	require.True(res.IsOK(), "HCC is valid")
 }
 
 func TestChildBlockOfValidatorChange(t *testing.T) {
@@ -373,11 +368,14 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
 	_, err = chain.AddBlock(b3)
 	require.Nil(err)
-	require.True(ce.validateBlock(b3, eb2), "HCC is valid")
+	res := ce.validateBlock(b3, eb2)
+	require.True(res.IsOK(), "HCC is valid")
 
 	// b2 is now marked to have validator changes.
 	eb2 = chain.MarkBlockHasValidatorUpdate(eb2.Hash())
-	require.False(ce.validateBlock(b3, eb2), "Block with validator update need to be its child's HCC")
+	res = ce.validateBlock(b3, eb2)
+	require.True(res.IsError(), "Block with validator update need to be its child's HCC")
+	require.Equal("HCC incorrect: parent has validator changes", res.Message)
 
 	// Validator updating block's child.
 	b3 = core.NewBlock()
@@ -397,7 +395,8 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	b3.Signature, _ = privKey.Sign(b3.SignBytes())
 	_, err = chain.AddBlock(b3)
 	require.Nil(err)
-	require.True(ce.validateBlock(b3, eb2), "HCC is valid")
+	res = ce.validateBlock(b3, eb2)
+	require.True(res.IsOK(), "HCC is valid")
 }
 
 func TestGrandChildBlockOfValidatorChange(t *testing.T) {
@@ -491,7 +490,9 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.False(ce.validateBlock(b4, eb3), "HCC has no votes")
+	res := ce.validateBlock(b4, eb3)
+	require.True(res.IsError(), "HCC has no votes")
+	require.Equal("Invalid HCC", res.Message)
 
 	// Valid grand child.
 	b4 = core.NewBlock()
@@ -511,7 +512,8 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.True(ce.validateBlock(b4, eb3), "HCC is valid")
+	res = ce.validateBlock(b4, eb3)
+	require.True(res.IsOK(), "HCC is valid")
 
 	// Invalid grand child: HCC link to b2.
 	b4 = core.NewBlock()
@@ -531,7 +533,9 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
+	res = ce.validateBlock(b4, eb3)
+	require.True(res.IsError(), "HCC is valid")
+	require.Equal("HCC incorrect: grandparent has validator changes", res.Message)
 
 	// Invalid grand child: HCC link to b1.
 	b4 = core.NewBlock()
@@ -551,7 +555,9 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	b4.Signature, _ = privKey.Sign(b4.SignBytes())
 	_, err = chain.AddBlock(b4)
 	require.Nil(err)
-	require.False(ce.validateBlock(b4, eb3), "HCC is valid")
+	res = ce.validateBlock(b4, eb3)
+	require.True(res.IsError(), "HCC is valid")
+	require.Equal("HCC incorrect: grandparent has validator changes", res.Message)
 }
 
 func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
@@ -665,7 +671,8 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())
 	_, err = chain.AddBlock(b5)
 	require.Nil(err)
-	require.True(ce.validateBlock(b5, eb4))
+	res := ce.validateBlock(b5, eb4)
+	require.True(res.IsOK())
 
 	// Valid b5: HCC link to b3
 	b5 = core.NewBlock()
@@ -685,7 +692,8 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	b5.Signature, _ = privKey.Sign(b5.SignBytes())
 	_, err = chain.AddBlock(b5)
 	require.Nil(err)
-	require.True(ce.validateBlock(b5, eb4))
+	res = ce.validateBlock(b5, eb4)
+	require.True(res.IsOK())
 }
 
 func TestTipSelection(t *testing.T) {
