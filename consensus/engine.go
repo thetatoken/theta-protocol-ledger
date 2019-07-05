@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -297,7 +298,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	return false
 }
 
-func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) bool {
+func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) result.Result {
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -306,7 +307,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			"block":         block.Hash().Hex(),
 			"block.Height":  block.Height,
 		}).Warn("Block.Height != parent.Height + 1")
-		return false
+		return result.Error("Block height is incorrect")
 	}
 	if parent.Epoch >= block.Epoch {
 		e.logger.WithFields(log.Fields{
@@ -315,14 +316,14 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			"block":        block.Hash().Hex(),
 			"block.Epoch":  block.Epoch,
 		}).Warn("Block.Epoch <= parent.Epoch")
-		return false
+		return result.Error("Block epoch must be greater than parent epoch")
 	}
 	if !parent.Status.IsValid() {
 		e.logger.WithFields(log.Fields{
 			"parent": block.Parent.Hex(),
 			"block":  block.Hash().Hex(),
 		}).Warn("Block is referring to invalid parent block")
-		return false
+		return result.Error("Parent block is invalid")
 	}
 
 	// Validate HCC.
@@ -331,11 +332,11 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			"block.HCC": block.HCC.BlockHash.Hex(),
 			"block":     block.Hash().Hex(),
 		}).Warn("HCC must be ancestor")
-		return false
+		return result.Error("HCC is not ancestor")
 	}
 	hccBlock, err := e.chain.FindBlock(block.HCC.BlockHash)
 	if err != nil {
-		return false
+		return result.Error("HCC block not found")
 	}
 	if !hccBlock.Status.IsFinalized() {
 		hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
@@ -345,7 +346,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block":     block.Hash().Hex(),
 				"block.HCC": block.HCC.String(),
 			}).Warn("Invalid HCC")
-			return false
+			return result.Error("Invalid HCC")
 		}
 	}
 
@@ -357,7 +358,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block":     block.Hash().Hex(),
 				"block.HCC": block.HCC.BlockHash.Hex(),
 			}).Warn("block.HCC must equal to parent when parent contains validator changes.")
-			return false
+			return result.Error("HCC incorrect: parent has validator changes")
 		}
 	}
 	shouldSynchronize := false
@@ -371,7 +372,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block":         block.Hash().Hex(),
 				"parent.Parent": parent.Parent.Hex(),
 			}).Warn("Failed to find grand parent block")
-			return false
+			return result.Error("Grandparent not found")
 		}
 		shouldSynchronize = grandParent.HasValidatorUpdate
 	}
@@ -382,7 +383,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block":     block.Hash().Hex(),
 				"block.HCC": block.HCC.BlockHash.Hex(),
 			}).Warn("block.HCC must equal to block.Parent when block.Parent.Parent contains validator changes.")
-			return false
+			return result.Error("HCC incorrect: grandparent has validator changes")
 		}
 	}
 
@@ -391,9 +392,9 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			"block.Epoch":    block.Epoch,
 			"block.proposer": block.Proposer.Hex(),
 		}).Warn("Invalid proposer")
-		return false
+		return result.Error("Invalid proposer")
 	}
-	return true
+	return result.OK
 }
 
 func (e *ConsensusEngine) handleBlock(block *core.Block) {
@@ -482,7 +483,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		}).Fatal("Failed to find parent block")
 	}
 
-	if !e.validateBlock(block, parent) {
+	if e.validateBlock(block, parent).IsError() {
 		e.chain.MarkBlockInvalid(block.Hash())
 		e.logger.WithFields(log.Fields{
 			"block.Hash": block.Hash().Hex(),
