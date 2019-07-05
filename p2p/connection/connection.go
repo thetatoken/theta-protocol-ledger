@@ -96,7 +96,9 @@ type ErrorHandler func(interface{})
 
 // CreateConnection creates a Connection instance
 func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
-	logger.Debugf("Create connection, local: %v, remote: %v", netconn.LocalAddr(), netconn.RemoteAddr())
+	if netconn != nil {
+		logger.Debugf("Create connection, local: %v, remote: %v", netconn.LocalAddr(), netconn.RemoteAddr())
+	}
 
 	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
 	channelHeader := createDefaultChannel(common.ChannelIDHeader)
@@ -190,14 +192,21 @@ func (conn *Connection) CancelConnection() {
 	conn.cancel()
 }
 
-// Stop is called whten the connection stops
+// Stop is called when the connection stops
 func (conn *Connection) Stop() {
+	if conn.GetNetconn() == nil {
+		return
+	}
+
 	logger.Warnf("Stopping connection, local: %v, remote: %v", conn.GetNetconn().LocalAddr(), conn.GetNetconn().RemoteAddr())
 	err := conn.netconn.Close()
 	if err != nil {
 		logger.Errorf("Failed to close connection: %v", err)
 	}
-	conn.cancel()
+
+	if conn.cancel != nil {
+		conn.cancel()
+	}
 }
 
 // SetMessageParser sets the message parser for the connection
