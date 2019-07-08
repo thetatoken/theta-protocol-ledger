@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sort"
 	"sync"
 	"time"
 
@@ -127,11 +128,91 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	}
 
 	// Set ledger state pointer to intial state.
-	lastCC := e.state.GetHighestCCBlock()
+	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
 	e.wg.Add(1)
 	go e.mainLoop()
+}
+
+func (e *ConsensusEngine) autoRewind(lastCC *core.ExtendedBlock) *core.ExtendedBlock {
+	// check hardcoded block hashes to determine if need to auto rewind
+	heights := make([]uint64, 0, len(core.HardcodeBlockHashes))
+	for k := range core.HardcodeBlockHashes {
+		heights = append(heights, k)
+	}
+	sort.Slice(heights, func(i, j int) bool { return heights[i] < heights[j] })
+
+	// get the closest hardcoded hash's height below lastCC
+	idx := -1
+	for i, height := range heights {
+		if height <= lastCC.Height {
+			idx = i
+		} else {
+			break
+		}
+	}
+
+	if idx > 0 {
+		needRewind := false
+		// find where to rewind to
+		for idx >= 0 {
+			// check if the finalized block at that height has the same hash as hardcoded
+			var finalizedBlock *core.ExtendedBlock
+			blocks := e.chain.FindBlocksByHeight(heights[idx])
+			for _, block := range blocks {
+				if block.Status.IsFinalized() {
+					finalizedBlock = block
+					break
+				}
+			}
+			if finalizedBlock == nil {
+				log.WithFields(log.Fields{
+					"height": heights[idx],
+				}).Fatal("Can't find finalized block at height")
+			}
+
+			if finalizedBlock.Hash().Hex() == core.HardcodeBlockHashes[heights[idx]] {
+				break
+			}
+
+			needRewind = true
+			idx--
+		}
+
+		if needRewind {
+			idx++ // last height where block hash varies from hardcoded hash
+
+			for {
+				if lastCC.Height < heights[idx] {
+					break
+				}
+
+				lastCC.Status = core.BlockStatusDisposed
+				e.chain.SaveBlock(lastCC)
+				e.chain.RemoveVotesByHash(lastCC.Hash())
+
+				parent, err := e.chain.FindBlock(lastCC.Parent)
+				if err != nil {
+					// Should not happen
+					e.logger.WithFields(log.Fields{
+						"error":  err,
+						"parent": lastCC.Parent.Hex(),
+						"block":  lastCC.Hash().Hex(),
+					}).Fatal("Failed to find parent block")
+				}
+
+				lastCC = parent
+			}
+		}
+
+		e.state.SetLastFinalizedBlock(lastCC)
+		e.state.SetHighestCCBlock(lastCC)
+		e.state.SetLastVote(core.Vote{})
+		e.state.SetLastProposal(core.Proposal{})
+	}
+
+	return lastCC
 }
 
 // Stop notifies all goroutines to stop without blocking.
@@ -253,14 +334,20 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("HCC must be ancestor")
 		return result.Error("HCC is not ancestor")
 	}
-	hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
-	if !block.HCC.IsValid(hccValidators) {
-		e.logger.WithFields(log.Fields{
-			"parent":    block.Parent.Hex(),
-			"block":     block.Hash().Hex(),
-			"block.HCC": block.HCC.String(),
-		}).Warn("Invalid HCC")
-		return result.Error("Invalid HCC")
+	hccBlock, err := e.chain.FindBlock(block.HCC.BlockHash)
+	if err != nil {
+		return result.Error("HCC block not found")
+	}
+	if !hccBlock.Status.IsFinalized() {
+		hccValidators := e.validatorManager.GetValidatorSet(block.HCC.BlockHash)
+		if !block.HCC.IsValid(hccValidators) {
+			e.logger.WithFields(log.Fields{
+				"parent":    block.Parent.Hex(),
+				"block":     block.Hash().Hex(),
+				"block.HCC": block.HCC.String(),
+			}).Warn("Invalid HCC")
+			return result.Error("Invalid HCC")
+		}
 	}
 
 	// Blocks with validator changes must be followed by two direct confirmation blocks.
@@ -318,10 +405,69 @@ func (e *ConsensusEngine) handleBlock(block *core.Block) {
 			"error": err,
 			"block": block.Hash().Hex(),
 		}).Fatal("Failed to find block")
-	} else if !eb.Status.IsPending() {
+	}
+
+	if hex, ok := core.HardcodeBlockHashes[eb.Height]; ok {
+		e.handleHardcodeBlock(common.HexToHash(hex))
+	} else {
+		e.handleNormalBlock(eb)
+	}
+}
+
+func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
+	eb, err := e.chain.FindBlock(hash)
+	if err != nil {
+		// block still not synced to DB, wait and retry
+		e.logger.WithFields(log.Fields{
+			"error": err,
+			"block": hash.Hex(),
+		}).Warn("Failed to find block")
+		return
+	}
+	eb.Status = core.BlockStatusTrusted
+	e.chain.SaveBlock(eb)
+
+	block := eb.Block
+	parent, err := e.chain.FindBlock(block.Parent)
+	if err != nil {
+		// Should not happen since netsync layer ensures order of blocks.
+		e.logger.WithFields(log.Fields{
+			"error":  err,
+			"parent": block.Parent.Hex(),
+			"block":  block.Hash().Hex(),
+		}).Fatal("Failed to find parent block")
+	}
+
+	result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":            result.Message,
+			"parent.StateHash": parent.StateHash,
+		}).Error("Failed to reset state to parent.StateHash")
+		return
+	}
+	result = e.ledger.ApplyBlockTxs(block)
+	if result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"error":           result.String(),
+			"parent":          block.Parent.Hex(),
+			"block":           block.Hash().Hex(),
+			"block.StateHash": block.StateHash.Hex(),
+		}).Error("Failed to apply block Txs")
+		return
+	}
+
+	e.pruneState(block.Height)
+
+	e.state.SetHighestCCBlock(eb)
+}
+
+func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
+	block := eb.Block
+	if !eb.Status.IsPending() {
 		// Before consensus engine can process the first one, sync layer might send duplicate blocks.
 		e.logger.WithFields(log.Fields{
-			"error":        err,
+			"error":        nil,
 			"block.Status": eb.Status,
 			"block":        block.Hash().Hex(),
 		}).Debug("Ignore processed block")
@@ -422,7 +568,9 @@ func (e *ConsensusEngine) vote() {
 		// Voting height should be monotonically increasing.
 		e.logger.WithFields(log.Fields{
 			"lastVote.Height": lastVote.Height,
+			"lastVote.Hash":   lastVote.Block.Hex(),
 			"tip.Height":      tip.Height,
+			"tip.Hash":        tip.Hash().Hex(),
 		}).Debug("Repeating vote at height")
 		shouldRepeatVote = true
 	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC.BlockHash != localHCC {
@@ -557,7 +705,12 @@ func (e *ConsensusEngine) checkCC(hash common.Hash) {
 		return
 	}
 	// Skip if block already has CC.
-	if block.Status.IsCommitted() || block.Status.IsFinalized() {
+	if block.Status.IsCommitted() || block.Status.IsDirectlyFinalized() || block.Status.IsIndirectlyFinalized() {
+		return
+	}
+	// Process hardcoded blocks.
+	if block.Status.IsTrusted() {
+		e.processCCBlock(block)
 		return
 	}
 	// Ignore outdated votes.
@@ -640,32 +793,33 @@ func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 		return
 	}
 
+	if ccBlock.Parent == ccBlock.HCC.BlockHash {
+
+		// Finalize condition: b1 is finalized iff there is b2 where b2 is committed and
+		// b2.Parent == b2.HCC == b1.
+		parent, err := e.Chain().FindBlock(ccBlock.Parent)
+		if err != nil {
+			e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
+			return
+		}
+		if err := e.finalizeBlock(parent); err != nil {
+			return
+		}
+	}
+
 	e.logger.WithFields(log.Fields{"ccBlock.Hash": ccBlock.Hash().Hex(), "c.epoch": e.state.GetEpoch()}).Debug("Updating highestCCBlock")
 	e.state.SetHighestCCBlock(ccBlock)
 	e.chain.CommitBlock(ccBlock.Hash())
-
-	if ccBlock.Parent != ccBlock.HCC.BlockHash {
-		return
-	}
-
-	// Finalize condition: b1 is finalized iff there is b2 where b2 is committed and
-	// b2.Parent == b2.HCC == b1.
-	parent, err := e.Chain().FindBlock(ccBlock.Parent)
-	if err != nil {
-		e.logger.WithFields(log.Fields{"err": err, "hash": ccBlock.Parent}).Error("Failed to load block")
-		return
-	}
-	e.finalizeBlock(parent)
 }
 
-func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
+func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	if e.stopped {
-		return
+		return nil
 	}
 
 	// Skip blocks that have already published.
 	if block.Hash() == e.state.GetLastFinalizedBlock().Hash() {
-		return
+		return nil
 	}
 
 	e.logger.WithFields(log.Fields{"block.Hash": block.Hash().Hex(), "block.Height": block.Height}).Info("Finalizing block")
@@ -674,7 +828,9 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	e.ledger.FinalizeState(block.Height, block.StateHash)
 
 	// Mark block and its ancestors as finalized.
-	e.chain.FinalizePreviousBlocks(block.Hash())
+	if err := e.chain.FinalizePreviousBlocks(block.Hash()); err != nil {
+		return err
+	}
 
 	// Force update TX index on block finalization so that the index doesn't point to
 	// duplicate TX in fork.
@@ -684,6 +840,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) {
 	case e.finalizedBlocks <- block.Block:
 	default:
 	}
+	return nil
 }
 
 func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
@@ -844,4 +1001,8 @@ func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
 
 	endHeight := currentBlockHeight - minimumNumBlocksToRetain
 	e.ledger.PruneState(endHeight)
+}
+
+func (e *ConsensusEngine) State() *State {
+	return e.state
 }

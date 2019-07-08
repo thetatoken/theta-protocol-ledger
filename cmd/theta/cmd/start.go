@@ -60,7 +60,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	if len(snapshotPath) == 0 {
 		snapshotPath = path.Join(cfgPath, "snapshot")
 	}
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath)
+
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
 	if err != nil {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
@@ -69,12 +70,14 @@ func runStart(cmd *cobra.Command, args []string) {
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
-		ChainID:      root.ChainID,
-		PrivateKey:   privKey,
-		Root:         root,
-		Network:      network,
-		DB:           db,
-		SnapshotPath: snapshotPath,
+		ChainID:             root.ChainID,
+		PrivateKey:          privKey,
+		Root:                root,
+		Network:             network,
+		DB:                  db,
+		SnapshotPath:        snapshotPath,
+		ChainImportDirPath:  chainImportDirPath,
+		ChainCorrectionPath: chainCorrectionPath,
 	}
 	n := node.NewNode(params)
 

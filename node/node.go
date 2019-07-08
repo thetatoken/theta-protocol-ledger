@@ -43,12 +43,14 @@ type Node struct {
 }
 
 type Params struct {
-	ChainID      string
-	PrivateKey   *crypto.PrivateKey
-	Root         *core.Block
-	Network      p2p.Network
-	DB           database.Database
-	SnapshotPath string
+	ChainID             string
+	PrivateKey          *crypto.PrivateKey
+	Root                *core.Block
+	Network             p2p.Network
+	DB                  database.Database
+	SnapshotPath        string
+	ChainImportDirPath  string
+	ChainCorrectionPath string
 }
 
 func NewNode(params *Params) *Node {
@@ -58,22 +60,34 @@ func NewNode(params *Params) *Node {
 	dispatcher := dp.NewDispatcher(params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
-	currentHeight := consensus.GetLastFinalizedBlock().Height
-	if currentHeight <= params.Root.Height {
-		snapshotPath := params.SnapshotPath
-		if _, err := snapshot.ImportSnapshot(snapshotPath, params.DB); err != nil {
-			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
-		}
-	}
-
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
+
 	validatorManager.SetConsensusEngine(consensus)
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
+
+	currentHeight := consensus.GetLastFinalizedBlock().Height
+	if currentHeight <= params.Root.Height {
+		snapshotPath := params.SnapshotPath
+		chainImportDirPath := params.ChainImportDirPath
+		chainCorrectionPath := params.ChainCorrectionPath
+		var lastCC *core.ExtendedBlock
+		var err error
+		if _, lastCC, err = snapshot.ImportSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath, chain, params.DB, ledger); err != nil {
+			log.Fatalf("Failed to load snapshot: %v, err: %v", snapshotPath, err)
+		}
+		if lastCC != nil {
+			state := consensus.State()
+			state.SetLastFinalizedBlock(lastCC)
+			state.SetHighestCCBlock(lastCC)
+			state.SetLastVote(core.Vote{})
+			state.SetLastProposal(core.Proposal{})
+		}
+	}
 
 	node := &Node{
 		Store:            store,

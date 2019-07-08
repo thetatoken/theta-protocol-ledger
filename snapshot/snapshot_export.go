@@ -20,14 +20,29 @@ import (
 	"github.com/thetatoken/theta/store/treestore"
 )
 
-func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, snapshotDir string) (string, error) {
+func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, snapshotDir string, height uint64) (string, error) {
 	metadata := &core.SnapshotMetadata{}
 
-	stub := consensus.GetSummary()
-	lastFinalizedBlock, err := chain.FindBlock(stub.LastFinalizedBlock)
-	if err != nil {
-		logger.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
-		return "", err
+	var lastFinalizedBlock *core.ExtendedBlock
+	if height != 0 {
+		blocks := chain.FindBlocksByHeight(height)
+		for _, block := range blocks {
+			if block.Status.IsDirectlyFinalized() {
+				lastFinalizedBlock = block
+				break
+			}
+		}
+		if lastFinalizedBlock == nil {
+			return "", fmt.Errorf("Can't find finalized block at height %v", height)
+		}
+	} else {
+		stub := consensus.GetSummary()
+		var err error
+		lastFinalizedBlock, err = chain.FindBlock(stub.LastFinalizedBlock)
+		if err != nil {
+			logger.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
+			return "", err
+		}
 	}
 
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)

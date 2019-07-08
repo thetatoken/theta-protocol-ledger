@@ -498,6 +498,10 @@ func (tl *TestLedger) PruneState(endHeight uint64) error {
 	return nil
 }
 
+func (tl *TestLedger) ApplyBlockTxsForChainCorrection(block *core.Block) (common.Hash, result.Result) {
+	return common.Hash{}, result.Result{}
+}
+
 type TestNetworkMessageInterceptor struct {
 	lock             *sync.Mutex
 	ReceivedMessages chan p2ptypes.Message

@@ -229,7 +229,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 				if err != nil {
 					m.logger.WithFields(log.Fields{
 						"err":  err,
-						"hash": curr,
+						"hash": curr.Hex(),
 					}).Debug("Failed to load block")
 					return ret
 				}
@@ -466,7 +466,11 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 		return
 	}
 
-	if res := block.Validate(sm.chain.ChainID); res.IsError() {
+	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
+		if hash != block.Hash().Hex() {
+			return
+		}
+	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
 		return
 	}
 
@@ -483,6 +487,12 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 	for _, v := range votes {
 		// Check if vote already processed.
 		if v.Block == vote.Block && v.Epoch == vote.Epoch && v.Height == vote.Height && v.ID == vote.ID {
+			return
+		}
+	}
+	// Ignore vote for disposed blocks.
+	if b, err := sm.chain.FindBlock(vote.Block); err == nil {
+		if b.Status == core.BlockStatusDisposed {
 			return
 		}
 	}

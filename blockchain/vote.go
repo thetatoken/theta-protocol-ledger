@@ -31,3 +31,8 @@ func (ch *Chain) FindVotesByHash(hash common.Hash) *core.VoteSet {
 	ch.store.Get(voteIndexKey(hash), voteSet)
 	return voteSet
 }
+
+// RemoveVotesByHash removes votes for givin block.
+func (ch *Chain) RemoveVotesByHash(hash common.Hash) {
+	ch.store.Delete(voteIndexKey(hash))
+}

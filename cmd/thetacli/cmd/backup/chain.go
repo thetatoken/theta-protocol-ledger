@@ -13,9 +13,8 @@ import (
 )
 
 var (
-	startFlag  uint64
-	endFlag    uint64
-	configFlag string
+	startFlag uint64
+	endFlag   uint64
 )
 
 // chainCmd represents the chain backup command.

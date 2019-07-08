@@ -163,7 +163,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	require.Nil(err)
 	res = ce.validateBlock(invalidBlock, chain.Root())
 	require.True(res.IsError(), "Missing HCC")
-	require.Equal("Invalid HCC", res.Message)
+	require.Equal("HCC block not found", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID
