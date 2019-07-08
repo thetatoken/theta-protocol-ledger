@@ -308,13 +308,12 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 				blockEnd = start - 1
 			}
 
-			if prevBlock != nil {
-				if prevBlock.Height != core.GenesisBlockHeight {
-					return fmt.Errorf("Chain loading started at height %v", prevBlock.Height)
-				}
-
-				logger.Printf("Chain loaded successfully.")
+			start, _ := getChainBoundary(chainFileNames[len(chainFileNames)-1])
+			if prevBlock.Height != start {
+				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.Height, start)
 			}
+
+			logger.Printf("Chain loaded successfully.")
 		}
 	}
 	return nil
@@ -361,8 +360,10 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				return nil, err
 			}
 		} else {
-			if res := block.Validate(chain.ChainID); res.IsError() {
-				return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
+			if chain != nil {
+				if res := block.Validate(chain.ChainID); res.IsError() {
+					return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
+				}
 			}
 
 			for {
