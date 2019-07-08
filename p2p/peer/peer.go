@@ -125,11 +125,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo := p2ptypes.NodeInfo{}
 	cmn.Parallel(
 		func() {
-			nodeInfo := &p2ptypes.NodeInfo{
-				PubKeyBytes: sourceNodeInfo.PubKeyBytes,
-				Port:        0,
-			}
-			sendError = rlp.Encode(peer.connection.GetBufNetconn(), nodeInfo)
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), sourceNodeInfo)
 		},
 		func() {
 			s = rlp.NewStream(peer.connection.GetBufReader(), 1024)
@@ -153,7 +149,7 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
-	if targetPeerNodeInfo.Port == 0 {
+	if targetPeerNodeInfo.Port != 0 {
 		// Forward compatibility.
 		localChainID := viper.GetString(common.CfgGenesisChainID)
 		cmn.Parallel(
