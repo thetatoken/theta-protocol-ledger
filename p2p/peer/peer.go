@@ -149,19 +149,31 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	targetPeerNodeInfo.PubKey = targetNodePubKey
 	peer.nodeInfo = targetPeerNodeInfo
 
-	if targetPeerNodeInfo.Port != 0 {
-		// Forward compatibility.
-		localChainID := viper.GetString(common.CfgGenesisChainID)
-		cmn.Parallel(
-			func() {
-				sendError = rlp.Encode(peer.connection.GetBufNetconn(), localChainID)
-				if sendError != nil {
-					return
-				}
-				sendError = rlp.Encode(peer.connection.GetBufNetconn(), "EOH")
-			},
-			func() {
-				var msg string
+	// Forward compatibility.
+	localChainID := viper.GetString(common.CfgGenesisChainID)
+	cmn.Parallel(
+		func() {
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), localChainID)
+			if sendError != nil {
+				return
+			}
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), "EOH")
+		},
+		func() {
+			var msg string
+			recvError = s.Decode(&msg)
+			if recvError != nil {
+				return
+			}
+			if msg == "EOH" {
+				return
+			}
+			if msg != localChainID {
+				recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
+				return
+			}
+			logger.Infof("Peer ChainID: %v", msg)
+			for {
 				recvError = s.Decode(&msg)
 				if recvError != nil {
 					return
@@ -169,50 +181,31 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 				if msg == "EOH" {
 					return
 				}
-				if msg != localChainID {
-					recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
-					return
-				}
-				logger.Infof("Peer ChainID: %v", msg)
-				for {
-					recvError = s.Decode(&msg)
-					if recvError != nil {
-						return
-					}
-					if msg == "EOH" {
-						return
-					}
-				}
-			},
-		)
-		if sendError != nil {
-			logger.Errorf("Error during handshake/send extra info: %v", sendError)
-			return sendError
-		}
-		if recvError != nil {
-			logger.Errorf("Error during handshake/recv extra info: %v", recvError)
-			return recvError
-		}
+			}
+		},
+	)
+	if sendError != nil {
+		logger.Errorf("Error during handshake/send extra info: %v", sendError)
+		return sendError
+	}
+	if recvError != nil {
+		logger.Errorf("Error during handshake/recv extra info: %v", recvError)
+		return recvError
+	}
 
-		remotePub, err := peer.connection.DoEncHandshake(
-			crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
-		if err != nil {
+	remotePub, err := peer.connection.DoEncHandshake(
+		crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
+	if err != nil {
+		logger.Errorf("Error during handshake/key exchange: %v", err)
+		return err
+	} else {
+		if remotePub.Address() != targetNodePubKey.Address() {
+			err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
 			logger.Errorf("Error during handshake/key exchange: %v", err)
 			return err
-		} else {
-			if remotePub.Address() != targetNodePubKey.Address() {
-				err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
-				logger.Errorf("Error during handshake/key exchange: %v", err)
-				return err
-			}
 		}
-		logger.Infof("Using encrypted transport for peer: %v", targetNodePubKey.Address())
-	} else if viper.GetBool(common.CfgP2PPlainTextSupport) {
-		logger.Infof("Using plaintext transport for peer: %v", targetNodePubKey.Address())
-	} else {
-		logger.Errorf("Plaintext transport is not enabled")
-		return fmt.Errorf("Plaintext transport is not enabled")
 	}
+	logger.Infof("Using encrypted transport for peer: %v", targetNodePubKey.Address())
 
 	if !peer.isOutbound {
 		peer.SetNetAddress(nu.NewNetAddressWithEnforcedPort(netconn.RemoteAddr(), int(peer.nodeInfo.Port)))
