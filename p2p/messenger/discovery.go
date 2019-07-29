@@ -1,16 +1,31 @@
 package messenger
 
 import (
+	// "bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	cn "github.com/thetatoken/theta/p2p/connection"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/network"
+	// "github.com/libp2p/go-libp2p-core/peerstore"
+	"github.com/libp2p/go-libp2p-core/protocol"
+	crypto "github.com/libp2p/go-libp2p-crypto"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
+	// dht "github.com/libp2p/go-libp2p-kad-dht"
+	ma "github.com/multiformats/go-multiaddr"
 )
 
 //
@@ -24,9 +39,9 @@ type PeerDiscoveryManager struct {
 	nodeInfo  *p2ptypes.NodeInfo
 
 	// Three mechanisms for peer discovery
-	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
-	peerDiscMsgHandler  PeerDiscoveryMessageHandler // pro-actively connect to peer candidates obtained from connected peers
-	inboundPeerListener InboundPeerListener         // listen to incoming peering requests
+	// seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
+	// peerDiscMsgHandler  PeerDiscoveryMessageHandler // pro-actively connect to peer candidates obtained from connected peers
+	// inboundPeerListener InboundPeerListener         // listen to incoming peering requests
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -34,6 +49,11 @@ type PeerDiscoveryManager struct {
 	ctx     context.Context
 	cancel  context.CancelFunc
 	stopped bool
+
+	// libp2p
+	host host.Host
+
+	// seedPeerAddresses []ma.Multiaddr
 }
 
 //
@@ -44,6 +64,39 @@ type PeerDiscoveryManagerConfig struct {
 	SufficientNumPeers uint
 }
 
+func createP2pAddr(netAddr string) (ma.Multiaddr, error) {
+	ip, port, err := net.SplitHostPort(netAddr)
+	if err != nil {
+		return nil, err
+	}
+	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%v/tcp/%v", ip, port))
+	if err != nil {
+		return nil, err
+	}
+	return multiAddr, nil
+}
+
+func createP2pAddrIpfs(netAddr, ipfs string) (ma.Multiaddr, error) {
+	ip, port, err := net.SplitHostPort(netAddr)
+	if err != nil {
+		return nil, err
+	}
+	multiAddr, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/%v/tcp/%v/p2p/%v", ip, port, ipfs))
+	if err != nil {
+		return nil, err
+	}
+	return multiAddr, nil
+}
+
+func handleStream(stream network.Stream) {
+	logger.Info("################# Got a new stream!")
+
+	// rw := bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream))
+
+	// go readData(rw)
+	// go writeData(rw)
+}
+
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
 func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
 	routabilityRestrict bool, seedPeerNetAddresses []string,
@@ -51,37 +104,68 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
-		messenger: msgr,
-		nodeInfo:  nodeInfo,
-		peerTable: peerTable,
-		wg:        &sync.WaitGroup{},
+		messenger:             msgr,
+		nodeInfo:              nodeInfo,
+		peerTable:             peerTable,
+		wg:                    &sync.WaitGroup{},
 	}
 
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
 
-	var err error
-	discMgr.seedPeerConnector, err = createSeedPeerConnector(discMgr, localNetworkAddr, seedPeerNetAddresses)
+	// var err error
+	// discMgr.seedPeerConnector, err = createSeedPeerConnector(discMgr, localNetworkAddr, seedPeerNetAddresses)
+	// if err != nil {
+	// 	return discMgr, err
+	// }
+
+	// discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr, localNetworkAddr)
+	// if err != nil {
+	// 	return discMgr, err
+	// }
+
+	// inlConfig := GetDefaultInboundPeerListenerConfig()
+	// discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, skipUPNP, inlConfig)
+	// if err != nil {
+	// 	return discMgr, err
+	// }
+	// discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
+	// 	if err == nil {
+	// 		logger.Infof("Inbound peer connected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
+	// 	} else {
+	// 		logger.Errorf("Inbound peer listener error: %v", err)
+	// 	}
+	// })
+
+	logger.Warnf("=-=-=-=-=-=-=-=0 %v", localNetworkAddr)
+	logger.Warnf("=-=-=-=-=-=-=-=1 %v", nodeInfo.PubKey.Address().Hex())
+
+	hostId, _, err := crypto.GenerateEd25519Key(strings.NewReader(nodeInfo.PubKey.Address().Hex()))
+	if err != nil {
+		return discMgr, err
+	}
+	localP2pAddr, err := createP2pAddr(localNetworkAddr)
+	if err != nil {
+		return discMgr, err
+	}
+	discMgr.host, err = libp2p.New(
+		context.Background(),
+		libp2p.Identity(hostId),
+		libp2p.ListenAddrs([]ma.Multiaddr{localP2pAddr}...),
+	)
 	if err != nil {
 		return discMgr, err
 	}
 
-	discMgr.peerDiscMsgHandler, err = createPeerDiscoveryMessageHandler(discMgr, localNetworkAddr)
-	if err != nil {
-		return discMgr, err
-	}
+	logger.Warnf("=-=-=-=-=-=-=-= %v, %v", discMgr.host.ID(), discMgr.host.Addrs())
 
-	inlConfig := GetDefaultInboundPeerListenerConfig()
-	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, skipUPNP, inlConfig)
-	if err != nil {
-		return discMgr, err
-	}
-	discMgr.inboundPeerListener.SetInboundCallback(func(peer *pr.Peer, err error) {
-		if err == nil {
-			logger.Infof("Inbound peer connected, ID: %v, from: %v", peer.ID(), peer.GetConnection().GetNetconn().RemoteAddr())
-		} else {
-			logger.Errorf("Inbound peer listener error: %v", err)
-		}
-	})
+	// for _, seedAddr := range seedPeerNetAddresses {
+	// 	p2pAddr, err := createP2pAddrIpfs(seedAddr, discMgr.host.ID().String())
+	// 	if err != nil {
+	// 		logger.Warnf("Can't convert seed %v to p2p address", seedAddr)
+	// 	} else {
+	// 		discMgr.seedPeerAddresses = append(discMgr.seedPeerAddresses, p2pAddr)
+	// 	}
+	// }
 
 	return discMgr, nil
 }
@@ -105,21 +189,39 @@ func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
 	discMgr.ctx = c
 	discMgr.cancel = cancel
 
-	var err error
-	err = discMgr.seedPeerConnector.Start(c)
+	localChainID := viper.GetString(common.CfgGenesisChainID)
+	discMgr.host.SetStreamHandler(protocol.ID(localChainID), func(stream network.Stream) {
+		logger.Warnf("<<<<< Received new stream: %v", stream.Conn().RemotePeer())
+
+		peerConfig := pr.GetDefaultPeerConfig()
+		connConfig := cn.GetDefaultConnectionConfig()
+		peer := pr.CreatePeer(stream, peerConfig, connConfig)
+		if peer == nil {
+			logger.Errorf("Failed to create peer")
+			return
+		}
+
+		if !peer.Start(ctx) {
+			errMsg := "Failed to start peer"
+			logger.Errorf(errMsg)
+			return
+		}
+	})
+	
+	mdnsService, err := discovery.NewMdnsService(ctx, discMgr.host, time.Second * 10, "Theta2damoon") //temp: 3 Minute
 	if err != nil {
 		return err
 	}
 
-	err = discMgr.inboundPeerListener.Start(c)
-	if err != nil {
-		return err
-	}
+	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, discMgr.host})
 
-	err = discMgr.peerDiscMsgHandler.Start(c)
-	if err != nil {
-		return err
-	}
+	// ///////
+	// localChainID := viper.GetString(common.CfgGenesisChainID)
+	// stream, err := d.host.NewStream(ctx, pi.ID, protocol.ID(localChainID))
+	// if err != nil {
+	// 	logger.Errorf("Failed to create stream for peer: %v", err)
+	// 	return
+	// }
 
 	return nil
 }
@@ -131,9 +233,10 @@ func (discMgr *PeerDiscoveryManager) Stop() {
 
 // Wait suspends the caller goroutine
 func (discMgr *PeerDiscoveryManager) Wait() {
-	discMgr.seedPeerConnector.wg.Wait()
-	discMgr.inboundPeerListener.wg.Wait()
-	discMgr.peerDiscMsgHandler.wg.Wait()
+	// discMgr.seedPeerConnector.wg.Wait()
+	// discMgr.inboundPeerListener.wg.Wait()
+	// discMgr.peerDiscMsgHandler.wg.Wait()
+
 	discMgr.wg.Wait()
 }
 

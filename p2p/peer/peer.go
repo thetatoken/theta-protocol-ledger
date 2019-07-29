@@ -18,6 +18,8 @@ import (
 	nu "github.com/thetatoken/theta/p2p/netutil"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
+
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
@@ -308,6 +310,26 @@ func createPeer(netconn net.Conn, isOutbound bool,
 	peer := &Peer{
 		connection: connection,
 		isOutbound: isOutbound,
+		netAddress: netAddress,
+		config:     peerConfig,
+		wg:         &sync.WaitGroup{},
+	}
+	return peer
+}
+
+func CreatePeer(stream network.Stream, peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
+	connection := cn.CreateConnection2(stream, connConfig)
+	if connection == nil {
+		logger.Errorf("Failed to create connection")
+		return nil
+	}
+	var netAddress *nu.NetAddress
+	// if isOutbound {
+	// 	netAddress = nu.NewNetAddress(netconn.RemoteAddr())
+	// }
+	peer := &Peer{
+		connection: connection,
+		isOutbound: true,
 		netAddress: netAddress,
 		config:     peerConfig,
 		wg:         &sync.WaitGroup{},

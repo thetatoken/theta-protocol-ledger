@@ -167,27 +167,27 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
-	validAddressMap := make(map[*netutil.NetAddress]bool)
-	for _, idAddr := range message.Addresses {
-		isNotASeedPeer := !pdmh.discMgr.seedPeerConnector.isASeedPeer(idAddr.Addr)
-		if seedPeerOnlyOutbound() && isNotASeedPeer {
-			// Sometimes we want to run some nodes behind firewalls. We only allow these nodes to proactively
-			// connect to the seed peers (i.e. only the seed peers can be outbound peers). Such nodes can
-			// still accept inbound connections from non-seed peers based on the firewall rules.
-			continue
-		}
+	// validAddressMap := make(map[*netutil.NetAddress]bool)
+	// for _, idAddr := range message.Addresses {
+	// 	isNotASeedPeer := !pdmh.discMgr.seedPeerConnector.isASeedPeer(idAddr.Addr)
+	// 	if seedPeerOnlyOutbound() && isNotASeedPeer {
+	// 		// Sometimes we want to run some nodes behind firewalls. We only allow these nodes to proactively
+	// 		// connect to the seed peers (i.e. only the seed peers can be outbound peers). Such nodes can
+	// 		// still accept inbound connections from non-seed peers based on the firewall rules.
+	// 		continue
+	// 	}
 
-		if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
-			validAddressMap[idAddr.Addr] = true
-		}
-	}
-	if len(validAddressMap) > 0 {
-		var validAddresses []*netutil.NetAddress
-		for addr := range validAddressMap {
-			validAddresses = append(validAddresses, addr)
-		}
-		pdmh.connectToOutboundPeers(validAddresses)
-	}
+	// 	if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
+	// 		validAddressMap[idAddr.Addr] = true
+	// 	}
+	// }
+	// if len(validAddressMap) > 0 {
+	// 	var validAddresses []*netutil.NetAddress
+	// 	for addr := range validAddressMap {
+	// 		validAddresses = append(validAddresses, addr)
+	// 	}
+	// 	pdmh.connectToOutboundPeers(validAddresses)
+	// }
 }
 
 // SetDiscoveryCallback sets the discovery callback function
@@ -257,7 +257,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 		}
 	} else { // no peer left in the peer table, try to reconnect to seed peers
-		pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
+		// pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
 	}
 }
 

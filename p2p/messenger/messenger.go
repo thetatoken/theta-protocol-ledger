@@ -73,7 +73,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 
 	discMgr.SetMessenger(messenger)
 	messenger.SetPeerDiscoveryManager(discMgr)
-	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
+	// messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
 
 	return messenger, nil
 }

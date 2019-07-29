@@ -18,6 +18,8 @@ import (
 	"github.com/thetatoken/theta/p2p/types"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
+	
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
@@ -93,6 +95,55 @@ type ReceiveHandler func(message p2ptypes.Message) error
 
 // ErrorHandler is the callback function to handle channel read errors
 type ErrorHandler func(interface{})
+
+func CreateConnection2(stream network.Stream, config ConnectionConfig) *Connection {
+	channelCheckpoint := createDefaultChannel(common.ChannelIDCheckpoint)
+	channelHeader := createDefaultChannel(common.ChannelIDHeader)
+	channelBlock := createDefaultChannel(common.ChannelIDBlock)
+	channelProposal := createDefaultChannel(common.ChannelIDProposal)
+	channelVote := createDefaultChannel(common.ChannelIDVote)
+	channelTransaction := createDefaultChannel(common.ChannelIDTransaction)
+	channelPeerDiscover := createDefaultChannel(common.ChannelIDPeerDiscovery)
+	channelPing := createDefaultChannel(common.ChannelIDPing)
+	channels := []*Channel{
+		&channelCheckpoint,
+		&channelHeader,
+		&channelBlock,
+		&channelProposal,
+		&channelVote,
+		&channelTransaction,
+		&channelPeerDiscover,
+		&channelPing,
+	}
+
+	success, channelGroup := createChannelGroup(getDefaultChannelGroupConfig(), channels)
+	if !success {
+		return nil
+	}
+
+	conn := &Connection{
+		netconn:      nil,
+		bufWriter:    bufio.NewWriter(stream),
+		sendMonitor:  flowrate.New(0, 0),
+		bufReader:    bufio.NewReader(stream),
+		recvMonitor:  flowrate.New(0, 0),
+		channelGroup: channelGroup,
+		sendPulse:    make(chan bool, 1),
+		pongPulse:    make(chan bool, 1),
+		quitPulse:    make(chan bool, 1),
+		flushTimer:   timer.NewThrottleTimer("flush", config.FlushThrottle),
+		pingTimer:    timer.NewRepeatTimer("ping", config.PingTimeout),
+		config:       config,
+		wg:           &sync.WaitGroup{},
+
+		onEncode: defaultMessageEncoder,
+	}
+	conn.bufConn = struct {
+		io.Reader
+		io.Writer
+	}{Reader: stream, Writer: stream}
+	return conn
+}
 
 // CreateConnection creates a Connection instance
 func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
