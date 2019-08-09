@@ -17,7 +17,7 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
-	"github.com/thetatoken/theta/p2p/messenger"
+	"github.com/thetatoken/theta/p2pl/messenger"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/version"
@@ -204,7 +204,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key")
 	msgrConfig := messenger.GetDefaultMessengerConfig()
-	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
+	// msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
 	messenger, err := messenger.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
