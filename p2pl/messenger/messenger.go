@@ -10,8 +10,10 @@ import (
 	"sync"
 	"time"
 	"io/ioutil"
+	"math/rand"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -23,6 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
@@ -33,12 +36,17 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
-const ThetaP2PProtocolPrefix = "/theta/p2p/"
+const (
+	thetaP2PProtocolPrefix 			  = "/theta/p2p/"
+	defaultPeerDiscoveryPulseInterval = 30 * time.Second
+	discoverInterval                  = 3000    // 3 sec
+)
 
 type Messenger struct {
 	host          host.Host
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
+	seedPeers	  []*peer.AddrInfo
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -75,7 +83,7 @@ func GetDefaultMessengerConfig() MessengerConfig {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
+func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	messenger := &Messenger{
@@ -89,20 +97,32 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 		return messenger, err
 	}
 	localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
-	// localNetAddress, err := ma.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/%v/%v", msgrConfig.networkProtocol, strconv.Itoa(port)))
 	if err != nil {
 		return messenger, err
 	}
 	host, err := libp2p.New(
 		context.Background(),
+		libp2p.EnableRelay(),
 		libp2p.Identity(hostId),
 		libp2p.ListenAddrs([]ma.Multiaddr{localNetAddress}...),
 	)
 	if err != nil {
 		return messenger, err
 	}
-
 	messenger.host = host
+
+	for _, seedPeerMultiAddrStr := range seedPeerMultiAddresses {
+		addr, err := ma.NewMultiaddr(seedPeerMultiAddrStr)
+		if err != nil {
+			return messenger, err
+		}
+		peer, err := peerstore.InfoFromP2pAddr(addr)
+		if err != nil {
+			return messenger, err
+		}
+		messenger.seedPeers = append(messenger.seedPeers, peer)
+	}
+
 	return messenger, nil
 }
 
@@ -112,12 +132,38 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
-	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, time.Second*10, "Theta2damoon") //TODO: temp
+	perm := rand.Perm(len(msgr.seedPeers))
+	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+		msgr.wg.Add(1)
+		go func(i int) {
+			defer msgr.wg.Done()
+
+			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+			j := perm[i]
+			seedPeer := msgr.seedPeers[j]
+			var err error
+			for i := 0; i < 3; i++ { // try up to 3 times
+				err = msgr.host.Connect(ctx, *seedPeer)
+				if err == nil {
+					logger.Infof("Successfully connected to seed peer %v", seedPeer)
+					break
+				}
+				time.Sleep(time.Second * 3)
+			}
+
+			if err != nil {
+				logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
+			}
+		}(i)
+	}
+
+	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
 	if err != nil {
 		return err
 	}
 
 	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+
 	return nil
 }
 
@@ -170,7 +216,7 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		return false
 	}
 	
-	stream, err := msgr.host.NewStream(context.Background(), id, protocol.ID(ThetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+	stream, err := msgr.host.NewStream(context.Background(), id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
 	if err != nil {
 		logger.Errorf("Stream open failed: %v", err)
 		return false
@@ -208,7 +254,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 }
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
-	msgr.host.SetStreamHandler(protocol.ID(ThetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(stream network.Stream) {
+	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(stream network.Stream) {
 		peerID := stream.Conn().RemotePeer().String()
 		defer stream.Close()
 

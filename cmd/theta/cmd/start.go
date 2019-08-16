@@ -42,7 +42,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	f := func(c rune) bool {
 		return c == ','
 	}
-	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)

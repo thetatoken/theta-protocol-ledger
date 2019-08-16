@@ -15,6 +15,7 @@ require (
 	github.com/libp2p/go-libp2p v0.2.1
 	github.com/libp2p/go-libp2p-core v0.2.0
 	github.com/libp2p/go-libp2p-crypto v0.1.0
+	github.com/libp2p/go-libp2p-peerstore v0.1.2
 	github.com/mattn/go-isatty v0.0.5
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mongodb/mongo-go-driver v0.0.17
