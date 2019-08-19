@@ -110,7 +110,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 		return messenger, err
 	}
 	messenger.host = host
-	logger.Infof("Created node %v", host)
+	logger.Infof("Created node %v, %v", host.ID(), host.Addrs())
 
 	for _, seedPeerMultiAddrStr := range seedPeerMultiAddresses {
 		addr, err := ma.NewMultiaddr(seedPeerMultiAddrStr)
