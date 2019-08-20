@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 	"io/ioutil"
-	// "math/rand"
+	"math/rand"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	// "github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -28,7 +28,7 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
-	"github.com/libp2p/go-libp2p/p2p/discovery"
+	// "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	// dht "github.com/libp2p/go-libp2p-kad-dht"
 	ma "github.com/multiformats/go-multiaddr"
@@ -133,37 +133,37 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
-	// perm := rand.Perm(len(msgr.seedPeers))
-	// for i := 0; i < len(perm); i++ { // create outbound peers in a random order
-	// 	msgr.wg.Add(1)
-	// 	go func(i int) {
-	// 		defer msgr.wg.Done()
+	perm := rand.Perm(len(msgr.seedPeers))
+	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+		msgr.wg.Add(1)
+		go func(i int) {
+			defer msgr.wg.Done()
 
-	// 		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
-	// 		j := perm[i]
-	// 		seedPeer := msgr.seedPeers[j]
-	// 		var err error
-	// 		for i := 0; i < 3; i++ { // try up to 3 times
-	// 			err = msgr.host.Connect(ctx, *seedPeer)
-	// 			if err == nil {
-	// 				logger.Infof("Successfully connected to seed peer %v", seedPeer)
-	// 				break
-	// 			}
-	// 			time.Sleep(time.Second * 3)
-	// 		}
+			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+			j := perm[i]
+			seedPeer := msgr.seedPeers[j]
+			var err error
+			for i := 0; i < 3; i++ { // try up to 3 times
+				err = msgr.host.Connect(ctx, *seedPeer)
+				if err == nil {
+					logger.Infof("Successfully connected to seed peer %v", seedPeer)
+					break
+				}
+				time.Sleep(time.Second * 3)
+			}
 
-	// 		if err != nil {
-	// 			logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
-	// 		}
-	// 	}(i)
-	// }
-
-	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-	if err != nil {
-		return err
+			if err != nil {
+				logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
+			}
+		}(i)
 	}
 
-	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	// if err != nil {
+	// 	return err
+	// }
+
+	// mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
 }
