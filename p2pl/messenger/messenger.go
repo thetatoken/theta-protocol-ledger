@@ -13,7 +13,7 @@ import (
 	// "math/rand"
 
 	log "github.com/sirupsen/logrus"
-	// "github.com/spf13/viper"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -28,7 +28,7 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
-	// "github.com/libp2p/go-libp2p/p2p/discovery"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
 
 	// dht "github.com/libp2p/go-libp2p-kad-dht"
 	ma "github.com/multiformats/go-multiaddr"
@@ -133,9 +133,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
-	for _, seedPeer := range msgr.seedPeers {
-		msgr.host.Peerstore().AddAddrs(seedPeer.ID, seedPeer.Addrs, peerstore.PermanentAddrTTL)
-	}
+	// for _, seedPeer := range msgr.seedPeers {
+	// 	msgr.host.Peerstore().AddAddrs(seedPeer.ID, seedPeer.Addrs, peerstore.PermanentAddrTTL)
+	// }
+
 	// perm := rand.Perm(len(msgr.seedPeers))
 	// for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 	// 	msgr.wg.Add(1)
@@ -161,12 +162,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// 	}(i)
 	// }
 
-	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-	// if err != nil {
-	// 	return err
-	// }
+	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	if err != nil {
+		return err
+	}
 
-	// mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
 }
