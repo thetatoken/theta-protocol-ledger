@@ -10,7 +10,7 @@ import (
 	"sync"
 	"time"
 	"io/ioutil"
-	"math/rand"
+	// "math/rand"
 
 	log "github.com/sirupsen/logrus"
 	// "github.com/spf13/viper"
@@ -133,30 +133,33 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
-	perm := rand.Perm(len(msgr.seedPeers))
-	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
-		msgr.wg.Add(1)
-		go func(i int) {
-			defer msgr.wg.Done()
-
-			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
-			j := perm[i]
-			seedPeer := msgr.seedPeers[j]
-			var err error
-			for i := 0; i < 3; i++ { // try up to 3 times
-				err = msgr.host.Connect(ctx, *seedPeer)
-				if err == nil {
-					logger.Infof("Successfully connected to seed peer %v", seedPeer)
-					break
-				}
-				time.Sleep(time.Second * 3)
-			}
-
-			if err != nil {
-				logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
-			}
-		}(i)
+	for _, seedPeer := range msgr.seedPeers {
+		msgr.host.Peerstore().AddAddrs(seedPeer.ID, seedPeer.Addrs, peerstore.PermanentAddrTTL)
 	}
+	// perm := rand.Perm(len(msgr.seedPeers))
+	// for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+	// 	msgr.wg.Add(1)
+	// 	go func(i int) {
+	// 		defer msgr.wg.Done()
+
+	// 		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+	// 		j := perm[i]
+	// 		seedPeer := msgr.seedPeers[j]
+	// 		var err error
+	// 		for i := 0; i < 3; i++ { // try up to 3 times
+	// 			err = msgr.host.Connect(ctx, *seedPeer)
+	// 			if err == nil {
+	// 				logger.Infof("Successfully connected to seed peer %v", seedPeer)
+	// 				break
+	// 			}
+	// 			time.Sleep(time.Second * 3)
+	// 		}
+
+	// 		if err != nil {
+	// 			logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
+	// 		}
+	// 	}(i)
+	// }
 
 	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
 	// if err != nil {
