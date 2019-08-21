@@ -217,7 +217,7 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		return false
 	}
 	
-	stream, err := msgr.host.NewStream(context.Background(), id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+	stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
 	if err != nil {
 		logger.Errorf("Stream open failed: %v", err)
 		return false
