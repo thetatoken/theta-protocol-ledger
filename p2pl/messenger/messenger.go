@@ -28,6 +28,7 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	// "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	// dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -47,6 +48,7 @@ type Messenger struct {
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
 	seedPeers	  []*peer.AddrInfo
+	gsub          *pubsub.PubSub
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -124,6 +126,16 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 		messenger.seedPeers = append(messenger.seedPeers, peer)
 	}
 
+	psOpts := []pubsub.Option{
+		pubsub.WithMessageSigning(false),
+		pubsub.WithStrictSignatureVerification(false),
+	}
+	gsub, err := pubsub.NewGossipSub(context.Background(), host, psOpts...)
+	if err != nil {
+		return messenger, err
+	}
+	messenger.gsub = gsub
+
 	return messenger, nil
 }
 
@@ -198,6 +210,18 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 			successes <- success
 		}(peer.String())
 	}
+
+	////////////
+	// msgHandler := msgr.msgHandlerMap[message.ChannelID]
+	// bytes, err := msgHandler.EncodeMessage(message.Content)
+	// if err != nil {
+	// 	logger.Errorf("Encoding error: %v", err)
+	// } else {
+	// 	if err := msgr.gsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
+	// 		log.Errorf("Failed to publish to gossipsub topic: %v", err)
+	// 	}
+	// }
+
 	return successes
 }
 
@@ -255,6 +279,53 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 		msgr.msgHandlerMap[channelID] = msgHandler
 
 		msgr.registerStreamHandler(channelID)
+
+		sub, err := msgr.gsub.Subscribe(strconv.Itoa(int(channelID)))
+		if err != nil {
+			logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
+			continue
+		}
+		go func() {
+			defer sub.Cancel()
+	
+			var msg *pubsub.Message
+			var err error
+	
+			// // Recover from any panic as part of the receive p2p msg process.
+			// defer func() {
+			// 	if r := recover(); r != nil {
+			// 		log.WithFields(logrus.Fields{
+			// 			"r":        r,
+			// 			"msg.Data": attemptToConvertPbToString(msg.Data, message),
+			// 		}).Error("P2P message caused a panic! Recovering...")
+			// 	}
+			// }()
+	
+			for {
+				msg, err = sub.Next(context.Background())
+				logger.Infof("================ msg from: %v", msg.GetFrom())
+	
+				if msgr.ctx.Err() != nil {
+					logger.Errorf("Context error %v", msgr.ctx.Err())
+					return
+				}
+				if err != nil {
+					logger.Errorf("Failed to get next message: %v", err)
+					continue
+				}
+	
+				if msg == nil || msg.GetFrom() == msgr.host.ID() {
+					continue
+				}
+	
+				message, err := msgHandler.ParseMessage(string(msg.GetFrom()), channelID, msg.Data)
+				if err != nil {
+					logger.Errorf("Failed to parse message, %v", err)
+					return
+				}
+				msgHandler.HandleMessage(message)
+			}
+		}()
 	}
 }
 
