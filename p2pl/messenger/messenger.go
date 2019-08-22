@@ -1,7 +1,7 @@
 package messenger
 
 import (
-	"bufio"
+	// "bufio"
 	"net"
 	"context"
 	"fmt"
@@ -200,65 +200,65 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 	allPeers := msgr.host.Peerstore().Peers()
 	
 	successes = make(chan bool, allPeers.Len())
-	for _, peer := range allPeers {
-		if (peer == msgr.host.ID()) {
-			continue
-		}
+	// for _, peer := range allPeers {
+	// 	if (peer == msgr.host.ID()) {
+	// 		continue
+	// 	}
 
-		go func(peer string) {
-			success := msgr.Send(peer, message)
-			successes <- success
-		}(peer.String())
-	}
+	// 	go func(peer string) {
+	// 		success := msgr.Send(peer, message)
+	// 		successes <- success
+	// 	}(peer.String())
+	// }
 
 	////////////
-	// msgHandler := msgr.msgHandlerMap[message.ChannelID]
-	// bytes, err := msgHandler.EncodeMessage(message.Content)
-	// if err != nil {
-	// 	logger.Errorf("Encoding error: %v", err)
-	// } else {
-	// 	if err := msgr.gsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
-	// 		log.Errorf("Failed to publish to gossipsub topic: %v", err)
-	// 	}
-	// }
+	msgHandler := msgr.msgHandlerMap[message.ChannelID]
+	bytes, err := msgHandler.EncodeMessage(message.Content)
+	if err != nil {
+		logger.Errorf("Encoding error: %v", err)
+	} else {
+		if err := msgr.gsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
+			log.Errorf("Failed to publish to gossipsub topic: %v", err)
+		}
+	}
 
 	return successes
 }
 
 // Send sends the given message to the specified peer
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
-	id, err := peer.IDB58Decode(peerID)
-	if err != nil {
-		logger.Warnf("Can't decode peer id, %v", err)
-		return false
-	}
+	// id, err := peer.IDB58Decode(peerID)
+	// if err != nil {
+	// 	logger.Warnf("Can't decode peer id, %v", err)
+	// 	return false
+	// }
 
-	peer := msgr.host.Peerstore().PeerInfo(id)
-	if peer.ID == "" {
-		return false
-	}
+	// peer := msgr.host.Peerstore().PeerInfo(id)
+	// if peer.ID == "" {
+	// 	return false
+	// }
 
-	msgHandler := msgr.msgHandlerMap[message.ChannelID]
-	bytes, err := msgHandler.EncodeMessage(message.Content)
-	if err != nil {
-		logger.Errorf("Encoding error: %v", err)
-		return false
-	}
+	// msgHandler := msgr.msgHandlerMap[message.ChannelID]
+	// bytes, err := msgHandler.EncodeMessage(message.Content)
+	// if err != nil {
+	// 	logger.Errorf("Encoding error: %v", err)
+	// 	return false
+	// }
 	
-	stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
-	if err != nil {
-		logger.Errorf("Stream open failed: %v", err)
-		return false
-	}
-	defer stream.Close()
+	// stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+	// if err != nil {
+	// 	logger.Errorf("Stream open failed: %v", err)
+	// 	return false
+	// }
+	// defer stream.Close()
 
-	w := bufio.NewWriter(stream)
-	w.Write([]byte(bytes))
-	err = w.Flush()
-	if err != nil {
-		logger.Errorf("Error flushing buffer %v", err)
-		return false
-	}
+	// w := bufio.NewWriter(stream)
+	// w.Write([]byte(bytes))
+	// err = w.Flush()
+	// if err != nil {
+	// 	logger.Errorf("Error flushing buffer %v", err)
+	// 	return false
+	// }
 
 	return true
 }
@@ -303,9 +303,8 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 	
 			for {
 				msg, err = sub.Next(context.Background())
-				logger.Infof("================ msg from: %v", msg.GetFrom())
 	
-				if msgr.ctx.Err() != nil {
+				if msgr.ctx != nil && msgr.ctx.Err() != nil {
 					logger.Errorf("Context error %v", msgr.ctx.Err())
 					return
 				}
@@ -323,6 +322,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 					logger.Errorf("Failed to parse message, %v", err)
 					return
 				}
+
 				msgHandler.HandleMessage(message)
 			}
 		}()
