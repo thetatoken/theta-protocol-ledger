@@ -1,7 +1,7 @@
 package messenger
 
 import (
-	// "bufio"
+	"bufio"
 	"net"
 	"context"
 	"fmt"
@@ -30,8 +30,8 @@ import (
 	cr "github.com/libp2p/go-libp2p-crypto"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	// "github.com/libp2p/go-libp2p/p2p/discovery"
-
 	// dht "github.com/libp2p/go-libp2p-kad-dht"
+	
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -112,7 +112,6 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 		return messenger, err
 	}
 	messenger.host = host
-	logger.Infof("Created node %v, %v", host.ID(), host.Addrs())
 
 	for _, seedPeerMultiAddrStr := range seedPeerMultiAddresses {
 		addr, err := ma.NewMultiaddr(seedPeerMultiAddrStr)
@@ -136,6 +135,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 	}
 	messenger.gsub = gsub
 
+	logger.Infof("Created node %v, %v", host.ID(), host.Addrs())
 	return messenger, nil
 }
 
@@ -144,10 +144,6 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	c, cancel := context.WithCancel(ctx)
 	msgr.ctx = c
 	msgr.cancel = cancel
-
-	// for _, seedPeer := range msgr.seedPeers {
-	// 	msgr.host.Peerstore().AddAddrs(seedPeer.ID, seedPeer.Addrs, peerstore.PermanentAddrTTL)
-	// }
 
 	perm := rand.Perm(len(msgr.seedPeers))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
@@ -178,7 +174,6 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// if err != nil {
 	// 	return err
 	// }
-
 	// mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
@@ -197,9 +192,9 @@ func (msgr *Messenger) Wait() {
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
-	allPeers := msgr.host.Peerstore().Peers()
+	// allPeers := msgr.host.Peerstore().Peers()
 	
-	successes = make(chan bool, allPeers.Len())
+	// successes = make(chan bool, allPeers.Len())
 	// for _, peer := range allPeers {
 	// 	if (peer == msgr.host.ID()) {
 	// 		continue
@@ -211,7 +206,8 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 	// 	}(peer.String())
 	// }
 
-	////////////
+	// return successes
+
 	msgHandler := msgr.msgHandlerMap[message.ChannelID]
 	bytes, err := msgHandler.EncodeMessage(message.Content)
 	if err != nil {
@@ -222,43 +218,43 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 		}
 	}
 
-	return successes
+	return nil
 }
 
 // Send sends the given message to the specified peer
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
-	// id, err := peer.IDB58Decode(peerID)
-	// if err != nil {
-	// 	logger.Warnf("Can't decode peer id, %v", err)
-	// 	return false
-	// }
+	id, err := peer.IDB58Decode(peerID)
+	if err != nil {
+		logger.Warnf("Can't decode peer id, %v", err)
+		return false
+	}
 
-	// peer := msgr.host.Peerstore().PeerInfo(id)
-	// if peer.ID == "" {
-	// 	return false
-	// }
+	peer := msgr.host.Peerstore().PeerInfo(id)
+	if peer.ID == "" {
+		return false
+	}
 
-	// msgHandler := msgr.msgHandlerMap[message.ChannelID]
-	// bytes, err := msgHandler.EncodeMessage(message.Content)
-	// if err != nil {
-	// 	logger.Errorf("Encoding error: %v", err)
-	// 	return false
-	// }
+	msgHandler := msgr.msgHandlerMap[message.ChannelID]
+	bytes, err := msgHandler.EncodeMessage(message.Content)
+	if err != nil {
+		logger.Errorf("Encoding error: %v", err)
+		return false
+	}
 	
-	// stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
-	// if err != nil {
-	// 	logger.Errorf("Stream open failed: %v", err)
-	// 	return false
-	// }
-	// defer stream.Close()
+	stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+	if err != nil {
+		logger.Errorf("Stream open failed: %v", err)
+		return false
+	}
+	defer stream.Close()
 
-	// w := bufio.NewWriter(stream)
-	// w.Write([]byte(bytes))
-	// err = w.Flush()
-	// if err != nil {
-	// 	logger.Errorf("Error flushing buffer %v", err)
-	// 	return false
-	// }
+	w := bufio.NewWriter(stream)
+	w.Write([]byte(bytes))
+	err = w.Flush()
+	if err != nil {
+		logger.Errorf("Error flushing buffer %v", err)
+		return false
+	}
 
 	return true
 }
@@ -317,7 +313,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 					continue
 				}
 	
-				message, err := msgHandler.ParseMessage(string(msg.GetFrom()), channelID, msg.Data)
+				message, err := msgHandler.ParseMessage(msg.GetFrom().String(), channelID, msg.Data)
 				if err != nil {
 					logger.Errorf("Failed to parse message, %v", err)
 					return
