@@ -239,23 +239,6 @@ func (msgr *Messenger) Wait() {
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
 
-	// allPeers := msgr.host.Peerstore().Peers()
-	
-	// successes = make(chan bool, allPeers.Len())
-	// for _, peer := range allPeers {
-	// 	if (peer == msgr.host.ID()) {
-	// 		continue
-	// 	}
-
-	// 	go func(peer string) {
-	// 		success := msgr.Send(peer, message)
-	// 		successes <- success
-	// 	}(peer.String())
-	// }
-	
-	// logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
-	// return successes
-
 	msgHandler := msgr.msgHandlerMap[message.ChannelID]
 	bytes, err := msgHandler.EncodeMessage(message.Content)
 	if err != nil {
@@ -265,8 +248,6 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 			log.Errorf("Failed to publish to gossipsub topic: %v", err)
 		}
 	}
-
-	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
 
 	return nil
 }
