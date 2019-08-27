@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 	"io/ioutil"
-	// "math/rand"
+	"math/rand"
 
 	log "github.com/sirupsen/logrus"
-	// "github.com/spf13/viper"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -28,7 +28,7 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
-	// "github.com/libp2p/go-libp2p/p2p/discovery"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
@@ -44,7 +44,7 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
 const (
 	thetaP2PProtocolPrefix 			  = "/theta/1.0.0/"
-	defaultPeerDiscoveryPulseInterval = 3 * time.Second
+	defaultPeerDiscoveryPulseInterval = 30 * time.Second
 	discoverInterval                  = 3000    // 3 sec
 )
 
@@ -53,7 +53,7 @@ type Messenger struct {
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
 	seedPeers	  []*peer.AddrInfo
-	gsub          *pubsub.PubSub
+	pubsub        *pubsub.PubSub
 	dht           *kaddht.IpfsDHT
 
 	// Life cycle
@@ -71,6 +71,13 @@ type MessengerConfig struct {
 	networkProtocol     string
 }
 
+// GetDefaultMessengerConfig returns the default config for messenger, not necessary
+func GetDefaultMessengerConfig() MessengerConfig {
+	return MessengerConfig{
+		networkProtocol:     "tcp",
+	}
+}
+
 func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 	ip, port, err := net.SplitHostPort(netAddr)
 	if err != nil {
@@ -81,13 +88,6 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 		return nil, err
 	}
 	return multiAddr, nil
-}
-
-// GetDefaultMessengerConfig returns the default config for messenger, not necessary
-func GetDefaultMessengerConfig() MessengerConfig {
-	return MessengerConfig{
-		networkProtocol:     "tcp",
-	}
 }
 
 // CreateMessenger creates an instance of Messenger
@@ -139,7 +139,6 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 
 	// kad-dht
 	dopts := []dhtopts.Option{
-		// dhtopts.Validator(NullValidator{}),
 		dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
 		dhtopts.Protocols(
 			protocol.ID(thetaP2PProtocolPrefix + "dht"),
@@ -155,16 +154,16 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 	messenger.dht = dht
 
 	// pubsub
-	// psOpts := []pubsub.Option{
-	// 	pubsub.WithMessageSigning(false),
-	// 	pubsub.WithStrictSignatureVerification(false),
-	// }
-	// gsub, err := pubsub.NewGossipSub(ctx, host, psOpts...)
-	// if err != nil {
-	// 	cancel()
-	// 	return messenger, err
-	// }
-	// messenger.gsub = gsub
+	psOpts := []pubsub.Option{
+		pubsub.WithMessageSigning(false),
+		pubsub.WithStrictSignatureVerification(false),
+	}
+	pubsub, err := pubsub.NewGossipSub(ctx, host, psOpts...)
+	if err != nil {
+		cancel()
+		return messenger, err
+	}
+	messenger.pubsub = pubsub
 
 	logger.Infof("Created node %v, %v", host.ID(), host.Addrs())
 	return messenger, nil
@@ -177,30 +176,30 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.cancel = cancel
 
 	// seeds
-	// perm := rand.Perm(len(msgr.seedPeers))
-	// for i := 0; i < len(perm); i++ { // create outbound peers in a random order
-	// 	msgr.wg.Add(1)
-	// 	go func(i int) {
-	// 		defer msgr.wg.Done()
+	perm := rand.Perm(len(msgr.seedPeers))
+	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+		msgr.wg.Add(1)
+		go func(i int) {
+			defer msgr.wg.Done()
 
-	// 		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
-	// 		j := perm[i]
-	// 		seedPeer := msgr.seedPeers[j]
-	// 		var err error
-	// 		for i := 0; i < 3; i++ { // try up to 3 times
-	// 			// err = msgr.host.Connect(ctx, *seedPeer)
-	// 			// if err == nil {
-	// 			// 	logger.Infof("Successfully connected to seed peer %v", seedPeer)
-	// 			// 	break
-	// 			// }
-	// 			time.Sleep(time.Second * 3)
-	// 		}
+			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+			j := perm[i]
+			seedPeer := msgr.seedPeers[j]
+			var err error
+			for i := 0; i < 3; i++ { // try up to 3 times
+				err = msgr.host.Connect(ctx, *seedPeer)
+				if err == nil {
+					logger.Infof("Successfully connected to seed peer %v", seedPeer)
+					break
+				}
+				time.Sleep(time.Second * 3)
+			}
 
-	// 		if err != nil {
-	// 			logger.Errorf("Failed to connect to seed peer %v: %v", seedPeer, err)
-	// 		}
-	// 	}(i)
-	// }
+			if err != nil {
+				logger.Errorf("Failed to connect to seed peer %v: %v", seedPeer, err)
+			}
+		}(i)
+	}
 
 	// kad-dht
 	if len(msgr.seedPeers) > 0 {
@@ -217,11 +216,11 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	}
 
 	// mDns
-	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-	// if err != nil {
-	// 	return err
-	// }
-	// mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	if err != nil {
+		return err
+	}
+	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
 }
@@ -240,36 +239,36 @@ func (msgr *Messenger) Wait() {
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
 
-	allPeers := msgr.host.Peerstore().Peers()
+	// allPeers := msgr.host.Peerstore().Peers()
 	
-	successes = make(chan bool, allPeers.Len())
-	for _, peer := range allPeers {
-		if (peer == msgr.host.ID()) {
-			continue
-		}
-
-		go func(peer string) {
-			success := msgr.Send(peer, message)
-			successes <- success
-		}(peer.String())
-	}
-	
-	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
-	return successes
-
-	// msgHandler := msgr.msgHandlerMap[message.ChannelID]
-	// bytes, err := msgHandler.EncodeMessage(message.Content)
-	// if err != nil {
-	// 	logger.Errorf("Encoding error: %v", err)
-	// } else {
-	// 	if err := msgr.gsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
-	// 		log.Errorf("Failed to publish to gossipsub topic: %v", err)
+	// successes = make(chan bool, allPeers.Len())
+	// for _, peer := range allPeers {
+	// 	if (peer == msgr.host.ID()) {
+	// 		continue
 	// 	}
+
+	// 	go func(peer string) {
+	// 		success := msgr.Send(peer, message)
+	// 		successes <- success
+	// 	}(peer.String())
 	// }
-
+	
 	// logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
+	// return successes
 
-	// return nil
+	msgHandler := msgr.msgHandlerMap[message.ChannelID]
+	bytes, err := msgHandler.EncodeMessage(message.Content)
+	if err != nil {
+		logger.Errorf("Encoding error: %v", err)
+	} else {
+		if err := msgr.pubsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
+			log.Errorf("Failed to publish to gossipsub topic: %v", err)
+		}
+	}
+
+	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
+
+	return nil
 }
 
 // Send sends the given message to the specified peer
@@ -327,52 +326,52 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 		msgr.registerStreamHandler(channelID)
 
-		// sub, err := msgr.gsub.Subscribe(strconv.Itoa(int(channelID)))
-		// if err != nil {
-		// 	logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
-		// 	continue
-		// }
-		// go func() {
-		// 	defer sub.Cancel()
+		sub, err := msgr.pubsub.Subscribe(strconv.Itoa(int(channelID)))
+		if err != nil {
+			logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
+			continue
+		}
+		go func() {
+			defer sub.Cancel()
 	
-		// 	var msg *pubsub.Message
-		// 	var err error
+			var msg *pubsub.Message
+			var err error
 	
-		// 	// // Recover from any panic as part of the receive p2p msg process.
-		// 	// defer func() {
-		// 	// 	if r := recover(); r != nil {
-		// 	// 		log.WithFields(logrus.Fields{
-		// 	// 			"r":        r,
-		// 	// 			"msg.Data": attemptToConvertPbToString(msg.Data, message),
-		// 	// 		}).Error("P2P message caused a panic! Recovering...")
-		// 	// 	}
-		// 	// }()
+			// // Recover from any panic as part of the receive p2p msg process.
+			// defer func() {
+			// 	if r := recover(); r != nil {
+			// 		log.WithFields(logrus.Fields{
+			// 			"r":        r,
+			// 			"msg.Data": attemptToConvertPbToString(msg.Data, message),
+			// 		}).Error("P2P message caused a panic! Recovering...")
+			// 	}
+			// }()
 	
-		// 	for {
-		// 		msg, err = sub.Next(context.Background())
+			for {
+				msg, err = sub.Next(context.Background())
 	
-		// 		if msgr.ctx != nil && msgr.ctx.Err() != nil {
-		// 			logger.Errorf("Context error %v", msgr.ctx.Err())
-		// 			return
-		// 		}
-		// 		if err != nil {
-		// 			logger.Errorf("Failed to get next message: %v", err)
-		// 			continue
-		// 		}
+				if msgr.ctx != nil && msgr.ctx.Err() != nil {
+					logger.Errorf("Context error %v", msgr.ctx.Err())
+					return
+				}
+				if err != nil {
+					logger.Errorf("Failed to get next message: %v", err)
+					continue
+				}
 	
-		// 		if msg == nil || msg.GetFrom() == msgr.host.ID() {
-		// 			continue
-		// 		}
+				if msg == nil || msg.GetFrom() == msgr.host.ID() {
+					continue
+				}
 	
-		// 		message, err := msgHandler.ParseMessage(msg.GetFrom().String(), channelID, msg.Data)
-		// 		if err != nil {
-		// 			logger.Errorf("Failed to parse message, %v", err)
-		// 			return
-		// 		}
+				message, err := msgHandler.ParseMessage(msg.GetFrom().String(), channelID, msg.Data)
+				if err != nil {
+					logger.Errorf("Failed to parse message, %v", err)
+					return
+				}
 
-		// 		msgHandler.HandleMessage(message)
-		// 	}
-		// }()
+				msgHandler.HandleMessage(message)
+			}
+		}()
 	}
 }
 
