@@ -28,9 +28,14 @@ import (
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	// "github.com/libp2p/go-libp2p/p2p/discovery"
-	// dht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+
+	ds "github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
 	
 	ma "github.com/multiformats/go-multiaddr"
 )
@@ -38,8 +43,8 @@ import (
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
 const (
-	thetaP2PProtocolPrefix 			  = "/theta/p2p/"
-	defaultPeerDiscoveryPulseInterval = 30 * time.Second
+	thetaP2PProtocolPrefix 			  = "/theta/1.0.0/"
+	defaultPeerDiscoveryPulseInterval = 3 * time.Second
 	discoverInterval                  = 3000    // 3 sec
 )
 
@@ -49,6 +54,7 @@ type Messenger struct {
 	config        MessengerConfig
 	seedPeers	  []*peer.AddrInfo
 	gsub          *pubsub.PubSub
+	dht           *kaddht.IpfsDHT
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -88,6 +94,8 @@ func GetDefaultMessengerConfig() MessengerConfig {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
 		config: msgrConfig,
@@ -103,34 +111,57 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 		return messenger, err
 	}
 	host, err := libp2p.New(
-		context.Background(),
+		ctx,
 		libp2p.EnableRelay(),
 		libp2p.Identity(hostId),
 		libp2p.ListenAddrs([]ma.Multiaddr{localNetAddress}...),
 	)
 	if err != nil {
+		cancel()
 		return messenger, err
 	}
 	messenger.host = host
 
+	// seeds
 	for _, seedPeerMultiAddrStr := range seedPeerMultiAddresses {
 		addr, err := ma.NewMultiaddr(seedPeerMultiAddrStr)
 		if err != nil {
+			cancel()
 			return messenger, err
 		}
 		peer, err := peerstore.InfoFromP2pAddr(addr)
 		if err != nil {
+			cancel()
 			return messenger, err
 		}
 		messenger.seedPeers = append(messenger.seedPeers, peer)
 	}
 
+	// kad-dht
+	dopts := []dhtopts.Option{
+		// dhtopts.Validator(NullValidator{}),
+		dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
+		dhtopts.Protocols(
+			protocol.ID(thetaP2PProtocolPrefix + "dht"),
+		),
+	}
+
+	dht, err := kaddht.New(ctx, host, dopts...)
+	if err != nil {
+		cancel()
+		return messenger, err
+	}
+	host = rhost.Wrap(host, dht)
+	messenger.dht = dht
+
+	// pubsub
 	psOpts := []pubsub.Option{
 		pubsub.WithMessageSigning(false),
 		pubsub.WithStrictSignatureVerification(false),
 	}
-	gsub, err := pubsub.NewGossipSub(context.Background(), host, psOpts...)
+	gsub, err := pubsub.NewGossipSub(ctx, host, psOpts...)
 	if err != nil {
+		cancel()
 		return messenger, err
 	}
 	messenger.gsub = gsub
@@ -145,6 +176,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
+	// seeds
 	perm := rand.Perm(len(msgr.seedPeers))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		msgr.wg.Add(1)
@@ -156,20 +188,35 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			seedPeer := msgr.seedPeers[j]
 			var err error
 			for i := 0; i < 3; i++ { // try up to 3 times
-				err = msgr.host.Connect(ctx, *seedPeer)
-				if err == nil {
-					logger.Infof("Successfully connected to seed peer %v", seedPeer)
-					break
-				}
+				// err = msgr.host.Connect(ctx, *seedPeer)
+				// if err == nil {
+				// 	logger.Infof("Successfully connected to seed peer %v", seedPeer)
+				// 	break
+				// }
 				time.Sleep(time.Second * 3)
 			}
 
 			if err != nil {
-				logger.Warnf("Failed to connect to seed peer %v: %v", seedPeer, err)
+				logger.Errorf("Failed to connect to seed peer %v: %v", seedPeer, err)
 			}
 		}(i)
 	}
 
+	// kad-dht
+	if len(msgr.seedPeers) > 0 {
+		peerinfo := msgr.seedPeers[0]
+		if err := msgr.host.Connect(ctx, *peerinfo); err != nil {
+			logger.Errorf("Could not start peer discovery via DHT: %v", err)
+		}
+	}	
+
+	bcfg := kaddht.DefaultBootstrapConfig
+	bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
+	if err := msgr.dht.BootstrapWithConfig(ctx, bcfg); err != nil {
+		logger.Errorf("Failed to bootstrap DHT: %v", err)
+	}
+
+	// mDns
 	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
 	// if err != nil {
 	// 	return err
@@ -217,6 +264,8 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 			log.Errorf("Failed to publish to gossipsub topic: %v", err)
 		}
 	}
+
+	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
 
 	return nil
 }

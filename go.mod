@@ -11,11 +11,14 @@ require (
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
 	github.com/hashicorp/golang-lru v0.5.1
+	github.com/ipfs/go-datastore v0.0.5
+	github.com/ipfs/go-ipfs-addr v0.0.1
 	github.com/karalabe/hid v0.0.0-20180420081245-2b4488a37358
-	github.com/libp2p/go-libp2p v0.2.1
+	github.com/libp2p/go-libp2p v0.3.0
 	github.com/libp2p/go-libp2p-core v0.2.0
 	github.com/libp2p/go-libp2p-crypto v0.1.0
-	github.com/libp2p/go-libp2p-peerstore v0.1.2
+	github.com/libp2p/go-libp2p-kad-dht v0.2.0
+	github.com/libp2p/go-libp2p-peerstore v0.1.3
 	github.com/libp2p/go-libp2p-pubsub v0.1.1
 	github.com/mattn/go-isatty v0.0.5
 	github.com/mitchellh/go-homedir v1.1.0
@@ -37,6 +40,7 @@ require (
 	github.com/xdg/stringprep v0.0.0-20180714160509-73f8eece6fdc // indirect
 	github.com/ybbus/jsonrpc v1.1.1
 	github.com/yuin/gopher-lua v0.0.0-20180827083657-b942cacc89fe // indirect
+	go.opencensus.io v0.21.0
 	golang.org/x/crypto v0.0.0-20190618222545-ea8f1a30c443
 	golang.org/x/net v0.0.0-20190620200207-3b0461eec859
 	golang.org/x/sys v0.0.0-20190626221950-04f50cda93cb
