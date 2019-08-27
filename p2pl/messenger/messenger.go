@@ -29,7 +29,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
 	"github.com/libp2p/go-libp2p/p2p/discovery"
-	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	ps "github.com/libp2p/go-libp2p-pubsub"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
@@ -53,7 +53,7 @@ type Messenger struct {
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
 	seedPeers	  []*peer.AddrInfo
-	pubsub        *pubsub.PubSub
+	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 
 	// Life cycle
@@ -154,11 +154,11 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 	messenger.dht = dht
 
 	// pubsub
-	psOpts := []pubsub.Option{
-		pubsub.WithMessageSigning(false),
-		pubsub.WithStrictSignatureVerification(false),
+	psOpts := []ps.Option{
+		ps.WithMessageSigning(false),
+		ps.WithStrictSignatureVerification(false),
 	}
-	pubsub, err := pubsub.NewGossipSub(ctx, host, psOpts...)
+	pubsub, err := ps.NewGossipSub(ctx, host, psOpts...)
 	if err != nil {
 		cancel()
 		return messenger, err
@@ -315,7 +315,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 		go func() {
 			defer sub.Cancel()
 	
-			var msg *pubsub.Message
+			var msg *ps.Message
 			var err error
 	
 			// // Recover from any panic as part of the receive p2p msg process.
