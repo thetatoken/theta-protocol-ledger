@@ -18,7 +18,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2pl"
-	p2ptypes "github.com/thetatoken/theta/p2pl/types"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"

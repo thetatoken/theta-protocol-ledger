@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/p2pl/types"
+	"github.com/thetatoken/theta/p2p/types"
 )
 
 //

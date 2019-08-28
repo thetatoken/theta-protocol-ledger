@@ -13,8 +13,9 @@ import (
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/p2p"
 	"github.com/thetatoken/theta/p2pl"
-	p2ptypes "github.com/thetatoken/theta/p2pl/types"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -51,7 +52,7 @@ type SyncManager struct {
 	voteCache *lru.Cache // Cache for votes
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
 	voteCache, _ := lru.New(voteCacheLimit)
 	sm := &SyncManager{
 		chain:      chain,
@@ -65,6 +66,7 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network 
 		voteCache: voteCache,
 	}
 	sm.requestMgr = NewRequestManager(sm)
+	networkOld.RegisterMessageHandler(sm)
 	network.RegisterMessageHandler(sm)
 
 	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {

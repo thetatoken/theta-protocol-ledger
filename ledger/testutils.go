@@ -50,7 +50,7 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
 	messenger := p2psimnet.AddEndpoint("peerID0")
 
-	dispatcher := dp.NewDispatcher(messenger)
+	dispatcher := dp.NewDispatcher(messenger, nil)
 
 	valMgr := consensus.NewFixedValidatorManager()
 	consensus := consensus.NewConsensusEngine(valPrivAcc.PrivKey, store, chain, dispatcher, valMgr)

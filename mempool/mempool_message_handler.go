@@ -7,7 +7,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/p2pl/types"
+	"github.com/thetatoken/theta/p2p/types"
 
 	dp "github.com/thetatoken/theta/dispatcher"
 )
