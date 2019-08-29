@@ -258,7 +258,7 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	id, err := peer.IDB58Decode(peerID)
 	if err != nil {
-		logger.Warnf("Can't decode peer id, %v", err)
+		logger.Warnf("Can't decode peer id %v, %v", peerID, err)
 		return false
 	}
 
