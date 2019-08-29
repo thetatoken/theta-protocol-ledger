@@ -249,6 +249,8 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 		}
 	}
 
+	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
+
 	return nil
 }
 

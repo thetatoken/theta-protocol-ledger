@@ -44,7 +44,7 @@ func (dp *Dispatcher) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// err = dp.p2plnet.Start(c)
+	err = dp.p2plnet.Start(c)
 	return err
 }
 
@@ -56,7 +56,7 @@ func (dp *Dispatcher) Stop() {
 // Wait suspends the caller goroutine
 func (dp *Dispatcher) Wait() {
 	dp.p2pnet.Wait()
-	// dp.p2plnet.Wait()
+	dp.p2plnet.Wait()
 	dp.wg.Wait()
 }
 
@@ -85,18 +85,18 @@ func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, con
 		ChannelID: channelID,
 		Content:   content,
 	}
-	// message := p2ptypes.Message{
-	// 	ChannelID: channelID,
-	// 	Content:   content,
-	// }
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
 	if len(peerIDs) == 0 {
 		dp.p2pnet.Broadcast(messageOld)
-		// dp.p2plnet.Broadcast(message)
+		dp.p2plnet.Broadcast(message)
 	} else {
 		for _, peerID := range peerIDs {
 			go func(peerID string) {
 				dp.p2pnet.Send(peerID, messageOld)
-				// dp.p2plnet.Send(peerID, message)
+				dp.p2plnet.Send(peerID, message)
 			}(peerID)
 		}
 	}
