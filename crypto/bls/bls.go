@@ -10,9 +10,20 @@ import (
 	"fmt"
 	"io"
 
+	phorebls "github.com/phoreproject/bls"
 	g1 "github.com/phoreproject/bls/g1pubs"
 	"github.com/pkg/errors"
 )
+
+// PubkeyZero represents the pubkey from the point at infinity.
+func PubkeyZero() *PublicKey {
+	return &PublicKey{val: g1.NewPublicKeyFromG1(phorebls.G1AffineZero.Copy())}
+}
+
+// SignatureZero represents the signature from the point at infinity.
+func SignatureZero() *Signature {
+	return &Signature{val: g1.NewSignatureFromG2(phorebls.G2AffineZero.Copy())}
+}
 
 // Signature used in the BLS signature scheme.
 type Signature struct {
@@ -97,10 +108,15 @@ func (p *PublicKey) Marshal() []byte {
 }
 
 // Aggregate two public keys.
-func (p *PublicKey) Aggregate(p2 *PublicKey) *PublicKey {
+func (p *PublicKey) Aggregate(p2 *PublicKey) {
 	p1 := p.val
 	p1.Aggregate(p2.val)
-	return &PublicKey{val: p1}
+}
+
+// Aggregate two signatures.
+func (s *Signature) Aggregate(s2 *Signature) {
+	s1 := s.val
+	s1.Aggregate(s2.val)
 }
 
 // Verify a bls signature given a public key, a message, and a domain.
