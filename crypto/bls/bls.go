@@ -16,11 +16,17 @@ import (
 
 	phorebls "github.com/phoreproject/bls"
 	"github.com/pkg/errors"
+	"github.com/thetatoken/theta/crypto"
 )
 
+// WIP: See BLS standardisation process:
+// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-00#ref-I-D.irtf-cfrg-hash-to-curve.
 const (
-	DomainGuardian uint64 = iota
+	DomainMessage uint64 = iota
+	DomainPop
 )
+
+// ------------- Signature --------------
 
 // Signature is a message signature.
 type Signature struct {
@@ -60,22 +66,26 @@ func (s *Signature) Copy() *Signature {
 }
 
 // Verify verifies a signature against a message and a public key.
-func (sig *Signature) Verify(m []byte, p PublicKey) bool {
-	h := phorebls.HashG2(m)
-	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, sig.s)
-	rhs := phorebls.Pairing(p.p, h.ToProjective())
-	return lhs.Equals(rhs)
-}
-
-// VerifyWithDomain verifies a signature against a message and a public key and a domain
-func (sig *Signature) VerifyWithDomain(m []byte, p *PublicKey, domain uint64) bool {
+func (s *Signature) Verify(m []byte, p *PublicKey) bool {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, domain)
-	h := phorebls.HashG2WithDomain(toBytes32(m), toBytes8(b))
-	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, sig.s)
+	binary.BigEndian.PutUint64(b, DomainMessage)
+	h := phorebls.HashG2WithDomain(hash32(m), toBytes8(b))
+	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, s.s)
 	rhs := phorebls.Pairing(p.p, h.ToAffine().ToProjective())
 	return lhs.Equals(rhs)
 }
+
+// PopVerify verifies a proof of possesion of a public key.
+func (s *Signature) PopVerify(p *PublicKey) bool {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, DomainPop)
+	h := phorebls.HashG2WithDomain(hash32(p.Marshal()), toBytes8(b))
+	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, s.s)
+	rhs := phorebls.Pairing(p.p, h.ToAffine().ToProjective())
+	return lhs.Equals(rhs)
+}
+
+// ------------- Public key --------------
 
 // PublicKey is a public key.
 type PublicKey struct {
@@ -119,6 +129,8 @@ func (p *PublicKey) Copy() *PublicKey {
 	return &PublicKey{p: p.p.Copy()}
 }
 
+// ------------- Secret key --------------
+
 // SecretKey represents a BLS private key.
 type SecretKey struct {
 	f *phorebls.FR
@@ -154,15 +166,9 @@ func SecretKeyFromBytes(priv []byte) (*SecretKey, error) {
 
 // Sign signs a message with a secret key.
 func (s SecretKey) Sign(message []byte) *Signature {
-	h := phorebls.HashG2(message).MulFR(s.f.ToRepr())
-	return &Signature{s: h}
-}
-
-// SignWithDomain signs a message with a secret key and its domain.
-func (s SecretKey) SignWithDomain(message []byte, domain uint64) *Signature {
 	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, domain)
-	h := phorebls.HashG2WithDomain(toBytes32(message), toBytes8(b)).MulFR(s.f.ToRepr())
+	binary.BigEndian.PutUint64(b, DomainMessage)
+	h := phorebls.HashG2WithDomain(hash32(message), toBytes8(b)).MulFR(s.f.ToRepr())
 	return &Signature{s: h}
 }
 
@@ -170,6 +176,16 @@ func (s SecretKey) SignWithDomain(message []byte, domain uint64) *Signature {
 func (s SecretKey) PublicKey() *PublicKey {
 	return &PublicKey{p: phorebls.G1AffineOne.MulFR(s.f.ToRepr())}
 }
+
+// PopProve generates a proof of poccession of the secrect key.
+func (s SecretKey) PopProve() *Signature {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, DomainPop)
+	h := phorebls.HashG2WithDomain(hash32(s.PublicKey().Marshal()), toBytes8(b)).MulFR(s.f.ToRepr())
+	return &Signature{s: h}
+}
+
+// ------------- Static functions ----------------
 
 // RandKey generates a random secret key.
 func RandKey(r io.Reader) (*SecretKey, error) {
@@ -212,6 +228,11 @@ func NewAggregatePubkey() *PublicKey {
 //
 // -------------- utils -----------------
 //
+
+func hash32(in []byte) [32]byte {
+	b := crypto.Keccak256(in)
+	return toBytes32(b)
+}
 
 // toBytes8 is a convenience method for converting a byte slice to a fix
 // sized 8 byte array. This method will truncate the input if it is larger

@@ -11,12 +11,11 @@ func BenchmarkSignature_Verify(b *testing.B) {
 		b.Fatal(err)
 	}
 	msg := []byte("Some msg")
-	domain := uint64(42)
-	sig := sk.SignWithDomain(msg, domain)
+	sig := sk.Sign(msg)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if !sig.VerifyWithDomain(msg, sk.PublicKey(), domain) {
+		if !sig.Verify(msg, sk.PublicKey()) {
 			b.Fatal("could not verify sig")
 		}
 	}

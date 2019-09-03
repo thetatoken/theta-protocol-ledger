@@ -28,9 +28,17 @@ func TestSignVerify(t *testing.T) {
 	priv, _ := RandKey(rand.Reader)
 	pub := priv.PublicKey()
 	msg := []byte("hello")
-	sig := priv.SignWithDomain(msg, 0)
-	if !sig.VerifyWithDomain(msg, pub, 0) {
+	sig := priv.Sign(msg)
+	if !sig.Verify(msg, pub) {
 		t.Error("Signature did not verify")
+	}
+}
+
+func TestPop(t *testing.T) {
+	priv, _ := RandKey(rand.Reader)
+	pop := priv.PopProve()
+	if !pop.PopVerify(priv.PublicKey()) {
+		t.Error("PopVerify failed")
 	}
 }
 
