@@ -33,7 +33,7 @@ func (a *AggregatedVotes) Sign(key *bls.SecretKey, signerIdx int) {
 	}
 
 	a.Multiplies[signerIdx] = 1
-	a.Signature.Aggregate(key.Sign(a.signBytes(), bls.DomainGuardian))
+	a.Signature.Aggregate(key.SignWithDomain(a.signBytes(), bls.DomainGuardian))
 }
 
 //
