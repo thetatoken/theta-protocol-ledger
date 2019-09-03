@@ -3,6 +3,7 @@ package bls
 import (
 	"bytes"
 	"crypto/rand"
+	mrand "math/rand"
 	"testing"
 
 	"github.com/prysmaticlabs/prysm/shared/bytesutil"
@@ -40,6 +41,54 @@ func TestPop(t *testing.T) {
 	if !pop.PopVerify(priv.PublicKey()) {
 		t.Error("PopVerify failed")
 	}
+}
+
+func TestVerifyAggregate(t *testing.T) {
+	pubkeys := make([]*PublicKey, 0, 100)
+	sigs := make([]*Signature, 0, 100)
+	vec := make([]uint64, 0, 100)
+	msg := []byte("hello")
+	for i := 0; i < 100; i++ {
+		priv, _ := RandKey(rand.Reader)
+		pub := priv.PublicKey()
+		sig := priv.Sign(msg)
+		pubkeys = append(pubkeys, pub)
+		sigs = append(sigs, sig)
+		vec = append(vec, mrand.Uint64())
+	}
+	aggSig := AggregateSignaturesVec(sigs, vec)
+	aggPub := AggregatePublicKeysVec(pubkeys, vec)
+	if !aggSig.Verify(msg, aggPub) {
+		t.Error("Signature did not verify")
+	}
+
+	vec[2] = vec[2] + 1
+	aggPub = AggregatePublicKeysVec(pubkeys, vec)
+	if aggSig.Verify(msg, aggPub) {
+		t.Error("Signature should not verify")
+	}
+
+	vec[2] = 0
+	aggPub = AggregatePublicKeysVec(pubkeys, vec)
+	if aggSig.Verify(msg, aggPub) {
+		t.Error("Signature should not verify")
+	}
+
+	vec[2] = 0
+	aggSig = AggregateSignaturesVec(sigs, vec)
+	vec[2] = 3
+	aggPub = AggregatePublicKeysVec(pubkeys, vec)
+	if aggSig.Verify(msg, aggPub) {
+		t.Error("Signature should not verify")
+	}
+
+	vec[2] = 0
+	aggSig = AggregateSignaturesVec(sigs, vec)
+	aggPub = AggregatePublicKeysVec(pubkeys, vec)
+	if !aggSig.Verify(msg, aggPub) {
+		t.Error("Signature did not verify")
+	}
+
 }
 
 // func TestVerifyAggregate(t *testing.T) {

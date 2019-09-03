@@ -206,11 +206,37 @@ func AggregateSignatures(s []*Signature) *Signature {
 	return newSig
 }
 
+// AggregateSignaturesVec aggregates signatures based on given vector.
+func AggregateSignaturesVec(s []*Signature, vec []uint64) *Signature {
+	if len(s) != len(vec) {
+		panic("len(sigs) must be equal to len(vec)")
+	}
+	newSig := &Signature{s: phorebls.G2ProjectiveZero.Copy()}
+	for i, sig := range s {
+		newS := newSig.s.Add(sig.s.MulFR(phorebls.NewFRRepr(vec[i])))
+		newSig.s = newS
+	}
+	return newSig
+}
+
 // AggregatePublicKeys adds public keys together.
 func AggregatePublicKeys(p []*PublicKey) *PublicKey {
 	newPub := &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
 	for _, pub := range p {
 		newPub.Aggregate(pub)
+	}
+	return newPub
+}
+
+// AggregatePublicKeysVec aggregates public keys based on given vector.
+func AggregatePublicKeysVec(p []*PublicKey, vec []uint64) *PublicKey {
+	if len(p) != len(vec) {
+		panic("len(pubkeys) must be equal to len(vec)")
+	}
+	newPub := &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
+	for i, pub := range p {
+		tmp := newPub.p.Add(pub.p.MulFR(phorebls.NewFRRepr(vec[i])))
+		newPub.p = tmp
 	}
 	return newPub
 }
