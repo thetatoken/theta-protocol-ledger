@@ -235,23 +235,46 @@ func (msgr *Messenger) Wait() {
 	msgr.wg.Wait()
 }
 
-// Broadcast broadcasts the given message to all the connected peers
-func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
-	logger.Debugf("Broadcasting messages...")
+// Publish publishes the given message to all the subscribers
+func (msgr *Messenger) Publish(message p2ptypes.Message) error {
+	logger.Debugf("Publishing messages...")
 
 	msgHandler := msgr.msgHandlerMap[message.ChannelID]
 	bytes, err := msgHandler.EncodeMessage(message.Content)
 	if err != nil {
 		logger.Errorf("Encoding error: %v", err)
-	} else {
-		if err := msgr.pubsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes); err != nil {
-			log.Errorf("Failed to publish to gossipsub topic: %v", err)
-		}
+		return err
+	}
+		
+	err = msgr.pubsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes)
+	if err != nil {
+		log.Errorf("Failed to publish to gossipsub topic: %v", err)
+		return err
 	}
 
+	return nil
+}
+
+// Broadcast broadcasts the given message to all the connected peers
+func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
+	logger.Debugf("Broadcasting messages...")
 	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
 
-	return nil
+	allPeers := msgr.host.Peerstore().Peers()
+	
+	successes = make(chan bool, allPeers.Len())
+	for _, peer := range allPeers {
+		if (peer == msgr.host.ID()) {
+			continue
+		}
+
+		logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer)
+		go func(peer string) {
+			success := msgr.Send(peer, message)
+			successes <- success
+		}(peer.String())
+	}
+	return successes
 }
 
 // Send sends the given message to the specified peer
