@@ -72,6 +72,16 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 	dp.send(peerIDs, datarsp.ChannelID, datarsp)
 }
 
+// GetHeader sends out the HeaderRequest
+func (dp *Dispatcher) GetHeader(peerIDs []string, headerreq HeaderRequest) {
+	dp.send(peerIDs, headerreq.ChannelID, headerreq)
+}
+
+// SendHeader sends out the HeaderResponse
+func (dp *Dispatcher) SendHeader(peerIDs []string, headerrsp HeaderResponse) {
+	dp.send(peerIDs, headerrsp.ChannelID, headerrsp)
+}
+
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	message := p2ptypes.Message{
 		ChannelID: channelID,

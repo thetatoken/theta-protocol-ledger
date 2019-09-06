@@ -176,6 +176,13 @@ func (sm *SyncManager) processMessage(message p2ptypes.Message) {
 			return
 		}
 		sm.handleDataResponse(message.PeerID, &content)
+	case dispatcher.HeaderRequest:
+		sm.handleHeaderRequest(message.PeerID, &content)
+	case dispatcher.HeaderResponse:
+		if !inboundAllowed {
+			return
+		}
+		sm.handleHeaderResponse(message.PeerID, &content)
 	default:
 		sm.logger.WithFields(log.Fields{
 			"message": message,
@@ -355,6 +362,75 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 	}
 }
 
+func (m *SyncManager) handleHeaderRequest(peerID string, data *dispatcher.HeaderRequest) {
+	switch data.ChannelID {
+	case common.ChannelIDBlock:
+		for _, hashStr := range data.Entries {
+			hash := common.HexToHash(hashStr)
+			block, err := m.chain.FindBlock(hash)
+			if err != nil {
+				m.logger.WithFields(log.Fields{
+					"channelID": data.ChannelID,
+					"hashStr":   hashStr,
+					"err":       err,
+					"peerID":    peerID,
+				}).Debug("Failed to find hash string locally in handleHeaderRequest")
+				return
+			}
+			payload, err := rlp.EncodeToBytes(block.Block.BlockHeader)
+			if err != nil {
+				m.logger.WithFields(log.Fields{
+					"block":  block,
+					"peerID": peerID,
+				}).Error("Failed to encode block")
+				return
+			}
+			data := dispatcher.HeaderResponse{
+				ChannelID:   common.ChannelIDBlock,
+				HeaderBytes: payload,
+			}
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"hashStr":   hashStr,
+				"peerID":    peerID,
+			}).Debug("Sending requested block")
+			m.dispatcher.SendHeader([]string{peerID}, data)
+		}
+	default:
+		m.logger.WithFields(log.Fields{
+			"channelID": data.ChannelID,
+		}).Warn("Unsupported channelID in received DataRequest")
+	}
+}
+
+func (m *SyncManager) handleHeaderResponse(peerID string, data *dispatcher.HeaderResponse) {
+	switch data.ChannelID {
+	case common.ChannelIDBlock:
+		block := core.NewBlock()
+		err := rlp.DecodeBytes(data.HeaderBytes, block.BlockHeader)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.HeaderBytes,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode DataResponse payload")
+			return
+		}
+		m.logger.WithFields(log.Fields{
+			"block.Hash":   block.Hash().Hex(),
+			"block.Parent": block.Parent.Hex(),
+			"peer":         peerID,
+		}).Debug("Received block")
+		m.handleHeader(block)
+	default:
+		m.logger.WithFields(log.Fields{
+			"channelID": data.ChannelID,
+		}).Warn("Unsupported channelID in received DataResponse")
+	}
+
+}
+
 func Fuzz(data []byte) int {
 	if len(data) == 0 {
 		return -1
@@ -459,6 +535,20 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 		}
 	}
 	sm.handleBlock(p.Block)
+}
+
+func (sm *SyncManager) handleHeader(block *core.Block) {
+	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
+		return
+	}
+
+	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
+		if hash != block.Hash().Hex() {
+			return
+		}
+	}
+
+	sm.requestMgr.AddHeader(block.BlockHeader)
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
