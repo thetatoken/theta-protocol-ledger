@@ -36,11 +36,15 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
-	
 	ma "github.com/multiformats/go-multiaddr"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
+
+//
+// Messenger implements the Network interface
+//
+var _ p2pl.Network = (*Messenger)(nil)
 
 const (
 	thetaP2PProtocolPrefix 			  = "/theta/1.0.0/"
@@ -91,7 +95,7 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 }
 
 // CreateMessenger creates an instance of Messenger
-func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string,
+func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -102,7 +106,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerMultiAddresses []string
 		wg:     &sync.WaitGroup{},
 	}
 
-	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(privKey.ToBytes())))
+	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))
 	if err != nil {
 		return messenger, err
 	}

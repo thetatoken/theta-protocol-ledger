@@ -39,6 +39,9 @@ type Network interface {
 	// Stop is called when the network stops
 	Stop()
 
+	// Publish publishes the given message to all the subscribers
+	Publish(message types.Message) error
+
 	// Broadcast broadcasts the given message to all the neighboring peers
 	Broadcast(message types.Message) chan bool
 

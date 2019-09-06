@@ -209,7 +209,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key:")
 	msgrConfig := msgl.GetDefaultMessengerConfig()
-	messenger, err := msgl.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance.")
 	}
