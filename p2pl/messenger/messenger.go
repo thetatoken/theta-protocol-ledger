@@ -25,6 +25,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-peerstore"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
@@ -50,6 +51,8 @@ const (
 	thetaP2PProtocolPrefix 			  = "/theta/1.0.0/"
 	defaultPeerDiscoveryPulseInterval = 30 * time.Second
 	discoverInterval                  = 3000    // 3 sec
+	maxNumPeers						  = 128
+	sufficientNumPeers				  = 32
 )
 
 type Messenger struct {
@@ -114,11 +117,14 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
+
+	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(),
 		libp2p.Identity(hostId),
 		libp2p.ListenAddrs([]ma.Multiaddr{localNetAddress}...),
+		libp2p.ConnectionManager(cm),
 	)
 	if err != nil {
 		cancel()
