@@ -55,7 +55,7 @@ func (s *Signature) String() string {
 }
 
 // Aggregate adds one signature to another
-func (s Signature) Aggregate(other *Signature) {
+func (s *Signature) Aggregate(other *Signature) {
 	newS := s.s.Add(other.s)
 	s.s = newS
 }
@@ -92,12 +92,12 @@ type PublicKey struct {
 	p *phorebls.G1Projective
 }
 
-func (p PublicKey) String() string {
+func (p *PublicKey) String() string {
 	return p.p.String()
 }
 
 // Marshal serializes a public key to bytes.
-func (p PublicKey) Marshal() []byte {
+func (p *PublicKey) Marshal() []byte {
 	ret := phorebls.CompressG1(p.p.ToAffine())
 	return ret[:]
 }
@@ -114,7 +114,7 @@ func PublicKeyFromBytes(pub []byte) (*PublicKey, error) {
 }
 
 // Equals checks if two public keys are equal
-func (p PublicKey) Equals(other PublicKey) bool {
+func (p *PublicKey) Equals(other PublicKey) bool {
 	return p.p.Equal(other.p)
 }
 
@@ -137,16 +137,16 @@ type SecretKey struct {
 }
 
 // GetFRElement gets the underlying FR element.
-func (s SecretKey) GetFRElement() *phorebls.FR {
+func (s *SecretKey) GetFRElement() *phorebls.FR {
 	return s.f
 }
 
-func (s SecretKey) String() string {
+func (s *SecretKey) String() string {
 	return s.f.String()
 }
 
 // Marshal serializes a secret key to bytes.
-func (s SecretKey) Marshal() []byte {
+func (s *SecretKey) Marshal() []byte {
 	ret := s.f.Bytes()
 	return ret[:]
 }
@@ -165,7 +165,7 @@ func SecretKeyFromBytes(priv []byte) (*SecretKey, error) {
 }
 
 // Sign signs a message with a secret key.
-func (s SecretKey) Sign(message []byte) *Signature {
+func (s *SecretKey) Sign(message []byte) *Signature {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, DomainMessage)
 	h := phorebls.HashG2WithDomain(hash32(message), toBytes8(b)).MulFR(s.f.ToRepr())
@@ -173,12 +173,12 @@ func (s SecretKey) Sign(message []byte) *Signature {
 }
 
 // PublicKey converts the private key into a public key.
-func (s SecretKey) PublicKey() *PublicKey {
+func (s *SecretKey) PublicKey() *PublicKey {
 	return &PublicKey{p: phorebls.G1AffineOne.MulFR(s.f.ToRepr())}
 }
 
 // PopProve generates a proof of poccession of the secrect key.
-func (s SecretKey) PopProve() *Signature {
+func (s *SecretKey) PopProve() *Signature {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, DomainPop)
 	h := phorebls.HashG2WithDomain(hash32(s.PublicKey().Marshal()), toBytes8(b)).MulFR(s.f.ToRepr())
@@ -207,13 +207,13 @@ func AggregateSignatures(s []*Signature) *Signature {
 }
 
 // AggregateSignaturesVec aggregates signatures based on given vector.
-func AggregateSignaturesVec(s []*Signature, vec []uint64) *Signature {
+func AggregateSignaturesVec(s []*Signature, vec []uint32) *Signature {
 	if len(s) != len(vec) {
 		panic("len(sigs) must be equal to len(vec)")
 	}
 	newSig := &Signature{s: phorebls.G2ProjectiveZero.Copy()}
 	for i, sig := range s {
-		newS := newSig.s.Add(sig.s.MulFR(phorebls.NewFRRepr(vec[i])))
+		newS := newSig.s.Add(sig.s.MulFR(phorebls.NewFRRepr(uint64(vec[i]))))
 		newSig.s = newS
 	}
 	return newSig
@@ -229,14 +229,14 @@ func AggregatePublicKeys(p []*PublicKey) *PublicKey {
 }
 
 // AggregatePublicKeysVec aggregates public keys based on given vector.
-func AggregatePublicKeysVec(p []*PublicKey, vec []uint64) *PublicKey {
+func AggregatePublicKeysVec(p []*PublicKey, vec []uint32) *PublicKey {
 	if len(p) != len(vec) {
 		panic("len(pubkeys) must be equal to len(vec)")
 	}
 	newPub := &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
 	for i, pub := range p {
-		tmp := newPub.p.Add(pub.p.MulFR(phorebls.NewFRRepr(vec[i])))
-		newPub.p = tmp
+		newP := newPub.p.Add(pub.p.MulFR(phorebls.NewFRRepr(uint64(vec[i]))))
+		newPub.p = newP
 	}
 	return newPub
 }
