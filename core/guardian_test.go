@@ -18,9 +18,10 @@ func createTestGuardianPool(size int) (*GuardianCandidatePool, map[common.Addres
 		_, pub, _ := crypto.GenerateKeyPair()
 		blsKey, _ := bls.RandKey(crand.Reader)
 		g := &Guardian{
-			Holder: pub.Address(),
+			StakeHolder: &StakeHolder{
+				Holder: pub.Address(),
+			},
 			Pubkey: blsKey.PublicKey(),
-			Pop:    blsKey.PopProve(),
 		}
 		pool.Add(g)
 		sks[g.Holder] = blsKey
@@ -48,7 +49,9 @@ func TestGuardianPool(t *testing.T) {
 
 	// Should not add dupicate.
 	newGuardian := &Guardian{
-		Holder: pool.SortedGuardians[3].Holder,
+		StakeHolder: &StakeHolder{
+			Holder: pool.SortedGuardians[3].Holder,
+		},
 	}
 	if pool.Add(newGuardian) {
 		t.Fatal("Should not add duplicate guardian")
@@ -58,9 +61,10 @@ func TestGuardianPool(t *testing.T) {
 	_, pub, _ := crypto.GenerateKeyPair()
 	blsKey, _ := bls.RandKey(crand.Reader)
 	g := &Guardian{
-		Holder: pub.Address(),
+		StakeHolder: &StakeHolder{
+			Holder: pub.Address(),
+		},
 		Pubkey: blsKey.PublicKey(),
-		Pop:    blsKey.PopProve(),
 	}
 	if !pool.Add(g) || pool.Len() != 11 {
 		t.Fatal("Should add new guardian")

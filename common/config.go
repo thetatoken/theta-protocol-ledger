@@ -57,6 +57,11 @@ const (
 	CfgLogPrintSelfID = "log.printSelfID"
 )
 
+// Starting block heights of features.
+const (
+	FeatureGuardian uint64 = 1
+)
+
 // InitialConfig is the default configuartion produced by init command.
 const InitialConfig = `# Theta configuration
 p2p:

@@ -280,6 +280,31 @@ func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePo
 	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
 }
 
+// GetGuradianCandidatePool gets the guardian candidate pool.
+func (sv *StoreView) GetGuradianCandidatePool() *core.GuardianCandidatePool {
+	data := sv.Get(GuardianCandidatePoolKey())
+	if data == nil || len(data) == 0 {
+		return nil
+	}
+	gcp := &core.GuardianCandidatePool{}
+	err := types.FromBytes(data, gcp)
+	if err != nil {
+		log.Panicf("Error reading validator candidate pool %X, error: %v",
+			data, err.Error())
+	}
+	return gcp
+}
+
+// UpdateGuardianCandidatePool updates the guardian candidate pool.
+func (sv *StoreView) UpdateGuardianCandidatePool(gcp *core.GuardianCandidatePool) {
+	gcpBytes, err := types.ToBytes(gcp)
+	if err != nil {
+		log.Panicf("Error writing guardian candidate pool %v, error: %v",
+			gcp, err.Error())
+	}
+	sv.Set(GuardianCandidatePoolKey(), gcpBytes)
+}
+
 // GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions
 func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
 	data := sv.Get(StakeTransactionHeightListKey())

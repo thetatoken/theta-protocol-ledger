@@ -25,7 +25,12 @@ func NewDepositStakeExecutor() *DepositStakeExecutor {
 }
 
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
-	tx := transaction.(*types.DepositStakeTx)
+	// Feature block height check
+	if _, ok := transaction.(*types.DepositStakeTxV2); ok && view.Height() < common.FeatureGuardian {
+		return result.Error("Feature guardian is not active yet")
+	}
+
+	tx := exec.castTx(transaction)
 
 	res := tx.Source.ValidateBasic()
 	if res.IsError() {
@@ -82,7 +87,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 }
 
 func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
-	tx := transaction.(*types.DepositStakeTx)
+	tx := exec.castTx(transaction)
 
 	sourceAccount, success := getInput(view, tx.Source)
 	if success.IsError() {
@@ -111,7 +116,19 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		}
 		view.UpdateValidatorCandidatePool(vcp)
 	} else if tx.Purpose == core.StakeForGuardian {
-		return common.Hash{}, result.Error("Staking for guardian not supported yet")
+		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
+		stakeAmount := stake.ThetaWei
+		gcp := view.GetGuradianCandidatePool()
+
+		if !gcp.Contains(holderAddress) && (tx.BlsPubkey == nil || tx.BlsPop == nil) {
+			return common.Hash{}, result.Error("Must provide BLS pubkey and pop")
+		}
+
+		err := gcp.DepositStake(sourceAddress, holderAddress, stakeAmount, tx.BlsPubkey)
+		if err != nil {
+			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
+		}
+		view.UpdateGuardianCandidatePool(gcp)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -132,7 +149,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 }
 
 func (exec *DepositStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
-	tx := transaction.(*types.DepositStakeTx)
+	tx := exec.castTx(transaction)
 	return &core.TxInfo{
 		Address:           tx.Source.Address,
 		Sequence:          tx.Source.Sequence,
@@ -141,9 +158,21 @@ func (exec *DepositStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 }
 
 func (exec *DepositStakeExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
-	tx := transaction.(*types.DepositStakeTx)
+	tx := exec.castTx(transaction)
 	fee := tx.Fee
 	gas := new(big.Int).SetUint64(types.GasDepositStakeTx)
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
+}
+
+func (exec *DepositStakeExecutor) castTx(transaction types.Tx) *types.DepositStakeTxV2 {
+	if tx, ok := transaction.(*types.DepositStakeTxV2); ok {
+		return tx
+	}
+	if tx, ok := transaction.(*types.DepositStakeTx); ok {
+		return &types.DepositStakeTxV2{
+			DepositStakeTx: tx,
+		}
+	}
+	panic("Unreachable code")
 }

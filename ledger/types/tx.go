@@ -10,6 +10,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -829,6 +830,12 @@ func (tx *DepositStakeTx) SetSignature(addr common.Address, sig *crypto.Signatur
 func (tx *DepositStakeTx) String() string {
 	return fmt.Sprintf("DepositStakeTx{%v -> %v, stake: %v, purpose: %v}",
 		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
+}
+
+type DepositStakeTxV2 struct {
+	*DepositStakeTx
+	BlsPubkey *bls.PublicKey
+	BlsPop    *bls.Signature
 }
 
 //-----------------------------------------------------------------------------

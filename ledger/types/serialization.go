@@ -35,6 +35,7 @@ const (
 	TxSmartContract
 	TxDepositStake
 	TxWithdrawStake
+	TxDepositStakeV2
 )
 
 func Fuzz(data []byte) int {
@@ -104,6 +105,10 @@ func TxFromBytes(raw []byte) (Tx, error) {
 		data := &WithdrawStakeTx{}
 		err = s.Decode(data)
 		return data, err
+	} else if txType == TxDepositStakeV2 {
+		data := &DepositStakeTxV2{}
+		err = s.Decode(data)
+		return data, err
 	} else {
 		return nil, fmt.Errorf("Unknown TX type: %v", txType)
 	}
@@ -133,6 +138,8 @@ func TxToBytes(t Tx) ([]byte, error) {
 		txType = TxDepositStake
 	case *WithdrawStakeTx:
 		txType = TxWithdrawStake
+	case *DepositStakeTxV2:
+		txType = TxDepositStakeV2
 	default:
 		return nil, errors.New("Unsupported message type")
 	}

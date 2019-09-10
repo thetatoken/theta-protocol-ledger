@@ -3,6 +3,8 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"math/big"
 	"sort"
 
 	"github.com/thetatoken/theta/common"
@@ -104,6 +106,15 @@ func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 // ------- GuardianCandidatePool ------- //
 //
 
+var (
+	MinGuardianStakeDeposit *big.Int
+)
+
+func init() {
+	// Each stake deposit needs to be at least 2,000 Theta
+	MinGuardianStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(2000), new(big.Int).SetUint64(1e18))
+}
+
 type GuardianCandidatePool struct {
 	SortedGuardians []*Guardian
 }
@@ -149,6 +160,18 @@ func (gcp *GuardianCandidatePool) Remove(g common.Address) bool {
 	return true
 }
 
+// Contains checks if givin address is in the pool.
+func (gcp *GuardianCandidatePool) Contains(g common.Address) bool {
+	k := sort.Search(gcp.Len(), func(i int) bool {
+		return bytes.Compare(gcp.SortedGuardians[i].Holder.Bytes(), g.Bytes()) >= 0
+	})
+
+	if k == gcp.Len() || gcp.SortedGuardians[k].Holder != g {
+		return false
+	}
+	return true
+}
+
 // PubKeys exports guardians' public keys.
 func (gcp *GuardianCandidatePool) PubKeys() []*bls.PublicKey {
 	ret := make([]*bls.PublicKey, gcp.Len())
@@ -179,13 +202,90 @@ func (gcp *GuardianCandidatePool) Hash() common.Hash {
 	return crypto.Keccak256Hash(raw)
 }
 
+func (gcp *GuardianCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey) (err error) {
+	if amount.Cmp(MinGuardianStakeDeposit) < 0 {
+		return fmt.Errorf("Insufficient stake: %v", amount)
+	}
+
+	matchedHolderFound := false
+	for _, candidate := range gcp.SortedGuardians {
+		if candidate.Holder == holder {
+			matchedHolderFound = true
+			err = candidate.depositStake(source, amount)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		newGuardian := &Guardian{
+			StakeHolder: newStakeHolder(holder, []*Stake{newStake(source, amount)}),
+			Pubkey:      pubkey,
+		}
+		gcp.Add(newGuardian)
+	}
+	return nil
+}
+
+func (gcp *GuardianCandidatePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) error {
+	matchedHolderFound := false
+	for _, g := range gcp.SortedGuardians {
+		if g.Holder == holder {
+			matchedHolderFound = true
+			err := g.withdrawStake(source, currentHeight)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+
+	if !matchedHolderFound {
+		return fmt.Errorf("No matched stake holder address found: %v", holder)
+	}
+	return nil
+}
+
+func (gcp *GuardianCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
+	returnedStakes := []*Stake{}
+
+	// need to iterate in the reverse order, since we may delete elemements
+	// from the slice while iterating through it
+	for cidx := gcp.Len() - 1; cidx >= 0; cidx-- {
+		g := gcp.SortedGuardians[cidx]
+		numStakeSources := len(g.Stakes)
+		for sidx := numStakeSources - 1; sidx >= 0; sidx-- { // similar to the outer loop, need to iterate in the reversed order
+			stake := g.Stakes[sidx]
+			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
+				logger.Printf("Stake to be returned: source = %v, amount = %v", stake.Source, stake.Amount)
+				source := stake.Source
+				returnedStake, err := g.returnStake(source, currentHeight)
+				if err != nil {
+					logger.Errorf("Failed to return stake: %v, error: %v", source, err)
+					continue
+				}
+				returnedStakes = append(returnedStakes, returnedStake)
+			}
+		}
+
+		if len(g.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
+			gcp.Remove(g.Holder)
+		}
+	}
+	return returnedStakes
+}
+
 //
 // ------- Guardian ------- //
 //
 
 type Guardian struct {
-	Holder common.Address
+	*StakeHolder
 	Pubkey *bls.PublicKey
-	Pop    *bls.Signature // Proof of possesion of the corresponding BLS private key.
-	Stakes []*Stake
+}
+
+func (g *Guardian) String() string {
+	return fmt.Sprintf("{holder: %v, pubkey: %v, stakes :%v}", g.Holder, g.Pubkey.String(), g.Stakes)
 }
