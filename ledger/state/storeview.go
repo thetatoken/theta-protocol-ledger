@@ -281,10 +281,10 @@ func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePo
 }
 
 // GetGuradianCandidatePool gets the guardian candidate pool.
-func (sv *StoreView) GetGuradianCandidatePool() *core.GuardianCandidatePool {
+func (sv *StoreView) GetGuardianCandidatePool() *core.GuardianCandidatePool {
 	data := sv.Get(GuardianCandidatePoolKey())
 	if data == nil || len(data) == 0 {
-		return nil
+		return core.NewGuardianCandidatePool()
 	}
 	gcp := &core.GuardianCandidatePool{}
 	err := types.FromBytes(data, gcp)

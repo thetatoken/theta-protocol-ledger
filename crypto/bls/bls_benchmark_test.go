@@ -1,12 +1,11 @@
 package bls
 
 import (
-	"crypto/rand"
 	"testing"
 )
 
 func BenchmarkSignature_Verify(b *testing.B) {
-	sk, err := RandKey(rand.Reader)
+	sk, err := RandKey()
 	if err != nil {
 		b.Fatal(err)
 	}

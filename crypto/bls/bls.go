@@ -10,6 +10,7 @@
 package bls
 
 import (
+	crand "crypto/rand"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -187,14 +188,18 @@ func (s *SecretKey) PopProve() *Signature {
 
 // ------------- Static functions ----------------
 
-// RandKey generates a random secret key.
-func RandKey(r io.Reader) (*SecretKey, error) {
-	k, err := phorebls.RandFR(r)
+func GenKey(seed io.Reader) (*SecretKey, error) {
+	k, err := phorebls.RandFR(seed)
 	if err != nil {
 		return nil, err
 	}
 	s := &SecretKey{f: k}
 	return s, nil
+}
+
+// RandKey generates a random secret key.
+func RandKey() (*SecretKey, error) {
+	return GenKey(crand.Reader)
 }
 
 // AggregateSignatures adds up all of the signatures.

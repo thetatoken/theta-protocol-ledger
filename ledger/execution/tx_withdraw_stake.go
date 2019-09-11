@@ -94,7 +94,13 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 		}
 		view.UpdateValidatorCandidatePool(vcp)
 	} else if tx.Purpose == core.StakeForGuardian {
-		return common.Hash{}, result.Error("Withdraw stake for guardian not supported yet")
+		gcp := view.GetGuardianCandidatePool()
+		currentHeight := exec.state.Height()
+		err := gcp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
+		if err != nil {
+			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
+		}
+		view.UpdateGuardianCandidatePool(gcp)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}

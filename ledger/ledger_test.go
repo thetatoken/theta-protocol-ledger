@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/thetatoken/theta/crypto/bls"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
@@ -359,6 +361,300 @@ func TestValidatorStakeUpdate(t *testing.T) {
 
 	returnedCoins := balance3.Minus(balance2)
 	assert.True(returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinValidatorStakeDeposit)) == 0)
+	assert.True(returnedCoins.TFuelWei.Cmp(core.Zero) == 0)
+	log.Infof("Returned coins: %v", returnedCoins)
+}
+
+// Test case for guardian stake deposit, withdrawal, and return
+func TestGuardianStakeUpdate(t *testing.T) {
+	assert := assert.New(t)
+
+	// ----------------- Stake Deposit ----------------- //
+
+	chainID := "test_chain_001"
+	db := backend.NewMemDatabase()
+
+	snapshot, srcPrivAccs, valPrivAccs := genSimSnapshot(chainID, db)
+	assert.Equal(6, len(srcPrivAccs))
+	assert.Equal(6, len(valPrivAccs))
+
+	es := newExecSim(chainID, db, snapshot, valPrivAccs[0])
+	b0 := es.getTipBlock()
+
+	txFee := getMinimumTxFee()
+	depositSourcePrivAcc := srcPrivAccs[4]
+	depoistHolderPrivAcc := valPrivAccs[4]
+	depositStakeTx := &types.DepositStakeTxV2{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address: depositSourcePrivAcc.Address,
+			Coins: types.Coins{
+				ThetaWei: new(big.Int).Set(core.MinGuardianStakeDeposit),
+				TFuelWei: new(big.Int).SetUint64(0),
+			},
+			Sequence: 1,
+		},
+		Holder: types.TxOutput{
+			Address: depoistHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForGuardian,
+	}
+	signBytes := depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
+
+	// ----------- Guardian's first deposit must include valid BLS Pubkey/Pop -------- //
+	_, res := es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsError(), "No blsPubkey/Pop")
+	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+
+	blsPriv, _ := bls.RandKey()
+	rogueBlsPriv, _ := bls.RandKey()
+
+	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsError(), "No blsPop")
+	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+
+	depositStakeTx.BlsPubkey = nil
+	depositStakeTx.BlsPop = blsPriv.PopProve()
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsError(), "No blsPubkey")
+	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+
+	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	depositStakeTx.BlsPop = rogueBlsPriv.PopProve()
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsError(), "rogue pop")
+	assert.Equal("BLS pop is invalid", res.Message)
+
+	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	depositStakeTx.BlsPop = blsPriv.PopProve()
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsOK(), "Shoud pass")
+
+	// Add block #1 with a DepositStakeTx transaction
+	b1 := core.NewBlock()
+	b1.ChainID = chainID
+	b1.Height = b0.Height + 1
+	b1.Epoch = 1
+	b1.Parent = b0.Hash()
+	b1.HCC.BlockHash = b1.Parent
+	b1.StateHash = es.state.Commit()
+	es.addBlock(b1)
+
+	// ----------- BLS Pubkey/Pop in existing guardian's deposit should be ignored -------- //
+	depositStakeTx = &types.DepositStakeTxV2{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address: depositSourcePrivAcc.Address,
+			Coins: types.Coins{
+				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(2), core.MinGuardianStakeDeposit),
+				TFuelWei: new(big.Int).SetUint64(0),
+			},
+			Sequence: 2,
+		},
+		Holder: types.TxOutput{
+			Address: depoistHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForGuardian,
+	}
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
+	depositStakeTx.BlsPubkey = rogueBlsPriv.PublicKey()
+	depositStakeTx.BlsPop = rogueBlsPriv.PopProve()
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsOK(), "Shoud pass")
+
+	b2 := core.NewBlock()
+	b2.ChainID = chainID
+	b2.Height = b1.Height + 1
+	b2.Epoch = 2
+	b2.Parent = b1.Hash()
+	b2.StateHash = es.state.Commit()
+	b2.HCC.BlockHash = b2.Parent
+	es.addBlock(b2)
+
+	// ----------- Guardian's deposit can omit BLS Pubkey/Pop -------- //
+	depositStakeTx = &types.DepositStakeTxV2{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address: depositSourcePrivAcc.Address,
+			Coins: types.Coins{
+				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(3), core.MinGuardianStakeDeposit),
+				TFuelWei: new(big.Int).SetUint64(0),
+			},
+			Sequence: 3,
+		},
+		Holder: types.TxOutput{
+			Address: depoistHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForGuardian,
+	}
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsOK(), "Shoud pass")
+
+	// Add more blocks
+	b3 := core.NewBlock()
+	b3.ChainID = chainID
+	b3.Height = b2.Height + 1
+	b3.Epoch = 3
+	b3.Parent = b2.Hash()
+	b3.HCC.BlockHash = b3.Parent
+	b3.StateHash = es.state.Commit()
+	es.addBlock(b3)
+
+	b4 := core.NewBlock()
+	b4.ChainID = chainID
+	b4.Height = b3.Height + 1
+	b4.Epoch = 4
+	b4.Parent = b3.Hash()
+	b4.HCC.BlockHash = b4.Parent
+	b4.StateHash = es.state.Commit()
+	es.addBlock(b4)
+
+	b5 := core.NewBlock()
+	b5.ChainID = chainID
+	b5.Height = b4.Height + 1
+	b5.Epoch = 5
+	b5.Parent = b4.Hash()
+	b5.HCC.BlockHash = b5.Parent
+	b5.StateHash = es.state.Commit()
+	es.addBlock(b5)
+
+	// Validate guardian pool
+	gcp, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b0.Hash())
+	assert.Nil(err)
+	log.Infof("gcp for block #0: %v", gcp)
+	assert.Equal(0, gcp.Len())
+
+	gcp, err = es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b3.Hash())
+	assert.Nil(err)
+	log.Infof("gcp for block #3: %v", gcp)
+	assert.Equal(1, gcp.Len())
+	assert.Equal(0, gcp.SortedGuardians[0].TotalStake().Cmp(
+		new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinGuardianStakeDeposit)))
+
+	gcp2, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b4.Hash())
+	assert.Nil(err)
+	log.Infof("gcp for block #4: %v", gcp2)
+	assert.Equal(1, gcp2.Len())
+	assert.Equal(0, gcp2.SortedGuardians[0].TotalStake().Cmp(
+		new(big.Int).Mul(new(big.Int).SetUint64(3), core.MinGuardianStakeDeposit)))
+	assert.Equal(gcp.SortedGuardians[0].Pubkey, gcp2.SortedGuardians[0].Pubkey)
+
+	// Guardian's BLS Pubkey in record should not be changed after first deposit.
+	gcp3, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b5.Hash())
+	assert.Nil(err)
+	log.Infof("gcp for block #5: %v", gcp3)
+	assert.Equal(1, gcp3.Len())
+	assert.Equal(0, gcp3.SortedGuardians[0].TotalStake().Cmp(
+		new(big.Int).Mul(new(big.Int).SetUint64(6), core.MinGuardianStakeDeposit)))
+	assert.Equal(gcp.SortedGuardians[0].Pubkey, gcp2.SortedGuardians[0].Pubkey)
+
+	// ----------------- Stake Withdrawal ----------------- //
+	srcAcc := es.state.Delivered().GetAccount(depositSourcePrivAcc.Address)
+	balance0 := srcAcc.Balance
+	log.Infof("Source account balance before withdrawal : %v", balance0)
+
+	// Add block with a WithdrawStakeTx transaction
+	b11 := core.NewBlock()
+	b11.ChainID = chainID
+	b11.Height = b5.Height + 1
+	b11.Epoch = b5.Epoch + 1
+	b11.Parent = b5.Hash()
+	b11.HCC.BlockHash = b11.Parent
+
+	widthrawStakeTx := &types.WithdrawStakeTx{
+		Fee: types.NewCoins(0, txFee),
+		Source: types.TxInput{
+			Address:  depositSourcePrivAcc.Address,
+			Sequence: 4,
+		},
+		Holder: types.TxOutput{
+			Address: depoistHolderPrivAcc.Address,
+		},
+		Purpose: core.StakeForGuardian,
+	}
+	signBytes = widthrawStakeTx.SignBytes(es.chainID)
+	widthrawStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
+
+	_, res = es.executor.ExecuteTx(widthrawStakeTx)
+	assert.True(res.IsOK(), res.Message)
+
+	b11.StateHash = es.state.Commit()
+	es.addBlock(b11)
+
+	b12 := core.NewBlock()
+	b12.ChainID = chainID
+	b12.Height = b11.Height + 1
+	b12.Epoch = b11.Epoch + 1
+	b12.Parent = b11.Hash()
+	b12.HCC.BlockHash = b12.Parent
+	b12.StateHash = es.state.Commit()
+	es.addBlock(b12)
+
+	b13 := core.NewBlock()
+	b13.ChainID = chainID
+	b13.Height = b12.Height + 1
+	b13.Epoch = b12.Epoch + 1
+	b13.Parent = b12.Hash()
+	b13.HCC.BlockHash = b13.Parent
+	b13.StateHash = es.state.Commit()
+	es.addBlock(b13)
+
+	// Effective stake should become 0 immediately upon withdrawal
+	gcp4, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b13.Hash())
+	assert.Nil(err)
+	log.Infof("gcp for block #13: %v", gcp4)
+	assert.Equal(1, gcp4.Len())
+	assert.Equal(0, gcp4.SortedGuardians[0].TotalStake().Cmp(core.Zero))
+	assert.Equal(gcp.SortedGuardians[0].Pubkey, gcp2.SortedGuardians[0].Pubkey)
+
+	// ----------------- Stake Return ----------------- //
+	srcAcc = es.state.Delivered().GetAccount(depositSourcePrivAcc.Address)
+	balance1 := srcAcc.Balance
+	log.Infof("Source account balance after withdrawal  : %v", balance1)
+	assert.Equal(balance0, balance1.Plus(types.NewCoins(0, txFee)))
+
+	// Move inside locking period
+	heightDelta1 := core.ReturnLockingPeriod / 10
+	for h := uint64(0); h < heightDelta1; h++ {
+		es.state.Commit() // increment height
+	}
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	blockX := &core.Block{BlockHeader: &core.BlockHeader{
+		Height:    es.state.Height() + 1,
+		StateHash: expectedStateHash,
+	}, Txs: []common.Bytes{}}
+	res = es.consensus.GetLedger().ApplyBlockTxs(blockX)
+	assert.True(res.IsOK())
+
+	srcAcc = es.state.Delivered().GetAccount(depositSourcePrivAcc.Address)
+	balance2 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks : %v", heightDelta1, balance2)
+	assert.Equal(balance1, balance2) // still in the locking period, should not return stake
+
+	// Move out of locking period
+	heightDelta2 := core.ReturnLockingPeriod
+	for h := uint64(0); h < heightDelta2; h++ {
+		es.state.Commit() // increment height
+	}
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	blockY := &core.Block{BlockHeader: &core.BlockHeader{
+		Height:    es.state.Height() + 1,
+		StateHash: expectedStateHash,
+	}, Txs: []common.Bytes{}}
+	res = es.consensus.GetLedger().ApplyBlockTxs(blockY)
+	assert.True(res.IsOK())
+
+	srcAcc = es.state.Delivered().GetAccount(depositSourcePrivAcc.Address)
+	balance3 := srcAcc.Balance
+	log.Infof("Source account balance after %v blocks: %v", heightDelta2, balance3)
+
+	returnedCoins := balance3.Minus(balance2)
+	assert.Equal(0, returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(6), core.MinGuardianStakeDeposit)))
 	assert.True(returnedCoins.TFuelWei.Cmp(core.Zero) == 0)
 	log.Infof("Returned coins: %v", returnedCoins)
 }

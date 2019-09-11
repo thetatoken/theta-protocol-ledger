@@ -2,7 +2,6 @@ package bls
 
 import (
 	"bytes"
-	"crypto/rand"
 	mrand "math/rand"
 	"testing"
 
@@ -26,7 +25,7 @@ func TestMarshalUnmarshal(t *testing.T) {
 }
 
 func TestSignVerify(t *testing.T) {
-	priv, _ := RandKey(rand.Reader)
+	priv, _ := RandKey()
 	pub := priv.PublicKey()
 	msg := []byte("hello")
 	sig := priv.Sign(msg)
@@ -36,7 +35,7 @@ func TestSignVerify(t *testing.T) {
 }
 
 func TestPop(t *testing.T) {
-	priv, _ := RandKey(rand.Reader)
+	priv, _ := RandKey()
 	pop := priv.PopProve()
 	if !pop.PopVerify(priv.PublicKey()) {
 		t.Error("PopVerify failed")
@@ -49,7 +48,7 @@ func TestVerifyAggregate(t *testing.T) {
 	vec := make([]uint32, 100, 100)
 	msg := []byte("hello")
 	for i := 0; i < 100; i++ {
-		priv, _ := RandKey(rand.Reader)
+		priv, _ := RandKey()
 		pub := priv.PublicKey()
 		sig := priv.Sign(msg)
 		pubkeys[i] = pub

@@ -59,7 +59,7 @@ const (
 
 // Starting block heights of features.
 const (
-	FeatureGuardian uint64 = 1
+	FeatureGuardian uint64 = 0
 )
 
 // InitialConfig is the default configuartion produced by init command.

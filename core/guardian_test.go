@@ -2,7 +2,6 @@ package core
 
 import (
 	"bytes"
-	crand "crypto/rand"
 	"testing"
 
 	"github.com/thetatoken/theta/common"
@@ -16,7 +15,7 @@ func createTestGuardianPool(size int) (*GuardianCandidatePool, map[common.Addres
 	sks := make(map[common.Address]*bls.SecretKey)
 	for i := 0; i < size; i++ {
 		_, pub, _ := crypto.GenerateKeyPair()
-		blsKey, _ := bls.RandKey(crand.Reader)
+		blsKey, _ := bls.RandKey()
 		g := &Guardian{
 			StakeHolder: &StakeHolder{
 				Holder: pub.Address(),
@@ -59,7 +58,7 @@ func TestGuardianPool(t *testing.T) {
 
 	// Should add new guardian.
 	_, pub, _ := crypto.GenerateKeyPair()
-	blsKey, _ := bls.RandKey(crand.Reader)
+	blsKey, _ := bls.RandKey()
 	g := &Guardian{
 		StakeHolder: &StakeHolder{
 			Holder: pub.Address(),

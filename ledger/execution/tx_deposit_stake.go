@@ -71,8 +71,13 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	}
 
 	// Minimum stake deposit requirement to avoid spamming
-	if stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
-		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each deposit", core.MinValidatorStakeDeposit).
+	if tx.Purpose == core.StakeForValidator && stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
+		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each validator deposit", core.MinValidatorStakeDeposit).
+			WithErrorCode(result.CodeInsufficientStake)
+	}
+
+	if tx.Purpose == core.StakeForGuardian && stake.ThetaWei.Cmp(core.MinGuardianStakeDeposit) < 0 {
+		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each guardian deposit", core.MinGuardianStakeDeposit).
 			WithErrorCode(result.CodeInsufficientStake)
 	}
 
@@ -118,10 +123,15 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 	} else if tx.Purpose == core.StakeForGuardian {
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.ThetaWei
-		gcp := view.GetGuradianCandidatePool()
+		gcp := view.GetGuardianCandidatePool()
 
-		if !gcp.Contains(holderAddress) && (tx.BlsPubkey == nil || tx.BlsPop == nil) {
-			return common.Hash{}, result.Error("Must provide BLS pubkey and pop")
+		if !gcp.Contains(holderAddress) {
+			if tx.BlsPubkey == nil || tx.BlsPop == nil {
+				return common.Hash{}, result.Error("Must provide BLS pubkey and pop")
+			}
+			if !tx.BlsPop.PopVerify(tx.BlsPubkey) {
+				return common.Hash{}, result.Error("BLS pop is invalid")
+			}
 		}
 
 		err := gcp.DepositStake(sourceAddress, holderAddress, stakeAmount, tx.BlsPubkey)
@@ -171,7 +181,10 @@ func (exec *DepositStakeExecutor) castTx(transaction types.Tx) *types.DepositSta
 	}
 	if tx, ok := transaction.(*types.DepositStakeTx); ok {
 		return &types.DepositStakeTxV2{
-			DepositStakeTx: tx,
+			Fee:     tx.Fee,
+			Source:  tx.Source,
+			Holder:  tx.Holder,
+			Purpose: tx.Purpose,
 		}
 	}
 	panic("Unreachable code")
