@@ -494,7 +494,13 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	for _, vote := range block.HCC.Votes.Votes() {
 		e.handleVote(vote)
 	}
-	e.checkCC(block.HCC.BlockHash)
+	if localHCC := e.state.GetHighestCCBlock().Hash(); localHCC != block.HCC.BlockHash {
+		e.logger.WithFields(log.Fields{
+			"localHCC":            localHCC.Hex(),
+			"block.HCC.BlockHash": block.HCC.BlockHash.Hex(),
+		}).Debug("Updating HCC before process block")
+		e.checkCC(block.HCC.BlockHash)
+	}
 
 	result := e.ledger.ResetState(parent.Height, parent.StateHash)
 	if result.IsError() {
@@ -526,22 +532,21 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 
 	e.chain.MarkBlockValid(block.Hash())
 
-	// Check and process CC.
-	e.checkCC(block.Hash())
-
 	// Skip voting for block older than current best known epoch.
 	// Allow block with one epoch behind since votes are processed first and might advance epoch
 	// before block is processed.
-	if block.Epoch < e.GetEpoch()-1 {
+	if localEpoch := e.GetEpoch(); block.Epoch == localEpoch-1 || block.Epoch == localEpoch {
+		e.vote()
+	} else {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
 			"block.Hash":  block.Hash().Hex(),
-			"e.epoch":     e.GetEpoch(),
+			"e.epoch":     localEpoch,
 		}).Debug("Skipping voting for block from previous epoch")
-		return
 	}
 
-	e.vote()
+	// Check and process CC.
+	e.checkCC(block.Hash())
 }
 
 func (e *ConsensusEngine) shouldVote(block common.Hash) bool {
@@ -576,6 +581,7 @@ func (e *ConsensusEngine) vote() {
 	} else if localHCC := e.state.GetHighestCCBlock().Hash(); lastVote.Height != 0 && tip.HCC.BlockHash != localHCC {
 		// HCC in candidate block must equal local highest CC.
 		e.logger.WithFields(log.Fields{
+			"tip":       tip.Hash().Hex(),
 			"tip.HCC":   tip.HCC.BlockHash.Hex(),
 			"local.HCC": localHCC.Hex(),
 		}).Debug("Repeating vote due to mismatched HCC")
@@ -599,7 +605,6 @@ func (e *ConsensusEngine) vote() {
 	}).Debug("Sending vote")
 	e.broadcastVote(vote)
 
-	// e.handleStandaloneVote(vote)
 	go func() {
 		e.AddMessage(vote)
 	}()
