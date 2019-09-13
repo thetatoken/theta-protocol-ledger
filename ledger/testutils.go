@@ -1,7 +1,7 @@
 package ledger
 
 import (
-	// "context"
+	"context"
 	"fmt"
 	"math/big"
 	"strconv"
@@ -18,10 +18,11 @@ import (
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	mp "github.com/thetatoken/theta/mempool"
-	// "github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2pl"
 	p2psim "github.com/thetatoken/theta/p2p/simulation"
 	"github.com/thetatoken/theta/store/database"
-	// "github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
 )
 
@@ -185,31 +186,31 @@ func genSimSnapshot(chainID string, db database.Database) (snapshot mockSnapshot
 	return snapshot, srcPrivAccs, valPrivAccs
 }
 
-// func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
-// 	chainID = "test_chain_id"
-// 	peerID := "peer0"
-// 	proposerSeed := "proposer"
+func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
+	chainID = "test_chain_id"
+	peerID := "peer0"
+	proposerSeed := "proposer"
 
-// 	db := backend.NewMemDatabase()
-// 	chain := &blockchain.Chain{ChainID: chainID}
-// 	consensus := exec.NewTestConsensusEngine(proposerSeed)
-// 	valMgr := newTesetValidatorManager(consensus)
-// 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
-// 	messenger := p2psimnet.AddEndpoint(peerID)
-// 	mempool = newTestMempool(peerID, messenger)
-// 	ledger = NewLedger(chainID, db, chain, consensus, valMgr, mempool)
-// 	mempool.SetLedger(ledger)
+	db := backend.NewMemDatabase()
+	chain := &blockchain.Chain{ChainID: chainID}
+	consensus := exec.NewTestConsensusEngine(proposerSeed)
+	valMgr := newTesetValidatorManager(consensus)
+	p2psimnet := p2psim.NewSimnetWithHandler(nil)
+	messenger := p2psimnet.AddEndpoint(peerID)
+	mempool = newTestMempool(peerID, messenger, nil)
+	ledger = NewLedger(chainID, db, chain, consensus, valMgr, mempool)
+	mempool.SetLedger(ledger)
 
-// 	ctx := context.Background()
-// 	messenger.Start(ctx)
-// 	mempool.Start(ctx)
+	ctx := context.Background()
+	messenger.Start(ctx)
+	mempool.Start(ctx)
 
-// 	initHeight := uint64(1)
-// 	initRootHash := common.Hash{}
-// 	ledger.ResetState(initHeight, initRootHash)
+	initHeight := uint64(1)
+	initRootHash := common.Hash{}
+	ledger.ResetState(initHeight, initRootHash)
 
-// 	return chainID, ledger, mempool
-// }
+	return chainID, ledger, mempool
+}
 
 func newTesetValidatorManager(consensus core.ConsensusEngine) core.ValidatorManager {
 	proposerAddressStr := consensus.PrivateKey().PublicKey().Address().String()
@@ -229,13 +230,13 @@ func newTesetValidatorManager(consensus core.ConsensusEngine) core.ValidatorMana
 	return valMgr
 }
 
-// func newTestMempool(peerID string, messenger p2p.Network) *mp.Mempool {
-// 	dispatcher := dp.NewDispatcher(messenger)
-// 	mempool := mp.CreateMempool(dispatcher)
-// 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
-// 	messenger.RegisterMessageHandler(txMsgHandler)
-// 	return mempool
-// }
+func newTestMempool(peerID string, messenger p2p.Network, messengerL p2pl.Network) *mp.Mempool {
+	dispatcher := dp.NewDispatcher(messenger, nil)
+	mempool := mp.CreateMempool(dispatcher)
+	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
+	messenger.RegisterMessageHandler(txMsgHandler)
+	return mempool
+}
 
 func prepareInitLedgerState(ledger *Ledger, numInAccs int) (accOut types.PrivAccount, accIns []types.PrivAccount) {
 	txFee := getMinimumTxFee()

@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
 	github.com/hashicorp/golang-lru v0.5.1
+	github.com/influxdata/influxdb v1.7.8 // indirect
 	github.com/ipfs/go-datastore v0.0.5
 	github.com/ipfs/go-ipfs-addr v0.0.1
 	github.com/karalabe/hid v0.0.0-20180420081245-2b4488a37358
