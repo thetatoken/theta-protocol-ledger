@@ -31,15 +31,3 @@ type DataResponse struct {
 	ChannelID common.ChannelIDEnum
 	Payload   common.Bytes
 }
-
-// HeaderRequest defines the structure of the header request
-type HeaderRequest struct {
-	ChannelID common.ChannelIDEnum
-	Entries   []string
-}
-
-// HeaderResponse defines the structure of the header response
-type HeaderResponse struct {
-	ChannelID   common.ChannelIDEnum
-	HeaderBytes common.Bytes
-}

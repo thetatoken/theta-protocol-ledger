@@ -27,8 +27,8 @@ const RequestQuotaPerSecond = 100
 type RequestState uint8
 
 const (
-	RequestToSendHeaderReq = iota
-	RequestWaitingHeaderResp
+	RequestToSendDataReq = iota
+	RequestWaitingDataResp
 	RequestToSendBodyReq
 	RequestWaitingBodyResp
 )
@@ -49,7 +49,7 @@ func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
 		lastUpdate: time.Now(),
 		createdAt:  time.Now(),
 		peers:      peerIds,
-		status:     RequestToSendHeaderReq,
+		status:     RequestToSendDataReq, //RequestToSendHeaderReq,
 	}
 }
 
@@ -233,9 +233,17 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	}
-	quota := rm.quota * 2
-	//download header
+	rm.downloadHeaderBlockFromHash(rm.quota)
+	rm.downloadBlockFromHeader(rm.quota)
+}
+
+//compatible with older version, download header/block from hash
+func (rm *RequestManager) downloadHeaderBlockFromHash(quota int) {
+	//loop over downloaded hash
+	var ok bool
+	var array []string
 	elToRemove := []*list.Element{}
+	hashArrayMap := make(map[string][]string)
 	for curr := rm.pendingBlocks.Front(); quota != 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() {
@@ -248,10 +256,10 @@ func (rm *RequestManager) tryToDownload() {
 		if len(pendingBlock.peers) == 0 {
 			continue
 		}
-		if pendingBlock.status == RequestToSendHeaderReq ||
-			(pendingBlock.status == RequestWaitingHeaderResp && pendingBlock.HasTimedOut()) {
+		if pendingBlock.status == RequestToSendDataReq ||
+			(pendingBlock.status == RequestWaitingDataResp && pendingBlock.HasTimedOut()) {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
-			request := dispatcher.HeaderRequest{
+			request := dispatcher.DataRequest{
 				ChannelID: common.ChannelIDBlock,
 				Entries:   []string{pendingBlock.hash.String()},
 			}
@@ -260,10 +268,32 @@ func (rm *RequestManager) tryToDownload() {
 				"request.Entries": request.Entries,
 				"peer":            randomPeerID,
 			}).Debug("Sending data request")
-			rm.syncMgr.dispatcher.GetHeader([]string{randomPeerID}, request)
+			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
-			pendingBlock.status = RequestWaitingHeaderResp
+			pendingBlock.status = RequestWaitingDataResp
+			//build header request
+			hashStr := pendingBlock.hash.String()
+			if array, ok = hashArrayMap[randomPeerID]; !ok {
+				array = []string{}
+			}
+			array = append(array, hashStr)
+			hashArrayMap[randomPeerID] = array
 			quota--
+		}
+	}
+	//send header request
+	if len(hashArrayMap) > 0 {
+		for k, v := range hashArrayMap {
+			request := dispatcher.DataRequest{
+				ChannelID: common.ChannelIDHeader,
+				Entries:   v,
+			}
+			rm.logger.WithFields(log.Fields{
+				"channelID":       request.ChannelID,
+				"request.Entries": request.Entries,
+				"peer":            k,
+			}).Debug("Sending header request")
+			rm.syncMgr.dispatcher.GetData([]string{k}, request)
 		}
 	}
 
@@ -275,9 +305,12 @@ func (rm *RequestManager) tryToDownload() {
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}
-	//pop header from header heap and download body
+}
+
+//download block from header
+func (rm *RequestManager) downloadBlockFromHeader(quota int) {
 	backup := &HeaderHeap{}
-	for rm.pendingBlocksWithHeader.Len() > 0 && rm.quota != 0 {
+	for rm.pendingBlocksWithHeader.Len() > 0 && quota != 0 {
 		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
 		if pendingBlock.HasExpired() {
 			pendingBlock.header = nil
@@ -304,7 +337,7 @@ func (rm *RequestManager) tryToDownload() {
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingBodyResp
-			rm.quota--
+			quota--
 		}
 		heap.Push(backup, pendingBlock)
 	}
@@ -406,6 +439,10 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+		//check txHash with header
+		if pendingBlock.header != nil && core.CalculateRootHash(block.Txs) != pendingBlock.header.TxHash {
+			return
+		}
 		pendingBlock.block = block
 	}
 	parent := block.Parent
