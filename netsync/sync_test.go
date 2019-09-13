@@ -87,7 +87,7 @@ func TestSyncManager(t *testing.T) {
 	consensus := consensus.NewConsensusEngine(nil, db, initChain, dispatch, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 
-	sm := NewSyncManager(initChain, consensus, net1, dispatch, mockMsgConsumer)
+	sm := NewSyncManager(initChain, consensus, net1, nil, dispatch, mockMsgConsumer)
 	sm.Start(context.Background())
 
 	// Send block A4 to node1
@@ -238,12 +238,12 @@ func TestCollectBlocks(t *testing.T) {
 	net2.RegisterMessageHandler(mockMsgHandler)
 	simnet.Start(context.Background())
 
-	dispatch := dispatcher.NewDispatcher(net1)
+	dispatch := dispatcher.NewDispatcher(net1, nil)
 	a3, _ := initChain.FindBlock(core.GetTestBlock("A3").Hash())
 	consensus := NewMockConsensus(initChain, a3)
 	mockMsgConsumer := NewMockMessageConsumer()
 
-	sm := NewSyncManager(initChain, consensus, net1, dispatch, mockMsgConsumer)
+	sm := NewSyncManager(initChain, consensus, net1, nil, dispatch, mockMsgConsumer)
 
 	blocks := sm.collectBlocks(core.GetTestBlock("A1").Hash(), core.GetTestBlock("A5").Hash())
 	// Expected blocks: [A1, A2, A3, A4, D4, A5, A3]

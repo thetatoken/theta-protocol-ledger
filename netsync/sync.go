@@ -67,7 +67,9 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkO
 	}
 	sm.requestMgr = NewRequestManager(sm)
 	networkOld.RegisterMessageHandler(sm)
-	network.RegisterMessageHandler(sm)
+	if network != nil {
+		network.RegisterMessageHandler(sm)
+	}
 
 	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
 		sm.whitelist = strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
