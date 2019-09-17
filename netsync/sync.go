@@ -429,42 +429,45 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 			m.dispatcher.SendData([]string{peerID}, data)
 		}
 	case common.ChannelIDHeader:
-		for _, hashStr := range data.Entries {
-			hash := common.HexToHash(hashStr)
-			block, err := m.chain.FindBlock(hash)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"channelID": data.ChannelID,
-					"hashStr":   hashStr,
-					"err":       err,
-					"peerID":    peerID,
-				}).Debug("Failed to find hash string locally in handleHeaderRequest")
-				return
-			}
-			payload, err := rlp.EncodeToBytes(block.Block.BlockHeader)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"block":  block,
-					"peerID": peerID,
-				}).Error("Failed to encode block")
-				return
-			}
-			data := dispatcher.DataResponse{
-				ChannelID: common.ChannelIDBlock,
-				Payload:   payload,
-			}
-			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"hashStr":   hashStr,
-				"peerID":    peerID,
-			}).Debug("Sending requested block")
-			m.dispatcher.SendData([]string{peerID}, data)
-		}
-
+		m.handleHeaderRequest(peerID, data)
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
 		}).Warn("Unsupported channelID in received DataRequest")
+	}
+}
+
+func (m *SyncManager) handleHeaderRequest(peerID string, data *dispatcher.DataRequest) {
+	for _, hashStr := range data.Entries {
+		hash := common.HexToHash(hashStr)
+		block, err := m.chain.FindBlock(hash)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"hashStr":   hashStr,
+				"err":       err,
+				"peerID":    peerID,
+			}).Debug("Failed to find hash string locally in handleHeaderRequest")
+			return
+		}
+		payload, err := rlp.EncodeToBytes(block.Block.BlockHeader)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"block":  block,
+				"peerID": peerID,
+			}).Error("Failed to encode block")
+			return
+		}
+		data := dispatcher.DataResponse{
+			ChannelID: common.ChannelIDBlock,
+			Payload:   payload,
+		}
+		m.logger.WithFields(log.Fields{
+			"channelID": data.ChannelID,
+			"hashStr":   hashStr,
+			"peerID":    peerID,
+		}).Debug("Sending requested block")
+		m.dispatcher.SendData([]string{peerID}, data)
 	}
 }
 
@@ -560,7 +563,6 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 		m.handleProposal(proposal)
 	case common.ChannelIDHeader:
 		headers := &Headers{}
-		blocks := []*core.Block{}
 		err := rlp.DecodeBytes(data.Payload, headers)
 		if err != nil {
 			m.logger.WithFields(log.Fields{
@@ -571,8 +573,8 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode HeaderResponse payload")
 			return
 		}
+		blocks := make([]*core.Block, headers.Count)
 		for _, header := range headers.HeaderArray {
-			m.requestMgr.AddHash(header.Hash(), []string{peerID})
 			block := core.NewBlock()
 			block.BlockHeader = header
 			blocks = append(blocks, block)

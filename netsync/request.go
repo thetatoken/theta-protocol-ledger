@@ -233,18 +233,16 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	}
-	rm.downloadHeaderBlockFromHash(rm.quota)
+	rm.downloadBlockFromHash(rm.quota)
 	rm.downloadBlockFromHeader(rm.quota)
 }
 
-//compatible with older version, download header/block from hash
-func (rm *RequestManager) downloadHeaderBlockFromHash(quota int) {
+//compatible with older version, download block from hash
+func (rm *RequestManager) downloadBlockFromHash(quota int) {
 	//loop over downloaded hash
-	var ok bool
-	var array []string
+	var curr *list.Element
 	elToRemove := []*list.Element{}
-	hashArrayMap := make(map[string][]string)
-	for curr := rm.pendingBlocks.Front(); quota != 0 && curr != nil; curr = curr.Next() {
+	for curr = rm.pendingBlocks.Front(); quota != 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() {
 			elToRemove = append(elToRemove, curr)
@@ -271,29 +269,7 @@ func (rm *RequestManager) downloadHeaderBlockFromHash(quota int) {
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingDataResp
-			//build header request
-			hashStr := pendingBlock.hash.String()
-			if array, ok = hashArrayMap[randomPeerID]; !ok {
-				array = []string{}
-			}
-			array = append(array, hashStr)
-			hashArrayMap[randomPeerID] = array
 			quota--
-		}
-	}
-	//send header request
-	if len(hashArrayMap) > 0 {
-		for k, v := range hashArrayMap {
-			request := dispatcher.DataRequest{
-				ChannelID: common.ChannelIDHeader,
-				Entries:   v,
-			}
-			rm.logger.WithFields(log.Fields{
-				"channelID":       request.ChannelID,
-				"request.Entries": request.Entries,
-				"peer":            k,
-			}).Debug("Sending header request")
-			rm.syncMgr.dispatcher.GetData([]string{k}, request)
 		}
 	}
 
@@ -441,6 +417,9 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		//check txHash with header
 		if pendingBlock.header != nil && core.CalculateRootHash(block.Txs) != pendingBlock.header.TxHash {
+			rm.logger.WithFields(log.Fields{
+				"pending block hash": pendingBlock.hash.Hex(),
+			}).Info("TxHash doesn't match with header ")
 			return
 		}
 		pendingBlock.block = block
