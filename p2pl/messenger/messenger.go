@@ -13,7 +13,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	// "github.com/spf13/viper"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -30,10 +30,10 @@ import (
 	cr "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
 
-	// "github.com/libp2p/go-libp2p/p2p/discovery"
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 
 	ds "github.com/ipfs/go-datastore"
@@ -137,7 +137,6 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	for _, seedPeerMultiAddrStr := range seedPeerMultiAddresses {
 		addr, err := ma.NewMultiaddr(seedPeerMultiAddrStr)
 		if err != nil {
-			fmt.Printf("1 ================ %v\n", err)
 			cancel()
 			return messenger, err
 		}
@@ -228,11 +227,11 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	}
 
 	// mDns
-	// mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-	// if err != nil {
-	// 	return err
-	// }
-	// mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	if err != nil {
+		return err
+	}
+	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
 }
