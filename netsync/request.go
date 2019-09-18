@@ -233,8 +233,8 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	}
-	rm.downloadBlockFromHash(rm.quota)
 	rm.downloadBlockFromHeader(rm.quota)
+	rm.downloadBlockFromHash(rm.quota)
 }
 
 //compatible with older version, download block from hash

@@ -345,14 +345,6 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		end := common.HexToHash(req.End)
 		blocks := m.collectBlocks(start, end)
 
-		// Send Inventory response. compatible with outdated nodes
-		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
-		m.logger.WithFields(log.Fields{
-			"channelID":         resp.ChannelID,
-			"len(resp.Entries)": len(resp.Entries),
-			"peerID":            peerID,
-		}).Debug("Sending inventory response")
-		m.dispatcher.SendInventory([]string{peerID}, resp)
 		// Send header response
 		headers := m.collectHeaders(start, end)
 		payload, err := rlp.EncodeToBytes(headers)
@@ -363,6 +355,14 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 			}).Error("Failed to encode headers")
 			return
 		}
+		// Send Inventory response. compatible with outdated nodes
+		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
+		m.logger.WithFields(log.Fields{
+			"channelID":         resp.ChannelID,
+			"len(resp.Entries)": len(resp.Entries),
+			"peerID":            peerID,
+		}).Debug("Sending inventory response")
+		m.dispatcher.SendInventory([]string{peerID}, resp)
 
 		hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
 		m.dispatcher.SendData([]string{peerID}, hresp)
