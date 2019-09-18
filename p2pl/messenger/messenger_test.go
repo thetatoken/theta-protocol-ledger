@@ -63,7 +63,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 	return messenger
 }
 
-func TestPubsubStreamSize(t *testing.T) {
+func TestMessenger(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	var err error
