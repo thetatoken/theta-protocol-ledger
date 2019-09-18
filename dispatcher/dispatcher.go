@@ -14,7 +14,7 @@ import (
 // Dispatcher dispatches messages to approporiate destinations
 //
 type Dispatcher struct {
-	p2pnet p2p.Network
+	p2pnet  p2p.Network
 	p2plnet p2pl.Network
 
 	// Life cycle
@@ -28,9 +28,9 @@ type Dispatcher struct {
 // NewLDispatcher returns the pointer to the Dispatcher singleton
 func NewDispatcher(p2pnet p2p.Network, p2plnet p2pl.Network) *Dispatcher {
 	return &Dispatcher{
-		p2pnet: p2pnet,
+		p2pnet:  p2pnet,
 		p2plnet: p2plnet,
-		wg:     &sync.WaitGroup{},
+		wg:      &sync.WaitGroup{},
 	}
 }
 
