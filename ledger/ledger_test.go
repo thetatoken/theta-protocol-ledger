@@ -382,8 +382,8 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	b0 := es.getTipBlock()
 
 	txFee := getMinimumTxFee()
-	depositSourcePrivAcc := srcPrivAccs[4]
-	depoistHolderPrivAcc := valPrivAccs[4]
+	depositSourcePrivAcc := srcPrivAccs[3]
+	depoistHolderPrivAcc := srcPrivAccs[4]
 	depositStakeTx := &types.DepositStakeTxV2{
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
@@ -411,26 +411,44 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	rogueBlsPriv, _ := bls.RandKey()
 
 	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "No blsPop")
 	assert.Equal("Must provide BLS pubkey and pop", res.Message)
 
 	depositStakeTx.BlsPubkey = nil
 	depositStakeTx.BlsPop = blsPriv.PopProve()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "No blsPubkey")
 	assert.Equal("Must provide BLS pubkey and pop", res.Message)
 
 	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
 	depositStakeTx.BlsPop = rogueBlsPriv.PopProve()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "rogue pop")
 	assert.Equal("BLS pop is invalid", res.Message)
 
 	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
 	depositStakeTx.BlsPop = blsPriv.PopProve()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
-	assert.True(res.IsOK(), "Shoud pass")
+	assert.True(res.IsError(), "first deposit must be from holder")
+	assert.Equal("Bls key must be registered by holder", res.Message)
+
+	// 1st deposit must be from holder to holder.
+	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	depositStakeTx.BlsPop = blsPriv.PopProve()
+	depositStakeTx.Source.Address = depoistHolderPrivAcc.Address
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depoistHolderPrivAcc.Sign(signBytes)
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsOK(), "Shoud pass:"+res.Message)
 
 	// Add block #1 with a DepositStakeTx transaction
 	b1 := core.NewBlock()
@@ -451,19 +469,19 @@ func TestGuardianStakeUpdate(t *testing.T) {
 				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(2), core.MinGuardianStakeDeposit),
 				TFuelWei: new(big.Int).SetUint64(0),
 			},
-			Sequence: 2,
+			Sequence: 1,
 		},
 		Holder: types.TxOutput{
 			Address: depoistHolderPrivAcc.Address,
 		},
 		Purpose: core.StakeForGuardian,
 	}
-	signBytes = depositStakeTx.SignBytes(es.chainID)
-	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	depositStakeTx.BlsPubkey = rogueBlsPriv.PublicKey()
 	depositStakeTx.BlsPop = rogueBlsPriv.PopProve()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
-	assert.True(res.IsOK(), "Shoud pass")
+	assert.True(res.IsOK(), "Shoud pass"+res.Message)
 
 	b2 := core.NewBlock()
 	b2.ChainID = chainID
@@ -483,7 +501,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 				ThetaWei: new(big.Int).Mul(new(big.Int).SetUint64(3), core.MinGuardianStakeDeposit),
 				TFuelWei: new(big.Int).SetUint64(0),
 			},
-			Sequence: 3,
+			Sequence: 2,
 		},
 		Holder: types.TxOutput{
 			Address: depoistHolderPrivAcc.Address,
@@ -570,7 +588,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 		Fee: types.NewCoins(0, txFee),
 		Source: types.TxInput{
 			Address:  depositSourcePrivAcc.Address,
-			Sequence: 4,
+			Sequence: 3,
 		},
 		Holder: types.TxOutput{
 			Address: depoistHolderPrivAcc.Address,
@@ -609,7 +627,9 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	assert.Nil(err)
 	log.Infof("gcp for block #13: %v", gcp4)
 	assert.Equal(1, gcp4.Len())
-	assert.Equal(0, gcp4.SortedGuardians[0].TotalStake().Cmp(core.Zero))
+	// The 1st deposit(1*minimal) was from holder to holder , 2nd deposit(2*minimal) and 3rd deposit
+	// (3*minimal)was from source to holder.
+	assert.Equal(0, gcp4.SortedGuardians[0].TotalStake().Cmp(core.MinGuardianStakeDeposit))
 	assert.Equal(gcp.SortedGuardians[0].Pubkey, gcp2.SortedGuardians[0].Pubkey)
 
 	// ----------------- Stake Return ----------------- //
@@ -654,7 +674,9 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	log.Infof("Source account balance after %v blocks: %v", heightDelta2, balance3)
 
 	returnedCoins := balance3.Minus(balance2)
-	assert.Equal(0, returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(6), core.MinGuardianStakeDeposit)))
+	// The 1st deposit(1*minimal) was from holder to holder , 2nd deposit(2*minimal) and 3rd deposit
+	// (3*minimal)was from source to holder.
+	assert.Equal(0, returnedCoins.ThetaWei.Cmp(new(big.Int).Mul(new(big.Int).SetUint64(5), core.MinGuardianStakeDeposit)))
 	assert.True(returnedCoins.TFuelWei.Cmp(core.Zero) == 0)
 	log.Infof("Returned coins: %v", returnedCoins)
 }

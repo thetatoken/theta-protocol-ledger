@@ -126,11 +126,14 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		gcp := view.GetGuardianCandidatePool()
 
 		if !gcp.Contains(holderAddress) {
-			if tx.BlsPubkey == nil || tx.BlsPop == nil {
+			if tx.BlsPubkey.IsEmpty() || tx.BlsPop.IsEmpty() {
 				return common.Hash{}, result.Error("Must provide BLS pubkey and pop")
 			}
 			if !tx.BlsPop.PopVerify(tx.BlsPubkey) {
 				return common.Hash{}, result.Error("BLS pop is invalid")
+			}
+			if holderAddress != sourceAddress {
+				return common.Hash{}, result.Error("Bls key must be registered by holder")
 			}
 		}
 

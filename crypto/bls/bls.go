@@ -17,7 +17,9 @@ import (
 
 	phorebls "github.com/phoreproject/bls"
 	"github.com/pkg/errors"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/rlp"
 )
 
 // WIP: See BLS standardisation process:
@@ -34,8 +36,8 @@ type Signature struct {
 	s *phorebls.G2Projective
 }
 
-// Marshal serializes a signature in compressed form.
-func (s *Signature) Marshal() []byte {
+// ToBytes serializes a signature in compressed form.
+func (s *Signature) ToBytes() common.Bytes {
 	ret := phorebls.CompressG2(s.s.ToAffine())
 	return ret[:]
 }
@@ -49,6 +51,11 @@ func SignatureFromBytes(sig []byte) (*Signature, error) {
 	}
 
 	return &Signature{s: a.ToProjective()}, nil
+}
+
+// IsEmpty checks if signature is empty.
+func (s *Signature) IsEmpty() bool {
+	return s == nil || s.s == nil
 }
 
 func (s *Signature) String() string {
@@ -66,6 +73,37 @@ func (s *Signature) Copy() *Signature {
 	return &Signature{s.s.Copy()}
 }
 
+var _ rlp.Encoder = (*Signature)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (s *Signature) EncodeRLP(w io.Writer) error {
+	if s == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := s.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*Signature)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (s *Signature) DecodeRLP(stream *rlp.Stream) error {
+	raw, err := stream.Bytes()
+	if err != nil {
+		return err
+	}
+	if raw == nil || len(raw) == 0 {
+		s.s = nil
+		return nil
+	}
+	tmp, err := SignatureFromBytes(raw)
+	if err != nil {
+		return err
+	}
+	s.s = tmp.s
+	return nil
+}
+
 // Verify verifies a signature against a message and a public key.
 func (s *Signature) Verify(m []byte, p *PublicKey) bool {
 	b := make([]byte, 8)
@@ -80,7 +118,7 @@ func (s *Signature) Verify(m []byte, p *PublicKey) bool {
 func (s *Signature) PopVerify(p *PublicKey) bool {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, DomainPop)
-	h := phorebls.HashG2WithDomain(hash32(p.Marshal()), toBytes8(b))
+	h := phorebls.HashG2WithDomain(hash32(p.ToBytes()), toBytes8(b))
 	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, s.s)
 	rhs := phorebls.Pairing(p.p, h.ToAffine().ToProjective())
 	return lhs.Equals(rhs)
@@ -97,8 +135,39 @@ func (p *PublicKey) String() string {
 	return p.p.String()
 }
 
-// Marshal serializes a public key to bytes.
-func (p *PublicKey) Marshal() []byte {
+var _ rlp.Encoder = (*PublicKey)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (p *PublicKey) EncodeRLP(w io.Writer) error {
+	if p == nil {
+		return rlp.Encode(w, []byte{})
+	}
+	b := p.ToBytes()
+	return rlp.Encode(w, b)
+}
+
+var _ rlp.Decoder = (*PublicKey)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (p *PublicKey) DecodeRLP(stream *rlp.Stream) error {
+	raw, err := stream.Bytes()
+	if err != nil {
+		return err
+	}
+	if raw == nil || len(raw) == 0 {
+		p.p = nil
+		return nil
+	}
+	tmp, err := PublicKeyFromBytes(raw)
+	if err != nil {
+		return err
+	}
+	p.p = tmp.p
+	return nil
+}
+
+// ToBytes serializes a public key to bytes.
+func (p *PublicKey) ToBytes() common.Bytes {
 	ret := phorebls.CompressG1(p.p.ToAffine())
 	return ret[:]
 }
@@ -112,6 +181,11 @@ func PublicKeyFromBytes(pub []byte) (*PublicKey, error) {
 	}
 
 	return &PublicKey{p: a.ToProjective()}, nil
+}
+
+// IsEmpty checks if pubkey is empty.
+func (p *PublicKey) IsEmpty() bool {
+	return p == nil || p.p == nil
 }
 
 // Equals checks if two public keys are equal
@@ -182,7 +256,7 @@ func (s *SecretKey) PublicKey() *PublicKey {
 func (s *SecretKey) PopProve() *Signature {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, DomainPop)
-	h := phorebls.HashG2WithDomain(hash32(s.PublicKey().Marshal()), toBytes8(b)).MulFR(s.f.ToRepr())
+	h := phorebls.HashG2WithDomain(hash32(s.PublicKey().ToBytes()), toBytes8(b)).MulFR(s.f.ToRepr())
 	return &Signature{s: h}
 }
 

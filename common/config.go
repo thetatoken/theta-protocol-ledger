@@ -55,6 +55,9 @@ const (
 	// CfgLogPrintSelfID determines whether to print node's ID in log (Useful in simulation when
 	// there are more than one node running).
 	CfgLogPrintSelfID = "log.printSelfID"
+
+	// CfgGuardianRoundLength defines the length of a guardian voting round.
+	CfgGuardianRoundLength = "guardian.roundLength"
 )
 
 // Starting block heights of features.
@@ -93,6 +96,8 @@ func init() {
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
+
+	viper.SetDefault(CfgGuardianRoundLength, 30)
 }
 
 // WriteInitialConfig writes initial config file to file system.

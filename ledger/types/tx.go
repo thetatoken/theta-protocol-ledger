@@ -839,8 +839,8 @@ type DepositStakeTxV2 struct {
 	Holder  TxOutput `json:"holder"`  // stake holder account
 	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
 
-	BlsPubkey *bls.PublicKey
-	BlsPop    *bls.Signature
+	BlsPubkey *bls.PublicKey `rlp:"nil"`
+	BlsPop    *bls.Signature `rlp:"nil"`
 }
 
 func (_ *DepositStakeTxV2) AssertIsTx() {}

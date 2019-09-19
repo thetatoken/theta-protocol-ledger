@@ -5,8 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -35,6 +38,7 @@ type ConsensusEngine struct {
 	dispatcher       *dispatcher.Dispatcher
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
+	guardian         *GuardianEngine
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
@@ -48,6 +52,7 @@ type ConsensusEngine struct {
 	mu            *sync.Mutex
 	epochTimer    *time.Timer
 	proposalTimer *time.Timer
+	guardianTimer *time.Ticker
 
 	state *State
 }
@@ -73,6 +78,12 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 
 	logger = util.GetLoggerForModule("consensus")
 	e.logger = logger
+
+	blsKey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(privateKey.PublicKey().ToBytes())))
+	if err != nil {
+		e.logger.Panic(err)
+	}
+	e.guardian = NewGuardianEngine(e, blsKey)
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
 
@@ -130,6 +141,8 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	// Set ledger state pointer to intial state.
 	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+
+	e.guardianTimer = time.NewTicker(time.Duration(viper.GetInt(common.CfgGuardianRoundLength)) * time.Second)
 
 	e.wg.Add(1)
 	go e.mainLoop()
@@ -218,6 +231,10 @@ func (e *ConsensusEngine) autoRewind(lastCC *core.ExtendedBlock) *core.ExtendedB
 // Stop notifies all goroutines to stop without blocking.
 func (e *ConsensusEngine) Stop() {
 	e.cancel()
+
+	if e.guardianTimer != nil {
+		e.guardianTimer.Stop()
+	}
 }
 
 // Wait blocks until all goroutines stop.
@@ -247,6 +264,12 @@ func (e *ConsensusEngine) mainLoop() {
 				break Epoch
 			case <-e.proposalTimer.C:
 				e.propose()
+			case <-e.guardianTimer.C:
+				v := e.guardian.GetVoteToBroadcast()
+				if v != nil {
+					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Boardcasting guardian vote")
+					e.broadcastGuardianVote(v)
+				}
 			}
 		}
 	}
@@ -290,6 +313,9 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	case *core.Block:
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
+	case *core.AggregatedVotes:
+		e.logger.WithFields(log.Fields{"guaridan vote": m}).Debug("Received guardian vote")
+		e.handleGuardianVote(m)
 	default:
 		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
@@ -778,6 +804,23 @@ func (e *ConsensusEngine) GetTip(includePendingBlockingLeaf bool) *core.Extended
 	return candidate
 }
 
+func (e *ConsensusEngine) handleGuardianVote(v *core.AggregatedVotes) {
+	e.guardian.HandleVote(v)
+}
+
+func (e *ConsensusEngine) broadcastGuardianVote(vote *core.AggregatedVotes) {
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"guardian vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	voteMsg := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDGuardian,
+		Payload:   payload,
+	}
+	e.dispatcher.SendData([]string{}, voteMsg)
+}
+
 // GetSummary returns a summary of consensus state.
 func (e *ConsensusEngine) GetSummary() *StateStub {
 	return e.state.GetSummary()
@@ -840,6 +883,11 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// Force update TX index on block finalization so that the index doesn't point to
 	// duplicate TX in fork.
 	e.chain.AddTxsToIndex(block, true)
+
+	// Guardians to vote for finalized blocks every 100 blocks.
+	if block.Height%100 == 1 {
+		e.guardian.StartNewBlock(block.Hash())
+	}
 
 	select {
 	case e.finalizedBlocks <- block.Block:

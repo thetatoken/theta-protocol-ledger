@@ -22,8 +22,8 @@ import (
 type AggregatedVotes struct {
 	Block      common.Hash    // Hash of the block.
 	Gcp        common.Hash    // Hash of guardian candidate pool.
-	Multiplies []uint32       `rlp:"-"` // Multiplies of each signer.
-	Signature  *bls.Signature `rlp:"-"` // Aggregated signiature.
+	Multiplies []uint32       // Multiplies of each signer.
+	Signature  *bls.Signature // Aggregated signiature.
 }
 
 func NewAggregateVotes(block common.Hash, gcp *GuardianCandidatePool) *AggregatedVotes {
@@ -33,6 +33,10 @@ func NewAggregateVotes(block common.Hash, gcp *GuardianCandidatePool) *Aggregate
 		Multiplies: make([]uint32, gcp.Len()),
 		Signature:  bls.NewAggregateSignature(),
 	}
+}
+
+func (a *AggregatedVotes) String() string {
+	return fmt.Sprintf("AggregatedVotes{Block: %s, Gcp: %s,  Multiplies: %v}", a.Block.Hex(), a.Gcp.Hex(), a.Multiplies)
 }
 
 // signBytes returns the bytes to be signed.
@@ -57,7 +61,8 @@ func (a *AggregatedVotes) Sign(key *bls.SecretKey, signerIdx int) bool {
 	return true
 }
 
-// Merge creates a new aggregation that combines two vote sets.
+// Merge creates a new aggregation that combines two vote sets. Returns nil, nil if input vote
+// is a subset of current vote.
 func (a *AggregatedVotes) Merge(b *AggregatedVotes) (*AggregatedVotes, error) {
 	if a.Block != b.Block || a.Gcp != b.Gcp {
 		return nil, errors.New("Cannot merge incompatible votes")
@@ -74,7 +79,8 @@ func (a *AggregatedVotes) Merge(b *AggregatedVotes) (*AggregatedVotes, error) {
 		}
 	}
 	if isSubset {
-		return nil, errors.New("The other vote is a subset of current vote")
+		// The other vote is a subset of current vote
+		return nil, nil
 	}
 	newSig := a.Signature.Copy()
 	newSig.Aggregate(b.Signature)
@@ -116,7 +122,7 @@ func init() {
 }
 
 type GuardianCandidatePool struct {
-	SortedGuardians []*Guardian
+	SortedGuardians []*Guardian // Guardians sorted by holder address.
 }
 
 // NewGuardianCandidatePool creates a new instance of GuardianCandidatePool.
@@ -170,6 +176,16 @@ func (gcp *GuardianCandidatePool) Contains(g common.Address) bool {
 		return false
 	}
 	return true
+}
+
+// Index returns index of a public key in the pool. Returns -1 if not found.
+func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
+	for i, g := range gcp.SortedGuardians {
+		if pubkey.Equals(*g.Pubkey) {
+			return i
+		}
+	}
+	return -1
 }
 
 // PubKeys exports guardians' public keys.

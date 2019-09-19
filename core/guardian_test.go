@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"testing"
 
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto/bls"
+	"github.com/thetatoken/theta/rlp"
 
 	"github.com/thetatoken/theta/crypto"
 )
@@ -85,6 +87,11 @@ func TestGuardianPool(t *testing.T) {
 	if pool.Remove(toRemove) || pool.Len() != 10 {
 		t.Fatal("Should not remove non-existent guardian")
 	}
+
+	// Should return index of pubkey.
+	if 5 != pool.Index(pool.SortedGuardians[5].Pubkey.Copy()) {
+		t.Fatal("Should return index of given pubkey")
+	}
 }
 
 func TestAggregateVote(t *testing.T) {
@@ -125,17 +132,38 @@ func TestAggregateVote(t *testing.T) {
 	}
 
 	// Should not merge votes that is a subset of current vote.
-	_, err = vote12.Merge(vote2)
-	if err == nil {
+	res, err := vote12.Merge(vote2)
+	if err != nil || res != nil {
 		t.Fatalf("Should not merge votes that is subset")
 	}
-	_, err = vote12.Merge(NewAggregateVotes(bh, pool))
-	if err == nil {
+	res, err = vote12.Merge(NewAggregateVotes(bh, pool))
+	if err != nil || res != nil {
 		t.Fatalf("Should not merge votes that is subset")
 	}
-	_, err = vote12.Merge(vote12)
-	if err == nil {
+	res, err = vote12.Merge(vote12)
+	if err != nil || res != nil {
 		t.Fatalf("Should not merge votes that is subset")
 	}
+}
 
+func TestAggregateVoteEncoding(t *testing.T) {
+	require := require.New(t)
+
+	pool, sks := createTestGuardianPool(10)
+
+	bh := common.BytesToHash([]byte{12})
+	vote1 := NewAggregateVotes(bh, pool)
+
+	g1 := pool.SortedGuardians[0].Holder
+
+	// Guardian 1 signs a vote.
+	success := vote1.Sign(sks[g1], 0)
+	require.True(success, "Should sign")
+
+	raw, err := rlp.EncodeToBytes(vote1)
+	require.Nil(err)
+
+	vote2 := &AggregatedVotes{}
+	err = rlp.DecodeBytes(raw, vote2)
+	require.Nil(err)
 }
