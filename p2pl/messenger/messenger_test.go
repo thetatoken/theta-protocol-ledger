@@ -59,11 +59,11 @@ func (m *MockMsgHandler) HandleMessage(message p2ptypes.Message) error {
 
 func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *Messenger {
 	msgrConfig := GetDefaultMessengerConfig()
-	messenger, _ := CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig)
+	messenger, _ := CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig, false)
 	return messenger
 }
 
-func TestMessenger(t *testing.T) {
+func TestFullyConnected(t *testing.T) {
 	assert := assert.New(t)
 	ctx := context.Background()
 	var err error
@@ -160,14 +160,47 @@ func TestMessenger(t *testing.T) {
 	assert.True(ok)
 	assert.Equal(128*8191, len(content))
 
+	// Publish from node2
+	err = node2.Publish(message)
+	assert.Nil(err)
+
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8191, len(content))
+
+	data = <-mockMsgHandler3.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8191, len(content))
+
+	// Publish from node3
+	err = node3.Publish(message)
+	assert.Nil(err)
+
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8191, len(content))
+
+	data = <-mockMsgHandler2.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8191, len(content))
+
+	// msg size -> 1MB
 	msgBytes = append(msgBytes, bytes...)
 	message = p2ptypes.Message{
 		ChannelID: common.ChannelIDBlock,
 		Content:   msgBytes,
 	}
 
-	// Broadcast from node3
-	node3.Broadcast(message)
+	// Broadcast from node1
+	node1.Broadcast(message)
 
 	data = <-mockMsgHandler2.C
 	if content, ok = data.([]byte); ok {
@@ -175,9 +208,182 @@ func TestMessenger(t *testing.T) {
 	assert.True(ok)
 	assert.Equal(128*8192, len(content))
 
+	data = <-mockMsgHandler3.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8192, len(content))
+
+	// Broadcast from node2
+	node2.Broadcast(message)
+
 	data = <-mockMsgHandler1.C
 	if content, ok = data.([]byte); ok {
 	}
 	assert.True(ok)
 	assert.Equal(128*8192, len(content))
+
+	data = <-mockMsgHandler3.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8192, len(content))
+
+	// Broadcast from node3
+	node3.Broadcast(message)
+
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8192, len(content))
+
+	data = <-mockMsgHandler2.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128*8192, len(content))
+}
+
+func TestPartiallyConnected(t *testing.T) {
+	assert := assert.New(t)
+	ctx := context.Background()
+	var err error
+	var ok bool
+	var content []byte
+
+	mockMsgHandler1 := &MockMsgHandler{C: make(chan interface{}, 1)}
+	mockMsgHandler2 := &MockMsgHandler{C: make(chan interface{}, 1)}
+	mockMsgHandler3 := &MockMsgHandler{C: make(chan interface{}, 1)}
+
+	port1 := 11001
+	port2 := 12001
+	port3 := 13001
+
+	privKey1, _, err := crypto.GenerateKeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate key pair: %v", err))
+	}
+	privKey2, _, _ := crypto.GenerateKeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate key pair: %v", err))
+	}
+	privKey3, _, _ := crypto.GenerateKeyPair()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to generate key pair: %v", err))
+	}
+
+	node1 := newMessenger(privKey1, []string{}, port1)
+	node1Id := node1.host.ID()
+	node1.RegisterMessageHandler(mockMsgHandler1)
+
+	host2Seed := fmt.Sprintf("/ip4/127.0.0.1/tcp/%v/ipfs/%v", port1, node1Id)
+	node2 := newMessenger(privKey2, []string{host2Seed}, port2)
+	node2Id := node2.host.ID()
+	node2.RegisterMessageHandler(mockMsgHandler2)
+
+	node3 := newMessenger(privKey3, []string{}, port3)
+	node3Id := node3.host.ID()
+	node3.RegisterMessageHandler(mockMsgHandler3)
+
+	err = node1.Start(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to start node1: %v", err))
+	}
+
+	err = node2.Start(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to start node2: %v", err))
+	}
+
+	err = node3.Start(ctx)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to start node3: %v", err))
+	}
+
+	time.Sleep(1 * time.Second)
+
+	msgBytes := []byte("01234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345") // 128 Bytes
+	message := p2ptypes.Message{
+		ChannelID: common.ChannelIDBlock,
+		Content:   msgBytes,
+	}
+
+	// Send from node1
+	node1.Send(node2Id.String(), message)
+	data := <-mockMsgHandler2.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+
+	node1.Send(node3Id.String(), message)
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Send from node2
+	node2.Send(node1Id.String(), message)
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+
+	node2.Send(node3Id.String(), message)
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Send from node3
+	node3.Send(node1Id.String(), message)
+	assert.Equal(0, len(mockMsgHandler1.C))
+
+	node3.Send(node2Id.String(), message)
+	assert.Equal(0, len(mockMsgHandler2.C))
+
+	// Broadcast from node1
+	node1.Broadcast(message)
+	data = <-mockMsgHandler2.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Broadcast from node2
+	node2.Broadcast(message)
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Broadcast from node3
+	node3.Broadcast(message)
+	assert.Equal(0, len(mockMsgHandler1.C))
+	assert.Equal(0, len(mockMsgHandler2.C))
+
+	// Publish from node1
+	err = node1.Publish(message)
+	assert.Nil(err)
+	data = <-mockMsgHandler2.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Publish from node2
+	err = node2.Publish(message)
+	assert.Nil(err)
+	data = <-mockMsgHandler1.C
+	if content, ok = data.([]byte); ok {
+	}
+	assert.True(ok)
+	assert.Equal(128, len(content))
+	assert.Equal(0, len(mockMsgHandler3.C))
+
+	// Publish from node3
+	err = node3.Publish(message)
+	assert.Nil(err)
+	assert.Equal(0, len(mockMsgHandler1.C))
+	assert.Equal(0, len(mockMsgHandler2.C))
 }

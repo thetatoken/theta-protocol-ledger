@@ -33,11 +33,11 @@ import (
 	kaddht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-pubsub"
-	"github.com/libp2p/go-libp2p/p2p/discovery"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
 
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
+	"github.com/libp2p/go-libp2p/p2p/discovery"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -63,6 +63,7 @@ type Messenger struct {
 	seedPeers     []*peer.AddrInfo
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
+	needMdns      bool
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -100,12 +101,13 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, msgrConfig MessengerConfig) (*Messenger, error) {
+	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
+		needMdns: 	   needMdns,
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}
@@ -227,11 +229,13 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	}
 
 	// mDns
-	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-	if err != nil {
-		return err
+	if msgr.needMdns {
+		mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+		if err != nil {
+			return err
+		}
+		mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 	}
-	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 
 	return nil
 }
