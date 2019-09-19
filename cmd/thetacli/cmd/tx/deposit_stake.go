@@ -4,6 +4,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -57,7 +60,7 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		Address: common.HexToAddress(holderFlag),
 	}
 
-	depositStakeTx := &types.DepositStakeTx{
+	depositStakeTx := &types.DepositStakeTxV2{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
 			TFuelWei: fee,
@@ -65,6 +68,20 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		Source:  source,
 		Holder:  holder,
 		Purpose: purposeFlag,
+	}
+
+	// Add bls key/pop.
+	if purposeFlag == core.StakeForGuardian && sourceAddress == holder.Address {
+		pubkey, err := wallet.GetPublicKey(sourceAddress)
+		if err != nil {
+			utils.Error("Failed to get pubkey for source address: %v\n", err)
+		}
+		blsPrivkey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(pubkey.ToBytes())))
+		if err != nil {
+			utils.Error("Failed to generate bls key: %v\n", err)
+		}
+		depositStakeTx.BlsPubkey = blsPrivkey.PublicKey()
+		depositStakeTx.BlsPop = blsPrivkey.PopProve()
 	}
 
 	sig, err := wallet.Sign(sourceAddress, depositStakeTx.SignBytes(chainIDFlag))
