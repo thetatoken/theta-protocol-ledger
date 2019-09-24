@@ -33,6 +33,7 @@ var (
 	sourceFlag                   string
 	holderFlag                   string
 	asyncFlag                    bool
+	guardianKeyFlag              string
 )
 
 // TxCmd represents the Tx command

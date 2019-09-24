@@ -1,10 +1,14 @@
 package tx
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"strings"
+
+	"github.com/thetatoken/theta/crypto"
+
+	"github.com/thetatoken/theta/rlp"
 
 	"github.com/thetatoken/theta/crypto/bls"
 
@@ -71,17 +75,32 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 	}
 
 	// Add bls key/pop.
-	if purposeFlag == core.StakeForGuardian && sourceAddress == holder.Address {
-		pubkey, err := wallet.GetPublicKey(sourceAddress)
+	if purposeFlag == core.StakeForGuardian && guardianKeyFlag != "" {
+		// Decode guaridan key.
+		guardianKeyRaw, err := hex.DecodeString(guardianKeyFlag)
 		if err != nil {
-			utils.Error("Failed to get pubkey for source address: %v\n", err)
+			utils.Error("Failed to decode guardian key: %v\n", err)
 		}
-		blsPrivkey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(pubkey.ToBytes())))
+		rlps := rlp.NewListStream(bytes.NewReader(guardianKeyRaw), 3)
+		blsPubkey := &bls.PublicKey{}
+		err = rlps.Decode(blsPubkey)
 		if err != nil {
-			utils.Error("Failed to generate bls key: %v\n", err)
+			utils.Error("Failed to decode bls Pubkey: %v\n", err)
 		}
-		depositStakeTx.BlsPubkey = blsPrivkey.PublicKey()
-		depositStakeTx.BlsPop = blsPrivkey.PopProve()
+		blsPop := &bls.Signature{}
+		err = rlps.Decode(blsPop)
+		if err != nil {
+			utils.Error("Failed to decode bls POP: %v\n", err)
+		}
+		holderSig := &crypto.Signature{}
+		err = rlps.Decode(holderSig)
+		if err != nil {
+			utils.Error("Failed to decode holder signature: %v\n", err)
+		}
+
+		depositStakeTx.BlsPubkey = blsPubkey
+		depositStakeTx.BlsPop = blsPop
+		depositStakeTx.HolderSig = holderSig
 	}
 
 	sig, err := wallet.Sign(sourceAddress, depositStakeTx.SignBytes(chainIDFlag))
@@ -117,6 +136,7 @@ func init() {
 	depositStakeCmd.Flags().StringVar(&stakeInThetaFlag, "stake", "5000000", "Theta amount to stake")
 	depositStakeCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	depositStakeCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
+	depositStakeCmd.Flags().StringVar(&guardianKeyFlag, "guardian_key", "", "Holder's guardian key")
 
 	depositStakeCmd.MarkFlagRequired("chain")
 	depositStakeCmd.MarkFlagRequired("source")

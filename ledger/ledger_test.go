@@ -405,7 +405,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	// ----------- Guardian's first deposit must include valid BLS Pubkey/Pop -------- //
 	_, res := es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "No blsPubkey/Pop")
-	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+	assert.Equal("Must provide BLS Pubkey", res.Message)
 
 	blsPriv, _ := bls.RandKey()
 	rogueBlsPriv, _ := bls.RandKey()
@@ -415,7 +415,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "No blsPop")
-	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+	assert.Equal("Must provide BLS POP", res.Message)
 
 	depositStakeTx.BlsPubkey = nil
 	depositStakeTx.BlsPop = blsPriv.PopProve()
@@ -423,10 +423,19 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
 	assert.True(res.IsError(), "No blsPubkey")
-	assert.Equal("Must provide BLS pubkey and pop", res.Message)
+	assert.Equal("Must provide BLS Pubkey", res.Message)
+
+	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
+	depositStakeTx.BlsPop = blsPriv.PopProve()
+	signBytes = depositStakeTx.SignBytes(es.chainID)
+	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
+	_, res = es.executor.ExecuteTx(depositStakeTx)
+	assert.True(res.IsError())
+	assert.Equal("Must provide Holder Signature", res.Message)
 
 	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
 	depositStakeTx.BlsPop = rogueBlsPriv.PopProve()
+	depositStakeTx.HolderSig = depoistHolderPrivAcc.Sign(depositStakeTx.BlsPop.ToBytes())
 	signBytes = depositStakeTx.SignBytes(es.chainID)
 	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
 	_, res = es.executor.ExecuteTx(depositStakeTx)
@@ -435,15 +444,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 
 	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
 	depositStakeTx.BlsPop = blsPriv.PopProve()
-	signBytes = depositStakeTx.SignBytes(es.chainID)
-	depositStakeTx.Source.Signature = depositSourcePrivAcc.Sign(signBytes)
-	_, res = es.executor.ExecuteTx(depositStakeTx)
-	assert.True(res.IsError(), "first deposit must be from holder")
-	assert.Equal("Bls key must be registered by holder", res.Message)
-
-	// 1st deposit must be from holder to holder.
-	depositStakeTx.BlsPubkey = blsPriv.PublicKey()
-	depositStakeTx.BlsPop = blsPriv.PopProve()
+	depositStakeTx.HolderSig = depoistHolderPrivAcc.Sign(depositStakeTx.BlsPop.ToBytes())
 	depositStakeTx.Source.Address = depoistHolderPrivAcc.Address
 	signBytes = depositStakeTx.SignBytes(es.chainID)
 	depositStakeTx.Source.Signature = depoistHolderPrivAcc.Sign(signBytes)
