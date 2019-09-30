@@ -412,6 +412,51 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	return nil
 }
 
+// ------------------------------ GetGcp -----------------------------------
+
+type GetGcpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetGcpResult struct {
+	BlockHashGcpPairs []BlockHashGcpPair
+}
+
+type BlockHashGcpPair struct {
+	BlockHash common.Hash
+	Gcp       *core.GuardianCandidatePool
+}
+
+func (t *ThetaRPCService) GetGcpByHeight(args *GetGcpByHeightArgs, result *GetGcpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashGcpPairs := []BlockHashGcpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the GCP for height %v does not exists, it might have been pruned", height)
+		}
+		gcp := blockStoreView.GetGuardianCandidatePool()
+		blockHashGcpPairs = append(blockHashGcpPairs, BlockHashGcpPair{
+			BlockHash: blockHash,
+			Gcp:       gcp,
+		})
+	}
+
+	result.BlockHashGcpPairs = blockHashGcpPairs
+
+	return nil
+}
+
 // ------------------------------ GetGuardianKey -----------------------------------
 
 type GetGuardianInfoArgs struct{}

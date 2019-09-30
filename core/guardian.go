@@ -299,7 +299,7 @@ func (gcp *GuardianCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 
 type Guardian struct {
 	*StakeHolder
-	Pubkey *bls.PublicKey
+	Pubkey *bls.PublicKey `json:"-"`
 }
 
 func (g *Guardian) String() string {

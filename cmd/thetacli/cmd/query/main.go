@@ -26,5 +26,6 @@ func init() {
 	QueryCmd.AddCommand(txCmd)
 	QueryCmd.AddCommand(splitRuleCmd)
 	QueryCmd.AddCommand(vcpCmd)
+	QueryCmd.AddCommand(gcpCmd)
 	QueryCmd.AddCommand(versionCmd)
 }
