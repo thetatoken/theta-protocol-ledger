@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
@@ -404,6 +408,38 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	}
 
 	result.BlockHashVcpPairs = blockHashVcpPairs
+
+	return nil
+}
+
+// ------------------------------ GetGuardianKey -----------------------------------
+
+type GetGuardianInfoArgs struct{}
+
+type GetGuardianInfoResult struct {
+	BLSPubkey string
+	BLSPop    string
+	Address   string
+	Signature string
+}
+
+func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *GetGuardianInfoResult) (err error) {
+	privKey := t.consensus.PrivateKey()
+	blsKey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(privKey.PublicKey().ToBytes())))
+	if err != nil {
+		return fmt.Errorf("Failed to get BLS key: %v", err.Error())
+	}
+
+	result.Address = privKey.PublicKey().Address().Hex()
+	result.BLSPubkey = hex.EncodeToString(blsKey.PublicKey().ToBytes())
+	popBytes := blsKey.PopProve().ToBytes()
+	result.BLSPop = hex.EncodeToString(popBytes)
+
+	sig, err := privKey.Sign(popBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to generate signature: %v", err.Error())
+	}
+	result.Signature = hex.EncodeToString(sig.ToBytes())
 
 	return nil
 }

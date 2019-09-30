@@ -1,14 +1,11 @@
 package tx
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"math/big"
 
 	"github.com/thetatoken/theta/crypto"
-
-	"github.com/thetatoken/theta/rlp"
 
 	"github.com/thetatoken/theta/crypto/bls"
 
@@ -76,26 +73,24 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 
 	// Add bls key/pop.
 	if purposeFlag == core.StakeForGuardian && guardianKeyFlag != "" {
-		// Decode guaridan key.
-		guardianKeyRaw, err := hex.DecodeString(guardianKeyFlag)
-		if err != nil {
-			utils.Error("Failed to decode guardian key: %v\n", err)
+		if len(guardianKeyFlag) != 418 {
+			utils.Error("Guardian key is invalid")
 		}
-		rlps := rlp.NewListStream(bytes.NewReader(guardianKeyRaw), 3)
-		blsPubkey := &bls.PublicKey{}
-		err = rlps.Decode(blsPubkey)
+		guardianKeyBytes, err := hex.DecodeString(guardianKeyFlag)
+		if err != nil {
+			utils.Error("Failed to decode guaridan key: %v\n", err)
+		}
+		blsPubkey, err := bls.PublicKeyFromBytes(guardianKeyBytes[:48])
 		if err != nil {
 			utils.Error("Failed to decode bls Pubkey: %v\n", err)
 		}
-		blsPop := &bls.Signature{}
-		err = rlps.Decode(blsPop)
+		blsPop, err := bls.SignatureFromBytes(guardianKeyBytes[48:144])
 		if err != nil {
 			utils.Error("Failed to decode bls POP: %v\n", err)
 		}
-		holderSig := &crypto.Signature{}
-		err = rlps.Decode(holderSig)
+		holderSig, err := crypto.SignatureFromBytes(guardianKeyBytes[144:])
 		if err != nil {
-			utils.Error("Failed to decode holder signature: %v\n", err)
+			utils.Error("Failed to decode signature: %v\n", err)
 		}
 
 		depositStakeTx.BlsPubkey = blsPubkey
