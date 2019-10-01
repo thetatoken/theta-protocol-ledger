@@ -154,13 +154,16 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
 
-	hl := view.GetStakeTransactionHeightList()
-	if hl == nil {
-		hl = &types.HeightList{}
+	// Only update stake transaction height list for validator stake tx.
+	if tx.Purpose == core.StakeForValidator {
+		hl := view.GetStakeTransactionHeightList()
+		if hl == nil {
+			hl = &types.HeightList{}
+		}
+		blockHeight := view.Height() + 1 // the view points to the parent of the current block
+		hl.Append(blockHeight)
+		view.UpdateStakeTransactionHeightList(hl)
 	}
-	blockHeight := view.Height() + 1 // the view points to the parent of the current block
-	hl.Append(blockHeight)
-	view.UpdateStakeTransactionHeightList(hl)
 
 	sourceAccount.Sequence++
 	view.SetAccount(sourceAddress, sourceAccount)
