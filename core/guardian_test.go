@@ -21,6 +21,12 @@ func createTestGuardianPool(size int) (*GuardianCandidatePool, map[common.Addres
 		g := &Guardian{
 			StakeHolder: &StakeHolder{
 				Holder: pub.Address(),
+				Stakes: []*Stake{&Stake{
+					Source:       pub.Address(),
+					Amount:       MinGuardianStakeDeposit,
+					Withdrawn:    false,
+					ReturnHeight: 99999999999,
+				}},
 			},
 			Pubkey: blsKey.PublicKey(),
 		}
@@ -41,6 +47,8 @@ func isSorted(pl *GuardianCandidatePool) bool {
 }
 
 func TestGuardianPool(t *testing.T) {
+	require := require.New(t)
+
 	pool, _ := createTestGuardianPool(10)
 
 	// Should be sorted.
@@ -64,6 +72,12 @@ func TestGuardianPool(t *testing.T) {
 	g := &Guardian{
 		StakeHolder: &StakeHolder{
 			Holder: pub.Address(),
+			Stakes: []*Stake{&Stake{
+				Source:       pub.Address(),
+				Amount:       MinGuardianStakeDeposit,
+				Withdrawn:    false,
+				ReturnHeight: 99999999999,
+			}},
 		},
 		Pubkey: blsKey.PublicKey(),
 	}
@@ -76,6 +90,7 @@ func TestGuardianPool(t *testing.T) {
 
 	// Should remove guardian.
 	toRemove := pool.SortedGuardians[5].Holder
+	toRemoveBlsPub := pool.SortedGuardians[5].Pubkey
 	if !pool.Remove(toRemove) || pool.Len() != 10 {
 		t.Fatal("Should remove guardian")
 	}
@@ -88,10 +103,18 @@ func TestGuardianPool(t *testing.T) {
 		t.Fatal("Should not remove non-existent guardian")
 	}
 
-	// Should return index of pubkey.
-	if 5 != pool.Index(pool.SortedGuardians[5].Pubkey.Copy()) {
-		t.Fatal("Should return index of given pubkey")
-	}
+	// Should return -1 for removed guardian.
+	require.Equal(-1, pool.Index(toRemoveBlsPub), "Should return -1 for removed guardian")
+
+	toWithdrawnPub := pool.SortedGuardians[3].Pubkey
+	nextPub := pool.SortedGuardians[4].Pubkey
+	require.Equal(3, pool.Index(toWithdrawnPub))
+	require.Equal(4, pool.Index(nextPub))
+	pool.SortedGuardians[3].Stakes[0].Withdrawn = true
+	// Should return -1 for withdrawn guardian.
+	require.Equal(-1, pool.Index(toWithdrawnPub))
+	// Should skip withdrawn guardian.
+	require.Equal(3, pool.Index(nextPub))
 }
 
 func TestAggregateVote(t *testing.T) {

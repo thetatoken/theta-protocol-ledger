@@ -180,9 +180,23 @@ func (gcp *GuardianCandidatePool) Contains(g common.Address) bool {
 
 // Index returns index of a public key in the pool. Returns -1 if not found.
 func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
-	for i, g := range gcp.SortedGuardians {
+	index := -1
+	for _, g := range gcp.SortedGuardians {
+		// Skip if guardian dons't have non-withdrawn stake
+		hasStake := false
+		for _, stake := range g.Stakes {
+			if !stake.Withdrawn {
+				hasStake = true
+				break
+			}
+		}
+		if !hasStake {
+			continue
+		}
+
+		index++
 		if pubkey.Equals(*g.Pubkey) {
-			return i
+			return index
 		}
 	}
 	return -1
