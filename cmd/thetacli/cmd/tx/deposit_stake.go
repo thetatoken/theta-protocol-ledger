@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/thetatoken/theta/crypto"
 
@@ -57,9 +58,6 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		},
 		Sequence: uint64(seqFlag),
 	}
-	holder := types.TxOutput{
-		Address: common.HexToAddress(holderFlag),
-	}
 
 	depositStakeTx := &types.DepositStakeTxV2{
 		Fee: types.Coins{
@@ -67,28 +65,37 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 			TFuelWei: fee,
 		},
 		Source:  source,
-		Holder:  holder,
 		Purpose: purposeFlag,
 	}
 
-	// Add bls key/pop.
-	if purposeFlag == core.StakeForGuardian && guardianKeyFlag != "" {
-		if len(guardianKeyFlag) != 418 {
-			utils.Error("Guardian key is invalid")
+	// Parse holder flag.
+	var holderAddress common.Address
+	if purposeFlag == core.StakeForValidator {
+		if len(holderFlag) != 40 && len(holderFlag) != 42 {
+			utils.Error("holder must be a valid address")
 		}
-		guardianKeyBytes, err := hex.DecodeString(guardianKeyFlag)
+		holderAddress = common.HexToAddress(holderFlag)
+	} else {
+		if strings.HasPrefix(holderFlag, "0x") {
+			holderFlag = holderFlag[2:]
+		}
+		if len(holderFlag) != 458 {
+			utils.Error("Holder must be a valid guardian address")
+		}
+		guardianKeyBytes, err := hex.DecodeString(holderFlag)
 		if err != nil {
-			utils.Error("Failed to decode guaridan key: %v\n", err)
+			utils.Error("Failed to decode guaridan address: %v\n", err)
 		}
-		blsPubkey, err := bls.PublicKeyFromBytes(guardianKeyBytes[:48])
+		holderAddress = common.BytesToAddress(guardianKeyBytes[:20])
+		blsPubkey, err := bls.PublicKeyFromBytes(guardianKeyBytes[20:68])
 		if err != nil {
 			utils.Error("Failed to decode bls Pubkey: %v\n", err)
 		}
-		blsPop, err := bls.SignatureFromBytes(guardianKeyBytes[48:144])
+		blsPop, err := bls.SignatureFromBytes(guardianKeyBytes[68:164])
 		if err != nil {
 			utils.Error("Failed to decode bls POP: %v\n", err)
 		}
-		holderSig, err := crypto.SignatureFromBytes(guardianKeyBytes[144:])
+		holderSig, err := crypto.SignatureFromBytes(guardianKeyBytes[164:])
 		if err != nil {
 			utils.Error("Failed to decode signature: %v\n", err)
 		}
@@ -96,6 +103,10 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		depositStakeTx.BlsPubkey = blsPubkey
 		depositStakeTx.BlsPop = blsPop
 		depositStakeTx.HolderSig = holderSig
+	}
+
+	depositStakeTx.Holder = types.TxOutput{
+		Address: holderAddress,
 	}
 
 	sig, err := wallet.Sign(sourceAddress, depositStakeTx.SignBytes(chainIDFlag))
@@ -131,7 +142,6 @@ func init() {
 	depositStakeCmd.Flags().StringVar(&stakeInThetaFlag, "stake", "5000000", "Theta amount to stake")
 	depositStakeCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	depositStakeCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
-	depositStakeCmd.Flags().StringVar(&guardianKeyFlag, "guardian_key", "", "Holder's guardian key")
 
 	depositStakeCmd.MarkFlagRequired("chain")
 	depositStakeCmd.MarkFlagRequired("source")

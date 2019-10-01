@@ -68,7 +68,7 @@ func doGuardianCmd(cmd *cobra.Command, args []string) {
 		BlsPop:    blsPop,
 		Signature: sig,
 	}
-	output.Summary = blsPubkey + blsPop + sig
+	output.Summary = address + blsPubkey + blsPop + sig
 	json, err := json.MarshalIndent(output, "", "    ")
 	if err != nil {
 		utils.Error("Failed to parse server response: %v\n%v\n", err, string(json))
