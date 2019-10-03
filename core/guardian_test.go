@@ -108,13 +108,13 @@ func TestGuardianPool(t *testing.T) {
 
 	toWithdrawnPub := pool.SortedGuardians[3].Pubkey
 	nextPub := pool.SortedGuardians[4].Pubkey
-	require.Equal(3, pool.Index(toWithdrawnPub))
-	require.Equal(4, pool.Index(nextPub))
+	require.Equal(3, pool.WithStake().Index(toWithdrawnPub))
+	require.Equal(4, pool.WithStake().Index(nextPub))
 	pool.SortedGuardians[3].Stakes[0].Withdrawn = true
 	// Should return -1 for withdrawn guardian.
-	require.Equal(-1, pool.Index(toWithdrawnPub))
+	require.Equal(-1, pool.WithStake().Index(toWithdrawnPub))
 	// Should skip withdrawn guardian.
-	require.Equal(3, pool.Index(nextPub))
+	require.Equal(3, pool.WithStake().Index(nextPub))
 }
 
 func TestAggregateVote(t *testing.T) {

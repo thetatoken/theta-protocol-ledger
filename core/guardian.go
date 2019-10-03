@@ -30,7 +30,7 @@ func NewAggregateVotes(block common.Hash, gcp *GuardianCandidatePool) *Aggregate
 	return &AggregatedVotes{
 		Block:      block,
 		Gcp:        gcp.Hash(),
-		Multiplies: make([]uint32, gcp.Len()),
+		Multiplies: make([]uint32, gcp.WithStake().Len()),
 		Signature:  bls.NewAggregateSignature(),
 	}
 }
@@ -97,10 +97,10 @@ func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 	if gcp.Hash() != a.Gcp {
 		return result.Error("gcp hash mismatch: gcp.Hash(): %s, vote.Gcp: %s", gcp.Hash().Hex(), a.Gcp.Hex())
 	}
-	if len(a.Multiplies) != gcp.Len() {
-		return result.Error("multiplies size %d is not equal to gcp size %d", len(a.Multiplies), gcp.Len())
+	if len(a.Multiplies) != gcp.WithStake().Len() {
+		return result.Error("multiplies size %d is not equal to gcp size %d", len(a.Multiplies), gcp.WithStake().Len())
 	}
-	pubKeys := gcp.PubKeys()
+	pubKeys := gcp.WithStake().PubKeys()
 	aggPubkey := bls.AggregatePublicKeysVec(pubKeys, a.Multiplies)
 	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
 		return result.Error("signature verification failed")
@@ -166,7 +166,7 @@ func (gcp *GuardianCandidatePool) Remove(g common.Address) bool {
 	return true
 }
 
-// Contains checks if givin address is in the pool.
+// Contains checks if given address is in the pool.
 func (gcp *GuardianCandidatePool) Contains(g common.Address) bool {
 	k := sort.Search(gcp.Len(), func(i int) bool {
 		return bytes.Compare(gcp.SortedGuardians[i].Holder.Bytes(), g.Bytes()) >= 0
@@ -178,9 +178,9 @@ func (gcp *GuardianCandidatePool) Contains(g common.Address) bool {
 	return true
 }
 
-// Index returns index of a public key in the pool. Returns -1 if not found.
-func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
-	index := -1
+// WithStake returns a new pool with withdrawn guardians filtered out.
+func (gcp *GuardianCandidatePool) WithStake() *GuardianCandidatePool {
+	ret := NewGuardianCandidatePool()
 	for _, g := range gcp.SortedGuardians {
 		// Skip if guardian dons't have non-withdrawn stake
 		hasStake := false
@@ -194,9 +194,16 @@ func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
 			continue
 		}
 
-		index++
+		ret.Add(g)
+	}
+	return ret
+}
+
+// Index returns index of a public key in the pool. Returns -1 if not found.
+func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
+	for i, g := range gcp.SortedGuardians {
 		if pubkey.Equals(*g.Pubkey) {
-			return index
+			return i
 		}
 	}
 	return -1

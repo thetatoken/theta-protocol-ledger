@@ -42,8 +42,6 @@ func (g *GuardianEngine) IsGuardian() bool {
 }
 
 func (g *GuardianEngine) StartNewBlock(block common.Hash) {
-	g.logger.WithFields(log.Fields{"block": block.Hex()}).Debug("Starting new block")
-
 	g.block = block
 
 	gcp, err := g.engine.GetLedger().GetFinalizedGuardianCandidatePool(block)
@@ -53,7 +51,7 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 	}
 	g.gcp = gcp
 	g.gcpHash = gcp.Hash()
-	g.signerIndex = gcp.Index(g.privKey.PublicKey())
+	g.signerIndex = gcp.WithStake().Index(g.privKey.PublicKey())
 
 	if !g.IsGuardian() {
 		return
