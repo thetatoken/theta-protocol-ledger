@@ -28,7 +28,6 @@ type MessageConsumer interface {
 
 type Headers struct {
 	HeaderArray []*core.BlockHeader
-	Count       int
 }
 
 var _ p2p.MessageHandler = (*SyncManager)(nil)
@@ -275,7 +274,6 @@ func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers
 			}).Debug("Failed to find block with given hash")
 			return Headers{
 				HeaderArray: ret,
-				Count:       len(ret),
 			}
 		}
 		ret = append(ret, block.BlockHeader)
@@ -294,7 +292,6 @@ func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers
 					}).Debug("Failed to load block")
 					return Headers{
 						HeaderArray: ret,
-						Count:       len(ret),
 					}
 				}
 				if block.Status.IsFinalized() {
@@ -318,7 +315,6 @@ func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers
 
 	return Headers{
 		HeaderArray: ret,
-		Count:       len(ret),
 	}
 }
 
@@ -350,10 +346,13 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		payload, err := rlp.EncodeToBytes(headers)
 		if err != nil {
 			m.logger.WithFields(log.Fields{
+				"err":          err,
 				"headerHashes": blocks,
 				"peerID":       peerID,
 			}).Error("Failed to encode headers")
-			return
+		} else {
+			hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
+			m.dispatcher.SendData([]string{peerID}, hresp)
 		}
 		// Send Inventory response. compatible with outdated nodes
 		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
@@ -363,9 +362,6 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 			"peerID":            peerID,
 		}).Debug("Sending inventory response")
 		m.dispatcher.SendInventory([]string{peerID}, resp)
-
-		hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
-		m.dispatcher.SendData([]string{peerID}, hresp)
 	default:
 		m.logger.WithFields(log.Fields{"channelID": req.ChannelID}).Warn("Unsupported channelID in received InvRequest")
 	}
@@ -428,46 +424,10 @@ func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequ
 			}).Debug("Sending requested block")
 			m.dispatcher.SendData([]string{peerID}, data)
 		}
-	case common.ChannelIDHeader:
-		m.handleHeaderRequest(peerID, data)
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
 		}).Warn("Unsupported channelID in received DataRequest")
-	}
-}
-
-func (m *SyncManager) handleHeaderRequest(peerID string, data *dispatcher.DataRequest) {
-	for _, hashStr := range data.Entries {
-		hash := common.HexToHash(hashStr)
-		block, err := m.chain.FindBlock(hash)
-		if err != nil {
-			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"hashStr":   hashStr,
-				"err":       err,
-				"peerID":    peerID,
-			}).Debug("Failed to find hash string locally in handleHeaderRequest")
-			return
-		}
-		payload, err := rlp.EncodeToBytes(block.Block.BlockHeader)
-		if err != nil {
-			m.logger.WithFields(log.Fields{
-				"block":  block,
-				"peerID": peerID,
-			}).Error("Failed to encode block")
-			return
-		}
-		data := dispatcher.DataResponse{
-			ChannelID: common.ChannelIDBlock,
-			Payload:   payload,
-		}
-		m.logger.WithFields(log.Fields{
-			"channelID": data.ChannelID,
-			"hashStr":   hashStr,
-			"peerID":    peerID,
-		}).Debug("Sending requested block")
-		m.dispatcher.SendData([]string{peerID}, data)
 	}
 }
 
@@ -573,18 +533,15 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode HeaderResponse payload")
 			return
 		}
-		blocks := make([]*core.Block, headers.Count)
 		for _, header := range headers.HeaderArray {
-			block := core.NewBlock()
-			block.BlockHeader = header
-			blocks = append(blocks, block)
 			m.logger.WithFields(log.Fields{
-				"block.Hash":   block.Hash().Hex(),
-				"block.Parent": block.Parent.Hex(),
-				"peer":         peerID,
-			}).Debug("Received block")
+				"header.Hash":   header.Hash().Hex(),
+				"header.Parent": header.Parent.Hex(),
+				"header.Height": header.Height,
+				"peer":          peerID,
+			}).Debug("Received header")
+			m.handleHeader(header, []string{peerID})
 		}
-		m.handleHeader(blocks)
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
@@ -601,31 +558,49 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 	sm.handleBlock(p.Block)
 }
 
-func (sm *SyncManager) handleHeader(blocks []*core.Block) {
-	for _, block := range blocks {
-		if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
-			continue
-		}
-
-		if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
-			if hash != block.Hash().Hex() {
-				continue
-			}
-		}
-		sm.requestMgr.AddHeader(block.BlockHeader)
+func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
+	if eb, err := sm.chain.FindBlock(header.Hash()); err == nil && !eb.Status.IsPending() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   header.Hash().String(),
+			"block height": header.Height,
+		}).Debug("block is already in chain")
+		return
 	}
+
+	if hash, ok := core.HardcodeBlockHashes[header.Height]; ok {
+		if hash != header.Hash().Hex() {
+			sm.logger.WithFields(log.Fields{
+				"block hash":   header.Hash().String(),
+				"block height": header.Height,
+			}).Debug("hardcoded block")
+			return
+		}
+	}
+	sm.requestMgr.AddHeader(header, peerID)
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   block.Hash().String(),
+			"block height": block.Height,
+		}).Debug("block is already in chain")
 		return
 	}
 
 	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
 		if hash != block.Hash().Hex() {
+			sm.logger.WithFields(log.Fields{
+				"block hash":   block.Hash().String(),
+				"block height": block.Height,
+			}).Debug("hardcoded block")
 			return
 		}
 	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   block.Hash().String(),
+			"block height": block.Height,
+		}).Debug("chain ID is invalid")
 		return
 	}
 

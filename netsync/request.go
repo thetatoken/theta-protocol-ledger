@@ -67,14 +67,27 @@ func (pb *PendingBlock) UpdateTimestamp() {
 
 type HeaderHeap []*PendingBlock
 
-func (h HeaderHeap) Len() int            { return len(h) }
-func (h HeaderHeap) Less(i, j int) bool  { return h[i].header.Height < h[j].header.Height }
-func (h HeaderHeap) Swap(i, j int)       { h[i], h[j] = h[j], h[i] }
-func (h *HeaderHeap) Push(x interface{}) { *h = append(*h, x.(*PendingBlock)) }
+func (h HeaderHeap) Len() int { return len(h) }
+func (h HeaderHeap) Less(i, j int) bool {
+	if h[i].header != nil && h[j].header != nil {
+		return h[i].header.Height < h[j].header.Height
+	}
+	return i < j
+}
+
+func (h HeaderHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+func (h *HeaderHeap) Push(x interface{}) {
+	*h = append(*h, x.(*PendingBlock))
+}
+
 func (h *HeaderHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	x := old[n-1]
+	old[n-1] = nil
 	*h = old[0 : n-1]
 	return x
 }
@@ -208,7 +221,6 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
-
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
@@ -248,7 +260,7 @@ func (rm *RequestManager) downloadBlockFromHash(quota int) {
 			elToRemove = append(elToRemove, curr)
 			continue
 		}
-		if pendingBlock.header != nil {
+		if pendingBlock.header != nil || pendingBlock.block != nil {
 			continue
 		}
 		if len(pendingBlock.peers) == 0 {
@@ -265,14 +277,13 @@ func (rm *RequestManager) downloadBlockFromHash(quota int) {
 				"channelID":       request.ChannelID,
 				"request.Entries": request.Entries,
 				"peer":            randomPeerID,
-			}).Debug("Sending data request")
+			}).Debug("Sending data request from hash")
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingDataResp
 			quota--
 		}
 	}
-
 	for _, el := range elToRemove {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
@@ -285,14 +296,17 @@ func (rm *RequestManager) downloadBlockFromHash(quota int) {
 
 //download block from header
 func (rm *RequestManager) downloadBlockFromHeader(quota int) {
-	backup := &HeaderHeap{}
+	backup := HeaderHeap{}
+	elToRemove := []*list.Element{}
 	for rm.pendingBlocksWithHeader.Len() > 0 && quota != 0 {
 		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
 		if pendingBlock.HasExpired() {
-			pendingBlock.header = nil
+			if el, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; ok {
+				elToRemove = append(elToRemove, el)
+			}
 			continue
 		}
-		if pendingBlock.block != nil {
+		if _, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; !ok || pendingBlock.block != nil {
 			continue
 		}
 		if len(pendingBlock.peers) == 0 {
@@ -309,15 +323,27 @@ func (rm *RequestManager) downloadBlockFromHeader(quota int) {
 				"channelID":       request.ChannelID,
 				"request.Entries": request.Entries,
 				"peer":            randomPeerID,
-			}).Debug("Sending data request")
+				"height":          pendingBlock.header.Height,
+				"headerhash":      pendingBlock.header.Hash().String(),
+			}).Debug("Sending data request from header")
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingBodyResp
 			quota--
 		}
-		heap.Push(backup, pendingBlock)
+		backup = append(backup, pendingBlock)
 	}
-	rm.pendingBlocksWithHeader = backup
+	for _, header := range backup {
+		heap.Push(rm.pendingBlocksWithHeader, header)
+	}
+	for _, el := range elToRemove {
+		pendingBlock := el.Value.(*PendingBlock)
+		hash := pendingBlock.hash.Hex()
+		rm.logger.WithFields(log.Fields{
+			"block": hash,
+		}).Debug("Removing outdated block")
+		rm.removeEl(el)
+	}
 }
 
 func (rm *RequestManager) removeEl(el *list.Element) {
@@ -345,7 +371,11 @@ func (rm *RequestManager) removeEl(el *list.Element) {
 			}
 		}
 	}
-
+	//remove from heap
+	// if pendingBlock.header != nil {
+	// 	rm.pendingBlocksWithHeader.Delete(pendingBlock)
+	// 	heap.Init(rm.pendingBlocksWithHeader)
+	// }
 	rm.pendingBlocks.Remove(el)
 }
 
@@ -387,7 +417,7 @@ func (rm *RequestManager) addHash(x common.Hash, peerIDs []string) {
 	}
 }
 
-func (rm *RequestManager) AddHeader(header *core.BlockHeader) {
+func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -396,14 +426,16 @@ func (rm *RequestManager) AddHeader(header *core.BlockHeader) {
 		return
 	}
 	if _, ok := rm.pendingBlocksByHash[header.Hash().String()]; !ok {
-		rm.addHash(header.Hash(), []string{})
+		rm.addHash(header.Hash(), peerIDs)
 	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[header.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
-		pendingBlock.header = header
-		pendingBlock.status = RequestToSendBodyReq
+		if pendingBlock.header == nil {
+			pendingBlock.header = header
+			pendingBlock.status = RequestToSendBodyReq
+			heap.Push(rm.pendingBlocksWithHeader, pendingBlock)
+		}
 	}
-	heap.Push(rm.pendingBlocksWithHeader, header)
 }
 
 func (rm *RequestManager) AddBlock(block *core.Block) {
@@ -416,11 +448,29 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		//check txHash with header
-		if pendingBlock.header != nil && core.CalculateRootHash(block.Txs) != pendingBlock.header.TxHash {
-			rm.logger.WithFields(log.Fields{
-				"pending block hash": pendingBlock.hash.Hex(),
-			}).Info("TxHash doesn't match with header ")
-			return
+		if pendingBlock.header != nil {
+			if pendingBlock.header.Hash() != pendingBlock.hash {
+				rm.logger.WithFields(log.Fields{
+					"pending block hash":          pendingBlock.hash.String(),
+					"pending block header hash":   pendingBlock.header.Hash().String(),
+					"pending block header Height": pendingBlock.header.Height,
+				}).Info("pendingblock.hash doesn't match with pendingblock.header.hash")
+				rm.removeEl(pendingBlockEl)
+				return
+			}
+			downloadBlockTxHash := core.CalculateRootHash(block.Txs)
+			if downloadBlockTxHash != pendingBlock.header.TxHash {
+				rm.logger.WithFields(log.Fields{
+					"pending block hash":                 pendingBlock.hash.String(),
+					"pending block header txHash":        pendingBlock.header.TxHash.String(),
+					"pending block header Height":        pendingBlock.header.Height,
+					"download block hash":                block.Hash().String(),
+					"downloaded block Calculated txHash": downloadBlockTxHash.String(),
+					"downloaded block Height":            block.Height,
+				}).Info("TxHash doesn't match with header ")
+				rm.removeEl(pendingBlockEl)
+				return
+			}
 		}
 		pendingBlock.block = block
 	}
@@ -505,11 +555,11 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 		}
 
 		rm.chain.AddBlock(block)
-
-		queueHash := []string{}
-		for _, b := range queue {
-			queueHash = append(queueHash, b.Hash().Hex())
-		}
+		// TODO: what is queueHash doing here? log?
+		// queueHash := []string{}
+		// for _, b := range queue {
+		// 	queueHash = append(queueHash, b.Hash().Hex())
+		// }
 		rm.syncMgr.PassdownMessage(block)
 	}
 }
