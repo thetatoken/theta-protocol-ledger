@@ -47,6 +47,7 @@ func init() {
 	RootCmd.AddCommand(query.QueryCmd)
 	RootCmd.AddCommand(call.CallCmd)
 	RootCmd.AddCommand(backup.BackupCmd)
+	RootCmd.AddCommand(versionCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.
