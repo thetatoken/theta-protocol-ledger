@@ -1,0 +1,12 @@
+# Theta configuration
+genesis:
+  hash: "0x1e58bb5dc3be6d2889c76661173abe1dea5be639a655ea2e3f7b1eddda6f3206"
+storage:
+  statePruningRetainedBlocks: 128
+p2p:
+  port: 28888
+  seeds: SEED
+rpc:
+  enabled: true
+log:
+  levels: "*:info,guardian:debug"
