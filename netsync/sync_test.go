@@ -81,10 +81,11 @@ func TestSyncManager(t *testing.T) {
 	net2.RegisterMessageHandler(mockMsgHandler)
 	simnet.Start(context.Background())
 
+	privKey, _, _ := crypto.GenerateKeyPair()
 	valMgr := consensus.NewFixedValidatorManager()
 	db := kvstore.NewKVStore(backend.NewMemDatabase())
 	dispatch := dispatcher.NewDispatcher(net1, nil)
-	consensus := consensus.NewConsensusEngine(nil, db, initChain, dispatch, valMgr)
+	consensus := consensus.NewConsensusEngine(privKey, db, initChain, dispatch, valMgr)
 	mockMsgConsumer := NewMockMessageConsumer()
 
 	sm := NewSyncManager(initChain, consensus, net1, nil, dispatch, mockMsgConsumer)

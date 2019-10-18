@@ -397,4 +397,7 @@ const (
 
 	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
 	ChannelIDPing
+
+	// ChannelIDGurdian indicates the channel for Guardian messages between peers
+	ChannelIDGuardian
 )

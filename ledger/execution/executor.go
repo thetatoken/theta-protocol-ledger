@@ -174,6 +174,8 @@ func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
 		txExecutor = exec.depositStakeTxExec
 	case *types.WithdrawStakeTx:
 		txExecutor = exec.withdrawStakeTxExec
+	case *types.DepositStakeTxV2:
+		txExecutor = exec.depositStakeTxExec
 	default:
 		txExecutor = nil
 	}

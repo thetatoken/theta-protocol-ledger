@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
@@ -404,6 +408,83 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	}
 
 	result.BlockHashVcpPairs = blockHashVcpPairs
+
+	return nil
+}
+
+// ------------------------------ GetGcp -----------------------------------
+
+type GetGcpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetGcpResult struct {
+	BlockHashGcpPairs []BlockHashGcpPair
+}
+
+type BlockHashGcpPair struct {
+	BlockHash common.Hash
+	Gcp       *core.GuardianCandidatePool
+}
+
+func (t *ThetaRPCService) GetGcpByHeight(args *GetGcpByHeightArgs, result *GetGcpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashGcpPairs := []BlockHashGcpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the GCP for height %v does not exists, it might have been pruned", height)
+		}
+		gcp := blockStoreView.GetGuardianCandidatePool()
+		blockHashGcpPairs = append(blockHashGcpPairs, BlockHashGcpPair{
+			BlockHash: blockHash,
+			Gcp:       gcp,
+		})
+	}
+
+	result.BlockHashGcpPairs = blockHashGcpPairs
+
+	return nil
+}
+
+// ------------------------------ GetGuardianKey -----------------------------------
+
+type GetGuardianInfoArgs struct{}
+
+type GetGuardianInfoResult struct {
+	BLSPubkey string
+	BLSPop    string
+	Address   string
+	Signature string
+}
+
+func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *GetGuardianInfoResult) (err error) {
+	privKey := t.consensus.PrivateKey()
+	blsKey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(privKey.PublicKey().ToBytes())))
+	if err != nil {
+		return fmt.Errorf("Failed to get BLS key: %v", err.Error())
+	}
+
+	result.Address = privKey.PublicKey().Address().Hex()
+	result.BLSPubkey = hex.EncodeToString(blsKey.PublicKey().ToBytes())
+	popBytes := blsKey.PopProve().ToBytes()
+	result.BLSPop = hex.EncodeToString(popBytes)
+
+	sig, err := privKey.Sign(popBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to generate signature: %v", err.Error())
+	}
+	result.Signature = hex.EncodeToString(sig.ToBytes())
 
 	return nil
 }

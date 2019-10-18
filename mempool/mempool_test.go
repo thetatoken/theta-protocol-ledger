@@ -494,6 +494,10 @@ func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, nil
 }
 
+func (tl *TestLedger) GetFinalizedGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
+	return nil, nil
+}
+
 func (tl *TestLedger) PruneState(endHeight uint64) error {
 	return nil
 }
