@@ -14,6 +14,7 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
 	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2pl"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
 )
@@ -26,7 +27,7 @@ type MessageConsumer interface {
 	AddMessage(interface{})
 }
 
-var _ p2p.MessageHandler = (*SyncManager)(nil)
+var _ p2pl.MessageHandler = (*SyncManager)(nil)
 
 // SyncManager is an intermediate layer between consensus engine and p2p network. Its main responsibilities are to manage
 // fast blocks sync among peers and buffer orphaned block/CC. Otherwise messages are passed through to consensus engine.
@@ -51,7 +52,7 @@ type SyncManager struct {
 	voteCache *lru.Cache // Cache for votes
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2p.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
 	voteCache, _ := lru.New(voteCacheLimit)
 	sm := &SyncManager{
 		chain:      chain,
@@ -65,7 +66,10 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network 
 		voteCache: voteCache,
 	}
 	sm.requestMgr = NewRequestManager(sm)
-	network.RegisterMessageHandler(sm)
+	networkOld.RegisterMessageHandler(sm)
+	if network != nil {
+		network.RegisterMessageHandler(sm)
+	}
 
 	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
 		sm.whitelist = strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")

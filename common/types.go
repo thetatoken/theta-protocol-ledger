@@ -354,6 +354,15 @@ func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
 
+type MessageIDEnum uint8
+
+const (
+	MessageIDInvRequest MessageIDEnum = iota
+	MessageIDInvResponse
+	MessageIDDataRequest
+	MessageIDDataResponse
+)
+
 // ChannelIDEnum defines the channelID for different type of data for synchronization among blockchain nodes
 type ChannelIDEnum byte
 

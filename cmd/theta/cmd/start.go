@@ -17,7 +17,8 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
-	"github.com/thetatoken/theta/p2p/messenger"
+	msg "github.com/thetatoken/theta/p2p/messenger"
+	msgl "github.com/thetatoken/theta/p2pl/messenger"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/version"
@@ -36,18 +37,21 @@ func init() {
 }
 
 func runStart(cmd *cobra.Command, args []string) {
-	port := viper.GetInt(common.CfgP2PPort)
+	portOld := viper.GetInt(common.CfgP2PPort)
+	port := viper.GetInt(common.CfgP2PLPort)
 
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
 	}
-	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+	peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
+	networkOld := newMessengerOld(privKey, peerSeedsOld, portOld)
 	network := newMessenger(privKey, peerSeeds, port)
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
@@ -73,6 +77,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		ChainID:             root.ChainID,
 		PrivateKey:          privKey,
 		Root:                root,
+		NetworkOld:			 networkOld,
 		Network:             network,
 		DB:                  db,
 		SnapshotPath:        snapshotPath,
@@ -198,14 +203,27 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	return nodePrivKey, nil
 }
 
-func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *messenger.Messenger {
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *msgl.Messenger {
+	log.WithFields(log.Fields{
+		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
+		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
+	}).Info("Using key:")
+	msgrConfig := msgl.GetDefaultMessengerConfig()
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig, true)
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance.")
+	}
+	return messenger
+}
+
+func newMessengerOld(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *msg.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key")
-	msgrConfig := messenger.GetDefaultMessengerConfig()
+	msgrConfig := msg.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := msg.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
 	}

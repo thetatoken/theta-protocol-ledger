@@ -16,6 +16,7 @@ import (
 	mp "github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2pl"
 	"github.com/thetatoken/theta/rpc"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store"
@@ -46,7 +47,8 @@ type Params struct {
 	ChainID             string
 	PrivateKey          *crypto.PrivateKey
 	Root                *core.Block
-	Network             p2p.Network
+	NetworkOld          p2p.Network
+	Network             p2pl.Network
 	DB                  database.Database
 	SnapshotPath        string
 	ChainImportDirPath  string
@@ -57,10 +59,10 @@ func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewRotatingValidatorManager()
-	dispatcher := dp.NewDispatcher(params.Network)
+	dispatcher := dp.NewDispatcher(params.NetworkOld, params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
-	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
+	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
 
@@ -69,6 +71,7 @@ func NewNode(params *Params) *Node {
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	params.Network.RegisterMessageHandler(txMsgHandler)
+	params.NetworkOld.RegisterMessageHandler(txMsgHandler)
 
 	currentHeight := consensus.GetLastFinalizedBlock().Height
 	if currentHeight <= params.Root.Height {
