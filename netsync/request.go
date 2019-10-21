@@ -23,6 +23,7 @@ const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 30 * time.Second
 const RequestQuotaPerSecond = 100
+const MaxBlocksPerRequest = 8
 
 type RequestState uint8
 
@@ -298,6 +299,9 @@ func (rm *RequestManager) downloadBlockFromHash(quota int) {
 func (rm *RequestManager) downloadBlockFromHeader(quota int) {
 	backup := HeaderHeap{}
 	elToRemove := []*list.Element{}
+	peerMap := make(map[string][]string)
+	var blockBuffer []string
+	var ok bool
 	for rm.pendingBlocksWithHeader.Len() > 0 && quota != 0 {
 		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
 		if pendingBlock.HasExpired() {
@@ -315,23 +319,26 @@ func (rm *RequestManager) downloadBlockFromHeader(quota int) {
 		if pendingBlock.status == RequestToSendBodyReq ||
 			(pendingBlock.status == RequestWaitingBodyResp && pendingBlock.HasTimedOut()) {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
-			request := dispatcher.DataRequest{
-				ChannelID: common.ChannelIDBlock,
-				Entries:   []string{pendingBlock.hash.String()},
+			if blockBuffer, ok = peerMap[randomPeerID]; !ok {
+				blockBuffer = []string{}
 			}
-			rm.logger.WithFields(log.Fields{
-				"channelID":       request.ChannelID,
-				"request.Entries": request.Entries,
-				"peer":            randomPeerID,
-				"height":          pendingBlock.header.Height,
-				"headerhash":      pendingBlock.header.Hash().String(),
-			}).Debug("Sending data request from header")
-			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
+			blockBuffer := append(blockBuffer, pendingBlock.hash.String())
+			if len(blockBuffer) == MaxBlocksPerRequest {
+				rm.sendBlocksRequest(randomPeerID, blockBuffer)
+				blockBuffer = []string{}
+			}
+			peerMap[randomPeerID] = blockBuffer
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingBodyResp
 			quota--
 		}
 		backup = append(backup, pendingBlock)
+	}
+	// send block requests for every peer in map
+	for k, v := range peerMap {
+		if len(v) > 0 {
+			rm.sendBlocksRequest(k, v)
+		}
 	}
 	for _, header := range backup {
 		heap.Push(rm.pendingBlocksWithHeader, header)
@@ -344,6 +351,19 @@ func (rm *RequestManager) downloadBlockFromHeader(quota int) {
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}
+}
+
+func (rm *RequestManager) sendBlocksRequest(peerID string, entries []string) {
+	request := dispatcher.DataRequest{
+		ChannelID: common.ChannelIDBlock,
+		Entries:   entries,
+	}
+	rm.logger.WithFields(log.Fields{
+		"channelID":       request.ChannelID,
+		"request.Entries": request.Entries,
+		"peer":            peerID,
+	}).Debug("Sending data request from header")
+	rm.syncMgr.dispatcher.GetData([]string{peerID}, request)
 }
 
 func (rm *RequestManager) removeEl(el *list.Element) {
@@ -371,11 +391,6 @@ func (rm *RequestManager) removeEl(el *list.Element) {
 			}
 		}
 	}
-	//remove from heap
-	// if pendingBlock.header != nil {
-	// 	rm.pendingBlocksWithHeader.Delete(pendingBlock)
-	// 	heap.Init(rm.pendingBlocksWithHeader)
-	// }
 	rm.pendingBlocks.Remove(el)
 }
 

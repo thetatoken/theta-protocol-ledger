@@ -30,6 +30,10 @@ type Headers struct {
 	HeaderArray []*core.BlockHeader
 }
 
+type Blocks struct {
+	BlockArray []*core.Block
+}
+
 var _ p2p.MessageHandler = (*SyncManager)(nil)
 
 // SyncManager is an intermediate layer between consensus engine and p2p network. Its main responsibilities are to manage
@@ -392,43 +396,82 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequest) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
-		for _, hashStr := range data.Entries {
-			hash := common.HexToHash(hashStr)
-			block, err := m.chain.FindBlock(hash)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"channelID": data.ChannelID,
-					"hashStr":   hashStr,
-					"err":       err,
-					"peerID":    peerID,
-				}).Debug("Failed to find hash string locally")
-				return
+		if len(data.Entries) == 1 { // compatible with old version
+			m.sendSingleBlock(peerID, data.Entries[0], data.ChannelID)
+		} else {
+			blocks := &Blocks{}
+			for _, hashStr := range data.Entries {
+				hash := common.HexToHash(hashStr)
+				block, err := m.chain.FindBlock(hash)
+				if err != nil {
+					m.logger.WithFields(log.Fields{
+						"channelID": data.ChannelID,
+						"hashStr":   hashStr,
+						"err":       err,
+						"peerID":    peerID,
+					}).Debug("Failed to find hash string locally")
+					return
+				}
+				blocks.BlockArray = append(blocks.BlockArray, block.Block)
 			}
-
-			payload, err := rlp.EncodeToBytes(block.Block)
+			payload, err := rlp.EncodeToBytes(blocks)
 			if err != nil {
 				m.logger.WithFields(log.Fields{
-					"block":  block,
+					"blocks": len(blocks.BlockArray),
 					"peerID": peerID,
 				}).Error("Failed to encode block")
 				return
 			}
-			data := dispatcher.DataResponse{
+			sendData := dispatcher.DataResponse{
 				ChannelID: common.ChannelIDBlock,
 				Payload:   payload,
 			}
 			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"hashStr":   hashStr,
-				"peerID":    peerID,
+				"channelID":     sendData.ChannelID,
+				"start hashStr": blocks.BlockArray[0].Hash().String(),
+				"amount":        len(blocks.BlockArray),
+				"peerID":        peerID,
 			}).Debug("Sending requested block")
-			m.dispatcher.SendData([]string{peerID}, data)
+			m.dispatcher.SendData([]string{peerID}, sendData)
 		}
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
 		}).Warn("Unsupported channelID in received DataRequest")
 	}
+}
+
+func (m *SyncManager) sendSingleBlock(peerID string, hashStr string, channelID common.ChannelIDEnum) {
+	hash := common.HexToHash(hashStr)
+	block, err := m.chain.FindBlock(hash)
+	if err != nil {
+		m.logger.WithFields(log.Fields{
+			"channelID": channelID,
+			"hashStr":   hashStr,
+			"err":       err,
+			"peerID":    peerID,
+		}).Debug("Failed to find hash string locally")
+		return
+	}
+
+	payload, err := rlp.EncodeToBytes(block.Block)
+	if err != nil {
+		m.logger.WithFields(log.Fields{
+			"block":  block,
+			"peerID": peerID,
+		}).Error("Failed to encode block")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDBlock,
+		Payload:   payload,
+	}
+	m.logger.WithFields(log.Fields{
+		"channelID": data.ChannelID,
+		"hashStr":   hashStr,
+		"peerID":    peerID,
+	}).Debug("Sending requested block")
+	m.dispatcher.SendData([]string{peerID}, data)
 }
 
 func Fuzz(data []byte) int {
@@ -471,20 +514,34 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 		block := core.NewBlock()
 		err := rlp.DecodeBytes(data.Payload, block)
 		if err != nil {
+			//check if payload is blocks
+			blocks := &Blocks{}
+			err = rlp.DecodeBytes(data.Payload, blocks)
+			if err != nil {
+				m.logger.WithFields(log.Fields{
+					"channelID": data.ChannelID,
+					"payload":   data.Payload,
+					"error":     err,
+					"peerID":    peerID,
+				}).Warn("Failed to decode DataResponse payload")
+				return
+			}
+			for _, block = range blocks.BlockArray {
+				m.logger.WithFields(log.Fields{
+					"block.Hash":   block.Hash().Hex(),
+					"block.Parent": block.Parent.Hex(),
+					"peer":         peerID,
+				}).Debug("Received block")
+				m.handleBlock(block)
+			}
+		} else {
 			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"payload":   data.Payload,
-				"error":     err,
-				"peerID":    peerID,
-			}).Warn("Failed to decode DataResponse payload")
-			return
+				"block.Hash":   block.Hash().Hex(),
+				"block.Parent": block.Parent.Hex(),
+				"peer":         peerID,
+			}).Debug("Received block")
+			m.handleBlock(block)
 		}
-		m.logger.WithFields(log.Fields{
-			"block.Hash":   block.Hash().Hex(),
-			"block.Parent": block.Parent.Hex(),
-			"peer":         peerID,
-		}).Debug("Received block")
-		m.handleBlock(block)
 	case common.ChannelIDVote:
 		vote := core.Vote{}
 		err := rlp.DecodeBytes(data.Payload, &vote)
