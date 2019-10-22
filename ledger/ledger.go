@@ -535,25 +535,20 @@ func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreVi
 	// Note 3: Similarly, should call GetNextValidatorSet() on the hash of the parent block
 	parentBlkHash := block.Parent
 	proposer := ledger.valMgr.GetNextProposer(parentBlkHash, block.Epoch)
-	validators := ledger.valMgr.GetNextValidatorSet(parentBlkHash).Validators()
+	validatorSet := ledger.valMgr.GetNextValidatorSet(parentBlkHash)
 
-	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
+	ledger.addCoinbaseTx(view, &proposer, validatorSet, rawTxs)
 	//ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
 }
 
 // addCoinbaseTx adds a Coinbase transaction
-func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}
 
-	validatorAddresses := make([]common.Address, len(*validators))
-	for idx, validator := range *validators {
-		validatorAddress := validator.Address
-		validatorAddresses[idx] = validatorAddress
-	}
-	accountRewardMap := exec.CalculateReward(view, validatorAddresses)
+	accountRewardMap := exec.CalculateReward(view, validatorSet)
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {
@@ -588,7 +583,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 }
 
 // addsSlashTx adds Slash transactions
-func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,

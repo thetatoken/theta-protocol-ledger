@@ -34,15 +34,20 @@ import (
 // 	return
 // }
 
-// getValidatorAddresses returns validators' addresses
-func getValidatorAddresses(ledger core.Ledger, valMgr core.ValidatorManager) []common.Address {
+// getValidatorAddresses returns the validator set
+func getValidatorSet(ledger core.Ledger, valMgr core.ValidatorManager) *core.ValidatorSet {
 	currentBlock := ledger.GetCurrentBlock()
 	if currentBlock == nil {
 		panic("ledger.currentBlock is nil")
 	}
 	parentBlkHash := currentBlock.Parent
-	validators := valMgr.GetNextValidatorSet(parentBlkHash).Validators()
+	validatorSet := valMgr.GetNextValidatorSet(parentBlkHash)
+	return validatorSet
+}
 
+// getValidatorAddresses returns validators' addresses
+func getValidatorAddresses(validatorSet *core.ValidatorSet) []common.Address {
+	validators := validatorSet.Validators()
 	validatorAddresses := make([]common.Address, len(validators))
 	for i, v := range validators {
 		validatorAddresses[i] = v.Address

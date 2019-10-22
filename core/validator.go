@@ -181,6 +181,15 @@ type ValidatorCandidatePool struct {
 	SortedCandidates []*StakeHolder
 }
 
+func (vcp *ValidatorCandidatePool) FindStakeDelegate(delegateAddr common.Address) *StakeHolder {
+	for _, candidate := range vcp.SortedCandidates {
+		if candidate.Holder == delegateAddr {
+			return candidate
+		}
+	}
+	return nil
+}
+
 func (vcp *ValidatorCandidatePool) GetTopStakeHolders(maxNumStakeHolders int) []*StakeHolder {
 	n := len(vcp.SortedCandidates)
 	if n > maxNumStakeHolders {
