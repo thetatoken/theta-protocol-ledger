@@ -91,6 +91,7 @@ func (s *Stake) UnmarshalJSON(data []byte) error {
 // ------- StakeHolder ------- //
 //
 
+// TODO: Should rename StakeHolder to StakeDelegate
 type StakeHolder struct {
 	Holder common.Address
 	Stakes []*Stake
