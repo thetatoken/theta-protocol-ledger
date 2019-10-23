@@ -19,7 +19,7 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/p2pl"
-
+	/
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -229,13 +229,13 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	}
 
 	// mDns
-	if msgr.needMdns {
-		mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-		if err != nil {
-			return err
-		}
-		mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
-	}
+	// if msgr.needMdns {
+	// 	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	// }
 
 	return nil
 }
