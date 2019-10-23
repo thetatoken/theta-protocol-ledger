@@ -126,6 +126,7 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 		common.ChannelIDProposal,
 		common.ChannelIDCC,
 		common.ChannelIDVote,
+		common.ChannelIDGuardian,
 	}
 }
 
@@ -449,6 +450,25 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":     peerID,
 		}).Debug("Received proposal")
 		m.handleProposal(proposal)
+	case common.ChannelIDGuardian:
+		vote := &core.AggregatedVotes{}
+		err := rlp.DecodeBytes(data.Payload, vote)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode DataResponse payload")
+			return
+		}
+		m.logger.WithFields(log.Fields{
+			"vote.Hash":       vote.Block.Hex(),
+			"vote.GCP":        vote.Gcp.Hex(),
+			"vote.Multiplies": vote.Multiplies,
+			"peer":            peerID,
+		}).Debug("Received guardian vote")
+		m.handleGuardianVote(vote)
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
@@ -519,4 +539,8 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 		Payload:   payload,
 	}
 	sm.dispatcher.SendData([]string{}, msg)
+}
+
+func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
+	sm.PassdownMessage(vote)
 }

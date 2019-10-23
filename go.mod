@@ -27,7 +27,9 @@ require (
 	github.com/mongodb/mongo-go-driver v0.0.17
 	github.com/multiformats/go-multiaddr v0.0.4
 	github.com/pborman/uuid v0.0.0-20180906182336-adf5a7427709
+	github.com/phoreproject/bls v0.0.0-20191016230924-b2e57acce2ed
 	github.com/pkg/errors v0.8.1
+	github.com/prysmaticlabs/prysm v0.0.0-20191018160938-a05dca18c7f7
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
 	github.com/sirupsen/logrus v1.2.0

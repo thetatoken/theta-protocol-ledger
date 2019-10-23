@@ -127,6 +127,33 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
 }
 
+// GetFinalizedGuardianCandidatePool returns the guardian candidate pool of the latest DIRECTLY finalized block
+func (ledger *Ledger) GetFinalizedGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
+	db := ledger.state.DB()
+	store := kvstore.NewKVStore(db)
+
+	for i := 2; i >= 0; i-- {
+		block, err := findBlock(store, blockHash)
+		if err != nil {
+			return nil, err
+		}
+		if block == nil {
+			return nil, fmt.Errorf("Block is nil for hash %v", blockHash.Hex())
+		}
+
+		// Grandparent or root block.
+		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
+			stateRoot := block.BlockHeader.StateHash
+			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			gcp := storeView.GetGuardianCandidatePool()
+			return gcp, nil
+		}
+		blockHash = block.HCC.BlockHash
+	}
+
+	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
+}
+
 func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, error) {
 	var block core.ExtendedBlock
 	err := store.Get(blockHash[:], &block)
@@ -491,10 +518,11 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 // handleDelayedStateUpdates handles delayed state updates, e.g. stake return, where the stake
 // is returned only after X blocks of its corresponding StakeWithdraw transaction
 func (ledger *Ledger) handleDelayedStateUpdates(view *st.StoreView) {
-	ledger.handleStakeReturn(view)
+	ledger.handleValidatorStakeReturn(view)
+	ledger.handleGuardianStakeReturn(view)
 }
 
-func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
+func (ledger *Ledger) handleValidatorStakeReturn(view *st.StoreView) {
 	vcp := view.GetValidatorCandidatePool()
 	if vcp == nil {
 		return
@@ -521,6 +549,35 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 		view.SetAccount(sourceAddress, sourceAccount)
 	}
 	view.UpdateValidatorCandidatePool(vcp)
+}
+
+func (ledger *Ledger) handleGuardianStakeReturn(view *st.StoreView) {
+	gcp := view.GetGuardianCandidatePool()
+	if gcp == nil || gcp.Len() == 0 {
+		return
+	}
+
+	currentHeight := view.Height()
+	returnedStakes := gcp.ReturnStakes(currentHeight)
+
+	for _, returnedStake := range returnedStakes {
+		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
+			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
+		}
+		sourceAddress := returnedStake.Source
+		sourceAccount := view.GetAccount(sourceAddress)
+		if sourceAccount == nil {
+			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
+		}
+		returnedCoins := types.Coins{
+			ThetaWei: returnedStake.Amount,
+			TFuelWei: types.Zero,
+		}
+		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
+		view.SetAccount(sourceAddress, sourceAccount)
+	}
+	view.UpdateGuardianCandidatePool(gcp)
 }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block

@@ -4,6 +4,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
+
+	"github.com/thetatoken/theta/crypto"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -53,18 +58,55 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		},
 		Sequence: uint64(seqFlag),
 	}
-	holder := types.TxOutput{
-		Address: common.HexToAddress(holderFlag),
-	}
 
-	depositStakeTx := &types.DepositStakeTx{
+	depositStakeTx := &types.DepositStakeTxV2{
 		Fee: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
 			TFuelWei: fee,
 		},
 		Source:  source,
-		Holder:  holder,
 		Purpose: purposeFlag,
+	}
+
+	// Parse holder flag.
+	var holderAddress common.Address
+	if purposeFlag == core.StakeForValidator {
+		if len(holderFlag) != 40 && len(holderFlag) != 42 {
+			utils.Error("holder must be a valid address")
+		}
+		holderAddress = common.HexToAddress(holderFlag)
+	} else {
+		if strings.HasPrefix(holderFlag, "0x") {
+			holderFlag = holderFlag[2:]
+		}
+		if len(holderFlag) != 458 {
+			utils.Error("Holder must be a valid guardian address")
+		}
+		guardianKeyBytes, err := hex.DecodeString(holderFlag)
+		if err != nil {
+			utils.Error("Failed to decode guaridan address: %v\n", err)
+		}
+		holderAddress = common.BytesToAddress(guardianKeyBytes[:20])
+		blsPubkey, err := bls.PublicKeyFromBytes(guardianKeyBytes[20:68])
+		if err != nil {
+			utils.Error("Failed to decode bls Pubkey: %v\n", err)
+		}
+		blsPop, err := bls.SignatureFromBytes(guardianKeyBytes[68:164])
+		if err != nil {
+			utils.Error("Failed to decode bls POP: %v\n", err)
+		}
+		holderSig, err := crypto.SignatureFromBytes(guardianKeyBytes[164:])
+		if err != nil {
+			utils.Error("Failed to decode signature: %v\n", err)
+		}
+
+		depositStakeTx.BlsPubkey = blsPubkey
+		depositStakeTx.BlsPop = blsPop
+		depositStakeTx.HolderSig = holderSig
+	}
+
+	depositStakeTx.Holder = types.TxOutput{
+		Address: holderAddress,
 	}
 
 	sig, err := wallet.Sign(sourceAddress, depositStakeTx.SignBytes(chainIDFlag))

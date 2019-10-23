@@ -8,6 +8,8 @@ ENV GOPATH=/go
 
 ENV CGO_ENABLED=1 
 
+ENV GO111MODULE=on
+
 CMD ["/go/src/github.com/thetatoken/theta/integration/build/start.sh"]
 
 

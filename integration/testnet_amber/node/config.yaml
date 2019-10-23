@@ -2,10 +2,11 @@
 genesis:
   hash: "0x1e58bb5dc3be6d2889c76661173abe1dea5be639a655ea2e3f7b1eddda6f3206"
 storage:
-  statePruningRetainedBlocks: 128
+  statePruningRetainedBlocks: 1024
 p2p:
-  port: 28888
-  seeds: SEED
+  port_l: PORT
+  libp2p_rendezvous: theta_testnet_amber
+  libp2p_seeds: /ip4/[VALIDATOR_1_IP]/tcp/[VALIDATOR_1_PORT]/ipfs/12D3KooWDYYjn2eCD3viA8xsE8fhsnhcgptizHiywK8bTfmftpZ6,/ip4/[VALIDATOR_2_IP]/tcp/[VALIDATOR_2_PORT]/ipfs/12D3KooWP7UQM56CoP2ggZNERdQhuJRc8KN1A1iqdPscYJZPsWDZ,/ip4/[VALIDATOR_3_IP]/tcp/[VALIDATOR_3_PORT]/ipfs/12D3KooWAmBXBCRUQmMvzU2Gy48hJRMPPgNtzLVipWz2nUCbcq4C,/ip4/[VALIDATOR_4_IP]/tcp/[VALIDATOR_4_PORT]/ipfs/12D3KooWGK9snBWHR1vXfnGsGFZyRQxLp7z2tPBL29oYAVF1vuPW
 rpc:
   enabled: true
 log:
