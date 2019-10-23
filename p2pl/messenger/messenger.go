@@ -13,7 +13,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
+	// "github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -37,7 +37,7 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
-	"github.com/libp2p/go-libp2p/p2p/discovery"
+	// "github.com/libp2p/go-libp2p/p2p/discovery"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
