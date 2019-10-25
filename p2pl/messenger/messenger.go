@@ -114,7 +114,8 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
-	localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
+	// localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
+	localNetAddress, err := createP2PAddr(fmt.Sprintf("%v:%v", ip, strconv.Itoa(port)), msgrConfig.networkProtocol)
 	if err != nil {
 		return messenger, err
 	}
