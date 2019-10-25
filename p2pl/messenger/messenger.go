@@ -99,7 +99,7 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, ip string, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -118,6 +118,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
+	logger.Infof("------------- localNetAddress: %v", localNetAddress)
 
 	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
