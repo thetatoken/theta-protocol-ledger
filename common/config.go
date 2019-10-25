@@ -29,8 +29,6 @@ const (
 
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
-	// CfgP2PIP is self's public ip
-	CfgP2PIP = "p2p.ip"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.

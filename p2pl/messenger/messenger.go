@@ -99,7 +99,7 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, ip string, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -114,12 +114,10 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
-	// localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
-	localNetAddress, err := createP2PAddr(fmt.Sprintf("%v:%v", ip, strconv.Itoa(port)), msgrConfig.networkProtocol)
+	localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
 	if err != nil {
 		return messenger, err
 	}
-	logger.Infof("------------- localNetAddress: %v", localNetAddress)
 
 	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
@@ -274,6 +272,7 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
 	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
+	logger.Infof("-------- %v", host.Addrs())
 
 	allPeers := msgr.host.Peerstore().Peers()
 
