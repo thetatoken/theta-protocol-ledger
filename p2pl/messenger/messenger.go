@@ -272,7 +272,7 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
 	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
-	logger.Infof("-------- %v", host.Addrs())
+	logger.Infof("-------- %v", msgr.host.Addrs())
 
 	allPeers := msgr.host.Peerstore().Peers()
 
