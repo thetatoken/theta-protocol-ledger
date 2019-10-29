@@ -157,7 +157,6 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
-	logger.Infof("==========>>>>>>> %v", extMultiAddr)
 	addressFactory := func(addrs []ma.Multiaddr) []ma.Multiaddr {
 		if extMultiAddr != nil {
 			addrs = append(addrs, extMultiAddr)
