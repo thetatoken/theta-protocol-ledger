@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
@@ -97,9 +99,36 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 	return multiAddr, nil
 }
 
+func getPublicIP() (string, error) {
+	resp, err := http.Get("http://myexternalip.com/raw")
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				return strings.TrimSpace(string(bodyBytes)), nil
+			}
+		}
+	}
+
+	cmd := exec.Command("bash", "-c", "dig @resolver1.opendns.com ANY myip.opendns.com +short")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	cmd = exec.Command("bash", "-c", "curl -s http://whatismyip.akamai.com/")
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	return "", err
+}
+
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, externalIP string, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -115,6 +144,11 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		return messenger, err
 	}
 	localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
+	if err != nil {
+		return messenger, err
+	}
+
+	externalIP, err := getPublicIP()
 	if err != nil {
 		return messenger, err
 	}
@@ -285,7 +319,6 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
 	logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
-	logger.Infof("-------- %v", msgr.host.Addrs())
 
 	allPeers := msgr.host.Peerstore().Peers()
 
