@@ -84,7 +84,7 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		}
 		guardianKeyBytes, err := hex.DecodeString(holderFlag)
 		if err != nil {
-			utils.Error("Failed to decode guaridan address: %v\n", err)
+			utils.Error("Failed to decode guardian address: %v\n", err)
 		}
 		holderAddress = common.BytesToAddress(guardianKeyBytes[:20])
 		blsPubkey, err := bls.PublicKeyFromBytes(guardianKeyBytes[20:68])

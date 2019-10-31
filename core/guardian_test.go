@@ -56,7 +56,7 @@ func TestGuardianPool(t *testing.T) {
 		t.Fatal("Guardian pool is not sorted")
 	}
 
-	// Should not add dupicate.
+	// Should not add duplicate.
 	newGuardian := &Guardian{
 		StakeHolder: &StakeHolder{
 			Holder: pool.SortedGuardians[3].Holder,

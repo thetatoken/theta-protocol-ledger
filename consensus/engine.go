@@ -138,7 +138,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
-	// Set ledger state pointer to intial state.
+	// Set ledger state pointer to initial state.
 	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
@@ -267,7 +267,7 @@ func (e *ConsensusEngine) mainLoop() {
 			case <-e.guardianTimer.C:
 				v := e.guardian.GetVoteToBroadcast()
 				if v != nil {
-					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Boardcasting guardian vote")
+					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
 					e.broadcastGuardianVote(v)
 				}
 			}
@@ -314,7 +314,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
 		e.handleBlock(m)
 	case *core.AggregatedVotes:
-		e.logger.WithFields(log.Fields{"guaridan vote": m}).Debug("Received guardian vote")
+		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
 	default:
 		// Should not happen.

@@ -18,7 +18,7 @@ type Envelope struct {
 	Content interface{}
 }
 
-// Simnet represents an instance of simluated network.
+// Simnet represents an instance of simulated network.
 type Simnet struct {
 	Endpoints  []*SimnetEndpoint
 	msgHandler p2p.MessageHandler

@@ -12,7 +12,7 @@ import (
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
-// guardianCmd retreves guaridan related information from Theta server.
+// guardianCmd retreves guardian related information from Theta server.
 // Example:
 //		thetacli query guardian
 var guardianCmd = &cobra.Command{

@@ -25,7 +25,7 @@ type GuardianEngine struct {
 	vote        *core.AggregatedVotes
 	gcp         *core.GuardianCandidatePool
 	gcpHash     common.Hash
-	updated     bool // Whether vote has changed since last boardcast
+	updated     bool // Whether vote has changed since last broadcast
 	signerIndex int  // Signer's index in current gcp
 }
 

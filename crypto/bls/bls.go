@@ -114,7 +114,7 @@ func (s *Signature) Verify(m []byte, p *PublicKey) bool {
 	return lhs.Equals(rhs)
 }
 
-// PopVerify verifies a proof of possesion of a public key.
+// PopVerify verifies a proof of possession of a public key.
 func (s *Signature) PopVerify(p *PublicKey) bool {
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, DomainPop)

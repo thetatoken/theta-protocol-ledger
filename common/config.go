@@ -71,7 +71,7 @@ const (
 	FeatureGuardian uint64 = 0
 )
 
-// InitialConfig is the default configuartion produced by init command.
+// InitialConfig is the default configuration produced by init command.
 const InitialConfig = `# Theta configuration
 p2p:
   port: 5000

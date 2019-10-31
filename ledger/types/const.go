@@ -27,19 +27,19 @@ const (
 	// generated per existing ThetaWei per new block
 	ValidatorThetaGenerationRateDenominator int64 = 1e11
 
-	// ValidatorTFuelGenerationRateNumerator is used for caluclating the generation rate of TFuel for validators
+	// ValidatorTFuelGenerationRateNumerator is used for calculating the generation rate of TFuel for validators
 	ValidatorTFuelGenerationRateNumerator int64 = 0 // ZERO initial inflation for TFuel
 
-	// ValidatorTFuelGenerationRateDenominator is used for caluclating the generation rate of TFuel for validators
+	// ValidatorTFuelGenerationRateDenominator is used for calculating the generation rate of TFuel for validators
 	// ValidatorTFuelGenerationRateNumerator / ValidatorTFuelGenerationRateDenominator is the amount of TFuelWei
 	// generated per existing ThetaWei per new block
 	ValidatorTFuelGenerationRateDenominator int64 = 1e9
 
-	// RegularTFuelGenerationRateNumerator is used for caluclating the generation rate of TFuel for other types of accounts
+	// RegularTFuelGenerationRateNumerator is used for calculating the generation rate of TFuel for other types of accounts
 	//RegularTFuelGenerationRateNumerator int64 = 1900
 	RegularTFuelGenerationRateNumerator int64 = 0 // ZERO initial inflation for TFuel
 
-	// RegularTFuelGenerationRateDenominator is used for caluclating the generation rate of TFuel for other types of accounts
+	// RegularTFuelGenerationRateDenominator is used for calculating the generation rate of TFuel for other types of accounts
 	// RegularTFuelGenerationRateNumerator / RegularTFuelGenerationRateDenominator is the amount of TFuelWei
 	// generated per existing ThetaWei per new block
 	RegularTFuelGenerationRateDenominator int64 = 1e10

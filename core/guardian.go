@@ -132,7 +132,7 @@ func NewGuardianCandidatePool() *GuardianCandidatePool {
 	}
 }
 
-// Add inserts guardian into the pool; returns false if guradian is already added.
+// Add inserts guardian into the pool; returns false if guardian is already added.
 func (gcp *GuardianCandidatePool) Add(g *Guardian) bool {
 	k := sort.Search(gcp.Len(), func(i int) bool {
 		return bytes.Compare(gcp.SortedGuardians[i].Holder.Bytes(), g.Holder.Bytes()) >= 0
@@ -153,7 +153,7 @@ func (gcp *GuardianCandidatePool) Add(g *Guardian) bool {
 	return true
 }
 
-// Remove removes a guardian from the pool; returns false if guradian is not found.
+// Remove removes a guardian from the pool; returns false if guardian is not found.
 func (gcp *GuardianCandidatePool) Remove(g common.Address) bool {
 	k := sort.Search(gcp.Len(), func(i int) bool {
 		return bytes.Compare(gcp.SortedGuardians[i].Holder.Bytes(), g.Bytes()) >= 0
@@ -307,7 +307,7 @@ func (gcp *GuardianCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 			}
 		}
 
-		if len(g.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
+		if len(g.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candidate anymore
 			gcp.Remove(g.Holder)
 		}
 	}
