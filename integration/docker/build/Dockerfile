@@ -8,7 +8,7 @@ ENV GOPATH=/go
 
 ENV CGO_ENABLED=1 
 
-CMD ["/go/src/github.com/thetatoken/theta/integration/build/start.sh"]
+CMD ["/go/src/github.com/thetatoken/theta/integration/docker/build/start.sh"]
 
 
 

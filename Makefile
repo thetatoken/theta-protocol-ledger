@@ -11,7 +11,10 @@ build: gen_version
 
 # Build binaries for Linux platform.
 linux: gen_version
-	integration/build/build.sh
+	integration/docker/build/build.sh force
+
+docker: 
+	integration/docker/node/build.sh force
 
 install: gen_version
 	go install ./cmd/...
