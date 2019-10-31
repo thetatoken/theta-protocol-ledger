@@ -170,7 +170,7 @@ func TestDedup(t *testing.T) {
 func TestCommitCertificate(t *testing.T) {
 	assert := assert.New(t)
 
-	// Begining of setup.
+	// Beginning of setup.
 	ten18 := new(big.Int).SetUint64(1e18) // 10^18
 
 	va1Stake := new(big.Int).Mul(new(big.Int).SetUint64(100000001), ten18) // 100 million + 1

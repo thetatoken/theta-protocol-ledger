@@ -260,7 +260,7 @@ func (vcp *ValidatorCandidatePool) ReturnStakes(currentHeight uint64) []*Stake {
 			}
 		}
 
-		if len(candidate.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candiate anymore
+		if len(candidate.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candidate anymore
 			vcp.SortedCandidates = append(vcp.SortedCandidates[:cidx], vcp.SortedCandidates[cidx+1:]...)
 		}
 	}
