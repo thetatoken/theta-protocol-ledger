@@ -77,7 +77,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		ChainID:             root.ChainID,
 		PrivateKey:          privKey,
 		Root:                root,
-		NetworkOld:			 networkOld,
+		NetworkOld:          networkOld,
 		Network:             network,
 		DB:                  db,
 		SnapshotPath:        snapshotPath,

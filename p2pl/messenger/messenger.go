@@ -7,13 +7,14 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
+	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -37,7 +38,6 @@ import (
 
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
-	"github.com/libp2p/go-libp2p/p2p/discovery"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
@@ -99,6 +99,33 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 	return multiAddr, nil
 }
 
+func getPublicIP() (string, error) {
+	resp, err := http.Get("http://myexternalip.com/raw")
+	if err == nil {
+		defer resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			bodyBytes, err := ioutil.ReadAll(resp.Body)
+			if err == nil {
+				return strings.TrimSpace(string(bodyBytes)), nil
+			}
+		}
+	}
+
+	cmd := exec.Command("bash", "-c", "dig @resolver1.opendns.com ANY myip.opendns.com +short")
+	out, err := cmd.CombinedOutput()
+	if err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	cmd = exec.Command("bash", "-c", "curl -s http://whatismyip.akamai.com/")
+	out, err = cmd.CombinedOutput()
+	if err == nil {
+		return strings.TrimSpace(string(out)), nil
+	}
+
+	return "", err
+}
+
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
@@ -121,12 +148,29 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		return messenger, err
 	}
 
+	externalIP, err := getPublicIP()
+	if err != nil {
+		return messenger, err
+	}
+
+	extMultiAddr, err := createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
+	if err != nil {
+		return messenger, err
+	}
+	addressFactory := func(addrs []ma.Multiaddr) []ma.Multiaddr {
+		if extMultiAddr != nil {
+			addrs = append(addrs, extMultiAddr)
+		}
+		return addrs
+	}
+
 	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(),
 		libp2p.Identity(hostId),
 		libp2p.ListenAddrs([]ma.Multiaddr{localNetAddress}...),
+		libp2p.AddrsFactory(addressFactory),
 		libp2p.ConnectionManager(cm),
 	)
 	if err != nil {
@@ -229,13 +273,13 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	}
 
 	// mDns
-	if msgr.needMdns {
-		mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
-		if err != nil {
-			return err
-		}
-		mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
-	}
+	// if msgr.needMdns {
+	// 	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// 	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
+	// }
 
 	return nil
 }
