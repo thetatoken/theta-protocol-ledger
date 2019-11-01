@@ -13,7 +13,8 @@ import (
 )
 
 var weiMultiplier = big.NewInt(1e18)
-var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier) // About 5% annual inflation
+var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier) // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
+var checkpointInterval = int64(100)                                        // TODO: use the guarding checkpoint
 
 var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
@@ -124,17 +125,17 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 // CalculateReward calculates the block reward for each account
 func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
-	height := view.Height()
-	if height < common.HeightEnableValidatorReward {
-		grantValidatorsZeroReward(validatorSet, &accountReward)
+	blockHeight := view.Height() + 1 // view points to the parent block
+	if blockHeight < common.HeightEnableValidatorReward {
+		grantValidatorsWithZeroReward(validatorSet, &accountReward)
 	} else {
-		grantValidatorStakersReward(view, validatorSet, &accountReward)
+		grantStakerReward(view, validatorSet, &accountReward, blockHeight)
 	} // TODO: calculate reward for the guardian nodes' stakers
 
 	return accountReward
 }
 
-func grantValidatorsZeroReward(validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins) {
+func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins) {
 	// Initial Mainnet release should not reward the validators until the guardians ready to deploy
 	zeroReward := types.Coins{}.NoNil()
 	for _, v := range validatorSet.Validators() {
@@ -142,7 +143,12 @@ func grantValidatorsZeroReward(validatorSet *core.ValidatorSet, accountReward *m
 	}
 }
 
-func grantValidatorStakersReward(view *st.StoreView, validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins) {
+func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins, blockHeight uint64) {
+	isACheckpoint := blockHeight%uint64(checkpointInterval) == 0
+	if !isACheckpoint {
+		return
+	}
+
 	totalStake := validatorSet.TotalStake()
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
 
@@ -174,8 +180,9 @@ func grantValidatorStakersReward(view *st.StoreView, validatorSet *core.Validato
 		}
 
 		// the source of the stake divides the block reward proportional to their stake
+		totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(checkpointInterval))
 		for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
-			tmp := big.NewInt(1).Mul(tfuelRewardPerBlock, stakeAmountSum)
+			tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
 			rewardAmount := tmp.Div(tmp, totalStake)
 
 			reward := types.Coins{
@@ -184,7 +191,7 @@ func grantValidatorStakersReward(view *st.StoreView, validatorSet *core.Validato
 			}.NoNil()
 			(*accountReward)[string(stakeSourceAddr[:])] = reward
 
-			logger.Debugf("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
+			logger.Infof("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
 		}
 	}
 }
