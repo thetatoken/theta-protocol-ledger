@@ -128,7 +128,7 @@ func getPublicIP() (string, error) {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -148,15 +148,19 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		return messenger, err
 	}
 
-	externalIP, err := getPublicIP()
-	if err != nil {
-		return messenger, err
+	var extMultiAddr ma.Multiaddr
+	if peerDiscoverable {
+		externalIP, err := getPublicIP()
+		if err != nil {
+			return messenger, err
+		}
+	
+		extMultiAddr, err = createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
+		if err != nil {
+			return messenger, err
+		}
 	}
-
-	extMultiAddr, err := createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
-	if err != nil {
-		return messenger, err
-	}
+	
 	addressFactory := func(addrs []ma.Multiaddr) []ma.Multiaddr {
 		if extMultiAddr != nil {
 			addrs = append(addrs, extMultiAddr)
@@ -194,21 +198,23 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		messenger.seedPeers = append(messenger.seedPeers, peer)
 	}
 
-	// kad-dht
-	dopts := []dhtopts.Option{
-		dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
-		dhtopts.Protocols(
-			protocol.ID(thetaP2PProtocolPrefix + "dht"),
-		),
-	}
+	if peerDiscoverable {
+		// kad-dht
+		dopts := []dhtopts.Option{
+			dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
+			dhtopts.Protocols(
+				protocol.ID(thetaP2PProtocolPrefix + "dht"),
+			),
+		}
 
-	dht, err := kaddht.New(ctx, host, dopts...)
-	if err != nil {
-		cancel()
-		return messenger, err
+		dht, err := kaddht.New(ctx, host, dopts...)
+		if err != nil {
+			cancel()
+			return messenger, err
+		}
+		host = rhost.Wrap(host, dht)
+		messenger.dht = dht
 	}
-	host = rhost.Wrap(host, dht)
-	messenger.dht = dht
 
 	// pubsub
 	psOpts := []ps.Option{
@@ -222,7 +228,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	}
 	messenger.pubsub = pubsub
 
-	logger.Infof("Created node %v, %v", host.ID(), host.Addrs())
+	logger.Infof("Created node %v, %v, discoverable: %v", host.ID(), host.Addrs(), peerDiscoverable)
 	return messenger, nil
 }
 
@@ -266,10 +272,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 		}
 	}
 
-	bcfg := kaddht.DefaultBootstrapConfig
-	bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
-	if err := msgr.dht.BootstrapWithConfig(ctx, bcfg); err != nil {
-		logger.Errorf("Failed to bootstrap DHT: %v", err)
+	if msgr.dht != nil {
+		bcfg := kaddht.DefaultBootstrapConfig
+		bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
+		if err := msgr.dht.BootstrapWithConfig(ctx, bcfg); err != nil {
+			logger.Errorf("Failed to bootstrap DHT: %v", err)
+		}
 	}
 
 	// mDns
