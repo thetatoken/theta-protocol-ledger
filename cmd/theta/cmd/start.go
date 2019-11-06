@@ -46,13 +46,14 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
+	peerDiscoverable := viper.GetBool(common.CfgLibP2PDiscoverable)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
 	networkOld := newMessengerOld(privKey, peerSeedsOld, portOld)
-	network := newMessenger(privKey, peerSeeds, port)
+	network := newMessenger(privKey, peerSeeds, port, peerDiscoverable)
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
@@ -203,13 +204,13 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	return nodePrivKey, nil
 }
 
-func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *msgl.Messenger {
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, peerDiscoverable bool) *msgl.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key:")
 	msgrConfig := msgl.GetDefaultMessengerConfig()
-	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, msgrConfig, true)
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, peerDiscoverable, msgrConfig, true)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance.")
 	}
