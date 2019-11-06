@@ -96,6 +96,8 @@ func init() {
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
+	
+	viper.SetDefault(CfgLibP2PDiscoverable, true)
 }
 
 // WriteInitialConfig writes initial config file to file system.
