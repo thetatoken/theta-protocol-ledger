@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"runtime"
 
 	log "github.com/sirupsen/logrus"
 
@@ -100,30 +101,74 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 }
 
 func getPublicIP() (string, error) {
-	resp, err := http.Get("http://myexternalip.com/raw")
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode == http.StatusOK {
-			bodyBytes, err := ioutil.ReadAll(resp.Body)
-			if err == nil {
-				return strings.TrimSpace(string(bodyBytes)), nil
+	ipMap := make(map[string]int)
+	wait := &sync.WaitGroup{}
+
+	go func() {
+		resp, err := http.Get("http://myexternalip.com/raw")
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				bodyBytes, err := ioutil.ReadAll(resp.Body)
+				if err == nil {
+					ip := strings.TrimSpace(string(bodyBytes))
+					ipMap[ip]++
+				}
 			}
+		}
+		wait.Done()
+	}()
+
+	go func() {
+		resp, err := http.Get("http://whatismyip.akamai.com")
+		if err == nil {
+			defer resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				bodyBytes, err := ioutil.ReadAll(resp.Body)
+				if err == nil {
+					ip := strings.TrimSpace(string(bodyBytes))
+					ipMap[ip]++
+				}
+			}
+		}
+		wait.Done()
+	}()
+
+	go func() {
+		if runtime.GOOS == "windows" {
+			cmd := exec.Command("cmd", "/c", "nslookup myip.opendns.com resolver1.opendns.com")
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				res := strings.TrimSpace(string(out))
+				ip := res[strings.LastIndex(res, " ") + 1 :]
+				ipMap[ip]++
+			}
+		} else {
+			cmd := exec.Command("bash", "-c", "dig @resolver1.opendns.com ANY myip.opendns.com +short")
+			out, err := cmd.CombinedOutput()
+			if err == nil {
+				ip := strings.TrimSpace(string(out))
+				ipMap[ip]++
+			}
+		}
+		wait.Done()
+	}()
+
+	wait.Wait()
+
+	var maxCnt int
+	var maxIP string
+	for ip, cnt := range ipMap { 
+		if cnt > maxCnt {
+			maxIP = ip
 		}
 	}
 
-	cmd := exec.Command("bash", "-c", "dig @resolver1.opendns.com ANY myip.opendns.com +short")
-	out, err := cmd.CombinedOutput()
-	if err == nil {
-		return strings.TrimSpace(string(out)), nil
+	if maxIP == "" {
+		return "", fmt.Errorf("Can't get external IP")
 	}
 
-	cmd = exec.Command("bash", "-c", "curl -s http://whatismyip.akamai.com/")
-	out, err = cmd.CombinedOutput()
-	if err == nil {
-		return strings.TrimSpace(string(out)), nil
-	}
-
-	return "", err
+	return maxIP, nil
 }
 
 // CreateMessenger creates an instance of Messenger
