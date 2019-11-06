@@ -118,6 +118,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	go func() {
 		resp, err := http.Get("http://whatismyip.akamai.com")
@@ -133,6 +134,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	go func() {
 		if runtime.GOOS == "windows" {
@@ -153,6 +155,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	wait.Wait()
 
