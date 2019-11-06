@@ -65,6 +65,7 @@ type Messenger struct {
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
+	peerStreamMap map[peer.ID](network.Stream)
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -118,6 +119,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	go func() {
 		resp, err := http.Get("http://whatismyip.akamai.com")
@@ -133,6 +135,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	go func() {
 		if runtime.GOOS == "windows" {
@@ -153,6 +156,7 @@ func getPublicIP() (string, error) {
 		}
 		wait.Done()
 	}()
+	wait.Add(1)
 
 	wait.Wait()
 
@@ -179,6 +183,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
+		peerStreamMap: make(map[peer.ID](network.Stream)),
 		needMdns:      needMdns,
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
@@ -398,7 +403,7 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	}
 
 	peer := msgr.host.Peerstore().PeerInfo(id)
-	if peer.ID == "" {
+	if peer.ID == "" || len(peer.Addrs) == 0 {
 		return false
 	}
 
@@ -409,13 +414,19 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		return false
 	}
 
-	stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
-
-	if err != nil {
-		logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v, channel: %v", err, peer.ID, peer.Addrs, message.ChannelID)
+	var stream network.Stream
+	var ok bool
+	if stream, ok = msgr.peerStreamMap[id]; !ok {
+		stream, err = msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+		if err != nil {
+			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
+			return false
+		}
+	}
+	if stream == nil {
+		logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
 		return false
 	}
-	defer stream.Close()
 
 	w := bufio.NewWriter(stream)
 	w.Write([]byte(bytes))
@@ -496,8 +507,8 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(stream network.Stream) {
-		peerID := stream.Conn().RemotePeer().String()
 		defer stream.Close()
+		peerID := stream.Conn().RemotePeer().String()
 
 		bytes, err := ioutil.ReadAll(stream)
 		if err != nil {
