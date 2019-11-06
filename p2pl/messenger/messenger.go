@@ -357,12 +357,14 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	}
 
 	stream, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+	if stream != nil {
+		defer stream.Close()
+	}
 
 	if err != nil {
 		logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v, channel: %v", err, peer.ID, peer.Addrs, message.ChannelID)
 		return false
 	}
-	defer stream.Close()
 
 	w := bufio.NewWriter(stream)
 	w.Write([]byte(bytes))
