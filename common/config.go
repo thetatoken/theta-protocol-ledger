@@ -39,6 +39,8 @@ const (
 	CfgLibP2PSeeds = "p2p.libp2p_seeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
 	CfgLibP2PRendezvous = "p2p.libp2p_rendezvous"
+	// CfgLibP2PDiscoverable sets if the libp2p nodes is discoverable
+	CfgLibP2PDiscoverable = "p2p.libp2p_discoverable"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
@@ -104,6 +106,8 @@ func init() {
 	viper.SetDefault(CfgLogPrintSelfID, false)
 
 	viper.SetDefault(CfgGuardianRoundLength, 30)
+	
+	viper.SetDefault(CfgLibP2PDiscoverable, true)
 }
 
 // WriteInitialConfig writes initial config file to file system.
