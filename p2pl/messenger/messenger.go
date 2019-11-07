@@ -507,7 +507,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(stream network.Stream) {
-		defer stream.Close()
+		// defer stream.Close()
 		peerID := stream.Conn().RemotePeer().String()
 
 		bytes, err := ioutil.ReadAll(stream)
