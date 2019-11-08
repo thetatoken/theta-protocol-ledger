@@ -55,6 +55,7 @@ const (
 	discoverInterval                  = 3000 // 3 sec
 	maxNumPeers                       = 128
 	sufficientNumPeers                = 32
+	maxPeerMessageSize                = 1024 * 1024
 )
 
 type Messenger struct {
@@ -65,7 +66,7 @@ type Messenger struct {
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
-	peerStreamMap map[peer.ID](network.Stream)
+	peerStreamMap map[string](network.Stream)
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -103,6 +104,7 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 
 func getPublicIP() (string, error) {
 	ipMap := make(map[string]int)
+	numSources := 3
 	wait := &sync.WaitGroup{}
 
 	go func() {
@@ -160,19 +162,19 @@ func getPublicIP() (string, error) {
 
 	wait.Wait()
 
-	var maxCnt int
-	var maxIP string
+	var majorityIP string
 	for ip, cnt := range ipMap { 
-		if cnt > maxCnt {
-			maxIP = ip
+		if cnt > numSources / 2 {
+			majorityIP = ip
+			break
 		}
 	}
 
-	if maxIP == "" {
+	if majorityIP == "" {
 		return "", fmt.Errorf("Can't get external IP")
 	}
 
-	return maxIP, nil
+	return majorityIP, nil
 }
 
 // CreateMessenger creates an instance of Messenger
@@ -183,7 +185,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
-		peerStreamMap: make(map[peer.ID](network.Stream)),
+		peerStreamMap: make(map[string](network.Stream)),
 		needMdns:      needMdns,
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
@@ -416,7 +418,7 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 
 	var stream network.Stream
 	var ok bool
-	if stream, ok = msgr.peerStreamMap[id]; !ok {
+	if stream, ok = msgr.peerStreamMap[fmt.Sprintf("%v_%v", peerID, message.ChannelID)]; !ok {
 		stream, err = msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
 		if err != nil {
 			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
@@ -435,6 +437,8 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		logger.Errorf("Error flushing buffer %v", err)
 		return false
 	}
+	
+	msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
 
 	return true
 }
@@ -467,16 +471,6 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 			var msg *ps.Message
 			var err error
 
-			// // Recover from any panic as part of the receive p2p msg process.
-			// defer func() {
-			// 	if r := recover(); r != nil {
-			// 		log.WithFields(logrus.Fields{
-			// 			"r":        r,
-			// 			"msg.Data": attemptToConvertPbToString(msg.Data, message),
-			// 		}).Error("P2P message caused a panic! Recovering...")
-			// 	}
-			// }()
-
 			for {
 				msg, err = sub.Next(context.Background())
 
@@ -507,21 +501,45 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(stream network.Stream) {
-		// defer stream.Close()
 		peerID := stream.Conn().RemotePeer().String()
 
-		bytes, err := ioutil.ReadAll(stream)
-		if err != nil {
-			logger.Errorf("Failed to read stream: %v", err)
-			return
+		if _, ok := msgr.peerStreamMap[fmt.Sprintf("%v_%v", peerID, channelID)]; !ok {
+			msgr.peerStreamMap[fmt.Sprintf("%v_%v", peerID, channelID)] = stream
 		}
 
+		msgr.readPeerMessageRoutine(stream, peerID, channelID)
+	})
+}
+
+func (msgr *Messenger) readPeerMessageRoutine(stream network.Stream, peerID string, channelID common.ChannelIDEnum) {
+	msgBuffer := make([]byte, maxPeerMessageSize)
+	for {
+		if msgr.ctx != nil {
+			select {
+			case <-msgr.ctx.Done():
+				return
+			default:
+			}
+		}
+
+		msgSize, err := stream.Read(msgBuffer)
+		if err != nil {
+			continue
+		}
+
+		if msgSize > maxPeerMessageSize {
+			logger.Errorf("Message ignored since it exceeds the peer message size limit, size: %v", msgSize)
+			continue
+		}
+
+		rawPeerMsg := msgBuffer[:msgSize]
+
 		msgHandler := msgr.msgHandlerMap[channelID]
-		message, err := msgHandler.ParseMessage(peerID, channelID, bytes)
+		message, err := msgHandler.ParseMessage(peerID, channelID, rawPeerMsg)
 		if err != nil {
 			logger.Errorf("Failed to parse message: %v", err)
 			return
 		}
 		msgHandler.HandleMessage(message)
-	})
+	}
 }
