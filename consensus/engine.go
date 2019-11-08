@@ -269,6 +269,7 @@ func (e *ConsensusEngine) mainLoop() {
 				if v != nil {
 					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
 					e.broadcastGuardianVote(v)
+					e.guardian.StartNewRound()
 				}
 			}
 		}
