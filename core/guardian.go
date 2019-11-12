@@ -108,6 +108,23 @@ func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 	return result.OK
 }
 
+// Copy clones the aggregated votes
+func (a *AggregatedVotes) Copy() *AggregatedVotes {
+	clone := &AggregatedVotes{
+		Block: a.Block,
+		Gcp:   a.Gcp,
+	}
+	if a.Multiplies != nil {
+		clone.Multiplies = make([]uint32, len(a.Multiplies))
+		copy(clone.Multiplies, a.Multiplies)
+	}
+	if a.Signature != nil {
+		clone.Signature = a.Signature.Copy()
+	}
+
+	return clone
+}
+
 //
 // ------- GuardianCandidatePool ------- //
 //

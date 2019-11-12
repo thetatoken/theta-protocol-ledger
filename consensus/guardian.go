@@ -22,11 +22,11 @@ type GuardianEngine struct {
 	// State for current voting
 	block       common.Hash
 	round       uint32
-	vote        *core.AggregatedVotes
+	currVote    *core.AggregatedVotes
+	nextVote    *core.AggregatedVotes
 	gcp         *core.GuardianCandidatePool
 	gcpHash     common.Hash
-	updated     bool // Whether vote has changed since last broadcast
-	signerIndex int  // Signer's index in current gcp
+	signerIndex int // Signer's index in current gcp
 }
 
 func NewGuardianEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *GuardianEngine {
@@ -63,8 +63,10 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 		"signerIndex": g.signerIndex,
 	}).Debug("Starting new block")
 
-	g.vote = core.NewAggregateVotes(block, gcp)
-	g.vote.Sign(g.privKey, g.signerIndex)
+	g.nextVote = core.NewAggregateVotes(block, gcp)
+	g.nextVote.Sign(g.privKey, g.signerIndex)
+
+	g.currVote = g.nextVote.Copy()
 
 	g.round = 1
 }
@@ -72,6 +74,7 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 func (g *GuardianEngine) StartNewRound() {
 	if g.round < maxRound {
 		g.round++
+		g.currVote = g.nextVote.Copy()
 	}
 }
 
@@ -80,8 +83,7 @@ func (g *GuardianEngine) GetVoteToBroadcast() *core.AggregatedVotes {
 		return nil
 	}
 
-	g.updated = false
-	return g.vote
+	return g.currVote
 }
 
 func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
@@ -92,19 +94,19 @@ func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
 		return
 	}
 
-	mergedVote, err := g.vote.Merge(vote)
+	mergedVote, err := g.nextVote.Merge(vote)
 	if err != nil {
 		g.logger.WithFields(log.Fields{
 			"local.block":           g.block.Hex(),
 			"local.round":           g.round,
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
-			"local.vote.Multiplies": g.vote.Multiplies,
+			"local.vote.Multiplies": g.nextVote.Multiplies,
 			"error":                 err.Error(),
 		}).Info("Failed to merge guardian vote")
 	}
 	if mergedVote == nil {
-		// Incoming vote is subset of current vote.
+		// Incoming vote is subset of the current nextVote.
 		return
 	}
 	if !g.checkMultipliesForRound(mergedVote, g.round+1) {
@@ -113,18 +115,17 @@ func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
 			"local.round":           g.round,
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
-			"local.vote.Multiplies": g.vote.Multiplies,
+			"local.vote.Multiplies": g.nextVote.Multiplies,
 		}).Info("Skipping vote: merged vote overflows")
 		return
 	}
-	g.updated = true
 
-	g.vote = mergedVote
+	g.nextVote = mergedVote
 
 	g.logger.WithFields(log.Fields{
 		"local.block":           g.block.Hex(),
 		"local.round":           g.round,
-		"local.vote.Multiplies": g.vote.Multiplies,
+		"local.vote.Multiplies": g.nextVote.Multiplies,
 	}).Info("Merged guardian vote")
 }
 
@@ -186,11 +187,11 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 }
 
 func (g *GuardianEngine) checkMultipliesForRound(vote *core.AggregatedVotes, k uint32) bool {
-	for _, m := range vote.Multiplies {
-		if m > g.maxMultiply(k) {
-			return false
-		}
-	}
+	// for _, m := range vote.Multiplies {
+	// 	if m > g.maxMultiply(k) {
+	// 		return false
+	// 	}
+	// }
 	return true
 }
 
