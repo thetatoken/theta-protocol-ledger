@@ -494,7 +494,7 @@ func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, nil
 }
 
-func (tl *TestLedger) GetFinalizedGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
+func (tl *TestLedger) GetGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
 	return nil, nil
 }
 

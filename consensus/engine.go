@@ -421,6 +421,84 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}).Warn("Invalid proposer")
 		return result.Error("Invalid proposer")
 	}
+
+	// Validate Guardian Votes
+	if ch := block.Height; ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
+		// Block must contain guaridan votes.
+		if block.GuardianVotes == nil {
+			e.logger.WithFields(log.Fields{
+				"block.Epoch":    block.Epoch,
+				"block.proposer": block.Proposer.Hex(),
+				"block.Hash":     block.Hash().Hex(),
+				"block.Height":   block.Height,
+			}).Warn("Guardian votes in non-checkpoint block")
+			return result.Error("Checkpoint block must have guardian votes")
+		}
+		// Voted block must exist.
+		lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+				"error":               err.Error(),
+			}).Warn("Guardian votes refers to non-existing block")
+			return result.Error("Block in guardian votes cannot be found")
+		}
+		// Voted block must be at previous checkpoint height.
+		if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+				"error":               err.Error(),
+			}).Warn("Guardian votes refers to non-existing block")
+			return result.Error("Block in guardian votes cannot be found")
+		}
+		// Voted block must be ascendant.
+		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+				"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
+				"error":               err.Error(),
+			}).Warn("Block is not descendant of checkpoint")
+			return result.Error("Block is not descendant of checkpoint in guardian votes")
+		}
+		// Guardian votes must be valid.
+		gcp, err := e.ledger.GetGuardianCandidatePool(block.Hash())
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+				"error":               err.Error(),
+			}).Warn("Failed to load guardian pool")
+			return result.Error("Failed to load guardian pool")
+		}
+		if res := block.GuardianVotes.Validate(gcp); res.IsError() {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+				"error":               res.String(),
+			}).Warn("Failed to load guardian pool")
+			return result.Error("Guardian votes are not valid")
+		}
+	} else {
+		if block.GuardianVotes != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Epoch":         block.Epoch,
+				"block.proposer":      block.Proposer.Hex(),
+				"block.Hash":          block.Hash().Hex(),
+				"block.Height":        block.Height,
+				"block.GuardianVotes": block.GuardianVotes.String(),
+			}).Warn("Guardian votes in non-checkpoint block")
+			return result.Error("Non-checkpoint block should not have guardian votes")
+		}
+	}
+
 	return result.OK
 }
 

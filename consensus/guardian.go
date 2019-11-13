@@ -44,7 +44,7 @@ func (g *GuardianEngine) IsGuardian() bool {
 func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 	g.block = block
 
-	gcp, err := g.engine.GetLedger().GetFinalizedGuardianCandidatePool(block)
+	gcp, err := g.engine.GetLedger().GetGuardianCandidatePool(block)
 	if err != nil {
 		// Should not happen
 		g.logger.Panic(err)

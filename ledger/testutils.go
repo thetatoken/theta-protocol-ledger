@@ -19,8 +19,8 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	mp "github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/p2p"
-	"github.com/thetatoken/theta/p2pl"
 	p2psim "github.com/thetatoken/theta/p2p/simulation"
+	"github.com/thetatoken/theta/p2pl"
 	"github.com/thetatoken/theta/store/database"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
@@ -62,7 +62,7 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 	ledgerState := st.NewLedgerState(chainID, db)
 	ledgerState.ResetState(initHeight, snapshot.block.StateHash)
 
-	executor := exec.NewExecutor(ledgerState, consensus, valMgr)
+	executor := exec.NewExecutor(db, chain, ledgerState, consensus, valMgr)
 
 	ledger := &Ledger{
 		consensus: consensus,

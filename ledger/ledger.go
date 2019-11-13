@@ -33,6 +33,7 @@ var _ core.Ledger = (*Ledger)(nil)
 // Ledger implements the core.Ledger interface
 //
 type Ledger struct {
+	db           database.Database
 	chain        *blockchain.Chain
 	consensus    core.ConsensusEngine
 	valMgr       core.ValidatorManager
@@ -47,8 +48,9 @@ type Ledger struct {
 // NewLedger creates an instance of Ledger
 func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db)
-	executor := exec.NewExecutor(state, consensus, valMgr)
+	executor := exec.NewExecutor(db, chain, state, consensus, valMgr)
 	ledger := &Ledger{
+		db:        db,
 		chain:     chain,
 		consensus: consensus,
 		valMgr:    valMgr,
@@ -127,31 +129,30 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
 }
 
-// GetFinalizedGuardianCandidatePool returns the guardian candidate pool of the latest DIRECTLY finalized block
-func (ledger *Ledger) GetFinalizedGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
+// GetGuardianCandidatePool returns the guardian candidate pool of the given block.
+func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
-	for i := 2; i >= 0; i-- {
+	// Find last checkpoint and retrieve GCP.
+	block, err := findBlock(store, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	blockHash = block.Hash()
+	for {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
 		}
-		if block == nil {
-			return nil, fmt.Errorf("Block is nil for hash %v", blockHash.Hex())
-		}
-
-		// Grandparent or root block.
-		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
+		if common.IsCheckPointHeight(block.Height) {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			gcp := storeView.GetGuardianCandidatePool()
 			return gcp, nil
 		}
-		blockHash = block.HCC.BlockHash
+		blockHash = block.Hash()
 	}
-
-	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
 }
 
 func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, error) {
@@ -599,13 +600,27 @@ func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreVi
 }
 
 // addCoinbaseTx adds a Coinbase transaction
-func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator,
+	validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}
 
-	accountRewardMap := exec.CalculateReward(view, validatorSet)
+	var accountRewardMap map[string]types.Coins
+	if ch := ledger.GetCurrentBlock().Height; ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
+		guardianVotes := ledger.GetCurrentBlock().GuardianVotes
+		guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
+		if err != nil {
+			logger.Panic(err)
+		}
+		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
+		guardianCandidatePool := storeView.GetGuardianCandidatePool()
+
+		accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+	} else {
+		accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil)
+	}
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {
