@@ -142,7 +142,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
-	e.guardianTimer = time.NewTicker(time.Duration(viper.GetInt(common.CfgGuardianRoundLength)) * time.Second)
+	e.resetGuardianTimer()
 
 	e.wg.Add(1)
 	go e.mainLoop()
@@ -888,6 +888,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// Guardians to vote for finalized blocks every 100 blocks.
 	if block.Height%100 == 1 {
 		e.guardian.StartNewBlock(block.Hash())
+		e.resetGuardianTimer()
 	}
 
 	select {
@@ -1059,4 +1060,11 @@ func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
 
 func (e *ConsensusEngine) State() *State {
 	return e.state
+}
+
+func (e *ConsensusEngine) resetGuardianTimer() {
+	if e.guardianTimer != nil {
+		e.guardianTimer.Stop()
+	}
+	e.guardianTimer = time.NewTicker(time.Duration(viper.GetInt(common.CfgGuardianRoundLength)) * time.Second)
 }
