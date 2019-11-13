@@ -50,6 +50,9 @@ var _ rlp.Encoder = (*Block)(nil)
 
 // EncodeRLP implements RLP Encoder interface.
 func (b *Block) EncodeRLP(w io.Writer) error {
+	if b == nil {
+		return rlp.Encode(w, &Block{})
+	}
 	return rlp.Encode(w, []interface{}{
 		b.BlockHeader,
 		b.Txs,
@@ -71,7 +74,13 @@ func (b *Block) DecodeRLP(stream *rlp.Stream) error {
 	b.BlockHeader = h
 
 	txs := []common.Bytes{}
-	return stream.Decode(&txs)
+	err = stream.Decode(&txs)
+	if err != nil {
+		return err
+	}
+	b.Txs = txs
+
+	return stream.ListEnd()
 }
 
 // AddTxs adds transactions to the block and update transaction root hash.
@@ -132,6 +141,9 @@ var _ rlp.Encoder = (*BlockHeader)(nil)
 
 // EncodeRLP implements RLP Encoder interface.
 func (h *BlockHeader) EncodeRLP(w io.Writer) error {
+	if h == nil {
+		return rlp.Encode(w, &BlockHeader{})
+	}
 	if h.Height < common.HeightEnableTheta2 {
 		return rlp.Encode(w, []interface{}{
 			h.ChainID,
@@ -231,8 +243,7 @@ func (h *BlockHeader) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 
-	stream.ListEnd()
-	return nil
+	return stream.ListEnd()
 }
 
 // Hash of header.
@@ -423,6 +434,57 @@ func (eb *ExtendedBlock) String() string {
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash().String()
+}
+
+// DecodeRLP implements RLP Decoder interface.
+func (eb *ExtendedBlock) DecodeRLP(stream *rlp.Stream) error {
+	_, err := stream.List()
+	if err != nil {
+		return err
+	}
+
+	b := &Block{}
+	err = stream.Decode(b)
+	if err != nil {
+		return err
+	}
+	eb.Block = b
+
+	children := []common.Hash{}
+	err = stream.Decode(&children)
+	if err != nil {
+		return err
+	}
+	eb.Children = children
+
+	var status byte
+	err = stream.Decode(&status)
+	if err != nil {
+		return err
+	}
+	eb.Status = BlockStatus(status)
+
+	var hasValidatorUpdate bool
+	err = stream.Decode(&hasValidatorUpdate)
+	if err != nil {
+		return err
+	}
+	eb.HasValidatorUpdate = hasValidatorUpdate
+
+	return stream.ListEnd()
+}
+
+// EncodeRLP implements RLP Encoder interface.
+func (eb *ExtendedBlock) EncodeRLP(w io.Writer) error {
+	if eb == nil {
+		return rlp.Encode(w, &ExtendedBlock{})
+	}
+	return rlp.Encode(w, []interface{}{
+		eb.Block,
+		eb.Children,
+		eb.Status,
+		eb.HasValidatorUpdate,
+	})
 }
 
 type ExtendedBlockInnerJSON ExtendedBlock

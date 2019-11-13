@@ -33,12 +33,30 @@ func TestBlockEncoding(t *testing.T) {
 	// Should be able to encode/decode blocks after Theta2.0 fork.
 	CreateTestBlock("root", "")
 	b2 := CreateTestBlock("b2", "root")
+	b2.AddTxs([]common.Bytes{common.Hex2Bytes("aaa")})
 	b2raw1, _ := rlp.EncodeToBytes(b2)
 	tmp := &Block{}
 	err = rlp.DecodeBytes(b2raw1, tmp)
 	require.Nil(err)
 	b2raw2, _ := rlp.EncodeToBytes(tmp)
 	require.Equal(b2raw1, b2raw2)
+
+	// Test ExtendedBlock encoding/decoding
+	eb := &ExtendedBlock{}
+	eb.Block = b2
+	eb.Children = []common.Hash{eb.Hash()}
+	eb.Status = BlockStatusCommitted
+	eb.HasValidatorUpdate = true
+	ebraw1, _ := rlp.EncodeToBytes(eb)
+
+	tmp2 := &ExtendedBlock{}
+	err = rlp.DecodeBytes(ebraw1, tmp2)
+	require.Nil(err)
+	ebraw2, _ := rlp.EncodeToBytes(tmp2)
+	require.Equal(ebraw1, ebraw2)
+
+	_, err = rlp.EncodeToBytes(tmp2)
+	require.Nil(err)
 }
 
 func TestBlockHash(t *testing.T) {
