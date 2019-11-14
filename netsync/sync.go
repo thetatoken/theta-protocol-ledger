@@ -14,8 +14,8 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
 	"github.com/thetatoken/theta/p2p"
-	"github.com/thetatoken/theta/p2pl"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/p2pl"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -495,6 +495,10 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 			return
 		}
 	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		sm.logger.WithFields(log.Fields{
+			"block.hash": block.Hash().Hex(),
+			"error":      res.String(),
+		}).Warn("Invalid block received")
 		return
 	}
 

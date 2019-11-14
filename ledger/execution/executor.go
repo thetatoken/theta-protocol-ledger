@@ -3,11 +3,13 @@ package execution
 import (
 	log "github.com/sirupsen/logrus"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
@@ -25,6 +27,8 @@ type TxExecutor interface {
 // Executor executes the transactions
 //
 type Executor struct {
+	db        database.Database
+	chain     *blockchain.Chain
 	state     *st.LedgerState
 	consensus core.ConsensusEngine
 	valMgr    core.ValidatorManager
@@ -44,12 +48,14 @@ type Executor struct {
 }
 
 // NewExecutor creates a new instance of Executor
-func NewExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
+func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
 	executor := &Executor{
+		db:             db,
+		chain:          chain,
 		state:          state,
 		consensus:      consensus,
 		valMgr:         valMgr,
-		coinbaseTxExec: NewCoinbaseTxExecutor(state, consensus, valMgr),
+		coinbaseTxExec: NewCoinbaseTxExecutor(db, chain, state, consensus, valMgr),
 		// slashTxExec:          NewSlashTxExecutor(consensus, valMgr),
 		sendTxExec:           NewSendTxExecutor(),
 		reserveFundTxExec:    NewReserveFundTxExecutor(state),

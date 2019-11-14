@@ -15,6 +15,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database/backend"
 )
@@ -543,30 +544,27 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	es.addBlock(b5)
 
 	// Validate guardian pool
-	gcp, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b0.Hash())
-	assert.Nil(err)
+	gcp := st.NewStoreView(b0.Height, b0.StateHash, db).GetGuardianCandidatePool()
 	log.Infof("gcp for block #0: %v", gcp)
 	assert.Equal(0, gcp.Len())
 
-	gcp, err = es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b3.Hash())
-	assert.Nil(err)
-	log.Infof("gcp for block #3: %v", gcp)
+	gcp = st.NewStoreView(b1.Height, b1.StateHash, db).GetGuardianCandidatePool()
+	log.Infof("gcp for block #1: %v", gcp)
 	assert.Equal(1, gcp.Len())
 	assert.Equal(0, gcp.SortedGuardians[0].TotalStake().Cmp(
 		new(big.Int).Mul(new(big.Int).SetUint64(1), core.MinGuardianStakeDeposit)))
 
-	gcp2, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b4.Hash())
-	assert.Nil(err)
-	log.Infof("gcp for block #4: %v", gcp2)
+	// Guardian's BLS Pubkey in record should not be changed after first deposit.
+	gcp2 := st.NewStoreView(b2.Height, b2.StateHash, db).GetGuardianCandidatePool()
+	log.Infof("gcp for block #2: %v", gcp2)
 	assert.Equal(1, gcp2.Len())
 	assert.Equal(0, gcp2.SortedGuardians[0].TotalStake().Cmp(
 		new(big.Int).Mul(new(big.Int).SetUint64(3), core.MinGuardianStakeDeposit)))
 	assert.Equal(gcp.SortedGuardians[0].Pubkey, gcp2.SortedGuardians[0].Pubkey)
 
 	// Guardian's BLS Pubkey in record should not be changed after first deposit.
-	gcp3, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b5.Hash())
-	assert.Nil(err)
-	log.Infof("gcp for block #5: %v", gcp3)
+	gcp3 := st.NewStoreView(b3.Height, b3.StateHash, db).GetGuardianCandidatePool()
+	log.Infof("gcp for block #3: %v", gcp3)
 	assert.Equal(1, gcp3.Len())
 	assert.Equal(0, gcp3.SortedGuardians[0].TotalStake().Cmp(
 		new(big.Int).Mul(new(big.Int).SetUint64(6), core.MinGuardianStakeDeposit)))
@@ -624,9 +622,8 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	es.addBlock(b13)
 
 	// Effective stake should become 0 immediately upon withdrawal
-	gcp4, err := es.consensus.GetLedger().GetFinalizedGuardianCandidatePool(b13.Hash())
-	assert.Nil(err)
-	log.Infof("gcp for block #13: %v", gcp4)
+	gcp4 := st.NewStoreView(b11.Height, b11.StateHash, db).GetGuardianCandidatePool()
+	log.Infof("gcp for block #11: %v", gcp4)
 	assert.Equal(1, gcp4.Len())
 	// The 1st deposit(1*minimal) was from holder to holder , 2nd deposit(2*minimal) and 3rd deposit
 	// (3*minimal)was from source to holder.

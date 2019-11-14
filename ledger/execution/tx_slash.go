@@ -30,7 +30,8 @@ func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorMan
 func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
-	validatorAddresses := getValidatorAddresses(exec.consensus.GetLedger(), exec.valMgr)
+	validatorSet := getValidatorSet(exec.consensus.GetLedger(), exec.valMgr)
+	validatorAddresses := getValidatorAddresses(validatorSet)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()
