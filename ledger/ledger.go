@@ -608,8 +608,10 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 	}
 
 	var accountRewardMap map[string]types.Coins
-	if ch := ledger.GetCurrentBlock().Height; ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
-		guardianVotes := ledger.GetCurrentBlock().GuardianVotes
+	ch := ledger.GetCurrentBlock().Height
+	guardianVotes := ledger.GetCurrentBlock().GuardianVotes
+
+	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
 		guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
 		if err != nil {
 			logger.Panic(err)

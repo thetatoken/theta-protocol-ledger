@@ -43,6 +43,9 @@ func (g *GuardianEngine) IsGuardian() bool {
 
 func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 	g.block = block
+	g.nextVote = nil
+	g.currVote = nil
+	g.round = 1
 
 	gcp, err := g.engine.GetLedger().GetGuardianCandidatePool(block)
 	if err != nil {
@@ -67,8 +70,6 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 	g.nextVote.Sign(g.privKey, g.signerIndex)
 
 	g.currVote = g.nextVote.Copy()
-
-	g.round = 1
 }
 
 func (g *GuardianEngine) StartNewRound() {
@@ -79,29 +80,34 @@ func (g *GuardianEngine) StartNewRound() {
 }
 
 func (g *GuardianEngine) GetVoteToBroadcast() *core.AggregatedVotes {
-	if !g.IsGuardian() {
-		return nil
-	}
-
 	return g.currVote
 }
 
+func (g *GuardianEngine) GetBestVote() *core.AggregatedVotes {
+	return g.nextVote
+}
+
 func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
-	if !g.IsGuardian() {
+	if !g.validateVote(vote) {
 		return
 	}
-	if !g.validateVote(vote) {
+
+	if g.nextVote == nil {
+		g.nextVote = vote
 		return
 	}
 
 	mergedVote, err := g.nextVote.Merge(vote)
 	if err != nil {
 		g.logger.WithFields(log.Fields{
-			"local.block":           g.block.Hex(),
-			"local.round":           g.round,
+			"g.block":               g.block.Hex(),
+			"g.round":               g.round,
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
-			"local.vote.Multiplies": g.nextVote.Multiplies,
+			"vote.GCP":              vote.Gcp.Hex(),
+			"g.nextVote.Multiplies": g.nextVote.Multiplies,
+			"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
+			"g.nextVote.Block":      g.nextVote.Block.Hex(),
 			"error":                 err.Error(),
 		}).Info("Failed to merge guardian vote")
 	}

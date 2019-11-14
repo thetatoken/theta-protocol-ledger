@@ -251,7 +251,7 @@ func (gcp *GuardianCandidatePool) Less(i, j int) bool {
 func (gcp *GuardianCandidatePool) Hash() common.Hash {
 	raw, err := rlp.EncodeToBytes(gcp)
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 	return crypto.Keccak256Hash(raw)
 }

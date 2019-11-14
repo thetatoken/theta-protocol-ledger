@@ -162,7 +162,21 @@ func (h *BlockHeader) EncodeRLP(w io.Writer) error {
 	}
 
 	// Theta2.0 fork
-	return rlp.Encode(w, h)
+	return rlp.Encode(w, []interface{}{
+		h.ChainID,
+		h.Epoch,
+		h.Height,
+		h.Parent,
+		h.HCC,
+		h.TxHash,
+		h.ReceiptHash,
+		h.Bloom,
+		h.StateHash,
+		h.Timestamp,
+		h.Proposer,
+		h.Signature,
+		h.GuardianVotes,
+	})
 
 }
 
@@ -200,14 +214,6 @@ func (h *BlockHeader) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 
-	// Theta2.0 fork
-	if h.Height >= common.HeightEnableTheta2 {
-		err = stream.Decode(h.GuardianVotes)
-		if err != nil {
-			return err
-		}
-	}
-
 	err = stream.Decode(&h.TxHash)
 	if err != nil {
 		return err
@@ -241,6 +247,25 @@ func (h *BlockHeader) DecodeRLP(stream *rlp.Stream) error {
 	err = stream.Decode(&h.Signature)
 	if err != nil {
 		return err
+	}
+
+	// Theta2.0 fork
+	if h.Height >= common.HeightEnableTheta2 {
+		raw, err := stream.Raw()
+		if err != nil {
+			return err
+		}
+		if common.Bytes2Hex(raw) == "c0" {
+			h.GuardianVotes = nil
+		} else {
+			gvotes := &AggregatedVotes{}
+			// err = stream.Decode(gvotes)
+			rlp.DecodeBytes(raw, gvotes)
+			if err != nil {
+				return err
+			}
+			h.GuardianVotes = gvotes
+		}
 	}
 
 	return stream.ListEnd()

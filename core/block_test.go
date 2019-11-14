@@ -30,7 +30,7 @@ func TestBlockEncoding(t *testing.T) {
 	// Block hash should remain the same.
 	require.Equal(oldBlockHash, b1.Hash())
 
-	// Should be able to encode/decode blocks after Theta2.0 fork.
+	// Should be able to encode/decode blocks before Theta2.0 fork.
 	CreateTestBlock("root", "")
 	b2 := CreateTestBlock("b2", "root")
 	b2.AddTxs([]common.Bytes{common.Hex2Bytes("aaa")})
@@ -40,6 +40,23 @@ func TestBlockEncoding(t *testing.T) {
 	require.Nil(err)
 	b2raw2, _ := rlp.EncodeToBytes(tmp)
 	require.Equal(b2raw1, b2raw2)
+
+	// Should be able to encode/decode blocks after Theta2.0 fork.
+	b2.Height = common.HeightEnableTheta2
+	b2raw1, _ = rlp.EncodeToBytes(b2)
+	err = rlp.DecodeBytes(b2raw1, tmp)
+	require.Nil(err)
+	b2raw2, _ = rlp.EncodeToBytes(tmp)
+	require.Equal(b2raw1, b2raw2)
+
+	// Decode with guardian votes.
+	b2.GuardianVotes = NewAggregateVotes(b2.Hash(), NewGuardianCandidatePool())
+	b2raw1, _ = rlp.EncodeToBytes(b2)
+	err = rlp.DecodeBytes(b2raw1, tmp)
+	require.Nil(err)
+	b2raw2, _ = rlp.EncodeToBytes(tmp)
+	require.Equal(b2raw1, b2raw2)
+	require.Equal(tmp.GuardianVotes.Block, b2.GuardianVotes.Block)
 
 	// Test ExtendedBlock encoding/decoding
 	eb := &ExtendedBlock{}

@@ -87,10 +87,11 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	// check the reward amount
 	var expectedRewards map[string]types.Coins
-	if tx.BlockHeight < common.HeightEnableTheta2 {
+	guardianVotes := exec.consensus.GetLedger().GetCurrentBlock().GuardianVotes
+
+	if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil {
 		expectedRewards = CalculateReward(view, validatorSet, nil, nil)
 	} else {
-		guardianVotes := exec.consensus.GetLedger().GetCurrentBlock().GuardianVotes
 		guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
 		if err != nil {
 			logger.Panic(err)
@@ -170,11 +171,13 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 	}
 
 	totalStake := validatorSet.TotalStake()
-	for i, g := range guardianPool.SortedGuardians {
-		if guardianVotes.Multiplies[i] == 0 {
-			continue
+	if guardianPool != nil {
+		for i, g := range guardianPool.SortedGuardians {
+			if guardianVotes.Multiplies[i] == 0 {
+				continue
+			}
+			totalStake.Add(totalStake, g.TotalStake())
 		}
-		totalStake.Add(totalStake, g.TotalStake())
 	}
 
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
@@ -206,21 +209,23 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 			}
 		}
 
-		for i, g := range guardianPool.SortedGuardians {
-			if guardianVotes.Multiplies[i] == 0 {
-				continue
-			}
-			stakes := g.Stakes
-			for _, stake := range stakes {
-				if stake.Withdrawn {
+		if guardianPool != nil {
+			for i, g := range guardianPool.SortedGuardians {
+				if guardianVotes.Multiplies[i] == 0 {
 					continue
 				}
-				stakeAmount := stake.Amount
-				stakeSource := stake.Source
-				if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-					stakeAmountSum.Add(stakeAmountSum, stakeAmount)
-				} else {
-					stakeSourceMap[stakeSource] = stakeAmount
+				stakes := g.Stakes
+				for _, stake := range stakes {
+					if stake.Withdrawn {
+						continue
+					}
+					stakeAmount := stake.Amount
+					stakeSource := stake.Source
+					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
+					} else {
+						stakeSourceMap[stakeSource] = stakeAmount
+					}
 				}
 			}
 		}
