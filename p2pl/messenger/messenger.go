@@ -29,7 +29,7 @@ import (
 	"github.com/libp2p/go-libp2p-core/network"
 
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
-	"github.com/libp2p/go-libp2p-core/peer"
+	pr "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/protocol"
 	cr "github.com/libp2p/go-libp2p-crypto"
 	peerstore "github.com/libp2p/go-libp2p-peerstore"
@@ -63,12 +63,11 @@ type Messenger struct {
 	host          host.Host
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
-	seedPeers     []*peer.AddrInfo
+	seedPeers     []*pr.AddrInfo
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
 	peerStreamMap map[string](*transport.BufferedStream)
-	// peerStreamMapLock *sync.RWMutex
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -201,10 +200,9 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
 		peerStreamMap: make(map[string](*transport.BufferedStream)),
-		// peerStreamMapLock: &sync.RWMutex{},
-		needMdns: needMdns,
-		config:   msgrConfig,
-		wg:       &sync.WaitGroup{},
+		needMdns:      needMdns,
+		config:        msgrConfig,
+		wg:            &sync.WaitGroup{},
 	}
 
 	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))
@@ -331,7 +329,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			}
 		}(i)
 	}
-
+	logger.Infof("================ 1 %v", msgr.seedPeers)
 	// kad-dht
 	if len(msgr.seedPeers) > 0 {
 		peerinfo := msgr.seedPeers[0]
@@ -347,7 +345,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			logger.Errorf("Failed to bootstrap DHT: %v", err)
 		}
 	}
-
+	logger.Infof("================ 2")
 	// mDns
 	// if msgr.needMdns {
 	// 	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
@@ -414,13 +412,13 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 
 // Send sends the given message to the specified peer
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
-	id, err := peer.IDB58Decode(peerID)
+	prID, err := pr.IDB58Decode(peerID)
 	if err != nil {
 		// logger.Warnf("Can't decode peer id %v, %v", peerID, err)
 		return false
 	}
 
-	peer := msgr.host.Peerstore().PeerInfo(id)
+	peer := msgr.host.Peerstore().PeerInfo(prID)
 	if peer.ID == "" || len(peer.Addrs) == 0 {
 		return false
 	}
@@ -432,32 +430,27 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		return false
 	}
 
-	// var stream network.Stream
 	var stream *transport.BufferedStream
 	var ok bool
 	streamKey := getStreamKey(peerID, message.ChannelID)
 
-	// msgr.peerStreamMapLock.Lock()
 	if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
-		strm, err := msgr.host.NewStream(msgr.ctx, id, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+		strm, err := msgr.host.NewStream(msgr.ctx, prID, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
 		if err != nil {
-			// msgr.peerStreamMapLock.Unlock()
 			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
 			return false
 		}
 		if strm == nil {
-			// msgr.peerStreamMapLock.Unlock()
 			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
 			return false
 		}
 		stream = transport.NewBufferedStream(strm)
 		stream.Start(msgr.ctx)
-		msgr.peerStreamMap[streamKey] = stream
-		// msgr.peerStreamMapLock.Unlock()
 
-		go msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
-		// } else {
-		// 	msgr.peerStreamMapLock.Unlock()
+		if strings.Compare(msgr.host.ID().String(), peerID) > 0 {
+			msgr.peerStreamMap[streamKey] = stream
+			go msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
+		}
 	}
 
 	n, err := stream.Write(bytes)
@@ -534,18 +527,21 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 		peerID := strm.Conn().RemotePeer().String()
 
 		var stream *transport.BufferedStream
-		var ok bool
+		// var ok bool
 		streamKey := getStreamKey(peerID, channelID)
-		// msgr.peerStreamMapLock.Lock()
-		if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
+
+		if strings.Compare(msgr.host.ID().String(), peerID) < 0 {
 			stream = transport.NewBufferedStream(strm)
 			stream.Start(msgr.ctx)
 			msgr.peerStreamMap[streamKey] = stream
-			// msgr.peerStreamMapLock.Unlock()
 			go msgr.readPeerMessageRoutine(stream, peerID, channelID)
-		} else {
-			// msgr.peerStreamMapLock.Unlock()
 		}
+		// if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
+		// 	stream = transport.NewBufferedStream(strm)
+		// 	stream.Start(msgr.ctx)
+		// 	msgr.peerStreamMap[streamKey] = stream
+		// 	go msgr.readPeerMessageRoutine(stream, peerID, channelID)
+		// }
 	})
 }
 
