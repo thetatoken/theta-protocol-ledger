@@ -9,11 +9,11 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-	"runtime"
 
 	log "github.com/sirupsen/logrus"
 
@@ -142,7 +142,7 @@ func getPublicIP() (string, error) {
 			out, err := cmd.CombinedOutput()
 			if err == nil {
 				res := strings.TrimSpace(string(out))
-				ip := res[strings.LastIndex(res, " ") + 1 :]
+				ip := res[strings.LastIndex(res, " ")+1:]
 				ipMap[ip]++
 			}
 		} else {
@@ -161,7 +161,7 @@ func getPublicIP() (string, error) {
 
 	var maxCnt int
 	var maxIP string
-	for ip, cnt := range ipMap { 
+	for ip, cnt := range ipMap {
 		if cnt > maxCnt {
 			maxIP = ip
 		}
@@ -202,13 +202,13 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		if err != nil {
 			return messenger, err
 		}
-	
+
 		extMultiAddr, err = createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
 		if err != nil {
 			return messenger, err
 		}
 	}
-	
+
 	addressFactory := func(addrs []ma.Multiaddr) []ma.Multiaddr {
 		if extMultiAddr != nil {
 			addrs = append(addrs, extMultiAddr)
