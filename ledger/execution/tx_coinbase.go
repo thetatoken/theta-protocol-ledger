@@ -144,8 +144,7 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 }
 
 func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins, blockHeight uint64) {
-	isACheckpoint := blockHeight%uint64(checkpointInterval) == 0
-	if !isACheckpoint {
+	if !common.IsCheckPointHeight(blockHeight) {
 		return
 	}
 
