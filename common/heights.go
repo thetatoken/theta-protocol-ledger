@@ -2,11 +2,11 @@ package common
 
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
 //const HeightEnableValidatorReward uint64 = 10000000000
-const HeightEnableValidatorReward uint64 = 456000 // For Amber testnet
+const HeightEnableValidatorReward uint64 = 457077 // For Amber testnet
 
 // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
 //const HeightEnableTheta2 uint64 = 10000000000
-const HeightEnableTheta2 uint64 = 456000 // for Amber testnet
+const HeightEnableTheta2 uint64 = 457077 // for Amber testnet
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
