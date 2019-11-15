@@ -435,33 +435,37 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	streamKey := getStreamKey(peerID, message.ChannelID)
 
 	if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
-		strm, err := msgr.host.NewStream(msgr.ctx, prID, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
-		if err != nil {
-			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
-			return false
-		}
-		if strm == nil {
-			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
-			return false
-		}
-		errorHandler := func(interface{}) {
-			stream.Stop()
-			for k, v := range msgr.peerStreamMap {
-				if strings.HasPrefix(k, peerID) {
-					if v.HasStarted() {
-						v.Stop()
+		if strings.Compare(msgr.host.ID().String(), peerID) > 0 {
+			strm, err := msgr.host.NewStream(msgr.ctx, prID, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
+			if err != nil {
+				logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
+				return false
+			}
+			if strm == nil {
+				logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
+				return false
+			}
+			errorHandler := func(interface{}) {
+				stream.Stop()
+				for k, v := range msgr.peerStreamMap {
+					if strings.HasPrefix(k, peerID) {
+						if v.HasStarted() {
+							v.Stop()
+						}
+						delete(msgr.peerStreamMap, k)
 					}
-					delete(msgr.peerStreamMap, k)
 				}
 			}
-		}
-		stream = transport.NewBufferedStream(strm, errorHandler)
-		stream.Start(msgr.ctx)
-
-		if strings.Compare(msgr.host.ID().String(), peerID) > 0 {
+			stream = transport.NewBufferedStream(strm, errorHandler)
+			stream.Start(msgr.ctx)
 			msgr.peerStreamMap[streamKey] = stream
 			go msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
 		}
+	}
+
+	if stream == nil {
+		logger.Warnf("%v still waiting for stream from %v", msgr.host.ID().String(), peerID)
+		return false
 	}
 
 	n, err := stream.Write(bytes)
@@ -536,34 +540,29 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer().String()
+		if strings.Compare(msgr.host.ID().String(), peerID) > 0 {
+			logger.Errorf("%v shouldn't receive stream from a smaller peer %v", msgr.host.ID().String(), peerID)
+			return
+		}
 
 		var stream *transport.BufferedStream
-		// var ok bool
 		streamKey := getStreamKey(peerID, channelID)
 
-		if strings.Compare(msgr.host.ID().String(), peerID) < 0 {
-			errorHandler := func(interface{}) {
-				stream.Stop()
-				for k, v := range msgr.peerStreamMap {
-					if strings.HasPrefix(k, peerID) {
-						if v.HasStarted() {
-							v.Stop()
-						}
-						delete(msgr.peerStreamMap, k)
+		errorHandler := func(interface{}) {
+			stream.Stop()
+			for k, v := range msgr.peerStreamMap {
+				if strings.HasPrefix(k, peerID) {
+					if v.HasStarted() {
+						v.Stop()
 					}
+					delete(msgr.peerStreamMap, k)
 				}
 			}
-			stream = transport.NewBufferedStream(strm, errorHandler)
-			stream.Start(msgr.ctx)
-			msgr.peerStreamMap[streamKey] = stream
-			go msgr.readPeerMessageRoutine(stream, peerID, channelID)
 		}
-		// if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
-		// 	stream = transport.NewBufferedStream(strm)
-		// 	stream.Start(msgr.ctx)
-		// 	msgr.peerStreamMap[streamKey] = stream
-		// 	go msgr.readPeerMessageRoutine(stream, peerID, channelID)
-		// }
+		stream = transport.NewBufferedStream(strm, errorHandler)
+		stream.Start(msgr.ctx)
+		msgr.peerStreamMap[streamKey] = stream
+		go msgr.readPeerMessageRoutine(stream, peerID, channelID)
 	})
 }
 
