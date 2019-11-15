@@ -87,22 +87,22 @@ func (s *LedgerState) Height() uint64 {
 }
 
 // Delivered returns a view of current state that contains both committed and delivered
-// transcations.
+// transactions.
 func (s *LedgerState) Delivered() *StoreView {
 	return s.delivered
 }
 
-// Checked creates a fresh clone of delivered view to be used for checking transcations.
+// Checked creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Checked() *StoreView {
 	return s.checked
 }
 
-// Screened creates a fresh clone of delivered view to be used for checking transcations.
+// Screened creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Screened() *StoreView {
 	return s.screened
 }
 
-// Finalized creates a fresh clone of delivered view to be used for checking transcations.
+// Finalized creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Finalized() *StoreView {
 	return s.finalized
 }

@@ -132,7 +132,7 @@ func (cg *ChannelGroup) getTotalNumChannels() uint {
 	return uint(len(cg.channels))
 }
 
-func (cg *ChannelGroup) nextChannelToSendPacket() (sucess bool, channel *Channel) {
+func (cg *ChannelGroup) nextChannelToSendPacket() (success bool, channel *Channel) {
 	channels := cg.getAllChannels()
 	totalNumberOfChannels := cg.getTotalNumChannels()
 	for i := uint(0); i < totalNumberOfChannels; i++ {
