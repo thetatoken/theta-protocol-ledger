@@ -134,8 +134,8 @@ var (
 )
 
 func init() {
-	// Each stake deposit needs to be at least 2,000 Theta
-	MinGuardianStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(2000), new(big.Int).SetUint64(1e18))
+	// Each stake deposit needs to be at least 10,000 Theta
+	MinGuardianStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(10000), new(big.Int).SetUint64(1e18))
 }
 
 type GuardianCandidatePool struct {
@@ -251,7 +251,7 @@ func (gcp *GuardianCandidatePool) Less(i, j int) bool {
 func (gcp *GuardianCandidatePool) Hash() common.Hash {
 	raw, err := rlp.EncodeToBytes(gcp)
 	if err != nil {
-		panic(err)
+		logger.Panic(err)
 	}
 	return crypto.Keccak256Hash(raw)
 }

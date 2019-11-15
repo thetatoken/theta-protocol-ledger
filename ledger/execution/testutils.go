@@ -10,6 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
@@ -113,7 +114,8 @@ func (et *execTest) reset() {
 	valSet.AddValidator(val2)
 	valMgr := NewTestValidatorManager(propser, valSet)
 
-	executor := NewExecutor(ledgerState, consensus, valMgr)
+	chain := blockchain.CreateTestChain()
+	executor := NewExecutor(db, chain, ledgerState, consensus, valMgr)
 
 	et.chainID = chainID
 	et.executor = executor

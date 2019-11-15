@@ -1,14 +1,21 @@
 package execution
 
 import (
+	"encoding/hex"
+	"fmt"
 	"math/big"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/store/database"
 )
+
+var weiMultiplier = big.NewInt(1e18)
+var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier) // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
 
 var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
@@ -16,14 +23,18 @@ var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
 // CoinbaseTxExecutor implements the TxExecutor interface
 type CoinbaseTxExecutor struct {
+	db        database.Database
+	chain     *blockchain.Chain
 	state     *st.LedgerState
 	consensus core.ConsensusEngine
 	valMgr    core.ValidatorManager
 }
 
 // NewCoinbaseTxExecutor creates a new instance of CoinbaseTxExecutor
-func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *CoinbaseTxExecutor {
+func NewCoinbaseTxExecutor(db database.Database, chain *blockchain.Chain, state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *CoinbaseTxExecutor {
 	return &CoinbaseTxExecutor{
+		db:        db,
+		chain:     chain,
 		state:     state,
 		consensus: consensus,
 		valMgr:    valMgr,
@@ -32,7 +43,8 @@ func NewCoinbaseTxExecutor(state *st.LedgerState, consensus core.ConsensusEngine
 
 func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.CoinbaseTx)
-	validatorAddresses := getValidatorAddresses(exec.consensus.GetLedger(), exec.valMgr)
+	validatorSet := getValidatorSet(exec.consensus.GetLedger(), exec.valMgr)
+	validatorAddresses := getValidatorAddresses(validatorSet)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()
@@ -74,7 +86,21 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	}
 
 	// check the reward amount
-	expectedRewards := CalculateReward(view, validatorAddresses)
+	var expectedRewards map[string]types.Coins
+	guardianVotes := exec.consensus.GetLedger().GetCurrentBlock().GuardianVotes
+
+	if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil {
+		expectedRewards = CalculateReward(view, validatorSet, nil, nil)
+	} else {
+		guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+		if err != nil {
+			logger.Panic(err)
+		}
+		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+		guardianCandidatePool := storeView.GetGuardianCandidatePool()
+		expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+	}
+
 	if len(expectedRewards) != len(tx.Outputs) {
 		return result.Error("Number of rewarded account is incorrect")
 	}
@@ -116,16 +142,109 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 }
 
 // CalculateReward calculates the block reward for each account
-func CalculateReward(view *st.StoreView, validatorAddresses []common.Address) map[string]types.Coins {
+func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
-
-	for _, validatorAddress := range validatorAddresses {
-		// Initial Mainnet release should not reward the validators until the guardians ready to deploy
-		zeroReward := types.Coins{}.NoNil()
-		accountReward[string(validatorAddress[:])] = zeroReward
+	blockHeight := view.Height() + 1 // view points to the parent block
+	if blockHeight < common.HeightEnableValidatorReward {
+		grantValidatorsWithZeroReward(validatorSet, &accountReward)
+	} else if blockHeight < common.HeightEnableTheta2 {
+		grantStakerReward(view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
+	} else {
+		grantStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
 	}
 
 	return accountReward
+}
+
+func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins) {
+	// Initial Mainnet release should not reward the validators until the guardians ready to deploy
+	zeroReward := types.Coins{}.NoNil()
+	for _, v := range validatorSet.Validators() {
+		(*accountReward)[string(v.Address[:])] = zeroReward
+	}
+}
+
+func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
+	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
+	if !common.IsCheckPointHeight(blockHeight) {
+		return
+	}
+
+	totalStake := validatorSet.TotalStake()
+	if guardianPool != nil {
+		for i, g := range guardianPool.SortedGuardians {
+			if guardianVotes.Multiplies[i] == 0 {
+				continue
+			}
+			totalStake.Add(totalStake, g.TotalStake())
+		}
+	}
+
+	if totalStake.Cmp(big.NewInt(0)) != 0 {
+
+		stakeSourceMap := map[common.Address]*big.Int{}
+
+		// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
+		vcp := view.GetValidatorCandidatePool()
+		for _, v := range validatorSet.Validators() {
+			validatorAddr := v.Address
+			stakeDelegate := vcp.FindStakeDelegate(validatorAddr)
+			if stakeDelegate == nil { // should not happen
+				panic(fmt.Sprintf("Failed to find stake delegate in the VCP: %v", hex.EncodeToString(validatorAddr[:])))
+			}
+
+			stakes := stakeDelegate.Stakes
+			for _, stake := range stakes {
+				if stake.Withdrawn {
+					continue
+				}
+				stakeAmount := stake.Amount
+				stakeSource := stake.Source
+				if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+					stakeAmountSum := big.NewInt(0).Add(stakeAmountSum, stakeAmount)
+					stakeSourceMap[stakeSource] = stakeAmountSum
+				} else {
+					stakeSourceMap[stakeSource] = stakeAmount
+				}
+			}
+		}
+
+		if guardianPool != nil {
+			for i, g := range guardianPool.SortedGuardians {
+				if guardianVotes.Multiplies[i] == 0 {
+					continue
+				}
+				stakes := g.Stakes
+				for _, stake := range stakes {
+					if stake.Withdrawn {
+						continue
+					}
+					stakeAmount := stake.Amount
+					stakeSource := stake.Source
+					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
+					} else {
+						stakeSourceMap[stakeSource] = stakeAmount
+					}
+				}
+			}
+		}
+
+		// the source of the stake divides the block reward proportional to their stake
+		totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
+		for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
+			tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
+			rewardAmount := tmp.Div(tmp, totalStake)
+
+			reward := types.Coins{
+				ThetaWei: big.NewInt(0),
+				TFuelWei: rewardAmount,
+			}.NoNil()
+			(*accountReward)[string(stakeSourceAddr[:])] = reward
+
+			logger.Infof("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
+		}
+	}
 }
 
 func (exec *CoinbaseTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {

@@ -196,14 +196,16 @@ type GetBlockResult struct {
 }
 
 type GetBlockResultInner struct {
-	ChainID   string            `json:"chain_id"`
-	Epoch     common.JSONUint64 `json:"epoch"`
-	Height    common.JSONUint64 `json:"height"`
-	Parent    common.Hash       `json:"parent"`
-	TxHash    common.Hash       `json:"transactions_hash"`
-	StateHash common.Hash       `json:"state_hash"`
-	Timestamp *common.JSONBig   `json:"timestamp"`
-	Proposer  common.Address    `json:"proposer"`
+	ChainID       string                 `json:"chain_id"`
+	Epoch         common.JSONUint64      `json:"epoch"`
+	Height        common.JSONUint64      `json:"height"`
+	Parent        common.Hash            `json:"parent"`
+	TxHash        common.Hash            `json:"transactions_hash"`
+	StateHash     common.Hash            `json:"state_hash"`
+	Timestamp     *common.JSONBig        `json:"timestamp"`
+	Proposer      common.Address         `json:"proposer"`
+	HCC           core.CommitCertificate `json:"hcc"`
+	GuardianVotes *core.AggregatedVotes  `json:"guardian_votes"`
 
 	Children []common.Hash    `json:"children"`
 	Status   core.BlockStatus `json:"status"`
@@ -248,6 +250,8 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 	result.Proposer = block.Proposer
 	result.Children = block.Children
 	result.Status = block.Status
+	result.HCC = block.HCC
+	result.GuardianVotes = block.GuardianVotes
 
 	result.Hash = block.Hash()
 
@@ -307,6 +311,8 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	result.Proposer = block.Proposer
 	result.Children = block.Children
 	result.Status = block.Status
+	result.HCC = block.HCC
+	result.GuardianVotes = block.GuardianVotes
 
 	result.Hash = block.Hash()
 
