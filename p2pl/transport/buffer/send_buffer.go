@@ -17,6 +17,8 @@ import (
 // SendBuffer
 //
 
+const MaxErrorInARow = 3
+
 type SendBuffer struct {
 	workspace  []byte
 	wsStartIdx int32
@@ -30,7 +32,8 @@ type SendBuffer struct {
 	config SendBufferConfig
 	seqID  int32
 
-	onError cmn.ErrorHandler
+	onError    cmn.ErrorHandler
+	errorCount int
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -48,7 +51,7 @@ type SendBufferConfig struct {
 }
 
 // NewSendBuffer creates a SendBuffer instance for the given config
-func NewSendBuffer(config SendBufferConfig, rawStream cmn.ReadWriteCloser) SendBuffer {
+func NewSendBuffer(config SendBufferConfig, rawStream cmn.ReadWriteCloser, onError cmn.ErrorHandler) SendBuffer {
 	return SendBuffer{
 		workspace:   make([]byte, 0),
 		wsStartIdx:  0,
@@ -57,6 +60,7 @@ func NewSendBuffer(config SendBufferConfig, rawStream cmn.ReadWriteCloser) SendB
 		sendMonitor: flowrate.New(0, 0),
 		config:      config,
 		wg:          &sync.WaitGroup{},
+		onError:     onError,
 	}
 }
 
@@ -75,6 +79,7 @@ func (sb *SendBuffer) Start(ctx context.Context) bool {
 	sb.ctx = ctx
 	sb.cancel = cancel
 
+	sb.wg.Add(1)
 	go sb.sendRoutine()
 
 	return true
@@ -137,8 +142,17 @@ func (sb *SendBuffer) sendRoutine() {
 			totalBytesSent, success, exhausted := sb.sendChunkBatch()
 			sb.sendMonitor.Update(totalBytesSent)
 
-			if !success || exhausted {
+			if exhausted {
 				break
+			}
+			if !success {
+				sb.errorCount++
+				if sb.errorCount >= MaxErrorInARow {
+					return
+				}
+				break
+			} else {
+				sb.errorCount = 0
 			}
 		}
 
@@ -171,7 +185,7 @@ func (sb *SendBuffer) sendChunk() (nonemptyChunk bool, numBytes int, err error) 
 
 	numBytes, err = sb.rawStream.Write(chunk.Bytes())
 	if err != nil {
-		return true, int(0), nil
+		return true, int(0), err
 	}
 
 	return true, numBytes, err
@@ -215,7 +229,7 @@ func (sb *SendBuffer) emitChunk() *Chunk {
 }
 
 func (sb *SendBuffer) recover() {
-	if r := recover(); r != nil {
+	if r := recover(); r == nil {
 		stack := debug.Stack()
 		err := fmt.Errorf(string(stack))
 		if sb.onError != nil {

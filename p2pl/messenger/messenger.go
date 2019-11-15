@@ -329,7 +329,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			}
 		}(i)
 	}
-	logger.Infof("================ 1 %v", msgr.seedPeers)
+
 	// kad-dht
 	if len(msgr.seedPeers) > 0 {
 		peerinfo := msgr.seedPeers[0]
@@ -345,7 +345,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			logger.Errorf("Failed to bootstrap DHT: %v", err)
 		}
 	}
-	logger.Infof("================ 2")
+
 	// mDns
 	// if msgr.needMdns {
 	// 	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
@@ -444,7 +444,18 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
 			return false
 		}
-		stream = transport.NewBufferedStream(strm)
+		errorHandler := func(interface{}) {
+			stream.Stop()
+			for k, v := range msgr.peerStreamMap {
+				if strings.HasPrefix(k, peerID) {
+					if v.HasStarted() {
+						v.Stop()
+					}
+					delete(msgr.peerStreamMap, k)
+				}
+			}
+		}
+		stream = transport.NewBufferedStream(strm, errorHandler)
 		stream.Start(msgr.ctx)
 
 		if strings.Compare(msgr.host.ID().String(), peerID) > 0 {
@@ -531,7 +542,18 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 		streamKey := getStreamKey(peerID, channelID)
 
 		if strings.Compare(msgr.host.ID().String(), peerID) < 0 {
-			stream = transport.NewBufferedStream(strm)
+			errorHandler := func(interface{}) {
+				stream.Stop()
+				for k, v := range msgr.peerStreamMap {
+					if strings.HasPrefix(k, peerID) {
+						if v.HasStarted() {
+							v.Stop()
+						}
+						delete(msgr.peerStreamMap, k)
+					}
+				}
+			}
+			stream = transport.NewBufferedStream(strm, errorHandler)
 			stream.Start(msgr.ctx)
 			msgr.peerStreamMap[streamKey] = stream
 			go msgr.readPeerMessageRoutine(stream, peerID, channelID)

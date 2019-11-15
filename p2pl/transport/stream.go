@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	buf "github.com/thetatoken/theta/p2pl/transport/buffer"
 	p2pcmn "github.com/thetatoken/theta/p2pl/common"
+	buf "github.com/thetatoken/theta/p2pl/transport/buffer"
 )
 
 // BufferedStream is a bidirectional I/O pipe that supports
@@ -28,10 +28,10 @@ type BufferedStream struct {
 	stopped bool
 }
 
-func NewBufferedStream(rawStream p2pcmn.ReadWriteCloser) *BufferedStream {
+func NewBufferedStream(rawStream p2pcmn.ReadWriteCloser, onError p2pcmn.ErrorHandler) *BufferedStream {
 	s := &BufferedStream{
 		rawStream: rawStream,
-		sendBuf:   buf.NewSendBuffer(buf.GetDefaultSendBufferConfig(), rawStream),
+		sendBuf:   buf.NewSendBuffer(buf.GetDefaultSendBufferConfig(), rawStream, onError),
 		recvBuf:   buf.NewRecvBuffer(buf.GetDefaultRecvBufferConfig(), rawStream),
 		started:   false,
 	}
