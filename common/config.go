@@ -66,6 +66,9 @@ const (
 
 	// CfgGuardianRoundLength defines the length of a guardian voting round.
 	CfgGuardianRoundLength = "guardian.roundLength"
+
+	// Graphite Server to collet metrics
+	CfgMetricsServer = "metrics.server"
 )
 
 // Starting block heights of features.
@@ -106,8 +109,10 @@ func init() {
 	viper.SetDefault(CfgLogPrintSelfID, false)
 
 	viper.SetDefault(CfgGuardianRoundLength, 30)
-	
+
 	viper.SetDefault(CfgLibP2PDiscoverable, true)
+	viper.SetDefault(CfgMetricsServer, "localhost:2003")
+	// viper.SetDefault(CfgMetricsServer, "35.160.150.13:2003")
 }
 
 // WriteInitialConfig writes initial config file to file system.

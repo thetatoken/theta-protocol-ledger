@@ -2,12 +2,18 @@ package metrics
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 )
 
 // GraphiteConfig provides a container with configuration parameters for
@@ -110,4 +116,72 @@ func graphite(c *GraphiteConfig) error {
 		w.Flush()
 	})
 	return nil
+}
+
+//--------------------new functions---------------------
+var gs *GraphiteServer
+
+type GraphiteServer struct {
+	Addr       string // Network address to connect to
+	TCPaddr    *net.TCPAddr
+	Hostname   string
+	Prefix     string
+	repeatable []*MetricJob
+}
+
+type MetricJob struct {
+	FlushInterval time.Duration // Flush interval
+	Prefix        string        // Prefix to be prepended to metric names
+}
+
+func GetGraphiteServer() *GraphiteServer {
+	if gs == nil {
+		if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
+			addr, err := net.ResolveTCPAddr("tcp", mserver)
+			if err != nil {
+				log.Printf("can not connect to server")
+				return nil
+			}
+			gs = &GraphiteServer{
+				Addr:       mserver,
+				TCPaddr:    addr,
+				repeatable: make([]*MetricJob, 0),
+			}
+			// fmt.Printf("xj1 addr is %v, msserver is %s \n", addr, mserver)
+		}
+		hostname, err := os.Hostname()
+		if err != nil {
+			// Use random string if hostname is not available.
+			b := make([]byte, 10)
+			rand.Read(b)
+			hostname = hex.EncodeToString(b)
+		}
+		hostname = strings.Replace(hostname, ".", "_", -1)
+		gs.Hostname = hostname
+		prefix := fmt.Sprintf("%s.Theta.%s", viper.GetString(common.CfgLibP2PRendezvous), hostname)
+		gs.Prefix = prefix
+	}
+	return gs
+}
+
+func (gs *GraphiteServer) addJob() error {
+	return nil
+}
+
+func (gs *GraphiteServer) OneTimeJob(key string, value string) error {
+	conn, err := net.DialTCP("tcp", nil, gs.TCPaddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	message := fmt.Sprintf("%s.%s %s %d\n", gs.Prefix, key, value, time.Now().Unix())
+	if _, err := conn.Write([]byte(message)); err != nil {
+		return err
+	}
+	fmt.Printf("xj2 message is %s \n", message)
+	return nil
+}
+
+func (gs *GraphiteServer) String() string {
+	return fmt.Sprintf("GraphServer: address is %s, prefix is %s. \n", gs.Addr, gs.Prefix)
 }

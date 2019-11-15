@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
@@ -257,6 +258,12 @@ func printWelcomeBanner() {
 	fmt.Println("")
 	fmt.Printf("Version %v, GitHash %s\nBuilt at %s\n", version.Version, version.GitHash, version.Timestamp)
 	fmt.Println("")
+	// var gs *metrics.GraphiteServer
+	// gs = metrics.GetGraphiteServer()
+	// fmt.Println("xj3 gs is %v \n", gs)
+	if gs := metrics.GetGraphiteServer(); gs != nil {
+		gs.OneTimeJob("online", "1")
+	}
 }
 
 func printExitBanner() {
@@ -276,4 +283,7 @@ func printExitBanner() {
 	fmt.Println(" #################################################### ")
 	fmt.Println("")
 	fmt.Println("")
+	if gs := metrics.GetGraphiteServer(); gs != nil {
+		gs.OneTimeJob("online", "0")
+	}
 }
