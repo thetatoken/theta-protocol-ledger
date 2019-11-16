@@ -106,6 +106,7 @@ func (rb *RecvBuffer) recvRoutine() {
 	defer rb.wg.Done()
 	defer rb.recover()
 
+	var rolloverBytes []byte
 	bytes := make([]byte, cmn.MaxChunkSize)
 	for {
 		select {
@@ -117,21 +118,49 @@ func (rb *RecvBuffer) recvRoutine() {
 		// Block until recvMonitor allows reading
 		rb.recvMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&rb.config.RecvRate), true)
 		numBytesRead, err := rb.rawStream.Read(bytes)
-
 		if err != nil {
-			//log.Errorf("RecvBuffer failed to read data: %v", err)
-			//break
 			continue
 		}
 
-		chunkStart := 0
-		for chunkStart < numBytesRead {
-			payloadSize := int(int32FromBytes(bytes[chunkStart+4 : chunkStart+8]))
-			chunkSize := headerSize + payloadSize
+		start := 0
+		for start < numBytesRead {
+			var chunkBytes []byte
+			var increment int
+			rolloverLen := len(rolloverBytes)
+			rolloverCap := cap(rolloverBytes)
 
-			chunk, err := NewChunkFromRawBytes(bytes[chunkStart : chunkStart+chunkSize])
+			if start == 0 && rolloverLen > 0 {
+				residueLen := rolloverCap - rolloverLen
+				if residueLen > numBytesRead {
+					rolloverBytes = rolloverBytes[:rolloverLen+numBytesRead]
+					copy(rolloverBytes[rolloverLen:rolloverLen+numBytesRead], bytes[:numBytesRead])
+					rb.recvMonitor.Update(numBytesRead) // ?
+					break
+				}
+
+				rolloverBytes = rolloverBytes[:rolloverCap]
+				copy(rolloverBytes[rolloverLen:rolloverCap], bytes[:residueLen])
+				chunkBytes = rolloverBytes
+				increment = residueLen
+			} else {
+				payloadSize := int(int32FromBytes(bytes[start+4 : start+8]))
+				chunkSize := headerSize + payloadSize
+
+				if start+chunkSize > numBytesRead {
+					rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
+					copy(rolloverBytes, bytes[start:numBytesRead])
+
+					rb.recvMonitor.Update(numBytesRead - start) //?
+					break
+				}
+
+				chunkBytes = bytes[start : start+chunkSize]
+				increment = chunkSize
+			}
+
+			chunk, err := NewChunkFromRawBytes(chunkBytes)
 			if err == nil {
-				rb.recvMonitor.Update(chunkSize)
+				rb.recvMonitor.Update(increment)
 
 				completeMessage, success := rb.aggregateChunk(chunk)
 				if success {
@@ -144,7 +173,8 @@ func (rb *RecvBuffer) recvRoutine() {
 				log.Errorf("RecvBuffer failed to create new chunk from raw bytes: %v", err)
 			}
 
-			chunkStart += chunkSize
+			rolloverBytes = rolloverBytes[:0]
+			start += increment
 		}
 	}
 }
