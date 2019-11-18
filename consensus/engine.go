@@ -474,6 +474,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.Hash":          block.Hash().Hex(),
 				"block.Height":        block.Height,
 				"block.GuardianVotes": block.GuardianVotes.String(),
+				"error":               res.String(),
 			}).Warn("Failed to load guardian pool")
 			return result.Error("Guardian votes are not valid")
 		}
