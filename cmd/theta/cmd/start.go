@@ -212,7 +212,7 @@ func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, por
 	msgrConfig := msgl.GetDefaultMessengerConfig()
 	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, peerDiscoverable, msgrConfig, true)
 	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance.")
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance.")
 	}
 	return messenger
 }
@@ -226,7 +226,7 @@ func newMessengerOld(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, 
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
 	messenger, err := msg.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance")
 	}
 	return messenger
 }
