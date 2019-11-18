@@ -144,7 +144,7 @@ func (rb *RecvBuffer) recvRoutine() {
 				increment = residueLen
 			} else {
 				if start+8 > numBytesRead {
-					precedingBytes = make([]byte, 8)
+					precedingBytes = make([]byte, numBytesRead-start, 8)
 					copy(precedingBytes, bytes[start:numBytesRead])
 					break
 				}
@@ -152,6 +152,7 @@ func (rb *RecvBuffer) recvRoutine() {
 				var payloadSize int
 				precedingLen := len(precedingBytes)
 				if precedingLen > 0 {
+					precedingBytes = precedingBytes[:8]
 					copy(precedingBytes[precedingLen:], bytes[:8-precedingLen])
 					payloadSize = int(int32FromBytes(precedingBytes[4:8]))
 					start -= precedingLen
