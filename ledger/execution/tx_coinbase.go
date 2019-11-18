@@ -171,6 +171,11 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 	}
 
 	totalStake := validatorSet.TotalStake()
+
+	if guardianPool != nil {
+		guardianPool = guardianPool.WithStake()
+	}
+
 	if guardianPool != nil {
 		for i, g := range guardianPool.SortedGuardians {
 			if guardianVotes.Multiplies[i] == 0 {
