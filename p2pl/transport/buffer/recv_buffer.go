@@ -106,7 +106,7 @@ func (rb *RecvBuffer) recvRoutine() {
 	defer rb.wg.Done()
 	defer rb.recover()
 
-	var rolloverBytes []byte
+	var rolloverBytes, precedingBytes []byte
 	bytes := make([]byte, cmn.MaxChunkSize)
 	for {
 		select {
@@ -144,23 +144,24 @@ func (rb *RecvBuffer) recvRoutine() {
 				increment = residueLen
 			} else {
 				if start+8 > numBytesRead {
-					rolloverBytes = make([]byte, 8)
-					copy(rolloverBytes, bytes[start:numBytesRead])
-					start -= numBytesRead
+					precedingBytes = make([]byte, 8)
+					copy(precedingBytes, bytes[start:numBytesRead])
 					break
 				}
 
 				var payloadSize int
-				if start < 0 {
-					copy(rolloverBytes[-start:8], bytes[:8+start])
-					payloadSize = int(int32FromBytes(rolloverBytes))
+				precedingLen := len(precedingBytes)
+				if precedingLen > 0 {
+					copy(precedingBytes[precedingLen:], bytes[:8-precedingLen])
+					payloadSize = int(int32FromBytes(precedingBytes[4:8]))
+					start -= precedingLen
 				} else {
 					payloadSize = int(int32FromBytes(bytes[start+4 : start+8]))
 				}
+
 				chunkSize := headerSize + payloadSize
 
 				if start+chunkSize > numBytesRead {
-					rolloverBytes = nil
 					rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
 					copy(rolloverBytes, bytes[start:numBytesRead])
 
@@ -169,7 +170,7 @@ func (rb *RecvBuffer) recvRoutine() {
 				}
 
 				if start < 0 {
-					chunkBytes = append(rolloverBytes, bytes[:chunkSize-8-start]...)
+					chunkBytes = append(precedingBytes, bytes[8-precedingLen:chunkSize-precedingLen]...)
 				} else {
 					chunkBytes = bytes[start : start+chunkSize]
 				}
@@ -192,6 +193,7 @@ func (rb *RecvBuffer) recvRoutine() {
 			}
 
 			rolloverBytes = nil //rolloverBytes[:0]
+			precedingBytes = nil
 			start += increment
 		}
 	}
