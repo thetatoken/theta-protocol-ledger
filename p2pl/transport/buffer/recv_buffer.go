@@ -143,10 +143,24 @@ func (rb *RecvBuffer) recvRoutine() {
 				chunkBytes = rolloverBytes
 				increment = residueLen
 			} else {
-				payloadSize := int(int32FromBytes(bytes[start+4 : start+8]))
+				if start+8 > numBytesRead {
+					rolloverBytes = make([]byte, 8)
+					copy(rolloverBytes, bytes[start:numBytesRead])
+					start -= numBytesRead
+					break
+				}
+
+				var payloadSize int
+				if start < 0 {
+					copy(rolloverBytes[-start:8], bytes[:8+start])
+					payloadSize = int(int32FromBytes(rolloverBytes))
+				} else {
+					payloadSize = int(int32FromBytes(bytes[start+4 : start+8]))
+				}
 				chunkSize := headerSize + payloadSize
 
 				if start+chunkSize > numBytesRead {
+					rolloverBytes = nil
 					rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
 					copy(rolloverBytes, bytes[start:numBytesRead])
 
@@ -154,7 +168,11 @@ func (rb *RecvBuffer) recvRoutine() {
 					break
 				}
 
-				chunkBytes = bytes[start : start+chunkSize]
+				if start < 0 {
+					chunkBytes = append(rolloverBytes, bytes[:chunkSize-8-start]...)
+				} else {
+					chunkBytes = bytes[start : start+chunkSize]
+				}
 				increment = chunkSize
 			}
 
@@ -173,7 +191,7 @@ func (rb *RecvBuffer) recvRoutine() {
 				log.Errorf("RecvBuffer failed to create new chunk from raw bytes: %v", err)
 			}
 
-			rolloverBytes = rolloverBytes[:0]
+			rolloverBytes = nil //rolloverBytes[:0]
 			start += increment
 		}
 	}
