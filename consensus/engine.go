@@ -445,7 +445,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.Hash":          block.Hash().Hex(),
 				"block.Height":        block.Height,
 				"block.GuardianVotes": block.GuardianVotes.String(),
-				"error":               err.Error(),
 			}).Warn("Guardian votes refers to non-existing block")
 			return result.Error("Block in guardian votes cannot be found")
 		}
@@ -456,7 +455,6 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.Height":        block.Height,
 				"block.GuardianVotes": block.GuardianVotes.String(),
 				"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
-				"error":               err.Error(),
 			}).Warn("Block is not descendant of checkpoint")
 			return result.Error("Block is not descendant of checkpoint in guardian votes")
 		}
