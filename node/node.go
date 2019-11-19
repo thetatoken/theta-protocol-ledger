@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -106,7 +107,11 @@ func NewNode(params *Params) *Node {
 	if viper.GetBool(common.CfgRPCEnabled) {
 		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain, consensus)
 	}
-
+	var inSync bool
+	tip := consensus.GetTip(true)
+	lfb := consensus.GetLastFinalizedBlock()
+	inSync = tip.Height > lfb.Height
+	go metrics.InitStatsdClient(inSync)
 	return node
 }
 
