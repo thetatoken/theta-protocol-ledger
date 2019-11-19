@@ -445,7 +445,7 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		strm, err := msgr.host.NewStream(msgr.ctx, prID, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
 		if err != nil {
 			msgr.peerStreamMapLock.Unlock()
-			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
+			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
 			return false
 		}
 		if strm == nil {
