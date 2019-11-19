@@ -454,6 +454,9 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 			return false
 		}
 		errorHandler := func(interface{}) {
+			msgr.peerStreamMapLock.Lock()
+			defer msgr.peerStreamMapLock.Unlock()
+
 			stream.Stop()
 			for k, v := range msgr.peerStreamMap {
 				if strings.HasPrefix(k, peerID) {
@@ -466,13 +469,10 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		}
 		stream = transport.NewBufferedStream(strm, errorHandler)
 		msgr.peerStreamMap[streamKey] = stream
-		msgr.peerStreamMapLock.Unlock()
 		stream.Start(msgr.ctx)
-
 		go msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
-	} else {
-		msgr.peerStreamMapLock.Unlock()
 	}
+	msgr.peerStreamMapLock.Unlock()
 
 	if stream == nil {
 		logger.Warnf("%v still waiting for stream from %v", msgr.host.ID().String(), peerID)
