@@ -137,7 +137,7 @@ type MetricJob struct {
 func GetGraphiteServer() *GraphiteServer {
 	if gs == nil {
 		if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
-			addr, err := net.ResolveTCPAddr("tcp", mserver)
+			addr, err := net.ResolveTCPAddr("tcp", mserver+":2003")
 			if err != nil {
 				log.Printf("can not connect to server")
 				return nil
