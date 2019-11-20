@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
@@ -38,11 +39,11 @@ type SyncManager struct {
 	dispatcher *dispatcher.Dispatcher
 	requestMgr *RequestManager
 
-	wg      *sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
-	stopped bool
-
+	wg       *sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stopped  bool
+	sc       *metrics.StatsdClient
 	incoming chan p2ptypes.Message
 
 	whitelist []string
@@ -52,16 +53,16 @@ type SyncManager struct {
 	voteCache *lru.Cache // Cache for votes
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer, sc *metrics.StatsdClient) *SyncManager {
 	voteCache, _ := lru.New(voteCacheLimit)
 	sm := &SyncManager{
 		chain:      chain,
 		consensus:  cons,
 		consumer:   consumer,
 		dispatcher: disp,
-
-		wg:       &sync.WaitGroup{},
-		incoming: make(chan p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
+		sc:         sc,
+		wg:         &sync.WaitGroup{},
+		incoming:   make(chan p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 
 		voteCache: voteCache,
 	}
