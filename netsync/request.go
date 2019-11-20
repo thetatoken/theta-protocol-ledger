@@ -190,6 +190,7 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
+	rm.syncMgr.sc.InSync = !hasUndownloadedBlocks
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 

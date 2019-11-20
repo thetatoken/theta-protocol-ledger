@@ -63,7 +63,9 @@ func NewNode(params *Params) *Node {
 	dispatcher := dp.NewDispatcher(params.NetworkOld, params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
-	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus)
+	// TODO: check if this is a guardian node
+	statsdClient := metrics.InitStatsdClient()
+	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, statsdClient)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
 
@@ -107,11 +109,6 @@ func NewNode(params *Params) *Node {
 	if viper.GetBool(common.CfgRPCEnabled) {
 		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain, consensus)
 	}
-	var inSync bool
-	tip := consensus.GetTip(true)
-	lfb := consensus.GetLastFinalizedBlock()
-	inSync = tip.Height > lfb.Height
-	go metrics.InitStatsdClient(inSync)
 	return node
 }
 

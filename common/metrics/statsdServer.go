@@ -12,6 +12,7 @@ import (
 type StatsdClient struct {
 	client *statsd.Client
 	init   bool
+	InSync bool
 }
 
 var client *statsd.Client
@@ -23,23 +24,15 @@ func (sc *StatsdClient) NewStatsdClient(sync bool) *StatsdClient {
 	return nil
 }
 
-//block function to init statsd client and start heartbeat functions
-func InitStatsdClient(sync bool) *StatsdClient {
+//init statsd client and start heartbeat functions
+func InitStatsdClient() *StatsdClient {
 	re := &StatsdClient{}
 	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
 		client = statsd.NewClient(mserver+":8125", statsd.MetricPrefix("theta."), statsd.FlushInterval(flushDuration))
 		re.client = client
 		re.init = true
-		defer client.Close()
-		c := make(chan bool)
 		go reportOnline(client)
-		if sync {
-			go reportSync(client)
-		}
-		done := <-c
-		if done {
-			return nil
-		}
+		go re.reportSync()
 	} else {
 		fmt.Printf("metrics server is not in config file")
 	}
@@ -48,7 +41,6 @@ func InitStatsdClient(sync bool) *StatsdClient {
 
 //report online
 func reportOnline(client *statsd.Client) {
-	// TODO: check if this is a guardian node
 	for {
 		client.Incr("guardian.online", 1)
 		time.Sleep(flushDuration)
@@ -56,9 +48,12 @@ func reportOnline(client *statsd.Client) {
 }
 
 //report sync
-func reportSync(client *statsd.Client) {
+func (sc *StatsdClient) reportSync() {
+	defer sc.client.Close()
 	for {
-		client.Incr("guardian.inSync", 1)
+		if sc.InSync {
+			sc.client.Incr("guardian.inSync", 1)
+		}
 		time.Sleep(flushDuration)
 	}
 }
