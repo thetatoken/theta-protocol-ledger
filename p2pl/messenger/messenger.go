@@ -198,9 +198,9 @@ func getPublicIP() (string, error) {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool, ctx context.Context) (*Messenger, error) {
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 
 	messenger := &Messenger{
 		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
@@ -209,6 +209,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		needMdns:          needMdns,
 		config:            msgrConfig,
 		wg:                &sync.WaitGroup{},
+		ctx:               ctx,
 	}
 
 	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))

@@ -52,8 +52,11 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
-	networkOld := newMessengerOld(privKey, peerSeedsOld, portOld)
-	network := newMessenger(privKey, peerSeeds, port, peerDiscoverable)
+	// trap Ctrl+C and call cancel on the context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	networkOld := newMessengerOld(privKey, peerSeedsOld, portOld, ctx)
+	network := newMessenger(privKey, peerSeeds, port, peerDiscoverable, ctx)
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
@@ -87,8 +90,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 	n := node.NewNode(params)
 
-	// trap Ctrl+C and call cancel on the context
-	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
 	done := make(chan struct{})
@@ -204,20 +205,20 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	return nodePrivKey, nil
 }
 
-func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, peerDiscoverable bool) *msgl.Messenger {
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, peerDiscoverable bool, ctx context.Context) *msgl.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key:")
 	msgrConfig := msgl.GetDefaultMessengerConfig()
-	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, peerDiscoverable, msgrConfig, true)
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, peerDiscoverable, msgrConfig, true, ctx)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance.")
 	}
 	return messenger
 }
 
-func newMessengerOld(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *msg.Messenger {
+func newMessengerOld(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, ctx context.Context) *msg.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
