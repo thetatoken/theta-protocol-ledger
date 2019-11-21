@@ -112,7 +112,7 @@ func init() {
 
 	viper.SetDefault(CfgLibP2PDiscoverable, true)
 	// viper.SetDefault(CfgMetricsServer, "localhost")
-	viper.SetDefault(CfgMetricsServer, "35.160.150.13")
+	viper.SetDefault(CfgMetricsServer, "34.220.181.170")
 }
 
 // WriteInitialConfig writes initial config file to file system.

@@ -17,8 +17,8 @@ type StatsdClient struct {
 
 var client *statsd.Client
 
-const sleepTime time.Duration = time.Second * 5
-const flushDuration time.Duration = time.Second
+const sleepTime time.Duration = time.Second * 10
+const flushDuration time.Duration = time.Second * 10
 
 func (sc *StatsdClient) NewStatsdClient(sync bool) *StatsdClient {
 	return nil
@@ -43,7 +43,7 @@ func InitStatsdClient() *StatsdClient {
 func reportOnline(client *statsd.Client) {
 	for {
 		client.Incr("guardian.online", 1)
-		time.Sleep(flushDuration)
+		time.Sleep(sleepTime)
 	}
 }
 
@@ -54,6 +54,6 @@ func (sc *StatsdClient) reportSync() {
 		if sc.InSync {
 			sc.client.Incr("guardian.inSync", 1)
 		}
-		time.Sleep(flushDuration)
+		time.Sleep(sleepTime)
 	}
 }
