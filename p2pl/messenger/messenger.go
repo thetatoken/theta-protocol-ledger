@@ -325,7 +325,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 		select {
 		case pid := <-msgr.newPeers:
 			pr := msgr.host.Peerstore().PeerInfo(pid)
-			if pr == nil {
+			if pr.ID == "" {
 				continue
 			}
 			isOutbound := strings.Compare(msgr.host.ID().String(), pid.String()) > 0
