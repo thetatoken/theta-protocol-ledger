@@ -21,6 +21,8 @@ import (
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	p2pcmn "github.com/thetatoken/theta/p2pl/common"
 
+	"github.com/thetatoken/theta/p2pl/peer"
+
 	"github.com/thetatoken/theta/p2pl"
 	"github.com/thetatoken/theta/p2pl/transport"
 
@@ -60,15 +62,18 @@ const (
 )
 
 type Messenger struct {
-	host              host.Host
-	msgHandlerMap     map[common.ChannelIDEnum](p2pl.MessageHandler)
-	config            MessengerConfig
-	seedPeers         []*pr.AddrInfo
-	pubsub            *ps.PubSub
-	dht               *kaddht.IpfsDHT
-	needMdns          bool
-	peerStreamMap     map[string](*transport.BufferedStream)
-	peerStreamMapLock *sync.RWMutex
+	host          host.Host
+	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
+	config        MessengerConfig
+	seedPeers     []*pr.AddrInfo
+	pubsub        *ps.PubSub
+	dht           *kaddht.IpfsDHT
+	needMdns      bool
+
+	peerTable    *peer.PeerTable
+	newPeers     chan pr.ID
+	peerDead     chan pr.ID
+	// newPeerError chan pr.ID
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -90,10 +95,6 @@ func GetDefaultMessengerConfig() MessengerConfig {
 	return MessengerConfig{
 		networkProtocol: "tcp",
 	}
-}
-
-func getStreamKey(peerID string, channelID common.ChannelIDEnum) string {
-	return fmt.Sprintf("%v_%v", peerID, channelID)
 }
 
 func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
@@ -202,10 +203,13 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	pt := peer.CreatePeerTable()
 	messenger := &Messenger{
+		peerTable:         &pt,
+		newPeers:          make(chan pr.ID),
+		peerDead:          make(chan pr.ID),
+		// newPeerError:      make(chan pr.ID),
 		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
-		peerStreamMap:     make(map[string](*transport.BufferedStream)),
-		peerStreamMapLock: &sync.RWMutex{},
 		needMdns:          needMdns,
 		config:            msgrConfig,
 		wg:                &sync.WaitGroup{},
@@ -300,8 +304,59 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	}
 	messenger.pubsub = pubsub
 
+	host.Network().Notify((*PeerNotif)(messenger))
+
 	logger.Infof("Created node %v, %v, discoverable: %v", host.ID(), host.Addrs(), peerDiscoverable)
 	return messenger, nil
+}
+
+func (msgr *Messenger) processLoop(ctx context.Context) {
+	defer func() {
+		// Clean up go routines.
+		allPeers := msgr.peerTable.GetAllPeers()
+		for _, peer := range *allPeers {
+			peer.Stop()
+			msgr.peerTable.DeletePeer(peer.ID())
+		}
+		msgr.cancel()
+	}()
+
+	for {
+		select {
+		case pid := <-msgr.newPeers:
+			pr := msgr.host.Peerstore().PeerInfo(pid)
+			if pr == nil {
+				continue
+			}
+			isOutbound := strings.Compare(msgr.host.ID().String(), pid.String()) > 0
+			peer := peer.CreatePeer(pr, isOutbound)
+			peer.Start(msgr.ctx)
+			msgr.attachHandlersToPeer(peer)
+			msgr.peerTable.AddPeer(peer)
+			go peer.OpenStreams()
+			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
+		case pid := <-msgr.peerDead:
+			peer := msgr.peerTable.GetPeer(pid)
+			if peer == nil {
+				continue
+			}
+
+			peer.Stop()
+
+			if msgr.host.Network().Connectedness(pid) == network.Connected {
+				// still connected, must be a duplicate connection being closed.
+				// we respawn the writer as we need to ensure there is a stream active
+				log.Warning("peer declared dead but still connected; respawning writer: ", pid)
+				continue
+			}
+
+			msgr.peerTable.DeletePeer(pid)
+			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
+		case <-ctx.Done():
+			log.Debug("messenger processloop shutting down")
+			return
+		}
+	}
 }
 
 // Start is called when the Messenger starts
@@ -361,6 +416,8 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// 	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 	// }
 
+	go msgr.processLoop(ctx)
+
 	return nil
 }
 
@@ -396,22 +453,20 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
-	logger.Debugf("Broadcasting messages...")
-	// logger.Infof("======== peerstore: %v", msgr.host.Peerstore().Peers())
+	logger.Debugf("Broadcasting messages...")	
 
-	allPeers := msgr.host.Peerstore().Peers()
-
-	successes = make(chan bool, allPeers.Len())
-	for _, peer := range allPeers {
-		if peer == msgr.host.ID() {
+	allPeers := msgr.peerTable.GetAllPeers()
+	successes = make(chan bool, msgr.peerTable.GetTotalNumPeers())
+	for _, peer := range *allPeers {
+		if peer.ID() == msgr.host.ID() {
 			continue
 		}
 
 		logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer)
-		go func(peer string) {
-			success := msgr.Send(peer, message)
+		go func(peerID pr.ID) {
+			success := msgr.Send(peerID.String(), message)
 			successes <- success
-		}(peer.String())
+		}(peer.ID())
 	}
 	return successes
 }
@@ -420,76 +475,15 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	prID, err := pr.IDB58Decode(peerID)
 	if err != nil {
-		// logger.Warnf("Can't decode peer id %v, %v", peerID, err)
+		return false
+	}
+	peer := msgr.peerTable.GetPeer(prID)
+	if peer == nil {
 		return false
 	}
 
-	peer := msgr.host.Peerstore().PeerInfo(prID)
-	if peer.ID == "" || len(peer.Addrs) == 0 {
-		return false
-	}
-
-	msgHandler := msgr.msgHandlerMap[message.ChannelID]
-	bytes, err := msgHandler.EncodeMessage(message.Content)
-	if err != nil {
-		logger.Errorf("Encoding error: %v", err)
-		return false
-	}
-
-	var stream *transport.BufferedStream
-	var ok bool
-	streamKey := getStreamKey(peerID, message.ChannelID)
-
-	msgr.peerStreamMapLock.Lock()
-	if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
-		strm, err := msgr.host.NewStream(msgr.ctx, prID, protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(message.ChannelID))))
-		if err != nil {
-			msgr.peerStreamMapLock.Unlock()
-			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID, peer.Addrs)
-			return false
-		}
-		if strm == nil {
-			msgr.peerStreamMapLock.Unlock()
-			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID, peer.Addrs)
-			return false
-		}
-		errorHandler := func(interface{}) {
-			msgr.peerStreamMapLock.Lock()
-			defer msgr.peerStreamMapLock.Unlock()
-
-			stream.Stop()
-			for k, v := range msgr.peerStreamMap {
-				if strings.HasPrefix(k, peerID) {
-					if v.HasStarted() {
-						v.Stop()
-					}
-					delete(msgr.peerStreamMap, k)
-				}
-			}
-		}
-		stream = transport.NewBufferedStream(strm, errorHandler)
-		msgr.peerStreamMap[streamKey] = stream
-		stream.Start(msgr.ctx)
-		go msgr.readPeerMessageRoutine(stream, peerID, message.ChannelID)
-	}
-	msgr.peerStreamMapLock.Unlock()
-
-	if stream == nil {
-		logger.Warnf("%v still waiting for stream from %v", msgr.host.ID().String(), peerID)
-		return false
-	}
-
-	n, err := stream.Write(bytes)
-	if err != nil {
-		logger.Errorf("Error writing to stream %v", err)
-		return false
-	}
-	if n != len(bytes) {
-		logger.Errorf("Didn't write expected bytes length")
-		return false
-	}
-
-	return true
+	success := peer.Send(message.ChannelID, message.Content)
+	return success
 }
 
 // ID returns the ID of the current node
@@ -549,31 +543,19 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 }
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
+	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
-		var stream *transport.BufferedStream
-		var ok bool
-		peerID := strm.Conn().RemotePeer().String()
-		streamKey := getStreamKey(peerID, channelID)
+		stream := transport.NewBufferedStream(strm, nil)
+		stream.Start(msgr.ctx)
 
-		msgr.peerStreamMapLock.Lock()
-		defer msgr.peerStreamMapLock.Unlock()
-		if stream, ok = msgr.peerStreamMap[streamKey]; !ok {
-			errorHandler := func(interface{}) {
-				stream.Stop()
-				for k, v := range msgr.peerStreamMap {
-					if strings.HasPrefix(k, peerID) {
-						if v.HasStarted() {
-							v.Stop()
-						}
-						delete(msgr.peerStreamMap, k)
-					}
-				}
-			}
-			stream = transport.NewBufferedStream(strm, errorHandler)
-			msgr.peerStreamMap[streamKey] = stream
-			stream.Start(msgr.ctx)
+		peerID := strm.Conn().RemotePeer()
+		go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
 
-			go msgr.readPeerMessageRoutine(stream, peerID, channelID)
+		peer := msgr.peerTable.GetPeer(peerID)
+		if peer == nil {
+			logger.Errorf("Can't find peer %v to accept stream")
+		} else {
+			peer.AcceptStream(channelID, stream)
 		}
 	})
 }
@@ -614,4 +596,58 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 		}
 		msgHandler.HandleMessage(message)
 	}
+}
+
+// attachHandlersToPeer attaches the registerred message/stream handlers to the given peer
+func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
+	messageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
+		peerID := peer.ID()
+		msgHandler := msgr.msgHandlerMap[channelID]
+		if msgHandler == nil {
+			logger.Errorf("Failed to setup message parser for channelID %v", channelID)
+		}
+		message, err := msgHandler.ParseMessage(peerID.String(), channelID, rawMessageBytes)
+		return message, err
+	}
+	peer.SetMessageParser(messageParser)
+
+	messageEncoder := func(channelID common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
+		msgHandler := msgr.msgHandlerMap[channelID]
+		return msgHandler.EncodeMessage(message)
+	}
+	peer.SetMessageEncoder(messageEncoder)
+
+	receiveHandler := func(message p2ptypes.Message) error {
+		channelID := message.ChannelID
+		msgHandler := msgr.msgHandlerMap[channelID]
+		if msgHandler == nil {
+			logger.Errorf("Failed to setup message handler for peer %v on channelID %v", message.PeerID, channelID)
+		}
+		err := msgHandler.HandleMessage(message)
+		return err
+	}
+	peer.SetReceiveHandler(receiveHandler)
+
+	// errorHandler := func(interface{}) {
+	// 	msgr.discMgr.HandlePeerWithErrors(peer)
+	// }
+	// peer.SetErrorHandler(errorHandler)
+
+	streamCreator := func(channelID common.ChannelIDEnum) (*transport.BufferedStream, error) {
+		strm, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))))
+		if err != nil {
+			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID(), peer.Addrs())
+			return nil, err
+		}
+		if strm == nil {
+			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID(), peer.Addrs())
+			return nil, nil
+		}
+
+		stream := transport.NewBufferedStream(strm, nil)
+		stream.Start(msgr.ctx)
+		go msgr.readPeerMessageRoutine(stream, peer.ID().String(), channelID)
+		return stream, nil
+	}
+	peer.SetStreamCreator(streamCreator)
 }
