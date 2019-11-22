@@ -2,6 +2,7 @@ package metrics
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/smira/go-statsd"
@@ -12,7 +13,8 @@ import (
 type StatsdClient struct {
 	client *statsd.Client
 	init   bool
-	InSync bool
+	InSync bool //TODO : lock
+	mu     *sync.Mutex
 }
 
 var client *statsd.Client
@@ -27,33 +29,36 @@ func (sc *StatsdClient) NewStatsdClient(sync bool) *StatsdClient {
 //init statsd client and start heartbeat functions
 func InitStatsdClient() *StatsdClient {
 	re := &StatsdClient{}
+	re.mu = &sync.Mutex{}
 	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
 		client = statsd.NewClient(mserver+":8125", statsd.MetricPrefix("theta."), statsd.FlushInterval(flushDuration))
 		re.client = client
 		re.init = true
-		go reportOnline(client)
-		go re.reportSync()
+		ticker := time.NewTicker(sleepTime)
+		go re.reportOnlineAndSync(ticker)
 	} else {
 		fmt.Printf("metrics server is not in config file")
 	}
 	return re
 }
 
-//report online
-func reportOnline(client *statsd.Client) {
+//report online & sync
+func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
 	for {
-		client.Incr("guardian.online", 1)
-		time.Sleep(sleepTime)
+		select {
+		case <-ticker.C:
+			sc.client.Incr("guardian.online", 1)
+			sc.mu.Lock()
+			if sc.InSync {
+				sc.client.Incr("guardian.inSync", 1)
+			}
+			sc.mu.Unlock()
+		}
 	}
 }
 
-//report sync
-func (sc *StatsdClient) reportSync() {
-	defer sc.client.Close()
-	for {
-		if sc.InSync {
-			sc.client.Incr("guardian.inSync", 1)
-		}
-		time.Sleep(sleepTime)
-	}
+func (sc *StatsdClient) setInSync(b bool) {
+	sc.mu.Lock()
+	sc.InSync = b
+	sc.mu.Unlock()
 }
