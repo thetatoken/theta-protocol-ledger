@@ -120,6 +120,15 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			if storeView == nil {
+				logger.WithFields(log.Fields{
+					"block.Hash":                  blockHash.Hex(),
+					"block.Height":                block.Height,
+					"block.HCC.BlockHash":         block.HCC.BlockHash.Hex(),
+					"block.BlockHeader.StateHash": block.BlockHeader.StateHash.Hex(),
+					"block.Status.IsTrusted()":    block.Status.IsTrusted(),
+				}).Panic("Failed to load state for validator pool")
+			}
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
