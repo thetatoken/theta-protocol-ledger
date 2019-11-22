@@ -57,7 +57,7 @@ func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
 	}
 }
 
-func (sc *StatsdClient) setInSync(b bool) {
+func (sc *StatsdClient) SetInSync(b bool) {
 	sc.mu.Lock()
 	sc.InSync = b
 	sc.mu.Unlock()
