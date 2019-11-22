@@ -351,15 +351,14 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 				continue
 			}
 
-			peer.Stop()
-
 			if msgr.host.Network().Connectedness(pid) == network.Connected {
 				// still connected, must be a duplicate connection being closed.
 				// we respawn the writer as we need to ensure there is a stream active
-				log.Warning("peer declared dead but still connected; respawning writer: ", pid)
+				log.Infof("peer declared dead but still connected, should be a duplicated connection:", pid)
 				continue
 			}
 
+			peer.Stop()
 			msgr.peerTable.DeletePeer(pid)
 			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
 		case <-ctx.Done():
