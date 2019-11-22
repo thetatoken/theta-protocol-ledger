@@ -117,6 +117,18 @@ func (pt *PeerTable) GetAllPeers() *([]*Peer) {
 	return &ret
 }
 
+// GetAllPeers returns all the peers
+func (pt *PeerTable) GetAllPeerIDs() *[]pr.ID {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	ret := make([]pr.ID, len(pt.peers))
+	for i, p := range pt.peers {
+		ret[i] = p.id
+	}
+	return &ret
+}
+
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
 func (pt *PeerTable) GetSelection() (peerIDAddrs []pr.ID) {
 	pt.mutex.Lock()

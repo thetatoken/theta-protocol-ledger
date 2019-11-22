@@ -113,7 +113,13 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 	return multiAddr, nil
 }
 
-func getPublicIP() (string, error) {
+// ID returns the ID of the current node
+func (msgr *Messenger) ID() string {
+	return string(msgr.host.ID())
+}
+
+// GetPublicIP returns the public IP address of the current node
+func (msgr *Messenger) GetPublicIP() (string, error) {
 	ipMap := make(map[string]int)
 	numSources := 3
 	wait := &sync.WaitGroup{}
@@ -197,6 +203,10 @@ func getPublicIP() (string, error) {
 	return majorityIP, nil
 }
 
+func (msgr *Messenger) GetPeerIDs() *[]pr.ID {
+	return msgr.peerTable.GetAllPeerIDs()
+}
+
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
@@ -226,7 +236,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	var extMultiAddr ma.Multiaddr
 	if peerDiscoverable {
-		externalIP, err := getPublicIP()
+		externalIP, err := messenger.GetPublicIP()
 		if err != nil {
 			return messenger, err
 		}
@@ -484,11 +494,6 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 
 	success := peer.Send(message.ChannelID, message.Content)
 	return success
-}
-
-// ID returns the ID of the current node
-func (msgr *Messenger) ID() string {
-	return string(msgr.host.ID())
 }
 
 // RegisterMessageHandler registers the message handler
