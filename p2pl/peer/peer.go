@@ -7,9 +7,9 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/rlp"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/p2pl/transport"
+	"github.com/thetatoken/theta/rlp"
 
 	pr "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -17,7 +17,7 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
-var Channels = []cmn.ChannelIDEnum {
+var Channels = []cmn.ChannelIDEnum{
 	cmn.ChannelIDCheckpoint,
 	cmn.ChannelIDHeader,
 	cmn.ChannelIDBlock,
@@ -38,11 +38,11 @@ type Peer struct {
 	streamMap  map[cmn.ChannelIDEnum](*transport.BufferedStream) // channelID -> stream
 	mutex      *sync.Mutex
 
-	onStream     StreamCreator
-	onParse      MessageParser
-	onEncode     MessageEncoder
-	onReceive    ReceiveHandler
-	onError      ErrorHandler
+	onStream  StreamCreator
+	onParse   MessageParser
+	onEncode  MessageEncoder
+	onReceive ReceiveHandler
+	onError   ErrorHandler
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -68,6 +68,9 @@ func CreatePeer(addrInfo pr.AddrInfo, isOutbound bool) *Peer {
 
 func (peer *Peer) OpenStreams() error {
 	if peer.isOutbound {
+		peer.mutex.Lock()
+		defer peer.mutex.Unlock()
+
 		time.Sleep(3 * time.Second)
 		for _, channel := range Channels {
 			stream, err := peer.onStream(channel)
@@ -123,7 +126,10 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 		return false
 	}
 
+	peer.mutex.Lock()
 	stream := peer.streamMap[channelID]
+	peer.mutex.Unlock()
+
 	if stream == nil {
 		logger.Debugf("Can't find stream for channel %v", channelID)
 		return false
@@ -151,7 +157,6 @@ func (peer *Peer) ID() pr.ID {
 func (peer *Peer) Addrs() []ma.Multiaddr {
 	return peer.addrs
 }
-
 
 // StreamCreator creates a buffered stream with this peer
 type StreamCreator func(channelID cmn.ChannelIDEnum) (*transport.BufferedStream, error)
