@@ -68,6 +68,9 @@ func CreatePeer(addrInfo pr.AddrInfo, isOutbound bool) *Peer {
 
 func (peer *Peer) OpenStreams() error {
 	if peer.isOutbound {
+		peer.mutex.Lock()
+		defer peer.mutex.Unlock()
+
 		time.Sleep(3 * time.Second)
 		for _, channel := range Channels {
 			stream, err := peer.onStream(channel)
@@ -123,7 +126,10 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 		return false
 	}
 
+	peer.mutex.Lock()
 	stream := peer.streamMap[channelID]
+	peer.mutex.Unlock()
+
 	if stream == nil {
 		logger.Debugf("Can't find stream for channel %v", channelID)
 		return false
