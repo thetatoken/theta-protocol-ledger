@@ -112,7 +112,7 @@ func (peer *Peer) Stop() {
 			stream.Stop()
 		}
 	}
-	peer.streamMap = nil
+	// peer.streamMap = nil
 }
 
 // Send sends the given message through the specified channel to the target peer
