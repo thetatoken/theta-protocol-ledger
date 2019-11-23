@@ -70,9 +70,9 @@ type Messenger struct {
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
 
-	peerTable    *peer.PeerTable
-	newPeers     chan pr.ID
-	peerDead     chan pr.ID
+	peerTable *peer.PeerTable
+	newPeers  chan pr.ID
+	peerDead  chan pr.ID
 	// newPeerError chan pr.ID
 
 	// Life cycle
@@ -215,15 +215,15 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	pt := peer.CreatePeerTable()
 	messenger := &Messenger{
-		peerTable:         &pt,
-		newPeers:          make(chan pr.ID),
-		peerDead:          make(chan pr.ID),
+		peerTable: &pt,
+		newPeers:  make(chan pr.ID),
+		peerDead:  make(chan pr.ID),
 		// newPeerError:      make(chan pr.ID),
-		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
-		needMdns:          needMdns,
-		config:            msgrConfig,
-		wg:                &sync.WaitGroup{},
-		ctx:               ctx,
+		msgHandlerMap: make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
+		needMdns:      needMdns,
+		config:        msgrConfig,
+		wg:            &sync.WaitGroup{},
+		ctx:           ctx,
 	}
 
 	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))
@@ -463,7 +463,7 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
-	logger.Debugf("Broadcasting messages...")	
+	logger.Debugf("Broadcasting messages...")
 
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, msgr.peerTable.GetTotalNumPeers())
@@ -558,7 +558,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 
 		peer := msgr.peerTable.GetPeer(peerID)
 		if peer == nil {
-			logger.Errorf("Can't find peer %v to accept stream")
+			logger.Errorf("Can't find peer %v to accept stream", peerID)
 		} else {
 			peer.AcceptStream(channelID, stream)
 		}

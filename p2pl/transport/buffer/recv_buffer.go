@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/network"
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/theta/p2pl/common"
 	"github.com/thetatoken/theta/p2pl/transport/buffer/flowrate"
@@ -92,7 +93,7 @@ func (rb *RecvBuffer) Stop() {
 // Read blocks until a message can be retrived from the queue
 func (rb *RecvBuffer) Read() []byte {
 	msg := <-rb.queue
-	atomic.AddInt32(&rb.queueSize, 1)
+	atomic.AddInt32(&rb.queueSize, -1)
 	return msg
 }
 
@@ -119,7 +120,9 @@ func (rb *RecvBuffer) recvRoutine() {
 		rb.recvMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&rb.config.RecvRate), true)
 		numBytesRead, err := rb.rawStream.Read(bytes)
 		if err != nil {
-			continue
+			rawStream := rb.rawStream.(network.Stream)
+			log.Errorf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
+			break
 		}
 
 		start := 0
