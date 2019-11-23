@@ -8,13 +8,17 @@ import (
 	"github.com/smira/go-statsd"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
+	pr "github.com/thetatoken/theta/p2p/peer"
 )
 
 type StatsdClient struct {
-	client *statsd.Client
-	init   bool
-	InSync bool //TODO : lock
-	mu     *sync.Mutex
+	client    *statsd.Client
+	init      bool
+	InSync    bool //TODO : lock
+	mu        *sync.Mutex
+	ID        string
+	IP        string
+	peerTable pr.PeerTable
 }
 
 var client *statsd.Client
@@ -57,7 +61,13 @@ func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
 	}
 }
 
-func (sc *StatsdClient) setInSync(b bool) {
+func (sc *StatsdClient) SetInSync(b bool) {
+	sc.mu.Lock()
+	sc.InSync = b
+	sc.mu.Unlock()
+}
+
+func (sc *StatsdClient) SetIP(addr string) {
 	sc.mu.Lock()
 	sc.InSync = b
 	sc.mu.Unlock()
