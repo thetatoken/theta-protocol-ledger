@@ -137,7 +137,7 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 
 	n, err := stream.Write(msgBytes)
 	if err != nil {
-		logger.Errorf("Error writing to stream %v", err)
+		logger.Errorf("Error writing stream to peer %v for channel %v", peer.id, channelID, err)
 		return false
 	}
 	if n != len(msgBytes) {
