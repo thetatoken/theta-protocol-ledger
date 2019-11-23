@@ -550,18 +550,20 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
-		stream := transport.NewBufferedStream(strm, nil)
-		stream.Start(msgr.ctx)
-
 		peerID := strm.Conn().RemotePeer()
-		go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
-
 		peer := msgr.peerTable.GetPeer(peerID)
 		if peer == nil {
 			logger.Errorf("Can't find peer %v to accept stream", peerID)
-		} else {
-			peer.AcceptStream(channelID, stream)
+			return
 		}
+
+		errorHandler := func(interface{}) {
+			peer.StopStream(channelID)
+		}
+		stream := transport.NewBufferedStream(strm, errorHandler)
+		stream.Start(msgr.ctx)
+		go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
+		peer.AcceptStream(channelID, stream)
 	})
 }
 
@@ -572,6 +574,8 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 	}
 
 	msgBuffer := make([]byte, bufferSize)
+	defer func() { msgBuffer = nil }()
+
 	for {
 		if msgr.ctx != nil {
 			select {
@@ -649,7 +653,10 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 			return nil, nil
 		}
 
-		stream := transport.NewBufferedStream(strm, nil)
+		errorHandler := func(interface{}) {
+			peer.StopStream(channelID)
+		}
+		stream := transport.NewBufferedStream(strm, errorHandler)
 		stream.Start(msgr.ctx)
 		go msgr.readPeerMessageRoutine(stream, peer.ID().String(), channelID)
 		return stream, nil
