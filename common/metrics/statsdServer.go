@@ -69,6 +69,5 @@ func (sc *StatsdClient) SetInSync(b bool) {
 
 func (sc *StatsdClient) SetIP(addr string) {
 	sc.mu.Lock()
-	sc.InSync = b
 	sc.mu.Unlock()
 }

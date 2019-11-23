@@ -504,11 +504,6 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 	}
 
 	sm.requestMgr.AddBlock(block)
-
-	sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
-		ChannelID: common.ChannelIDBlock,
-		Entries:   []string{block.Hash().Hex()},
-	})
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {

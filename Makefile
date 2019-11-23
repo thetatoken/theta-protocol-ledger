@@ -13,9 +13,15 @@ build: gen_version
 linux: gen_version
 	integration/build/build.sh
 
-install: gen_version
+install: gen_version debug
+
+release:
 	go install ./cmd/...
 	go install ./integration/...
+
+debug:
+	go install -race ./cmd/...
+	go install -race ./integration/...
 
 test: test_unit #test_integration test_cluster_deployment
 
