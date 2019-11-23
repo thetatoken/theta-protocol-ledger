@@ -240,7 +240,7 @@ func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, succ
 }
 
 func (rb *RecvBuffer) recover() {
-	if r := recover(); r == nil {
+	if r := recover(); r != nil {
 		stack := debug.Stack()
 		err := fmt.Errorf(string(stack))
 		if rb.onError != nil {
