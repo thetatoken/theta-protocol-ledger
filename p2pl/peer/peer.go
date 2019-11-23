@@ -92,6 +92,14 @@ func (peer *Peer) AcceptStream(channel cmn.ChannelIDEnum, stream *transport.Buff
 	}
 }
 
+func (peer *Peer) StopStream(channel cmn.ChannelIDEnum) {
+	peer.mutex.Lock()
+	defer peer.mutex.Unlock()
+	if stream, ok := peer.streamMap[channel]; ok {
+		stream.Stop()
+	}
+}
+
 // Start is called when the peer starts
 func (peer *Peer) Start(ctx context.Context) bool {
 	c, cancel := context.WithCancel(ctx)

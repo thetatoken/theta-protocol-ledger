@@ -92,6 +92,7 @@ func (sb *SendBuffer) Wait() {
 
 // Stop is called when the SendBuffer stops
 func (sb *SendBuffer) Stop() {
+	sb.workspace = nil
 	sb.cancel()
 }
 
@@ -235,5 +236,6 @@ func (sb *SendBuffer) recover() {
 		if sb.onError != nil {
 			sb.onError(err)
 		}
+		sb.Stop()
 	}
 }
