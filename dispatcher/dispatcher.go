@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/thetatoken/theta/common"
@@ -41,11 +42,13 @@ func (dp *Dispatcher) Start(ctx context.Context) error {
 	dp.cancel = cancel
 	var err error
 
-	// err = dp.p2pnet.Start(c)
-	// if err != nil {
-	// 	return err
-	// }
-	if dp.p2plnet != nil {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		err = dp.p2pnet.Start(c)
+		if err != nil {
+			return err
+		}
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
 		err = dp.p2plnet.Start(c)
 	}
 	return err
@@ -58,8 +61,10 @@ func (dp *Dispatcher) Stop() {
 
 // Wait suspends the caller goroutine
 func (dp *Dispatcher) Wait() {
-	// dp.p2pnet.Wait()
-	if dp.p2plnet != nil {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		dp.p2pnet.Wait()
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
 		dp.p2plnet.Wait()
 	}
 	dp.wg.Wait()
@@ -86,24 +91,28 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 }
 
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
-	// messageOld := p2ptypes.Message{
-	// 	ChannelID: channelID,
-	// 	Content:   content,
-	// }
+	messageOld := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
 	message := p2ptypes.Message{
 		ChannelID: channelID,
 		Content:   content,
 	}
 	if len(peerIDs) == 0 {
-		// dp.p2pnet.Broadcast(messageOld)
-		if dp.p2plnet != nil {
+		if !reflect.ValueOf(dp.p2pnet).IsNil() {
+			dp.p2pnet.Broadcast(messageOld)
+		}
+		if !reflect.ValueOf(dp.p2plnet).IsNil() {
 			dp.p2plnet.Broadcast(message)
 		}
 	} else {
 		for _, peerID := range peerIDs {
 			go func(peerID string) {
-				// dp.p2pnet.Send(peerID, messageOld)
-				if dp.p2plnet != nil {
+				if !reflect.ValueOf(dp.p2pnet).IsNil() {
+					dp.p2pnet.Send(peerID, messageOld)
+				}
+				if !reflect.ValueOf(dp.p2plnet).IsNil() {
 					dp.p2plnet.Send(peerID, message)
 				}
 			}(peerID)

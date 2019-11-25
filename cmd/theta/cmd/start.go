@@ -37,23 +37,31 @@ func init() {
 }
 
 func runStart(cmd *cobra.Command, args []string) {
-	portOld := viper.GetInt(common.CfgP2PPort)
-	port := viper.GetInt(common.CfgP2PLPort)
+	var networkOld *msg.Messenger
+	var network *msgl.Messenger
 
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
 	}
-	peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
-	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
-	peerDiscoverable := viper.GetBool(common.CfgLibP2PDiscoverable)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
-	networkOld := newMessengerOld(privKey, peerSeedsOld, portOld)
-	network := newMessenger(privKey, peerSeeds, port, peerDiscoverable)
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if p2pOpt != common.P2POptOld {
+		port := viper.GetInt(common.CfgP2PLPort)
+		peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
+		peerDiscoverable := viper.GetBool(common.CfgLibP2PDiscoverable)
+		network = newMessenger(privKey, peerSeeds, port, peerDiscoverable)
+	}
+	if p2pOpt != common.P2POptLibp2p {
+		portOld := viper.GetInt(common.CfgP2PPort)
+		peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+		networkOld = newMessengerOld(privKey, peerSeedsOld, portOld)
+	}
+
 	mainDBPath := path.Join(cfgPath, "db", "main")
 	refDBPath := path.Join(cfgPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
@@ -73,7 +81,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
-
 	params := &node.Params{
 		ChainID:             root.ChainID,
 		PrivateKey:          privKey,
@@ -85,6 +92,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		ChainImportDirPath:  chainImportDirPath,
 		ChainCorrectionPath: chainCorrectionPath,
 	}
+
 	n := node.NewNode(params)
 
 	// trap Ctrl+C and call cancel on the context

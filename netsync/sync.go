@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"reflect"
 
 	lru "github.com/hashicorp/golang-lru"
 	log "github.com/sirupsen/logrus"
@@ -66,8 +67,11 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkO
 		voteCache: voteCache,
 	}
 	sm.requestMgr = NewRequestManager(sm)
-	networkOld.RegisterMessageHandler(sm)
-	if network != nil {
+
+	if !reflect.ValueOf(networkOld).IsNil() {
+		networkOld.RegisterMessageHandler(sm)
+	}
+	if !reflect.ValueOf(network).IsNil() {
 		network.RegisterMessageHandler(sm)
 	}
 
