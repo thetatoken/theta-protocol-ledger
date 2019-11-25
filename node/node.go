@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"sync"
-	"fmt"
 	"reflect"
 
 	"github.com/spf13/viper"
