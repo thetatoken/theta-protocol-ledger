@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"sync"
+	"fmt"
+	"reflect"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
@@ -73,8 +75,13 @@ func NewNode(params *Params) *Node {
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
-	params.Network.RegisterMessageHandler(txMsgHandler)
-	params.NetworkOld.RegisterMessageHandler(txMsgHandler)
+
+	if !reflect.ValueOf(params.Network).IsNil() {
+		params.Network.RegisterMessageHandler(txMsgHandler)
+	}
+	if !reflect.ValueOf(params.NetworkOld).IsNil() {
+		params.NetworkOld.RegisterMessageHandler(txMsgHandler)
+	}
 
 	currentHeight := consensus.GetLastFinalizedBlock().Height
 	if currentHeight <= params.Root.Height {
