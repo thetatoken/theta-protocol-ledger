@@ -17,11 +17,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const RequestTimeout = 10 * time.Second
+const RequestTimeout = 30 * time.Second
 const Expiration = 300 * time.Second
-const MinInventoryRequestInterval = 3 * time.Second
-const MaxInventoryRequestInterval = 30 * time.Second
-const RequestQuotaPerSecond = 100
+const MinInventoryRequestInterval = 5 * time.Second
+const MaxInventoryRequestInterval = 120 * time.Second
+const RequestQuotaPerSecond = 10
+const MaxNumPeersToSendRequests = 4
+const RefreshCounterLimit = 20
 
 type RequestState uint8
 
@@ -85,6 +87,10 @@ type RequestManager struct {
 
 	endHashCache      []common.Bytes
 	blockRequestCache []common.Bytes
+
+	activePeers    []string
+	refreshCounter int
+	aplock         *sync.RWMutex
 }
 
 func NewRequestManager(syncMgr *SyncManager) *RequestManager {
@@ -104,6 +110,10 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 		pendingBlocks:         list.New(),
 		pendingBlocksByHash:   make(map[string]*list.Element),
 		pendingBlocksByParent: make(map[string][]*core.Block),
+
+		activePeers:    []string{},
+		refreshCounter: 0,
+		aplock:         &sync.RWMutex{},
 	}
 
 	logger := util.GetLoggerForModule("request")
@@ -148,6 +158,20 @@ func (rm *RequestManager) Stop() {
 
 func (rm *RequestManager) Wait() {
 	rm.wg.Wait()
+}
+
+func (rm *RequestManager) AddActivePeer(activePeerID string) {
+	rm.aplock.Lock()
+	defer rm.aplock.Unlock()
+
+	for _, pid := range rm.activePeers {
+		if pid == activePeerID {
+			return
+		}
+	}
+
+	rm.activePeers = append(rm.activePeers, activePeerID)
+	rm.logger.Debugf("Active peer added: %v", activePeerID)
 }
 
 func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
@@ -212,7 +236,7 @@ func (rm *RequestManager) tryToDownload() {
 			"end":       req.End,
 		}).Debug("Sending inventory request")
 
-		rm.syncMgr.dispatcher.GetInventory([]string{}, req)
+		rm.getInventory(req)
 	}
 
 	elToRemove := []*list.Element{}
@@ -256,6 +280,38 @@ func (rm *RequestManager) tryToDownload() {
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}
+}
+
+func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
+	//rm.syncMgr.dispatcher.GetInventory([]string{}, req)
+	var peersToRequest []string
+
+	rm.logger.Debugf("refreshCounter: %v", rm.refreshCounter)
+
+	rm.aplock.Lock()
+	rm.refreshCounter++
+	if rm.refreshCounter >= RefreshCounterLimit {
+		rm.activePeers = []string{}
+		rm.refreshCounter = 0
+
+		rm.logger.Debugf("Reset refreshCounter")
+	}
+	if len(rm.activePeers) != 0 {
+		peersToRequest = make([]string, len(rm.activePeers))
+		copy(peersToRequest, rm.activePeers)
+
+		rm.logger.Debugf("Reuse activePeers: %v", peersToRequest)
+	}
+	rm.aplock.Unlock()
+
+	if len(peersToRequest) == 0 { // resample
+		allPeers := rm.syncMgr.dispatcher.Peers()
+		peersToRequest = util.Sample(allPeers, MaxNumPeersToSendRequests)
+
+		rm.logger.Debugf("Resampled peers to send requests: %v", peersToRequest)
+	}
+
+	rm.syncMgr.dispatcher.GetInventory(peersToRequest, req)
 }
 
 func (rm *RequestManager) removeEl(el *list.Element) {

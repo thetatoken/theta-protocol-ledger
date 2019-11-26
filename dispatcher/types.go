@@ -5,7 +5,7 @@ import (
 )
 
 // MaxInventorySize defines the max number of items in InventoryRequest/InventoryResponse.
-const MaxInventorySize = 500
+const MaxInventorySize = 50
 
 // InventoryRequest defines the structure of the inventory request
 type InventoryRequest struct {

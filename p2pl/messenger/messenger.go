@@ -496,6 +496,17 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	return success
 }
 
+// Peers returns the IDs of all peers
+func (msgr *Messenger) Peers() []string {
+	allPeers := msgr.peerTable.GetAllPeers()
+	peerIDs := []string{}
+	for _, peer := range *allPeers {
+		peerID := peer.ID()
+		peerIDs = append(peerIDs, string(peerID))
+	}
+	return peerIDs
+}
+
 // RegisterMessageHandler registers the message handler
 func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()

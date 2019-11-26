@@ -90,6 +90,17 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 	dp.send(peerIDs, datarsp.ChannelID, datarsp)
 }
 
+// Peers returns the IDs of all peers
+func (dp *Dispatcher) Peers() []string {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.Peers()
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.Peers()
+	}
+	return []string{}
+}
+
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	messageOld := p2ptypes.Message{
 		ChannelID: channelID,
