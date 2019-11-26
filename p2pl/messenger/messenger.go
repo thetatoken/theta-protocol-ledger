@@ -557,6 +557,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 		}
 
 		errorHandler := func(interface{}) {
+			logger.Infof("==================== 2 handle error, peer %v, channel %v", peerID, channelID)
 			peer.StopStream(channelID)
 		}
 		stream := transport.NewBufferedStream(strm, errorHandler)
@@ -653,6 +654,7 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 		}
 
 		errorHandler := func(interface{}) {
+			logger.Infof("==================== 1 handle error, peer %v, channel %v", peer.ID(), channelID)
 			peer.StopStream(channelID)
 		}
 		stream := transport.NewBufferedStream(strm, errorHandler)
