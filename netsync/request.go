@@ -164,6 +164,10 @@ func (rm *RequestManager) AddActivePeer(activePeerID string) {
 	rm.aplock.Lock()
 	defer rm.aplock.Unlock()
 
+	if len(rm.activePeers) >= MaxNumPeersToSendRequests {
+		return
+	}
+
 	for _, pid := range rm.activePeers {
 		if pid == activePeerID {
 			return
