@@ -2,6 +2,7 @@ package netsync
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -409,6 +410,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":         peerID,
 		}).Debug("Received block")
 		m.handleBlock(block)
+		m.requestMgr.AddActivePeer(peerID)
 	case common.ChannelIDVote:
 		vote := core.Vote{}
 		err := rlp.DecodeBytes(data.Payload, &vote)

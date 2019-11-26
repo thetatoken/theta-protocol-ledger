@@ -194,6 +194,11 @@ func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	return true
 }
 
+// Peers returns the IDs of all peers
+func (se *SimnetEndpoint) Peers() []string {
+	return []string{}
+}
+
 // RegisterMessageHandler implements the Network interface.
 func (se *SimnetEndpoint) RegisterMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
