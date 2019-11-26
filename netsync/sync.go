@@ -527,23 +527,6 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 	}
 
 	sm.PassdownMessage(vote)
-
-	hash := vote.Hash()
-	if sm.voteCache.Contains(hash) {
-		return
-	}
-	sm.voteCache.Add(hash, struct{}{})
-
-	payload, err := rlp.EncodeToBytes(vote)
-	if err != nil {
-		sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
-		return
-	}
-	msg := dispatcher.DataResponse{
-		ChannelID: common.ChannelIDVote,
-		Payload:   payload,
-	}
-	sm.dispatcher.SendData([]string{}, msg)
 }
 
 func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
