@@ -115,7 +115,12 @@ func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, con
 			dp.p2pnet.Broadcast(messageOld)
 		}
 		if !reflect.ValueOf(dp.p2plnet).IsNil() {
-			dp.p2plnet.Broadcast(message)
+			if message.ChannelID == common.ChannelIDGuardian {
+				// Send guardian vote to immediate neighbors only.
+				dp.p2plnet.BroadcastToNeighbors(message)
+			} else {
+				dp.p2plnet.Broadcast(message)
+			}
 		}
 	} else {
 		for _, peerID := range peerIDs {
