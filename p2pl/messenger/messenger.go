@@ -464,21 +464,23 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
+	msgr.Publish(message)
+	return make(chan bool)
+}
 
-	allPeers := msgr.peerTable.GetAllPeers()
-	successes = make(chan bool, msgr.peerTable.GetTotalNumPeers())
-	for _, peer := range *allPeers {
-		if peer.ID() == msgr.host.ID() {
+// BroadcastToNeighbors broadcasts the given message to neighbors
+func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message) (successes chan bool) {
+	for _, peerid := range *msgr.peerTable.GetAllPeerIDs() {
+		if peerid == msgr.host.ID() {
 			continue
 		}
 
-		logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer)
 		go func(peerID pr.ID) {
-			success := msgr.Send(peerID.String(), message)
-			successes <- success
-		}(peer.ID())
+			msgr.Send(peerID.String(), message)
+		}(peerid)
 	}
-	return successes
+
+	return make(chan bool)
 }
 
 // Send sends the given message to the specified peer
