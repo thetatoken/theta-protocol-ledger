@@ -94,7 +94,7 @@ func (rb *RecvBuffer) Stop() {
 // Read blocks until a message can be retrived from the queue
 func (rb *RecvBuffer) Read() []byte {
 	msg := <-rb.queue
-	atomic.AddInt32(&rb.queueSize, 1)
+	atomic.AddInt32(&rb.queueSize, -1)
 	return msg
 }
 
@@ -123,7 +123,9 @@ func (rb *RecvBuffer) recvRoutine() {
 		rb.recvMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&rb.config.RecvRate), true)
 		numBytesRead, err := rb.rawStream.Read(bytes)
 		if err != nil {
-			continue
+			rawStream := rb.rawStream.(network.Stream)
+			log.Errorf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
+			break
 		}
 
 		start := 0
@@ -240,6 +242,7 @@ func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, succ
 }
 
 func (rb *RecvBuffer) recover() {
+	log.Infof("--------------> Recv buffer recovering")
 	if r := recover(); r != nil {
 		stack := debug.Stack()
 		err := fmt.Errorf(string(stack))
