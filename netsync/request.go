@@ -279,7 +279,7 @@ func (rm *RequestManager) tryToDownload() {
 	for _, el := range elToRemove {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
-		height = 0
+		height := uint64(0)
 		if pendingBlock.block != nil {
 			height = pendingBlock.block.Height
 		}
