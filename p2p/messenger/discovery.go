@@ -183,12 +183,12 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
-	logger.Infof("Connecting to outbound peer: %v...", peerNetAddress)
+	logger.Debugf("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
-		logger.Warnf("Failed to create outbound peer: %v", peerNetAddress)
+		logger.Debugf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
 	}
 	peer.SetPersistency(persistent)
