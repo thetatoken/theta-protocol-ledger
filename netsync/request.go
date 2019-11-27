@@ -279,9 +279,13 @@ func (rm *RequestManager) tryToDownload() {
 	for _, el := range elToRemove {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
+		height = 0
+		if pendingBlock.block != nil {
+			height = pendingBlock.block.Height
+		}
 		rm.logger.WithFields(log.Fields{
 			"block":        hash,
-			"block.Height": pendingBlock.block.Height,
+			"block.Height": height,
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}

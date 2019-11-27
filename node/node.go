@@ -3,8 +3,8 @@ package node
 import (
 	"context"
 	"log"
-	"sync"
 	"reflect"
+	"sync"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
@@ -113,7 +113,7 @@ func NewNode(params *Params) *Node {
 	}
 
 	if viper.GetBool(common.CfgRPCEnabled) {
-		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain, consensus)
+		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, dispatcher, chain, consensus)
 	}
 	return node
 }

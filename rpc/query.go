@@ -370,6 +370,21 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	return
 }
 
+// ------------------------------ GetPeers -----------------------------------
+
+type GetPeersArgs struct{}
+
+type GetPeersResult struct {
+	Peers []string `json:"peers"`
+}
+
+func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
+	peers := t.dispatcher.Peers()
+	result.Peers = peers
+
+	return
+}
+
 // ------------------------------ GetVcp -----------------------------------
 
 type GetVcpByHeightArgs struct {
