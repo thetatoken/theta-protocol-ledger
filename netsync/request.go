@@ -280,7 +280,8 @@ func (rm *RequestManager) tryToDownload() {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
 		rm.logger.WithFields(log.Fields{
-			"block": hash,
+			"block":        hash,
+			"block.Height": pendingBlock.block.Height,
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}
