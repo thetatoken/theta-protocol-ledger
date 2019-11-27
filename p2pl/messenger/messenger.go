@@ -503,8 +503,8 @@ func (msgr *Messenger) Peers() []string {
 	allPeers := msgr.peerTable.GetAllPeers()
 	peerIDs := []string{}
 	for _, peer := range *allPeers {
-		peerID := peer.ID()
-		peerIDs = append(peerIDs, string(peerID))
+		peerID := peer.ID().Pretty()
+		peerIDs = append(peerIDs, peerID)
 	}
 	return peerIDs
 }
