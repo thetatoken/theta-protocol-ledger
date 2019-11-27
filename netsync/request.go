@@ -484,5 +484,10 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 			queueHash = append(queueHash, b.Hash().Hex())
 		}
 		rm.syncMgr.PassdownMessage(block)
+
+		rm.syncMgr.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+			ChannelID: common.ChannelIDBlock,
+			Entries:   []string{block.Hash().Hex()},
+		})
 	}
 }
