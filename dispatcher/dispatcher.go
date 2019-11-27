@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/thetatoken/theta/common"
@@ -76,9 +77,6 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 func (dp *Dispatcher) Peers() []string {
 	if !reflect.ValueOf(dp.p2pnet).IsNil() {
 		return dp.p2pnet.Peers()
-	}
-	if !reflect.ValueOf(dp.p2plnet).IsNil() {
-		return dp.p2plnet.Peers()
 	}
 	return []string{}
 }
