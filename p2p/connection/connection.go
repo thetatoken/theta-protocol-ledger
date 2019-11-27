@@ -409,7 +409,7 @@ func (conn *Connection) recvRoutine() {
 
 		packet, err := conn.readPacket()
 		if err != nil {
-			logger.Errorf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
+			logger.Warnf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
 			return
 		}
 		conn.recvMonitor.Update(int(1))
