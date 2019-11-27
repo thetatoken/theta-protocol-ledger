@@ -126,7 +126,7 @@ func (rb *RecvBuffer) recvRoutine() {
 		numBytesRead, err := rb.rawStream.Read(bytes)
 		if err != nil {
 			rawStream := rb.rawStream.(network.Stream)
-			log.Errorf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
+			log.Warnf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
 			break
 		}
 
@@ -244,7 +244,6 @@ func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, succ
 }
 
 func (rb *RecvBuffer) recover() {
-	log.Infof("--------------> Recv buffer recovering")
 	if r := recover(); r != nil {
 		stack := debug.Stack()
 		err := fmt.Errorf(string(stack))

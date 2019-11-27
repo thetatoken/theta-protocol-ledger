@@ -230,7 +230,6 @@ func (sb *SendBuffer) emitChunk() *Chunk {
 }
 
 func (sb *SendBuffer) recover() {
-	log.Infof("-------------->>> Send buffer recovering")
 	if r := recover(); r != nil {
 		stack := debug.Stack()
 		err := fmt.Errorf(string(stack))
