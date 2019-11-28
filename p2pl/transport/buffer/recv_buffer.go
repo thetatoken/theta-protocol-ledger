@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/libp2p/go-libp2p-core/network"
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/theta/p2pl/common"
 	"github.com/thetatoken/theta/p2pl/transport/buffer/flowrate"
@@ -47,7 +48,7 @@ type RecvBufferConfig struct {
 }
 
 // NewRecvBuffer creates a RecvBuffer instance for the given config
-func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser) RecvBuffer {
+func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser, onError cmn.ErrorHandler) RecvBuffer {
 	return RecvBuffer{
 		workspace:   make([]byte, 0, config.workspaceCapacity),
 		queue:       make(chan []byte, config.queueCapacity),
@@ -55,6 +56,7 @@ func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser) RecvB
 		recvMonitor: flowrate.New(0, 0),
 		config:      config,
 		wg:          &sync.WaitGroup{},
+		onError:     onError,
 	}
 }
 
@@ -86,13 +88,14 @@ func (rb *RecvBuffer) Wait() {
 
 // Stop is called when the RecvBuffer stops
 func (rb *RecvBuffer) Stop() {
+	rb.workspace = nil
 	rb.cancel()
 }
 
 // Read blocks until a message can be retrived from the queue
 func (rb *RecvBuffer) Read() []byte {
 	msg := <-rb.queue
-	atomic.AddInt32(&rb.queueSize, 1)
+	atomic.AddInt32(&rb.queueSize, -1)
 	return msg
 }
 
@@ -108,6 +111,8 @@ func (rb *RecvBuffer) recvRoutine() {
 
 	var rolloverBytes, precedingBytes []byte
 	bytes := make([]byte, cmn.MaxChunkSize)
+	defer func() { bytes = nil }()
+
 	for {
 		select {
 		case <-rb.ctx.Done():
@@ -119,7 +124,9 @@ func (rb *RecvBuffer) recvRoutine() {
 		rb.recvMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&rb.config.RecvRate), true)
 		numBytesRead, err := rb.rawStream.Read(bytes)
 		if err != nil {
-			continue
+			rawStream := rb.rawStream.(network.Stream)
+			log.Errorf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
+			break
 		}
 
 		start := 0
@@ -242,5 +249,6 @@ func (rb *RecvBuffer) recover() {
 		if rb.onError != nil {
 			rb.onError(err)
 		}
+		rb.Stop()
 	}
 }

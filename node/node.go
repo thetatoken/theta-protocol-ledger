@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"log"
+	"reflect"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -74,8 +75,13 @@ func NewNode(params *Params) *Node {
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
-	params.Network.RegisterMessageHandler(txMsgHandler)
-	params.NetworkOld.RegisterMessageHandler(txMsgHandler)
+
+	if !reflect.ValueOf(params.Network).IsNil() {
+		params.Network.RegisterMessageHandler(txMsgHandler)
+	}
+	if !reflect.ValueOf(params.NetworkOld).IsNil() {
+		params.NetworkOld.RegisterMessageHandler(txMsgHandler)
+	}
 
 	currentHeight := consensus.GetLastFinalizedBlock().Height
 	if currentHeight <= params.Root.Height {
@@ -108,7 +114,7 @@ func NewNode(params *Params) *Node {
 	}
 
 	if viper.GetBool(common.CfgRPCEnabled) {
-		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain, consensus)
+		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, dispatcher, chain, consensus)
 	}
 	return node
 }

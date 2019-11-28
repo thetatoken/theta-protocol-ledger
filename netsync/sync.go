@@ -2,6 +2,7 @@ package netsync
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -67,8 +68,11 @@ func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkO
 		voteCache: voteCache,
 	}
 	sm.requestMgr = NewRequestManager(sm)
-	networkOld.RegisterMessageHandler(sm)
-	if network != nil {
+
+	if !reflect.ValueOf(networkOld).IsNil() {
+		networkOld.RegisterMessageHandler(sm)
+	}
+	if !reflect.ValueOf(network).IsNil() {
 		network.RegisterMessageHandler(sm)
 	}
 
@@ -415,6 +419,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":         peerID,
 		}).Debug("Received block")
 		m.handleBlock(block)
+		m.requestMgr.AddActivePeer(peerID)
 	case common.ChannelIDVote:
 		vote := core.Vote{}
 		err := rlp.DecodeBytes(data.Payload, &vote)

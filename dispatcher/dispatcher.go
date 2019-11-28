@@ -2,6 +2,7 @@ package dispatcher
 
 import (
 	"context"
+	"reflect"
 	"sync"
 
 	"github.com/thetatoken/theta/common"
@@ -41,11 +42,13 @@ func (dp *Dispatcher) Start(ctx context.Context) error {
 	dp.cancel = cancel
 	var err error
 
-	// err = dp.p2pnet.Start(c)
-	// if err != nil {
-	// 	return err
-	// }
-	if dp.p2plnet != nil {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		err = dp.p2pnet.Start(c)
+		if err != nil {
+			return err
+		}
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
 		err = dp.p2plnet.Start(c)
 	}
 	return err
@@ -58,8 +61,10 @@ func (dp *Dispatcher) Stop() {
 
 // Wait suspends the caller goroutine
 func (dp *Dispatcher) Wait() {
-	// dp.p2pnet.Wait()
-	if dp.p2plnet != nil {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		dp.p2pnet.Wait()
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
 		dp.p2plnet.Wait()
 	}
 	dp.wg.Wait()
@@ -85,25 +90,45 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 	dp.send(peerIDs, datarsp.ChannelID, datarsp)
 }
 
+// Peers returns the IDs of all peers
+func (dp *Dispatcher) Peers() []string {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.Peers()
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.Peers()
+	}
+	return []string{}
+}
+
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
-	// messageOld := p2ptypes.Message{
-	// 	ChannelID: channelID,
-	// 	Content:   content,
-	// }
+	messageOld := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
 	message := p2ptypes.Message{
 		ChannelID: channelID,
 		Content:   content,
 	}
 	if len(peerIDs) == 0 {
-		// dp.p2pnet.Broadcast(messageOld)
-		if dp.p2plnet != nil {
-			dp.p2plnet.Broadcast(message)
+		if !reflect.ValueOf(dp.p2pnet).IsNil() {
+			dp.p2pnet.Broadcast(messageOld)
+		}
+		if !reflect.ValueOf(dp.p2plnet).IsNil() {
+			if message.ChannelID == common.ChannelIDGuardian {
+				// Send guardian vote to immediate neighbors only.
+				dp.p2plnet.BroadcastToNeighbors(message)
+			} else {
+				dp.p2plnet.Broadcast(message)
+			}
 		}
 	} else {
 		for _, peerID := range peerIDs {
 			go func(peerID string) {
-				// dp.p2pnet.Send(peerID, messageOld)
-				if dp.p2plnet != nil {
+				if !reflect.ValueOf(dp.p2pnet).IsNil() {
+					dp.p2pnet.Send(peerID, messageOld)
+				}
+				if !reflect.ValueOf(dp.p2plnet).IsNil() {
 					dp.p2plnet.Send(peerID, message)
 				}
 			}(peerID)
