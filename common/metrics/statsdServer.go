@@ -1,27 +1,30 @@
 package metrics
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/smira/go-statsd"
+	pr "github.com/libp2p/go-libp2p-core/peer"
+	log "github.com/sirupsen/logrus"
+	statsd "github.com/smira/go-statsd"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
-	pr "github.com/thetatoken/theta/p2p/peer"
+	msgl "github.com/thetatoken/theta/p2pl/messenger"
 )
 
 type StatsdClient struct {
-	client    *statsd.Client
-	init      bool
-	InSync    bool //TODO : lock
-	mu        *sync.Mutex
-	ID        string
-	IP        string
-	peerTable pr.PeerTable
+	client *statsd.Client
+	init   bool
+	InSync bool
+	mu     *sync.Mutex
+	ID     string
+	IP     string
+
+	Msn *msgl.Messenger
 }
 
 var client *statsd.Client
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "statsd"})
 
 const sleepTime time.Duration = time.Second * 10
 const flushDuration time.Duration = time.Second * 10
@@ -31,9 +34,13 @@ func (sc *StatsdClient) NewStatsdClient(sync bool) *StatsdClient {
 }
 
 //init statsd client and start heartbeat functions
-func InitStatsdClient() *StatsdClient {
+func InitStatsdClient(Msn *msgl.Messenger) *StatsdClient {
 	re := &StatsdClient{}
 	re.mu = &sync.Mutex{}
+	re.Msn = Msn
+	re.ID = Msn.ID()
+	re.IP, _ = Msn.GetPublicIP()
+	logger.Infof("xj1 ID is %s, IP is %s \n", re.ID, re.IP)
 	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
 		client = statsd.NewClient(mserver+":8125", statsd.MetricPrefix("theta."), statsd.FlushInterval(flushDuration))
 		re.client = client
@@ -41,13 +48,14 @@ func InitStatsdClient() *StatsdClient {
 		ticker := time.NewTicker(sleepTime)
 		go re.reportOnlineAndSync(ticker)
 	} else {
-		fmt.Printf("metrics server is not in config file")
+		logger.Infof("metrics server is not in config file")
 	}
 	return re
 }
 
 //report online & sync
 func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
+	var peerIDs *[]pr.ID
 	for {
 		select {
 		case <-ticker.C:
@@ -56,9 +64,14 @@ func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
 			if sc.InSync {
 				sc.client.Incr("guardian.inSync", 1)
 			}
+			peerIDs = sc.Msn.GetPeerIDs()
+			logger.Infof(" get IDs %v\n", peerIDs)
 			sc.mu.Unlock()
 		}
 	}
+}
+
+func (sc *StatsdClient) handlePeers() {
 }
 
 func (sc *StatsdClient) SetInSync(b bool) {
