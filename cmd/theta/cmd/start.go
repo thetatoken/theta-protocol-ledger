@@ -52,7 +52,7 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	// trap Ctrl+C and call cancel on the context
 	ctx, cancel := context.WithCancel(context.Background())
-	
+
 	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
 	if p2pOpt != common.P2POptOld {
 		port := viper.GetInt(common.CfgP2PLPort)
@@ -83,7 +83,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
-
+	statsdClient := metrics.InitStatsdClient(network)
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
