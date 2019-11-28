@@ -3,6 +3,7 @@ package messenger
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net"
 	"strconv"
@@ -489,7 +490,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 			stream := transport.NewBufferedStream(strm, errorHandler)
 			stream.Start(msgr.ctx)
 			go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
-			peer.AcceptStream(channelID, stream)		
+			peer.AcceptStream(channelID, stream)
 
 		} else {
 			rawPeerMsg, err := ioutil.ReadAll(strm)
@@ -609,7 +610,7 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID(), peer.Addrs())
 			return nil, nil
 		}
-		
+
 		return stream, nil
 	}
 	peer.SetRawStreamCreator(rawStreamCreator)
