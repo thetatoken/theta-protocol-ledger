@@ -4,7 +4,6 @@ import (
 	"sync"
 	"time"
 
-	pr "github.com/libp2p/go-libp2p-core/peer"
 	log "github.com/sirupsen/logrus"
 	statsd "github.com/smira/go-statsd"
 	"github.com/spf13/viper"
@@ -55,7 +54,7 @@ func InitStatsdClient(Msn *msgl.Messenger) *StatsdClient {
 
 //report online & sync
 func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
-	var peerIDs *[]pr.ID
+	// var peerIDs *[]pr.ID
 	for {
 		select {
 		case <-ticker.C:
@@ -64,8 +63,8 @@ func (sc *StatsdClient) reportOnlineAndSync(ticker *time.Ticker) {
 			if sc.InSync {
 				sc.client.Incr("guardian.inSync", 1)
 			}
-			peerIDs = sc.Msn.GetPeerIDs()
-			logger.Infof(" get IDs %v\n", peerIDs)
+			// peerIDs = sc.Msn.GetPeerIDs()
+			// logger.Infof(" get IDs %v\n", peerIDs)
 			sc.mu.Unlock()
 		}
 	}
