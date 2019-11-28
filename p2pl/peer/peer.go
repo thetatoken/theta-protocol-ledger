@@ -5,11 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/theta/common"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/p2pl/transport"
+
 	"github.com/thetatoken/theta/rlp"
+	"github.com/libp2p/go-libp2p-core/network"
 
 	pr "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -39,11 +42,12 @@ type Peer struct {
 	streamMap  map[cmn.ChannelIDEnum](*transport.BufferedStream) // channelID -> stream
 	mutex      *sync.Mutex
 
-	onStream  StreamCreator
-	onParse   MessageParser
-	onEncode  MessageEncoder
-	onReceive ReceiveHandler
-	onError   ErrorHandler
+	onStream     StreamCreator
+	onRawStream  RawStreamCreator
+	onParse      MessageParser
+	onEncode     MessageEncoder
+	onReceive    ReceiveHandler
+	onError      ErrorHandler
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -135,20 +139,40 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 		return false
 	}
 
-	peer.mutex.Lock()
-	stream := peer.streamMap[channelID]
-	peer.mutex.Unlock()
+	var n int
+	reuseStream := viper.GetBool(cmn.CfgP2PReuseStream)
+	if reuseStream {
+		peer.mutex.Lock()
+		stream := peer.streamMap[channelID]
+		peer.mutex.Unlock()
 
-	if stream == nil {
-		logger.Debugf("Can't find stream for channel %v", channelID)
-		return false
+		if stream == nil {
+			logger.Debugf("Can't find stream for channel %v", channelID)
+			return false
+		}
+
+		n, err = stream.Write(msgBytes)
+		if err != nil {
+			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.id, channelID, err)
+			return false
+		}
+	} else {
+		rawStream, err := peer.onRawStream(channelID)
+		if rawStream != nil {
+			defer rawStream.Close()
+		}
+		if err != nil {
+			logger.Errorf("Stream open failed: %v. peer: %v, addrs: %v, channel: %v", err, peer.ID(), peer.Addrs(), channelID)
+			return false
+		}
+
+		n, err = rawStream.Write(msgBytes)
+		if err != nil {
+			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.id, channelID, err)
+			return false
+		}
 	}
 
-	n, err := stream.Write(msgBytes)
-	if err != nil {
-		logger.Errorf("Error writing stream to peer %v for channel %v", peer.id, channelID, err)
-		return false
-	}
 	if n != len(msgBytes) {
 		logger.Errorf("Didn't write expected bytes length")
 		return false
@@ -170,6 +194,9 @@ func (peer *Peer) Addrs() []ma.Multiaddr {
 // StreamCreator creates a buffered stream with this peer
 type StreamCreator func(channelID cmn.ChannelIDEnum) (*transport.BufferedStream, error)
 
+// RawStreamCreator creates a raw libp2p stream with this peer
+type RawStreamCreator func(channelID cmn.ChannelIDEnum) (network.Stream, error)
+
 // MessageParser parses the raw message bytes to type p2ptypes.Message
 type MessageParser func(channelID cmn.ChannelIDEnum, rawMessageBytes cmn.Bytes) (p2ptypes.Message, error)
 
@@ -188,6 +215,10 @@ type ErrorHandler func(interface{})
 
 func (peer *Peer) SetStreamCreator(streamCreator StreamCreator) {
 	peer.onStream = streamCreator
+}
+
+func (peer *Peer) SetRawStreamCreator(rawStreamCreator RawStreamCreator) {
+	peer.onRawStream = rawStreamCreator
 }
 
 // SetMessageParser sets the message parser for the connection

@@ -8,10 +8,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/network"
 	log "github.com/sirupsen/logrus"
 	cmn "github.com/thetatoken/theta/p2pl/common"
 	"github.com/thetatoken/theta/p2pl/transport/buffer/flowrate"
+
+	"github.com/libp2p/go-libp2p-core/network"
 )
 
 //
@@ -125,7 +126,7 @@ func (rb *RecvBuffer) recvRoutine() {
 		numBytesRead, err := rb.rawStream.Read(bytes)
 		if err != nil {
 			rawStream := rb.rawStream.(network.Stream)
-			log.Errorf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
+			log.Warnf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
 			break
 		}
 
