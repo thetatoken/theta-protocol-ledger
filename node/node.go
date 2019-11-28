@@ -9,7 +9,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -19,6 +18,7 @@ import (
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
 	"github.com/thetatoken/theta/p2pl"
+	rp "github.com/thetatoken/theta/report"
 	"github.com/thetatoken/theta/rpc"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store"
@@ -36,6 +36,7 @@ type Node struct {
 	Ledger           core.Ledger
 	Mempool          *mp.Mempool
 	RPC              *rpc.ThetaRPCServer
+	reporter         *rp.Reporter
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -55,7 +56,6 @@ type Params struct {
 	SnapshotPath        string
 	ChainImportDirPath  string
 	ChainCorrectionPath string
-	StatsdClient        *metrics.StatsdClient
 }
 
 func NewNode(params *Params) *Node {
@@ -64,10 +64,10 @@ func NewNode(params *Params) *Node {
 	validatorManager := consensus.NewRotatingValidatorManager()
 	dispatcher := dp.NewDispatcher(params.NetworkOld, params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
+	reporter := rp.NewReporter(dispatcher)
 
 	// TODO: check if this is a guardian node
-	statsdClient := params.StatsdClient //metrics.InitStatsdClient((*msgl.Messenger).(params.Network))
-	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, statsdClient)
+	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, reporter)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
 
@@ -111,6 +111,7 @@ func NewNode(params *Params) *Node {
 		Dispatcher:       dispatcher,
 		Ledger:           ledger,
 		Mempool:          mempool,
+		reporter:         reporter,
 	}
 
 	if viper.GetBool(common.CfgRPCEnabled) {
@@ -129,6 +130,7 @@ func (n *Node) Start(ctx context.Context) {
 	n.SyncManager.Start(n.ctx)
 	n.Dispatcher.Start(n.ctx)
 	n.Mempool.Start(n.ctx)
+	n.reporter.Start(n.ctx)
 
 	if viper.GetBool(common.CfgRPCEnabled) {
 		n.RPC.Start(n.ctx)

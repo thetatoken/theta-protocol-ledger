@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
+	rp "github.com/thetatoken/theta/report"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -91,9 +92,11 @@ type RequestManager struct {
 	activePeers    []string
 	refreshCounter int
 	aplock         *sync.RWMutex
+
+	reporter *rp.Reporter
 }
 
-func NewRequestManager(syncMgr *SyncManager) *RequestManager {
+func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestManager {
 	rm := &RequestManager{
 		ticker: time.NewTicker(1 * time.Second),
 		quota:  RequestQuotaPerSecond,
@@ -114,6 +117,8 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 		activePeers:    []string{},
 		refreshCounter: 0,
 		aplock:         &sync.RWMutex{},
+
+		reporter: reporter,
 	}
 
 	logger := util.GetLoggerForModule("request")
@@ -218,7 +223,7 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
-	rm.syncMgr.sc.SetInSync(!hasUndownloadedBlocks)
+	rm.reporter.SetInSync(!hasUndownloadedBlocks)
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 

@@ -6,17 +6,16 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"net"
-	"net/http"
-	"os/exec"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	p2pcmn "github.com/thetatoken/theta/p2pl/common"
@@ -115,92 +114,8 @@ func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
 
 // ID returns the ID of the current node
 func (msgr *Messenger) ID() string {
-	return string(msgr.host.ID())
-}
-
-// GetPublicIP returns the public IP address of the current node
-func (msgr *Messenger) GetPublicIP() (string, error) {
-	ipMap := make(map[string]int)
-	numSources := 3
-	wait := &sync.WaitGroup{}
-	mu := &sync.RWMutex{}
-
-	go func() {
-		resp, err := http.Get("http://myexternalip.com/raw")
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				bodyBytes, err := ioutil.ReadAll(resp.Body)
-				if err == nil {
-					ip := strings.TrimSpace(string(bodyBytes))
-					mu.Lock()
-					defer mu.Unlock()
-					ipMap[ip]++
-				}
-			}
-		}
-		wait.Done()
-	}()
-	wait.Add(1)
-
-	go func() {
-		resp, err := http.Get("http://whatismyip.akamai.com")
-		if err == nil {
-			defer resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				bodyBytes, err := ioutil.ReadAll(resp.Body)
-				if err == nil {
-					ip := strings.TrimSpace(string(bodyBytes))
-					mu.Lock()
-					defer mu.Unlock()
-					ipMap[ip]++
-				}
-			}
-		}
-		wait.Done()
-	}()
-	wait.Add(1)
-
-	go func() {
-		if runtime.GOOS == "windows" {
-			cmd := exec.Command("cmd", "/c", "nslookup myip.opendns.com resolver1.opendns.com")
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				res := strings.TrimSpace(string(out))
-				ip := res[strings.LastIndex(res, " ")+1:]
-				mu.Lock()
-				defer mu.Unlock()
-				ipMap[ip]++
-			}
-		} else {
-			cmd := exec.Command("bash", "-c", "dig @resolver1.opendns.com ANY myip.opendns.com +short")
-			out, err := cmd.CombinedOutput()
-			if err == nil {
-				ip := strings.TrimSpace(string(out))
-				mu.Lock()
-				defer mu.Unlock()
-				ipMap[ip]++
-			}
-		}
-		wait.Done()
-	}()
-	wait.Add(1)
-
-	wait.Wait()
-
-	var majorityIP string
-	for ip, cnt := range ipMap {
-		if cnt > numSources/2 {
-			majorityIP = ip
-			break
-		}
-	}
-
-	if majorityIP == "" {
-		return "", fmt.Errorf("Can't get external IP")
-	}
-
-	return majorityIP, nil
+	//return string(msgr.host.ID())
+	return msgr.host.ID().Pretty()
 }
 
 // CreateMessenger creates an instance of Messenger
@@ -233,7 +148,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	var extMultiAddr ma.Multiaddr
 	if peerDiscoverable {
-		externalIP, err := messenger.GetPublicIP()
+		externalIP, err := util.GetPublicIP()
 		if err != nil {
 			return messenger, err
 		}
@@ -567,13 +482,30 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 			return
 		}
 
-		errorHandler := func(interface{}) {
-			peer.StopStream(channelID)
+		reuseStream := viper.GetBool(common.CfgP2PReuseStream)
+		if reuseStream {
+			errorHandler := func(interface{}) {
+				peer.StopStream(channelID)
+			}
+			stream := transport.NewBufferedStream(strm, errorHandler)
+			stream.Start(msgr.ctx)
+			go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
+			peer.AcceptStream(channelID, stream)
+
+		} else {
+			rawPeerMsg, err := ioutil.ReadAll(strm)
+			if err != nil {
+				logger.Errorf("Failed to read stream, %v. channel: %v, peer: %v", err, channelID, peerID)
+				return
+			}
+			msgHandler := msgr.msgHandlerMap[channelID]
+			message, err := msgHandler.ParseMessage(peerID.String(), channelID, rawPeerMsg)
+			if err != nil {
+				logger.Errorf("Failed to parse message, %v. len(): %v, channel: %v, peer: %v, msg: %v", err, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
+				return
+			}
+			msgHandler.HandleMessage(message)
 		}
-		stream := transport.NewBufferedStream(strm, errorHandler)
-		stream.Start(msgr.ctx)
-		go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
-		peer.AcceptStream(channelID, stream)
 	})
 }
 
@@ -647,11 +579,6 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 	}
 	peer.SetReceiveHandler(receiveHandler)
 
-	// errorHandler := func(interface{}) {
-	// 	msgr.discMgr.HandlePeerWithErrors(peer)
-	// }
-	// peer.SetErrorHandler(errorHandler)
-
 	streamCreator := func(channelID common.ChannelIDEnum) (*transport.BufferedStream, error) {
 		strm, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))))
 		if err != nil {
@@ -672,4 +599,19 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 		return stream, nil
 	}
 	peer.SetStreamCreator(streamCreator)
+
+	rawStreamCreator := func(channelID common.ChannelIDEnum) (network.Stream, error) {
+		stream, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))))
+		if err != nil {
+			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID(), peer.Addrs())
+			return nil, err
+		}
+		if stream == nil {
+			logger.Errorf("Can't open stream. peer: %v, addrs: %v", peer.ID(), peer.Addrs())
+			return nil, nil
+		}
+
+		return stream, nil
+	}
+	peer.SetRawStreamCreator(rawStreamCreator)
 }
