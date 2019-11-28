@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
@@ -76,6 +77,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
 
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
+	statsdClient := metrics.InitStatsdClient(network)
 
 	params := &node.Params{
 		ChainID:             root.ChainID,
@@ -87,6 +89,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		SnapshotPath:        snapshotPath,
 		ChainImportDirPath:  chainImportDirPath,
 		ChainCorrectionPath: chainCorrectionPath,
+		StatsdClient:        statsdClient,
 	}
 	n := node.NewNode(params)
 

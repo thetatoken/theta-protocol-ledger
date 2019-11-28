@@ -54,6 +54,7 @@ type Params struct {
 	SnapshotPath        string
 	ChainImportDirPath  string
 	ChainCorrectionPath string
+	StatsdClient        *metrics.StatsdClient
 }
 
 func NewNode(params *Params) *Node {
@@ -64,7 +65,7 @@ func NewNode(params *Params) *Node {
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
 
 	// TODO: check if this is a guardian node
-	statsdClient := metrics.InitStatsdClient()
+	statsdClient := params.StatsdClient //metrics.InitStatsdClient((*msgl.Messenger).(params.Network))
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, statsdClient)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
