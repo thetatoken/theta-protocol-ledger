@@ -29,6 +29,8 @@ const (
 
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
+	// CfgP2PReuseStream sets whether to reuse libp2p stream
+	CfgP2PReuseStream = "p2p.reuse_stream"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
 	// CfgP2PPort sets the port used by P2P network.
@@ -92,6 +94,7 @@ func init() {
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 	viper.SetDefault(CfgP2POpt, P2POptBoth)
+	viper.SetDefault(CfgP2PReuseStream, false)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
