@@ -203,10 +203,6 @@ func (msgr *Messenger) GetPublicIP() (string, error) {
 	return majorityIP, nil
 }
 
-func (msgr *Messenger) GetPeerIDs() *[]pr.ID {
-	return msgr.peerTable.GetAllPeerIDs()
-}
-
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool, ctx context.Context) (*Messenger, error) {
@@ -470,14 +466,15 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 
 // BroadcastToNeighbors broadcasts the given message to neighbors
 func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message) (successes chan bool) {
-	for _, peerid := range *msgr.peerTable.GetAllPeerIDs() {
-		if peerid == msgr.host.ID() {
+	neighbors := *msgr.peerTable.GetAllPeers()
+	for _, peer := range neighbors {
+		if peer.ID() == msgr.host.ID() {
 			continue
 		}
 
 		go func(peerID pr.ID) {
 			msgr.Send(peerID.String(), message)
-		}(peerid)
+		}(peer.ID())
 	}
 
 	return make(chan bool)
