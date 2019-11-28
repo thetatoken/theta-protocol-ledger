@@ -14,7 +14,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/common/metrics"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
@@ -83,7 +82,6 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.Fatalf("Snapshot validation failed, err: %v", err)
 	}
 	root := &core.Block{BlockHeader: snapshotBlockHeader}
-	statsdClient := metrics.InitStatsdClient(network)
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
@@ -96,7 +94,6 @@ func runStart(cmd *cobra.Command, args []string) {
 		SnapshotPath:        snapshotPath,
 		ChainImportDirPath:  chainImportDirPath,
 		ChainCorrectionPath: chainCorrectionPath,
-		StatsdClient:        statsdClient,
 	}
 
 	n := node.NewNode(params)
