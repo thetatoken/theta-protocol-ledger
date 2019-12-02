@@ -1,8 +1,10 @@
 package report
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -17,6 +19,9 @@ import (
 
 var client *statsd.Client
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "statsd"})
+var reportPeersPort string = ":9000"
+var reportStatsdPort string = ":8125"
+var setPeersSuffix string = "/setPeers"
 
 const sleepTime time.Duration = time.Second * 10
 const flushDuration time.Duration = time.Second * 10
@@ -47,7 +52,7 @@ func NewReporter(disp *dp.Dispatcher) *Reporter {
 	}
 
 	var client *statsd.Client
-	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
+	if mserver := viper.GetString(common.CfgMetricsServer) + reportStatsdPort; mserver != "" {
 		client = statsd.NewClient(mserver, statsd.MetricPrefix("theta."), statsd.FlushInterval(flushDuration))
 	} else {
 		logger.Infof("metrics server is not in config file")
@@ -108,6 +113,13 @@ func (rp *Reporter) reportOnlineAndSync() {
 }
 
 func (rp *Reporter) handlePeers() {
+	url := "http://" + viper.GetString(common.CfgMetricsServer) + reportStatsdPort + setPeersSuffix
+	jsonStr := []byte(`{"title": "Buy cheese and bread for breakfast."}`)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
 }
 
 func (rp *Reporter) SetInSync(inSync bool) {
