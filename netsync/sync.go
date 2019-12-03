@@ -412,7 +412,13 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":         peerID,
 		}).Debug("Received block")
 		m.handleBlock(block)
-		m.requestMgr.AddActivePeer(peerID)
+
+		blockHeight := block.Height
+		lfbHeight := m.consensus.GetLastFinalizedBlock().Height
+		tipHeight := m.consensus.GetTip(true).Height
+		if blockHeight > lfbHeight && blockHeight <= tipHeight+dispatcher.MaxInventorySize+1 {
+			m.requestMgr.AddActivePeer(peerID)
+		}
 	case common.ChannelIDVote:
 		vote := core.Vote{}
 		err := rlp.DecodeBytes(data.Payload, &vote)
