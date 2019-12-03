@@ -301,12 +301,13 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 
 	switch resp.ChannelID {
 	case common.ChannelIDBlock:
+		fromGossip := len(resp.Entries) == 1
 		for idx, hashStr := range resp.Entries {
 			if idx > dispatcher.MaxInventorySize-1 {
 				break
 			}
 			hash := common.HexToHash(hashStr)
-			m.requestMgr.AddHash(hash, []string{peerID})
+			m.requestMgr.AddHash(hash, []string{peerID}, fromGossip)
 		}
 	default:
 		m.logger.WithFields(log.Fields{

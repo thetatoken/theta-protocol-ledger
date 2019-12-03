@@ -39,15 +39,17 @@ type PendingBlock struct {
 	lastUpdate time.Time
 	createdAt  time.Time
 	status     RequestState
+	fromGossip bool
 }
 
-func NewPendingBlock(x common.Hash, peerIds []string) *PendingBlock {
+func NewPendingBlock(x common.Hash, peerIds []string, fromGossip bool) *PendingBlock {
 	return &PendingBlock{
 		hash:       x,
 		lastUpdate: time.Now(),
 		createdAt:  time.Now(),
 		peers:      peerIds,
 		status:     RequestToSendDataReq,
+		fromGossip: fromGossip,
 	}
 }
 
@@ -134,7 +136,7 @@ func (rm *RequestManager) mainLoop() {
 			rm.stopped = true
 			return
 		case <-rm.ticker.C:
-			rm.quota = RequestQuotaPerSecond
+			// rm.quota = RequestQuotaPerSecond
 			rm.tryToDownload()
 		}
 	}
@@ -217,6 +219,9 @@ func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
+	gossipQuota := RequestQuotaPerSecond
+	fastsyncQuota := RequestQuotaPerSecond
+
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
@@ -256,7 +261,11 @@ func (rm *RequestManager) tryToDownload() {
 			continue
 		}
 		if pendingBlock.status == RequestWaitingDataResp {
-			rm.quota--
+			if pendingBlock.fromGossip {
+				gossipQuota--
+			} else {
+				fastsyncQuota--
+			}
 			continue
 		}
 		if pendingBlock.status == RequestToSendDataReq {
@@ -273,7 +282,13 @@ func (rm *RequestManager) tryToDownload() {
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingDataResp
-			rm.quota--
+
+			if pendingBlock.fromGossip {
+				gossipQuota--
+			} else {
+				fastsyncQuota--
+			}
+			
 			continue
 		}
 	}
@@ -354,13 +369,13 @@ func (rm *RequestManager) removeEl(el *list.Element) {
 	rm.pendingBlocks.Remove(el)
 }
 
-func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string) {
+func (rm *RequestManager) AddHash(x common.Hash, peerIDs []string, fromGossip bool) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	rm.addHash(x, peerIDs)
+	rm.addHash(x, peerIDs, fromGossip)
 }
 
-func (rm *RequestManager) addHash(x common.Hash, peerIDs []string) {
+func (rm *RequestManager) addHash(x common.Hash, peerIDs []string, fromGossip bool) {
 	if _, err := rm.chain.FindBlock(x); err == nil {
 		return
 	}
@@ -369,7 +384,7 @@ func (rm *RequestManager) addHash(x common.Hash, peerIDs []string) {
 	var pendingBlock *PendingBlock
 	pendingBlockEl, ok := rm.pendingBlocksByHash[x.String()]
 	if !ok {
-		pendingBlock = NewPendingBlock(x, peerIDs)
+		pendingBlock = NewPendingBlock(x, peerIDs, fromGossip)
 		pendingBlockEl = rm.pendingBlocks.PushBack(pendingBlock)
 		rm.pendingBlocksByHash[x.String()] = pendingBlockEl
 	}
@@ -420,13 +435,15 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 		}).Error("Failed to add block")
 	}
 
+	// TODO: should not need in-memory index anymore.
 	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
-		rm.addHash(block.Hash(), []string{})
+		rm.addHash(block.Hash(), []string{}, false)
 	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		pendingBlock.block = block
 	}
+
 	if rm.shouldDumpBlock(block) {
 		rm.dumpReadyBlocks(block)
 		return
