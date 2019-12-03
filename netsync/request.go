@@ -21,9 +21,9 @@ const RequestTimeout = 5 * time.Second
 const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 3 * time.Second
-const RequestQuotaPerSecond = 10
+const RequestQuotaPerSecond = 50
 const MaxNumPeersToSendRequests = 4
-const RefreshCounterLimit = 20
+const RefreshCounterLimit = 4
 
 type RequestState uint8
 
