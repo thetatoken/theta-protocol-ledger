@@ -2,7 +2,6 @@ package netsync
 
 import (
 	"context"
-	"reflect"
 	"strings"
 	"sync"
 
