@@ -17,10 +17,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const RequestTimeout = 10 * time.Second
+const RequestTimeout = 5 * time.Second
 const Expiration = 300 * time.Second
-const MinInventoryRequestInterval = 5 * time.Second
-const MaxInventoryRequestInterval = 120 * time.Second
+const MinInventoryRequestInterval = 3 * time.Second
+const MaxInventoryRequestInterval = 3 * time.Second
 const RequestQuotaPerSecond = 10
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 20
@@ -245,7 +245,7 @@ func (rm *RequestManager) tryToDownload() {
 	elToRemove := []*list.Element{}
 	for curr := rm.pendingBlocks.Front(); rm.quota > 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
-		if pendingBlock.HasExpired() {
+		if pendingBlock.HasExpired() || pendingBlock.HasTimedOut() {
 			elToRemove = append(elToRemove, curr)
 			continue
 		}
@@ -255,12 +255,11 @@ func (rm *RequestManager) tryToDownload() {
 		if len(pendingBlock.peers) == 0 {
 			continue
 		}
-		if pendingBlock.status == RequestWaitingDataResp && !pendingBlock.HasTimedOut() {
+		if pendingBlock.status == RequestWaitingDataResp {
 			rm.quota--
 			continue
 		}
-		if pendingBlock.status == RequestToSendDataReq ||
-			(pendingBlock.status == RequestWaitingDataResp && pendingBlock.HasTimedOut()) {
+		if pendingBlock.status == RequestToSendDataReq {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
 			request := dispatcher.DataRequest{
 				ChannelID: common.ChannelIDBlock,
