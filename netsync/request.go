@@ -393,6 +393,8 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
+	rm.chain.AddBlock(block)
+
 	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
 		rm.addHash(block.Hash(), []string{})
 	}
@@ -420,26 +422,6 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 		byParents = append(byParents, block)
 	}
 	rm.pendingBlocksByParent[parent.String()] = byParents
-}
-
-func (rm *RequestManager) dumpAllReadyBlocks() {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	pendings := []*list.Element{}
-	for _, pendingBlockEl := range rm.pendingBlocksByHash {
-		pendings = append(pendings, pendingBlockEl)
-	}
-	for _, pendingBlockEl := range pendings {
-		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
-		block := pendingBlock.block
-		if block == nil {
-			continue
-		}
-		if eb, err := rm.chain.FindBlock(block.Parent); err == nil && !eb.Status.IsPending() {
-			rm.dumpReadyBlocks(block)
-		}
-	}
 }
 
 // resumePendingBlocks is called during process start to resume blocks that are already downloaded
@@ -470,7 +452,9 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 		hash := block.Hash().String()
 		queue = queue[1:]
 
-		if children, ok := rm.pendingBlocksByParent[hash]; ok {
+		// Add child blocks stored in the memory
+		children, ok := rm.pendingBlocksByParent[hash]
+		if ok {
 			queue = append(queue, children...)
 			delete(rm.pendingBlocksByParent, hash)
 		}
@@ -480,12 +464,26 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 			delete(rm.pendingBlocksByHash, hash)
 		}
 
-		rm.chain.AddBlock(block)
+		// Add child blocks stored in the disk
+		height := block.Height
+		for _, child := range rm.chain.FindBlocksByHeight(height + 1) {
+			if child.Parent.String() != hash {
+				continue
+			}
 
-		queueHash := []string{}
-		for _, b := range queue {
-			queueHash = append(queueHash, b.Hash().Hex())
+			duplicated := false
+			for _, ch := range children {
+				if ch.Hash() == child.Hash() {
+					duplicated = true
+					break
+				}
+			}
+
+			if !duplicated {
+				queue = append(queue, child.Block)
+			}
 		}
+
 		rm.syncMgr.PassdownMessage(block)
 	}
 }
