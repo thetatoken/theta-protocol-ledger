@@ -408,6 +408,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 		}
 		m.logger.WithFields(log.Fields{
 			"block.Hash":   block.Hash().Hex(),
+			"block.Height": block.Height,
 			"block.Parent": block.Parent.Hex(),
 			"peer":         peerID,
 		}).Debug("Received block")
