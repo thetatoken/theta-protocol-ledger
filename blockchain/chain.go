@@ -79,25 +79,26 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 		return val, fmt.Errorf("Block has already been added: %X", hash[:])
 	}
 
+	// Update parent if present.
 	if !block.Parent.IsEmpty() && !isSnapshotRoot {
 		parentBlock, err := ch.findBlock(block.Parent)
-		if err == store.ErrKeyNotFound {
-			// Parent block is not known yet, abandon block.
-			return nil, errors.Errorf("Unknown parent block: %v", block.Parent.Hex())
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to find parent block")
-		}
-
-		parentBlock.Children = append(parentBlock.Children, hash)
-
-		err = ch.saveBlock(parentBlock)
-		if err != nil {
-			log.Panic(err)
+		if err == nil {
+			parentBlock.Children = append(parentBlock.Children, hash)
+			err = ch.saveBlock(parentBlock)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
+
+	// Update children if present.
+	children := ch.findBlocksByHeight(block.Height + 1)
+	extendedBlock.Children = make([]common.Hash, len(children))
+	for i:=0; i < len(children); i++ {
+		extendedBlock.Children[i] = children[i].Hash()
+	}
 
 	err = ch.saveBlock(extendedBlock)
 	if err != nil {

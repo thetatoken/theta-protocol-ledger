@@ -392,11 +392,33 @@ func (rm *RequestManager) addHash(x common.Hash, peerIDs []string) {
 	}
 }
 
+// shouldDumpBlock checks if a block and its decendant is descendant of genesis
+func (rm *RequestManager) shouldDumpBlock(block *core.Block) bool {
+	currHash := block.Parent
+	for {
+		currBlock, err := rm.chain.FindBlock(currHash)
+		if err != nil {
+			return false
+		}
+		// If a block has status other than pending, it has been processed by consensus engine hence 
+		// must be descendant of genesis.
+		if !currBlock.Status.IsPending() {
+			return true
+		}
+		currHash = currBlock.Parent
+	}
+}
+
 func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	rm.chain.AddBlock(block)
+	_, err := rm.chain.AddBlock(block)
+	if err != nil {
+		rm.logger.WithFields(log.Fields{
+			"err": err.Error(),
+		}).Error("Failed to add block")
+	}
 
 	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
 		rm.addHash(block.Hash(), []string{})
@@ -405,26 +427,27 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
 		pendingBlock.block = block
 	}
-	parent := block.Parent
-	if _, err := rm.chain.FindBlock(parent); err == nil {
+	if rm.shouldDumpBlock(block) {
 		rm.dumpReadyBlocks(block)
 		return
 	}
-	byParents, ok := rm.pendingBlocksByParent[parent.String()]
-	if !ok {
-		byParents = []*core.Block{}
-	}
-	found := false
-	for _, child := range byParents {
-		if child.Hash() == block.Hash() {
-			found = true
-			break
-		}
-	}
-	if !found {
-		byParents = append(byParents, block)
-	}
-	rm.pendingBlocksByParent[parent.String()] = byParents
+
+	// TODO: remove this. We don't need in-memory index anymore.
+	// byParents, ok := rm.pendingBlocksByParent[parent.String()]
+	// if !ok {
+	// 	byParents = []*core.Block{}
+	// }
+	// found := false
+	// for _, child := range byParents {
+	// 	if child.Hash() == block.Hash() {
+	// 		found = true
+	// 		break
+	// 	}
+	// }
+	// if !found {
+	// 	byParents = append(byParents, block)
+	// }
+	// rm.pendingBlocksByParent[parent.String()] = byParents
 }
 
 // resumePendingBlocks is called during process start to resume blocks that are already downloaded
