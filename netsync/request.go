@@ -17,7 +17,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const RequestTimeout = 30 * time.Second
+const RequestTimeout = 10 * time.Second
 const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 5 * time.Second
 const MaxInventoryRequestInterval = 120 * time.Second
@@ -243,7 +243,7 @@ func (rm *RequestManager) tryToDownload() {
 	}
 
 	elToRemove := []*list.Element{}
-	for curr := rm.pendingBlocks.Front(); rm.quota != 0 && curr != nil; curr = curr.Next() {
+	for curr := rm.pendingBlocks.Front(); rm.quota > 0 && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() {
 			elToRemove = append(elToRemove, curr)
@@ -253,6 +253,10 @@ func (rm *RequestManager) tryToDownload() {
 			continue
 		}
 		if len(pendingBlock.peers) == 0 {
+			continue
+		}
+		if pendingBlock.status == RequestWaitingDataResp && !pendingBlock.HasTimedOut() {
+			rm.quota--
 			continue
 		}
 		if pendingBlock.status == RequestToSendDataReq ||

@@ -301,7 +301,10 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 
 	switch resp.ChannelID {
 	case common.ChannelIDBlock:
-		for _, hashStr := range resp.Entries {
+		for idx, hashStr := range resp.Entries {
+			if idx > dispatcher.MaxInventorySize-1 {
+				break
+			}
 			hash := common.HexToHash(hashStr)
 			m.requestMgr.AddHash(hash, []string{peerID})
 		}
