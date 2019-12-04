@@ -684,10 +684,27 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 	sm.requestMgr.AddBlock(block)
 
 	if sm.requestMgr.IsGossipBlock(block.Hash()) {
+		// Gossip the block out using hash
 		sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
 			ChannelID: common.ChannelIDBlock,
 			Entries:   []string{block.Hash().Hex()},
-		}) // Gossip the block out
+		})
+
+		// Gossip the block out using header
+		headers := Headers{
+			HeaderArray: []*core.BlockHeader{block.BlockHeader},
+		}
+		payload, err := rlp.EncodeToBytes(headers)
+		if err != nil {
+			sm.logger.WithFields(log.Fields{
+				"block hash":   block.Hash().String(),
+				"block height": block.Height,
+				"err":          err.Error(),
+			}).Debug("failed to encode header")
+			return
+		}
+		hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
+		sm.dispatcher.SendData([]string{}, hresp)
 	}
 }
 
