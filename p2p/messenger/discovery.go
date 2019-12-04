@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	cn "github.com/thetatoken/theta/p2p/connection"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
@@ -109,6 +111,11 @@ func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
 	err = discMgr.seedPeerConnector.Start(c)
 	if err != nil {
 		return err
+	}
+
+	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	if seedPeerOnly {
+		return nil
 	}
 
 	err = discMgr.inboundPeerListener.Start(c)

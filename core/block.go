@@ -521,6 +521,6 @@ func (eb *ExtendedBlock) MarshalJSON() ([]byte, error) {
 		Hash common.Hash
 	}{
 		ExtendedBlockInnerJSON: ExtendedBlockInnerJSON(*eb),
-		Hash:                   eb.Hash(),
+		Hash: eb.Hash(),
 	})
 }

@@ -26,6 +26,10 @@ const (
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
+	// CfgSyncDownloadByHash indicates whether should download blocks using hash.
+	CfgSyncDownloadByHash = "sync.downloadByHash"
+	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
+	CfgSyncDownloadByHeader = "sync.downloadByHeader"
 
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
@@ -49,6 +53,8 @@ const (
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
+	// CfgP2PSeedPeerOnly decides whether the node will connect to peers other than the seeds.
+	CfgP2PSeedPeerOnly = "p2p.seedPeerOnly"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -93,6 +99,8 @@ func init() {
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
+	viper.SetDefault(CfgSyncDownloadByHash, true)
+	viper.SetDefault(CfgSyncDownloadByHeader, false)
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
@@ -106,6 +114,7 @@ func init() {
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 	viper.SetDefault(CfgP2POpt, P2POptBoth)
 	viper.SetDefault(CfgP2PReuseStream, false)
+	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")

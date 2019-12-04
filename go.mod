@@ -5,7 +5,6 @@ require (
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v1.6.0-rc1
-	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/protobuf v1.3.1
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
 	github.com/gorilla/context v1.1.1 // indirect
@@ -39,7 +38,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/smira/go-statsd v1.3.1
 	github.com/spf13/cobra v0.0.5
-	github.com/spf13/viper v1.3.2
+	github.com/spf13/viper v1.5.0
 	github.com/stretchr/testify v1.4.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/thetatoken/theta/common v0.0.0
