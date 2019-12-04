@@ -648,7 +648,12 @@ func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
 			return
 		}
 	}
-	sm.requestMgr.AddHeader(header, peerID)
+
+	lfbHeight := sm.consensus.GetLastFinalizedBlock().Height
+	tipHeight := sm.consensus.GetTip(true).Height
+	if header.Height > lfbHeight && header.Height <= tipHeight+dispatcher.MaxInventorySize+1 {
+		sm.requestMgr.AddHeader(header, peerID)
+	}
 }
 
 func (sm *SyncManager) handleBlock(block *core.Block) {
