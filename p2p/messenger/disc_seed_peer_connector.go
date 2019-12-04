@@ -1,6 +1,7 @@
 package messenger
 
 import (
+	"bytes"
 	"context"
 	"math/rand"
 	"sync"
@@ -78,6 +79,15 @@ func (spc *SeedPeerConnector) Stop() {
 // Wait suspends the caller goroutine
 func (spc *SeedPeerConnector) Wait() {
 	spc.wg.Wait()
+}
+
+func (spc *SeedPeerConnector) isASeedPeerIgnoringPort(netAddr *netutil.NetAddress) bool {
+	for _, seedAddr := range spc.seedPeerNetAddresses {
+		if bytes.Compare(netAddr.IP, seedAddr.IP) == 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (spc *SeedPeerConnector) isASeedPeer(netAddr *netutil.NetAddress) bool {
