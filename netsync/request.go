@@ -21,7 +21,8 @@ const RequestTimeout = 5 * time.Second
 const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 3 * time.Second
-const RequestQuotaPerSecond = 50
+const FastsyncRequestQuotaPerSecond = 50
+const GossipRequestQuotaPerSecond = 10
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 4
 
@@ -69,7 +70,6 @@ type RequestManager struct {
 	logger *log.Entry
 
 	ticker *time.Ticker
-	quota  int
 
 	wg      *sync.WaitGroup
 	ctx     context.Context
@@ -98,7 +98,6 @@ type RequestManager struct {
 func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 	rm := &RequestManager{
 		ticker: time.NewTicker(1 * time.Second),
-		quota:  RequestQuotaPerSecond,
 
 		wg: &sync.WaitGroup{},
 
@@ -136,7 +135,6 @@ func (rm *RequestManager) mainLoop() {
 			rm.stopped = true
 			return
 		case <-rm.ticker.C:
-			// rm.quota = RequestQuotaPerSecond
 			rm.tryToDownload()
 		}
 	}
@@ -219,8 +217,8 @@ func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
-	gossipQuota := RequestQuotaPerSecond
-	fastsyncQuota := RequestQuotaPerSecond
+	gossipQuota := GossipRequestQuotaPerSecond
+	fastsyncQuota := FastsyncRequestQuotaPerSecond
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
@@ -248,7 +246,7 @@ func (rm *RequestManager) tryToDownload() {
 	}
 
 	elToRemove := []*list.Element{}
-	for curr := rm.pendingBlocks.Front(); rm.quota > 0 && curr != nil; curr = curr.Next() {
+	for curr := rm.pendingBlocks.Front(); (gossipQuota > 0 || fastsyncQuota > 0) && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() || pendingBlock.HasTimedOut() {
 			elToRemove = append(elToRemove, curr)
@@ -260,14 +258,20 @@ func (rm *RequestManager) tryToDownload() {
 		if len(pendingBlock.peers) == 0 {
 			continue
 		}
-		if pendingBlock.status == RequestWaitingDataResp {
-			if pendingBlock.fromGossip {
-				gossipQuota--
-			} else {
-				fastsyncQuota--
-			}
+		if pendingBlock.fromGossip && gossipQuota <= 0 {
 			continue
 		}
+		if !pendingBlock.fromGossip && fastsyncQuota <= 0 {
+			continue
+		}
+		// if pendingBlock.status == RequestWaitingDataResp {
+		// 	if pendingBlock.fromGossip {
+		// 		gossipQuota--
+		// 	} else {
+		// 		fastsyncQuota--
+		// 	}
+		// 	continue
+		// }
 		if pendingBlock.status == RequestToSendDataReq {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
 			request := dispatcher.DataRequest{
@@ -288,7 +292,7 @@ func (rm *RequestManager) tryToDownload() {
 			} else {
 				fastsyncQuota--
 			}
-			
+
 			continue
 		}
 	}
@@ -415,7 +419,7 @@ func (rm *RequestManager) shouldDumpBlock(block *core.Block) bool {
 		if err != nil {
 			return false
 		}
-		// If a block has status other than pending, it has been processed by consensus engine hence 
+		// If a block has status other than pending, it has been processed by consensus engine hence
 		// must be descendant of genesis.
 		if !currBlock.Status.IsPending() {
 			return true
