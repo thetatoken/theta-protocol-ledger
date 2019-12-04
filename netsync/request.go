@@ -275,8 +275,12 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.getInventory(req)
 	}
-	rm.downloadBlockFromHeader()
-	rm.downloadBlockFromHash()
+	if viper.GetBool(common.CfgSyncDownloadByHeader) {
+		rm.downloadBlockFromHeader()
+	}
+	if viper.GetBool(common.CfgSyncDownloadByHash) {
+		rm.downloadBlockFromHash()
+	}
 }
 
 //compatible with older version, download block from hash

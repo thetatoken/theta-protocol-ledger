@@ -26,6 +26,10 @@ const (
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
+	// CfgSyncDownloadByHash indicates whether should download blocks using hash.
+	CfgSyncDownloadByHash = "sync.downloadByHash"
+	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
+	CfgSyncDownloadByHeader = "sync.downloadByHeader"
 
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
@@ -70,6 +74,8 @@ func init() {
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
+	viper.SetDefault(CfgSyncDownloadByHash, true)
+	viper.SetDefault(CfgSyncDownloadByHeader, false)
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
