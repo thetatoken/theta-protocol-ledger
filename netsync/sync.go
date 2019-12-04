@@ -488,11 +488,12 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 	sm.requestMgr.AddBlock(block)
 
-	// Gossip the block out
-	sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
-		ChannelID: common.ChannelIDBlock,
-		Entries:   []string{block.Hash().Hex()},
-	})
+	if sm.requestMgr.IsGossipBlock(block.Hash()) {
+		sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+			ChannelID: common.ChannelIDBlock,
+			Entries:   []string{block.Hash().Hex()},
+		}) // Gossip the block out
+	}
 }
 
 func (sm *SyncManager) handleVote(vote core.Vote) {

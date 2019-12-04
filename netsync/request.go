@@ -428,6 +428,20 @@ func (rm *RequestManager) shouldDumpBlock(block *core.Block) bool {
 	}
 }
 
+func (rm *RequestManager) IsGossipBlock(hash common.Hash) bool {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	var pendingBlockEl *list.Element
+	pendingBlockEl, ok := rm.pendingBlocksByHash[hash.String()]
+	if !ok {
+		return true // be more conservative here
+	}
+
+	pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+	return pendingBlock.fromGossip
+}
+
 func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
