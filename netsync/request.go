@@ -22,7 +22,7 @@ const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 3 * time.Second
 const FastsyncRequestQuotaPerSecond = 50
-const GossipRequestQuotaPerSecond = 10
+const GossipRequestQuotaPerSecond = 50
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 4
 
