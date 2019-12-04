@@ -113,6 +113,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	defer ipl.wg.Done()
 
 	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
 	for {
 		netconn, err := ipl.netListener.Accept()
@@ -126,6 +127,8 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			if isNotASeedPeer {
 				logger.Infof("%v is not a seed peer, ignore inbound connection request", remoteAddr.String())
 				continue
+			} else {
+				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
 			}
 		}
 
