@@ -1,6 +1,7 @@
 package netsync
 
 import (
+	"container/heap"
 	"container/list"
 	"context"
 	"math/rand"
@@ -25,17 +26,21 @@ const FastsyncRequestQuotaPerSecond = 50
 const GossipRequestQuotaPerSecond = 50
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 4
+const MaxBlocksPerRequest = 8
 
 type RequestState uint8
 
 const (
 	RequestToSendDataReq = iota
 	RequestWaitingDataResp
+	RequestToSendBodyReq
+	RequestWaitingBodyResp
 )
 
 type PendingBlock struct {
 	hash       common.Hash
 	block      *core.Block
+	header     *core.BlockHeader
 	peers      []string
 	lastUpdate time.Time
 	createdAt  time.Time
@@ -66,6 +71,33 @@ func (pb *PendingBlock) UpdateTimestamp() {
 	pb.lastUpdate = time.Now()
 }
 
+type HeaderHeap []*PendingBlock
+
+func (h HeaderHeap) Len() int { return len(h) }
+func (h HeaderHeap) Less(i, j int) bool {
+	if h[i].header != nil && h[j].header != nil {
+		return h[i].header.Height < h[j].header.Height
+	}
+	return i < j
+}
+
+func (h HeaderHeap) Swap(i, j int) {
+	h[i], h[j] = h[j], h[i]
+}
+
+func (h *HeaderHeap) Push(x interface{}) {
+	*h = append(*h, x.(*PendingBlock))
+}
+
+func (h *HeaderHeap) Pop() interface{} {
+	old := *h
+	n := len(old)
+	x := old[n-1]
+	old[n-1] = nil
+	*h = old[0 : n-1]
+	return x
+}
+
 type RequestManager struct {
 	logger *log.Entry
 
@@ -82,10 +114,11 @@ type RequestManager struct {
 
 	lastInventoryRequest time.Time
 
-	mu                    *sync.RWMutex
-	pendingBlocks         *list.List
-	pendingBlocksByHash   map[string]*list.Element
-	pendingBlocksByParent map[string][]*core.Block
+	mu                      *sync.RWMutex
+	pendingBlocks           *list.List
+	pendingBlocksByHash     map[string]*list.Element
+	pendingBlocksByParent   map[string][]*core.Block
+	pendingBlocksWithHeader *HeaderHeap
 
 	endHashCache      []common.Bytes
 	blockRequestCache []common.Bytes
@@ -107,10 +140,11 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 		chain:      syncMgr.chain,
 		dispatcher: syncMgr.dispatcher,
 
-		mu:                    &sync.RWMutex{},
-		pendingBlocks:         list.New(),
-		pendingBlocksByHash:   make(map[string]*list.Element),
-		pendingBlocksByParent: make(map[string][]*core.Block),
+		mu:                      &sync.RWMutex{},
+		pendingBlocks:           list.New(),
+		pendingBlocksByHash:     make(map[string]*list.Element),
+		pendingBlocksByParent:   make(map[string][]*core.Block),
+		pendingBlocksWithHeader: &HeaderHeap{},
 
 		activePeers:    []string{},
 		refreshCounter: 0,
@@ -217,10 +251,7 @@ func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
-	gossipQuota := GossipRequestQuotaPerSecond
-	fastsyncQuota := FastsyncRequestQuotaPerSecond
-
-	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0
+	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 
@@ -244,15 +275,25 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.getInventory(req)
 	}
+	rm.downloadBlockFromHeader()
+	rm.downloadBlockFromHash()
+}
 
+//compatible with older version, download block from hash
+func (rm *RequestManager) downloadBlockFromHash() {
+	gossipQuota := GossipRequestQuotaPerSecond
+	fastsyncQuota := FastsyncRequestQuotaPerSecond
+
+	//loop over downloaded hash
+	var curr *list.Element
 	elToRemove := []*list.Element{}
-	for curr := rm.pendingBlocks.Front(); (gossipQuota > 0 || fastsyncQuota > 0) && curr != nil; curr = curr.Next() {
+	for curr = rm.pendingBlocks.Front(); (gossipQuota > 0 || fastsyncQuota > 0) && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() || pendingBlock.HasTimedOut() {
 			elToRemove = append(elToRemove, curr)
 			continue
 		}
-		if pendingBlock.block != nil {
+		if pendingBlock.header != nil || pendingBlock.block != nil {
 			continue
 		}
 		if len(pendingBlock.peers) == 0 {
@@ -282,7 +323,7 @@ func (rm *RequestManager) tryToDownload() {
 				"channelID":       request.ChannelID,
 				"request.Entries": request.Entries,
 				"peer":            randomPeerID,
-			}).Debug("Sending data request")
+			}).Debug("Sending data request from hash")
 			rm.syncMgr.dispatcher.GetData([]string{randomPeerID}, request)
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingDataResp
@@ -296,7 +337,66 @@ func (rm *RequestManager) tryToDownload() {
 			continue
 		}
 	}
+	for _, el := range elToRemove {
+		pendingBlock := el.Value.(*PendingBlock)
+		hash := pendingBlock.hash.Hex()
+		rm.logger.WithFields(log.Fields{
+			"block": hash,
+		}).Debug("Removing outdated block")
+		rm.removeEl(el)
+	}
+}
 
+//download block from header
+func (rm *RequestManager) downloadBlockFromHeader() {
+	quota := GossipRequestQuotaPerSecond
+
+	backup := HeaderHeap{}
+	elToRemove := []*list.Element{}
+	peerMap := make(map[string][]string)
+	var blockBuffer []string
+	var ok bool
+	for rm.pendingBlocksWithHeader.Len() > 0 && quota > 0 {
+		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
+		if pendingBlock.HasExpired() {
+			if el, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; ok {
+				elToRemove = append(elToRemove, el)
+			}
+			continue
+		}
+		if _, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; !ok || pendingBlock.block != nil {
+			continue
+		}
+		if len(pendingBlock.peers) == 0 {
+			continue
+		}
+		if pendingBlock.status == RequestToSendBodyReq ||
+			(pendingBlock.status == RequestWaitingBodyResp && pendingBlock.HasTimedOut()) {
+			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
+			if blockBuffer, ok = peerMap[randomPeerID]; !ok {
+				blockBuffer = []string{}
+			}
+			blockBuffer := append(blockBuffer, pendingBlock.hash.String())
+			if len(blockBuffer) == MaxBlocksPerRequest {
+				rm.sendBlocksRequest(randomPeerID, blockBuffer)
+				blockBuffer = []string{}
+			}
+			peerMap[randomPeerID] = blockBuffer
+			pendingBlock.UpdateTimestamp()
+			pendingBlock.status = RequestWaitingBodyResp
+			quota--
+		}
+		backup = append(backup, pendingBlock)
+	}
+	// send block requests for every peer in map
+	for k, v := range peerMap {
+		if len(v) > 0 {
+			rm.sendBlocksRequest(k, v)
+		}
+	}
+	for _, header := range backup {
+		heap.Push(rm.pendingBlocksWithHeader, header)
+	}
 	for _, el := range elToRemove {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
@@ -313,7 +413,6 @@ func (rm *RequestManager) tryToDownload() {
 }
 
 func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
-	//rm.syncMgr.dispatcher.GetInventory([]string{}, req)
 	var peersToRequest []string
 
 	rm.logger.Debugf("refreshCounter: %v", rm.refreshCounter)
@@ -344,6 +443,19 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 	rm.syncMgr.dispatcher.GetInventory(peersToRequest, req)
 }
 
+func (rm *RequestManager) sendBlocksRequest(peerID string, entries []string) {
+	request := dispatcher.DataRequest{
+		ChannelID: common.ChannelIDBlock,
+		Entries:   entries,
+	}
+	rm.logger.WithFields(log.Fields{
+		"channelID":       request.ChannelID,
+		"request.Entries": request.Entries,
+		"peer":            peerID,
+	}).Debug("Sending data request from header")
+	rm.syncMgr.dispatcher.GetData([]string{peerID}, request)
+}
+
 func (rm *RequestManager) removeEl(el *list.Element) {
 	pendingBlock := el.Value.(*PendingBlock)
 	hash := pendingBlock.hash.Hex()
@@ -369,7 +481,6 @@ func (rm *RequestManager) removeEl(el *list.Element) {
 			}
 		}
 	}
-
 	rm.pendingBlocks.Remove(el)
 }
 
@@ -442,6 +553,27 @@ func (rm *RequestManager) IsGossipBlock(hash common.Hash) bool {
 	return pendingBlock.fromGossip
 }
 
+func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	if _, err := rm.chain.FindBlock(header.Hash()); err == nil {
+		rm.logger.Debug("this block is already downloaded")
+		return
+	}
+	if _, ok := rm.pendingBlocksByHash[header.Hash().String()]; !ok {
+		rm.addHash(header.Hash(), peerIDs, true)
+	}
+	if pendingBlockEl, ok := rm.pendingBlocksByHash[header.Hash().String()]; ok {
+		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+		if pendingBlock.header == nil {
+			pendingBlock.header = header
+			pendingBlock.status = RequestToSendBodyReq
+			heap.Push(rm.pendingBlocksWithHeader, pendingBlock)
+		}
+	}
+}
+
 func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
@@ -459,6 +591,31 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	}
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
 		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
+		//check txHash with header
+		if pendingBlock.header != nil {
+			if pendingBlock.header.Hash() != pendingBlock.hash {
+				rm.logger.WithFields(log.Fields{
+					"pending block hash":          pendingBlock.hash.String(),
+					"pending block header hash":   pendingBlock.header.Hash().String(),
+					"pending block header Height": pendingBlock.header.Height,
+				}).Info("pendingblock.hash doesn't match with pendingblock.header.hash")
+				rm.removeEl(pendingBlockEl)
+				return
+			}
+			downloadBlockTxHash := core.CalculateRootHash(block.Txs)
+			if downloadBlockTxHash != pendingBlock.header.TxHash {
+				rm.logger.WithFields(log.Fields{
+					"pending block hash":                 pendingBlock.hash.String(),
+					"pending block header txHash":        pendingBlock.header.TxHash.String(),
+					"pending block header Height":        pendingBlock.header.Height,
+					"download block hash":                block.Hash().String(),
+					"downloaded block Calculated txHash": downloadBlockTxHash.String(),
+					"downloaded block Height":            block.Height,
+				}).Info("TxHash doesn't match with header ")
+				rm.removeEl(pendingBlockEl)
+				return
+			}
+		}
 		pendingBlock.block = block
 	}
 

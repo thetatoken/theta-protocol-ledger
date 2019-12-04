@@ -26,6 +26,14 @@ type MessageConsumer interface {
 	AddMessage(interface{})
 }
 
+type Headers struct {
+	HeaderArray []*core.BlockHeader
+}
+
+type Blocks struct {
+	BlockArray []*core.Block
+}
+
 var _ p2p.MessageHandler = (*SyncManager)(nil)
 
 // SyncManager is an intermediate layer between consensus engine and p2p network. Its main responsibilities are to manage
@@ -255,6 +263,65 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 	return ret
 }
 
+func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers {
+	ret := []*core.BlockHeader{}
+
+	lfbHeight := m.consensus.GetLastFinalizedBlock().Height
+	q := []common.Hash{start}
+	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize-1 {
+		curr := q[0]
+		q = q[1:]
+		block, err := m.chain.FindBlock(curr)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"hash": curr.Hex(),
+			}).Debug("Failed to find block with given hash")
+			return Headers{
+				HeaderArray: ret,
+			}
+		}
+		ret = append(ret, block.BlockHeader)
+		if curr == end {
+			break
+		}
+
+		if block.Height < lfbHeight {
+			// Enqueue finalized child.
+			for _, child := range block.Children {
+				block, err := m.chain.FindBlock(child)
+				if err != nil {
+					m.logger.WithFields(log.Fields{
+						"err":  err,
+						"hash": curr.Hex(),
+					}).Debug("Failed to load block")
+					return Headers{
+						HeaderArray: ret,
+					}
+				}
+				if block.Status.IsFinalized() {
+					q = append(q, block.Hash())
+					break
+				}
+			}
+		} else {
+			// Enqueue all children.
+			q = append(q, block.Children...)
+		}
+	}
+
+	// Make sure response is in size limit.
+	if len(ret) > dispatcher.MaxInventorySize {
+		ret = ret[:dispatcher.MaxInventorySize-1]
+	}
+
+	// Add last finalized block in the end so that receiver is aware of latest network state.
+	ret = append(ret, m.consensus.GetLastFinalizedBlock().BlockHeader)
+
+	return Headers{
+		HeaderArray: ret,
+	}
+}
+
 func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryRequest) {
 	m.logger.WithFields(log.Fields{
 		"channelID":   req.ChannelID,
@@ -278,7 +345,20 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 		end := common.HexToHash(req.End)
 		blocks := m.collectBlocks(start, end)
 
-		// Send response.
+		// Send header response
+		headers := m.collectHeaders(start, end)
+		payload, err := rlp.EncodeToBytes(headers)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"err":          err,
+				"headerHashes": blocks,
+				"peerID":       peerID,
+			}).Error("Failed to encode headers")
+		} else {
+			hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
+			m.dispatcher.SendData([]string{peerID}, hresp)
+		}
+		// Send Inventory response. compatible with outdated nodes
 		resp := dispatcher.InventoryResponse{ChannelID: common.ChannelIDBlock, Entries: blocks}
 		m.logger.WithFields(log.Fields{
 			"channelID":         resp.ChannelID,
@@ -320,43 +400,82 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 func (m *SyncManager) handleDataRequest(peerID string, data *dispatcher.DataRequest) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
-		for _, hashStr := range data.Entries {
-			hash := common.HexToHash(hashStr)
-			block, err := m.chain.FindBlock(hash)
-			if err != nil {
-				m.logger.WithFields(log.Fields{
-					"channelID": data.ChannelID,
-					"hashStr":   hashStr,
-					"err":       err,
-					"peerID":    peerID,
-				}).Debug("Failed to find hash string locally")
-				return
+		if len(data.Entries) == 1 { // compatible with old version
+			m.sendSingleBlock(peerID, data.Entries[0], data.ChannelID)
+		} else {
+			blocks := &Blocks{}
+			for _, hashStr := range data.Entries {
+				hash := common.HexToHash(hashStr)
+				block, err := m.chain.FindBlock(hash)
+				if err != nil {
+					m.logger.WithFields(log.Fields{
+						"channelID": data.ChannelID,
+						"hashStr":   hashStr,
+						"err":       err,
+						"peerID":    peerID,
+					}).Debug("Failed to find hash string locally")
+					return
+				}
+				blocks.BlockArray = append(blocks.BlockArray, block.Block)
 			}
-
-			payload, err := rlp.EncodeToBytes(block.Block)
+			payload, err := rlp.EncodeToBytes(blocks)
 			if err != nil {
 				m.logger.WithFields(log.Fields{
-					"block":  block,
+					"blocks": len(blocks.BlockArray),
 					"peerID": peerID,
 				}).Error("Failed to encode block")
 				return
 			}
-			data := dispatcher.DataResponse{
+			sendData := dispatcher.DataResponse{
 				ChannelID: common.ChannelIDBlock,
 				Payload:   payload,
 			}
 			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"hashStr":   hashStr,
-				"peerID":    peerID,
+				"channelID":     sendData.ChannelID,
+				"start hashStr": blocks.BlockArray[0].Hash().String(),
+				"amount":        len(blocks.BlockArray),
+				"peerID":        peerID,
 			}).Debug("Sending requested block")
-			m.dispatcher.SendData([]string{peerID}, data)
+			m.dispatcher.SendData([]string{peerID}, sendData)
 		}
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
 		}).Warn("Unsupported channelID in received DataRequest")
 	}
+}
+
+func (m *SyncManager) sendSingleBlock(peerID string, hashStr string, channelID common.ChannelIDEnum) {
+	hash := common.HexToHash(hashStr)
+	block, err := m.chain.FindBlock(hash)
+	if err != nil {
+		m.logger.WithFields(log.Fields{
+			"channelID": channelID,
+			"hashStr":   hashStr,
+			"err":       err,
+			"peerID":    peerID,
+		}).Debug("Failed to find hash string locally")
+		return
+	}
+
+	payload, err := rlp.EncodeToBytes(block.Block)
+	if err != nil {
+		m.logger.WithFields(log.Fields{
+			"block":  block,
+			"peerID": peerID,
+		}).Error("Failed to encode block")
+		return
+	}
+	data := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDBlock,
+		Payload:   payload,
+	}
+	m.logger.WithFields(log.Fields{
+		"channelID": data.ChannelID,
+		"hashStr":   hashStr,
+		"peerID":    peerID,
+	}).Debug("Sending requested block")
+	m.dispatcher.SendData([]string{peerID}, data)
 }
 
 func Fuzz(data []byte) int {
@@ -396,29 +515,46 @@ func Fuzz(data []byte) int {
 func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataResponse) {
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
+		maxReceivedHeight := uint64(0)
 		block := core.NewBlock()
 		err := rlp.DecodeBytes(data.Payload, block)
 		if err != nil {
+			//check if payload is blocks
+			blocks := &Blocks{}
+			err = rlp.DecodeBytes(data.Payload, blocks)
+			if err != nil {
+				m.logger.WithFields(log.Fields{
+					"channelID": data.ChannelID,
+					"payload":   data.Payload,
+					"error":     err,
+					"peerID":    peerID,
+				}).Warn("Failed to decode DataResponse payload")
+				return
+			}
+			for _, block = range blocks.BlockArray {
+				m.logger.WithFields(log.Fields{
+					"block.Hash":   block.Hash().Hex(),
+					"block.Parent": block.Parent.Hex(),
+					"peer":         peerID,
+				}).Debug("Received block")
+				m.handleBlock(block)
+				if block.Height > maxReceivedHeight {
+					maxReceivedHeight = block.Height
+				}
+			}
+		} else {
 			m.logger.WithFields(log.Fields{
-				"channelID": data.ChannelID,
-				"payload":   data.Payload,
-				"error":     err,
-				"peerID":    peerID,
-			}).Warn("Failed to decode DataResponse payload")
-			return
+				"block.Hash":   block.Hash().Hex(),
+				"block.Parent": block.Parent.Hex(),
+				"peer":         peerID,
+			}).Debug("Received block")
+			m.handleBlock(block)
+			maxReceivedHeight = block.Height
 		}
-		m.logger.WithFields(log.Fields{
-			"block.Hash":   block.Hash().Hex(),
-			"block.Height": block.Height,
-			"block.Parent": block.Parent.Hex(),
-			"peer":         peerID,
-		}).Debug("Received block")
-		m.handleBlock(block)
 
-		blockHeight := block.Height
 		lfbHeight := m.consensus.GetLastFinalizedBlock().Height
 		tipHeight := m.consensus.GetTip(true).Height
-		if blockHeight > lfbHeight && blockHeight <= tipHeight+dispatcher.MaxInventorySize+1 {
+		if maxReceivedHeight > lfbHeight && maxReceivedHeight <= tipHeight+dispatcher.MaxInventorySize+1 {
 			m.requestMgr.AddActivePeer(peerID)
 		}
 	case common.ChannelIDVote:
@@ -457,6 +593,27 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":     peerID,
 		}).Debug("Received proposal")
 		m.handleProposal(proposal)
+	case common.ChannelIDHeader:
+		headers := &Headers{}
+		err := rlp.DecodeBytes(data.Payload, headers)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode HeaderResponse payload")
+			return
+		}
+		for _, header := range headers.HeaderArray {
+			m.logger.WithFields(log.Fields{
+				"header.Hash":   header.Hash().Hex(),
+				"header.Parent": header.Parent.Hex(),
+				"header.Height": header.Height,
+				"peer":          peerID,
+			}).Debug("Received header")
+			m.handleHeader(header, []string{peerID})
+		}
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": data.ChannelID,
@@ -473,16 +630,49 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 	sm.handleBlock(p.Block)
 }
 
+func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
+	if eb, err := sm.chain.FindBlock(header.Hash()); err == nil && !eb.Status.IsPending() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   header.Hash().String(),
+			"block height": header.Height,
+		}).Debug("block is already in chain")
+		return
+	}
+
+	if hash, ok := core.HardcodeBlockHashes[header.Height]; ok {
+		if hash != header.Hash().Hex() {
+			sm.logger.WithFields(log.Fields{
+				"block hash":   header.Hash().String(),
+				"block height": header.Height,
+			}).Debug("hardcoded block")
+			return
+		}
+	}
+	sm.requestMgr.AddHeader(header, peerID)
+}
+
 func (sm *SyncManager) handleBlock(block *core.Block) {
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   block.Hash().String(),
+			"block height": block.Height,
+		}).Debug("block is already in chain")
 		return
 	}
 
 	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
 		if hash != block.Hash().Hex() {
+			sm.logger.WithFields(log.Fields{
+				"block hash":   block.Hash().String(),
+				"block height": block.Height,
+			}).Debug("hardcoded block")
 			return
 		}
 	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   block.Hash().String(),
+			"block height": block.Height,
+		}).Debug("chain ID is invalid")
 		return
 	}
 
