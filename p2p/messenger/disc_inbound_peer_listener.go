@@ -125,7 +125,8 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			remoteAddr := netutil.NewNetAddress(netconn.RemoteAddr())
 			isNotASeedPeer := !ipl.discMgr.seedPeerConnector.isASeedPeerIgnoringPort(remoteAddr)
 			if isNotASeedPeer {
-				logger.Infof("%v is not a seed peer, ignore inbound connection request", remoteAddr.String())
+				logger.Debug("%v is not a seed peer, ignore inbound connection request", remoteAddr.String())
+				netconn.Close()
 				continue
 			} else {
 				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
