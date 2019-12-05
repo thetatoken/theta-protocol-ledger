@@ -120,6 +120,10 @@ type RequestManager struct {
 	pendingBlocksByHash     map[string]*list.Element
 	pendingBlocksByParent   map[string][]*core.Block
 	pendingBlocksWithHeader *HeaderHeap
+	gossipQuota             uint
+	fastsyncQuota           uint
+	ifDownloadByHash        bool
+	ifDownloadByHeader      bool
 
 	endHashCache      []common.Bytes
 	blockRequestCache []common.Bytes
@@ -148,6 +152,8 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 		pendingBlocksByHash:     make(map[string]*list.Element),
 		pendingBlocksByParent:   make(map[string][]*core.Block),
 		pendingBlocksWithHeader: &HeaderHeap{},
+		ifDownloadByHash:        viper.GetBool(common.CfgSyncDownloadByHash),
+		ifDownloadByHeader:      viper.GetBool(common.CfgSyncDownloadByHeader),
 
 		activePeers:    []string{},
 		refreshCounter: 0,
@@ -256,6 +262,9 @@ func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
 
+	rm.gossipQuota = GossipRequestQuotaPerSecond
+	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
+
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 	rm.reporter.SetInSync(!hasUndownloadedBlocks)
 
@@ -282,38 +291,35 @@ func (rm *RequestManager) tryToDownload() {
 
 		rm.getInventory(req)
 	}
-	if viper.GetBool(common.CfgSyncDownloadByHeader) {
+	if rm.ifDownloadByHeader {
 		rm.downloadBlockFromHeader()
 	}
-	if viper.GetBool(common.CfgSyncDownloadByHash) {
+	if rm.ifDownloadByHash {
 		rm.downloadBlockFromHash()
 	}
 }
 
 //compatible with older version, download block from hash
 func (rm *RequestManager) downloadBlockFromHash() {
-	gossipQuota := GossipRequestQuotaPerSecond
-	fastsyncQuota := FastsyncRequestQuotaPerSecond
-
 	//loop over downloaded hash
 	var curr *list.Element
 	elToRemove := []*list.Element{}
-	for curr = rm.pendingBlocks.Front(); (gossipQuota > 0 || fastsyncQuota > 0) && curr != nil; curr = curr.Next() {
+	for curr = rm.pendingBlocks.Front(); (rm.gossipQuota > 0 || rm.fastsyncQuota > 0) && curr != nil; curr = curr.Next() {
 		pendingBlock := curr.Value.(*PendingBlock)
 		if pendingBlock.HasExpired() || pendingBlock.HasTimedOut() {
 			elToRemove = append(elToRemove, curr)
 			continue
 		}
-		if pendingBlock.header != nil || pendingBlock.block != nil {
+		if pendingBlock.block != nil {
 			continue
 		}
 		if len(pendingBlock.peers) == 0 {
 			continue
 		}
-		if pendingBlock.fromGossip && gossipQuota <= 0 {
+		if pendingBlock.fromGossip && rm.gossipQuota <= 0 {
 			continue
 		}
-		if !pendingBlock.fromGossip && fastsyncQuota <= 0 {
+		if !pendingBlock.fromGossip && rm.fastsyncQuota <= 0 {
 			continue
 		}
 		// if pendingBlock.status == RequestWaitingDataResp {
@@ -324,7 +330,8 @@ func (rm *RequestManager) downloadBlockFromHash() {
 		// 	}
 		// 	continue
 		// }
-		if pendingBlock.status == RequestToSendDataReq {
+		if pendingBlock.status == RequestToSendDataReq ||
+			(!rm.ifDownloadByHeader && pendingBlock.status == RequestToSendBodyReq) {
 			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
 			request := dispatcher.DataRequest{
 				ChannelID: common.ChannelIDBlock,
@@ -340,9 +347,9 @@ func (rm *RequestManager) downloadBlockFromHash() {
 			pendingBlock.status = RequestWaitingDataResp
 
 			if pendingBlock.fromGossip {
-				gossipQuota--
+				rm.gossipQuota--
 			} else {
-				fastsyncQuota--
+				rm.fastsyncQuota--
 			}
 
 			continue
@@ -365,14 +372,12 @@ func (rm *RequestManager) downloadBlockFromHash() {
 
 //download block from header
 func (rm *RequestManager) downloadBlockFromHeader() {
-	quota := GossipRequestQuotaPerSecond
-
 	backup := HeaderHeap{}
 	elToRemove := []*list.Element{}
 	peerMap := make(map[string][]string)
 	var blockBuffer []string
 	var ok bool
-	for rm.pendingBlocksWithHeader.Len() > 0 && quota > 0 {
+	for rm.pendingBlocksWithHeader.Len() > 0 && rm.fastsyncQuota > 0 {
 		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
 		if pendingBlock.HasExpired() {
 			if el, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; ok {
@@ -400,7 +405,7 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 			peerMap[randomPeerID] = blockBuffer
 			pendingBlock.UpdateTimestamp()
 			pendingBlock.status = RequestWaitingBodyResp
-			quota--
+			rm.fastsyncQuota--
 		}
 		backup = append(backup, pendingBlock)
 	}
@@ -590,17 +595,18 @@ func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) 
 	}
 }
 
+// AddBlock process an incoming block. The block is NOT saved to disk yet.
 func (rm *RequestManager) AddBlock(block *core.Block) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
-	_, err := rm.chain.AddBlock(block)
-	if err != nil {
-		rm.logger.WithFields(log.Fields{
-			"err": err.Error(),
-		}).Error("Failed to add block")
-	}
+	rm.chain.AddBlock(block)
 
+	rm.addBlock(block)
+}
+
+// addBlock process an incoming block. The block is already on disk.
+func (rm *RequestManager) addBlock(block *core.Block) {
 	// TODO: should not need in-memory index anymore.
 	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
 		rm.addHash(block.Hash(), []string{}, false)
@@ -667,7 +673,7 @@ func (rm *RequestManager) resumePendingBlocks() {
 		block := queue[0]
 		queue = queue[1:]
 		if block.Status.IsPending() {
-			rm.AddBlock(block.Block)
+			rm.addBlock(block.Block)
 		}
 		for _, hash := range block.Children {
 			child, err := rm.chain.FindBlock(hash)

@@ -662,7 +662,7 @@ func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
 		sm.logger.WithFields(log.Fields{
 			"block hash":   header.Hash().String(),
 			"block height": header.Height,
-		}).Debug("block is already in chain")
+		}).Debug("Header/Block is already in chain")
 		return
 	}
 
