@@ -95,9 +95,12 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 
 	// Update children if present.
 	children := ch.findBlocksByHeight(block.Height + 1)
-	extendedBlock.Children = make([]common.Hash, len(children))
-	for i:=0; i < len(children); i++ {
-		extendedBlock.Children[i] = children[i].Hash()
+	extendedBlock.Children = []common.Hash{}
+	for i := 0; i < len(children); i++ {
+		if children[i].Parent != block.Hash() {
+			continue
+		}
+		extendedBlock.Children = append(extendedBlock.Children, children[i].Hash())
 	}
 
 	err = ch.saveBlock(extendedBlock)
