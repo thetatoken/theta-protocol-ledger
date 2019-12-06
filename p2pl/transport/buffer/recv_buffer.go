@@ -24,6 +24,9 @@ type RecvBuffer struct {
 
 	rolloverBytes  []byte
 	precedingBytes []byte
+	// rolloverLen    int
+	// rolloverCap    int
+	// precedingLen   int
 
 	queue     chan []byte
 	queueSize int32
@@ -54,7 +57,14 @@ type RecvBufferConfig struct {
 // NewRecvBuffer creates a RecvBuffer instance for the given config
 func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser, onError cmn.ErrorHandler) RecvBuffer {
 	return RecvBuffer{
-		workspace:   make([]byte, 0, config.workspaceCapacity),
+		workspace: make([]byte, 0, config.workspaceCapacity),
+
+		rolloverBytes:  make([]byte, 0, cmn.MaxChunkSize),
+		precedingBytes: make([]byte, 0, isEOFOffset),
+		// rolloverLen:    0,
+		// rolloverCap:    0,
+		// precedingLen:   0,
+
 		queue:       make(chan []byte, config.queueCapacity),
 		rawStream:   rawStream,
 		recvMonitor: flowrate.New(0, 0),
@@ -133,12 +143,13 @@ func (rb *RecvBuffer) recvRoutine() {
 		}
 
 		rb.extractChunks(bytes, numBytesRead)
+		rb.recvMonitor.Update(numBytesRead)
 	}
 }
 
 // extractChunks extract the chunks from the bytes read from the stream. Note that the bytes
 // read from the stream might contain multiple chunks or partial chunk from the sender. Hence
-// we need to handle rollover and preeding bytes properly
+// we need to handle rollover and preceding bytes properly
 func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
 	const int32Bytes = 4
 	for start := 0; start < numBytesRead; {
@@ -152,7 +163,6 @@ func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
 			if residueLen > numBytesRead {
 				rb.rolloverBytes = rb.rolloverBytes[:rolloverLen+numBytesRead]
 				copy(rb.rolloverBytes[rolloverLen:rolloverLen+numBytesRead], bytes[:numBytesRead])
-				rb.recvMonitor.Update(numBytesRead) // ?
 				break
 			}
 
@@ -183,8 +193,6 @@ func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
 			if start+chunkSize > numBytesRead {
 				rb.rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
 				copy(rb.rolloverBytes, bytes[start:numBytesRead])
-
-				rb.recvMonitor.Update(numBytesRead - start) //?
 				break
 			}
 
@@ -198,8 +206,6 @@ func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
 
 		chunk, err := NewChunkFromRawBytes(chunkBytes)
 		if err == nil {
-			rb.recvMonitor.Update(increment)
-
 			completeMessage, success := rb.aggregateChunk(chunk)
 			if success {
 				if completeMessage != nil {
@@ -262,3 +268,98 @@ func (rb *RecvBuffer) recover() {
 		rb.Stop()
 	}
 }
+
+/*
+// ---- Memory optimized version (WIP) -----
+// extractChunks extract the chunks from the bytes read from the stream. Note that the bytes
+// read from the stream might contain multiple chunks or partial chunk from the sender. Hence
+// we need to handle rollover and preceding bytes properly
+func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
+	const int32Bytes = 4
+
+	for start := 0; start < numBytesRead; {
+		var chunkBytes []byte
+		var increment int
+		// rolloverLen := len(rb.rolloverBytes)
+		// rolloverCap := cap(rb.rolloverBytes)
+
+		if start == 0 && rb.rolloverLen > 0 {
+			residueLen := rb.rolloverCap - rb.rolloverLen
+			if residueLen > numBytesRead {
+				rb.rolloverBytes = rb.rolloverBytes[:rb.rolloverLen+numBytesRead]
+				copy(rb.rolloverBytes[rb.rolloverLen:rb.rolloverLen+numBytesRead], bytes[:numBytesRead])
+				rb.rolloverLen += numBytesRead
+				break
+			}
+
+			rb.rolloverBytes = rb.rolloverBytes[:rb.rolloverCap]
+			copy(rb.rolloverBytes[rb.rolloverLen:rb.rolloverCap], bytes[:residueLen])
+			rb.rolloverLen = rb.rolloverCap
+			chunkBytes = rb.rolloverBytes
+			increment = residueLen
+		} else {
+			if start+isEOFOffset > numBytesRead {
+				//rb.precedingBytes = make([]byte, numBytesRead-start, isEOFOffset)
+				rb.precedingBytes = rb.precedingBytes[:0]
+				copy(rb.precedingBytes, bytes[start:numBytesRead])
+				rb.precedingLen = numBytesRead - start
+				break
+			}
+
+			var payloadSize int
+			//precedingLen := len(rb.precedingBytes)
+			if rb.precedingLen > 0 {
+				rb.precedingBytes = rb.precedingBytes[:isEOFOffset]
+				copy(rb.precedingBytes[rb.precedingLen:], bytes[:isEOFOffset-rb.precedingLen])
+				payloadSize = int(int32FromBytes(rb.precedingBytes[payloadSizeOffset : payloadSizeOffset+int32Bytes]))
+				start -= rb.precedingLen
+				rb.precedingLen = isEOFOffset
+			} else {
+				payloadSize = int(int32FromBytes(bytes[start+payloadSizeOffset : start+payloadSizeOffset+int32Bytes]))
+			}
+
+			chunkSize := headerSize + payloadSize
+
+			if start+chunkSize > numBytesRead {
+				//rb.rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
+				rb.rolloverBytes = rb.rolloverBytes[:0]
+
+				copy(rb.rolloverBytes, bytes[start:numBytesRead])
+				rb.rolloverLen = numBytesRead - start
+				rb.rolloverCap = chunkSize
+				break
+			}
+
+			if start < 0 {
+				chunkBytes = append(rb.precedingBytes, bytes[isEOFOffset-rb.precedingLen:chunkSize-rb.precedingLen]...)
+			} else {
+				chunkBytes = bytes[start : start+chunkSize]
+			}
+			increment = chunkSize
+		}
+
+		chunk, err := NewChunkFromRawBytes(chunkBytes)
+		if err == nil {
+			completeMessage, success := rb.aggregateChunk(chunk)
+			if success {
+				if completeMessage != nil {
+					rb.queue <- completeMessage
+					atomic.AddInt32(&rb.queueSize, 1)
+				}
+			}
+		} else {
+			log.Errorf("RecvBuffer failed to create new chunk from raw bytes: %v", err)
+		}
+
+		// rb.rolloverBytes = nil
+		// rb.precedingBytes = nil
+		rb.rolloverBytes = rb.rolloverBytes[:0]
+		rb.precedingBytes = rb.precedingBytes[:0]
+		rb.rolloverLen = 0
+		rb.rolloverCap = 0
+		rb.precedingLen = 0
+
+		start += increment
+	}
+}
+*/
