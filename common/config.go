@@ -94,7 +94,8 @@ func init() {
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 	viper.SetDefault(CfgP2POpt, P2POptBoth)
-	viper.SetDefault(CfgP2PReuseStream, false)
+
+	viper.SetDefault(CfgP2PReuseStream, true)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
@@ -102,7 +103,7 @@ func init() {
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
-	
+
 	viper.SetDefault(CfgLibP2PDiscoverable, true)
 }
 
