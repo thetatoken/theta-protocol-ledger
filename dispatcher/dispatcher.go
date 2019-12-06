@@ -73,6 +73,14 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 	dp.send(peerIDs, datarsp.ChannelID, datarsp)
 }
 
+// ID returns the ID of the node
+func (dp Dispatcher) ID() string {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.ID()
+	}
+	return ""
+}
+
 // Peers returns the IDs of all peers
 func (dp *Dispatcher) Peers() []string {
 	if !reflect.ValueOf(dp.p2pnet).IsNil() {
