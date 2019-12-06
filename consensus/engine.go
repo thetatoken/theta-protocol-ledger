@@ -299,6 +299,16 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) result.Result {
+	// Ignore old blocks.
+	if lfh := e.state.GetLastFinalizedBlock().Height; block.Height <= lfh {
+		e.logger.WithFields(log.Fields{
+			"lastFinalizedHeight": lfh,
+			"block":               block.Hash().Hex(),
+			"block.Height":        block.Height,
+		}).Warn("Block.Height <= last finalized height")
+		return result.Error("Block is older than last finalized block")
+	}
+
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -320,8 +330,9 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	}
 	if !parent.Status.IsValid() {
 		e.logger.WithFields(log.Fields{
-			"parent": block.Parent.Hex(),
-			"block":  block.Hash().Hex(),
+			"parent":        block.Parent.Hex(),
+			"parent.status": parent.Status,
+			"block":         block.Hash().Hex(),
 		}).Warn("Block is referring to invalid parent block")
 		return result.Error("Parent block is invalid")
 	}
