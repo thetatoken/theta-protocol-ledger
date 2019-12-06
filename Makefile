@@ -13,7 +13,7 @@ build: gen_version
 linux: gen_version
 	integration/build/build.sh
 
-install: gen_version debug
+install: gen_version release
 
 release:
 	go install ./cmd/...
