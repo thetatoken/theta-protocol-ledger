@@ -16,7 +16,7 @@ import (
 )
 
 //
-// SendBuffer
+// RecvBuffer
 //
 
 type RecvBuffer struct {
