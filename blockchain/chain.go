@@ -114,6 +114,15 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 	return extendedBlock, nil
 }
 
+// FixBlockIndex fixes index for given block.
+func (ch *Chain) FixBlockIndex(block *core.ExtendedBlock) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	ch.AddBlockByHeightIndex(block.Height, block.Hash())
+	ch.AddTxsToIndex(block, false)
+}
+
 // blockByHeightIndexKey constructs the DB key for the given block height.
 func blockByHeightIndexKey(height uint64) common.Bytes {
 	// convert uint64 to []byte
