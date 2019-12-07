@@ -543,6 +543,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				m.logger.WithFields(log.Fields{
 					"block.Hash":   block.Hash().Hex(),
 					"block.Parent": block.Parent.Hex(),
+					"block.Height": block.Height,
 					"peer":         peerID,
 				}).Debug("Received block")
 				m.handleBlock(block)
@@ -554,6 +555,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			m.logger.WithFields(log.Fields{
 				"block.Hash":   block.Hash().Hex(),
 				"block.Parent": block.Parent.Hex(),
+				"block.Height": block.Height,
 				"peer":         peerID,
 			}).Debug("Received block")
 			m.handleBlock(block)
