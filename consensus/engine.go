@@ -329,6 +329,14 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return result.Error("Block epoch must be greater than parent epoch")
 	}
 	if !parent.Status.IsValid() {
+		if parent.Status.IsPending() {
+			// Should never happen
+			e.logger.WithFields(log.Fields{
+				"parent":        block.Parent.Hex(),
+				"parent.status": parent.Status,
+				"block":         block.Hash().Hex(),
+			}).Panic("Parent block is pending")
+		}
 		e.logger.WithFields(log.Fields{
 			"parent":        block.Parent.Hex(),
 			"parent.status": parent.Status,
