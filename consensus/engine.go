@@ -265,14 +265,12 @@ func (e *ConsensusEngine) mainLoop() {
 			case <-e.proposalTimer.C:
 				e.propose()
 			case <-e.guardianTimer.C:
-				if e.guardian.IsGuardian() {
-					v := e.guardian.GetVoteToBroadcast()
+				v := e.guardian.GetVoteToBroadcast()
 
-					if v != nil {
-						e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
-						e.broadcastGuardianVote(v)
-						e.guardian.StartNewRound()
-					}
+				if v != nil {
+					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
+					e.broadcastGuardianVote(v)
+					e.guardian.StartNewRound()
 				}
 			}
 		}

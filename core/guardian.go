@@ -100,6 +100,9 @@ func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 	if len(a.Multiplies) != gcp.WithStake().Len() {
 		return result.Error("multiplies size %d is not equal to gcp size %d", len(a.Multiplies), gcp.WithStake().Len())
 	}
+	if a.Signature == nil {
+		return result.Error("signature cannot be nil")
+	}
 	pubKeys := gcp.WithStake().PubKeys()
 	aggPubkey := bls.AggregatePublicKeysVec(pubKeys, a.Multiplies)
 	if !a.Signature.Verify(a.signBytes(), aggPubkey) {

@@ -56,20 +56,21 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 	g.gcpHash = gcp.Hash()
 	g.signerIndex = gcp.WithStake().Index(g.privKey.PublicKey())
 
-	if !g.IsGuardian() {
-		return
-	}
-
 	g.logger.WithFields(log.Fields{
 		"block":       block.Hex(),
 		"gcp":         g.gcpHash.Hex(),
 		"signerIndex": g.signerIndex,
 	}).Debug("Starting new block")
 
-	g.nextVote = core.NewAggregateVotes(block, gcp)
-	g.nextVote.Sign(g.privKey, g.signerIndex)
+	if g.IsGuardian() {
+		g.nextVote = core.NewAggregateVotes(block, gcp)
+		g.nextVote.Sign(g.privKey, g.signerIndex)
+		g.currVote = g.nextVote.Copy()
+	} else {
+		g.nextVote = nil
+		g.currVote = nil
+	}
 
-	g.currVote = g.nextVote.Copy()
 }
 
 func (g *GuardianEngine) StartNewRound() {
