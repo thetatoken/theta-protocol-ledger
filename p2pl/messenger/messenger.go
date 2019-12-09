@@ -41,6 +41,7 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-pubsub"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	// "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	ds "github.com/ipfs/go-datastore"
 	dsync "github.com/ipfs/go-datastore/sync"
@@ -56,10 +57,11 @@ var _ p2pl.Network = (*Messenger)(nil)
 
 const (
 	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
-	defaultPeerDiscoveryPulseInterval = 30 * time.Second
+	defaultPeerDiscoveryPulseInterval = 10 * time.Second
+	seedsConnectivityCheckPulse       = 10 * time.Second
 	discoverInterval                  = 3000 // 3 sec
-	maxNumPeers                       = 64
-	sufficientNumPeers                = 32
+	maxNumPeers                       = 20 //64
+	sufficientNumPeers                = 10 //32
 )
 
 type Messenger struct {
@@ -74,7 +76,7 @@ type Messenger struct {
 	peerTable    *peer.PeerTable
 	newPeers     chan pr.ID
 	peerDead     chan pr.ID
-	// newPeerError chan pr.ID
+	newPeerError chan pr.ID
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -219,7 +221,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		peerTable:         &pt,
 		newPeers:          make(chan pr.ID),
 		peerDead:          make(chan pr.ID),
-		// newPeerError:      make(chan pr.ID),
+		newPeerError:      make(chan pr.ID),
 		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
 		needMdns:          needMdns,
 		config:            msgrConfig,
@@ -346,6 +348,14 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			msgr.peerTable.AddPeer(peer)
 			go peer.OpenStreams()
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
+		case pid := <-msgr.newPeerError:
+			peer := msgr.peerTable.GetPeer(pid)
+			if peer == nil {
+				continue
+			}
+
+			peer.Stop()
+			msgr.peerTable.DeletePeer(pid)
 		case pid := <-msgr.peerDead:
 			peer := msgr.peerTable.GetPeer(pid)
 			if peer == nil {
@@ -365,6 +375,33 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 		case <-ctx.Done():
 			log.Debug("messenger processloop shutting down")
 			return
+		}
+	}
+}
+
+func (msgr *Messenger) maintainSeedsConnectivityRoutine(ctx context.Context) {
+	seedsConnectivityCheckPulse := time.NewTicker(seedsConnectivityCheckPulse)
+	for {
+		select {
+		case <-seedsConnectivityCheckPulse.C:
+			msgr.maintainSeedsConnectivity(ctx)
+		}
+	}
+}
+
+func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
+	for _, seedPeer := range msgr.seedPeers {
+		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+		peer := msgr.peerTable.GetPeer(seedPeer.ID)
+		if peer == nil {
+			go func() {
+				err := msgr.host.Connect(ctx, *seedPeer)
+				if err == nil {
+					logger.Infof("Successfully re-connected to seed peer: %v", seedPeer)
+				} else {
+					logger.Warnf("Failed to re-connect to seed peer %v, %v", seedPeer, err)
+				}
+			}()
 		}
 	}
 }
@@ -417,7 +454,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 		}
 	}
 
-	// mDns
+	// // mDns
 	// if msgr.needMdns {
 	// 	mdnsService, err := discovery.NewMdnsService(ctx, msgr.host, defaultPeerDiscoveryPulseInterval, viper.GetString(common.CfgLibP2PRendezvous))
 	// 	if err != nil {
@@ -427,6 +464,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// }
 
 	go msgr.processLoop(ctx)
+	go msgr.maintainSeedsConnectivityRoutine(ctx)
 
 	return nil
 }
@@ -491,6 +529,8 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	if peer == nil {
 		return false
 	}
+
+	// logger.Infof("------------ peerstore: %v", msgr.host.Peerstore().Peers())
 
 	success := peer.Send(message.ChannelID, message.Content)
 	return success
