@@ -110,7 +110,7 @@ func NewNode(params *Params) *Node {
 	}
 
 	if viper.GetBool(common.CfgRPCEnabled) {
-		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, chain, consensus)
+		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, dispatcher, chain, consensus)
 	}
 
 	return node

@@ -141,6 +141,16 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	return success
 }
 
+// Peers returns the IDs of all peers
+func (msgr *Messenger) Peers() []string {
+	allPeers := msgr.peerTable.GetAllPeers()
+	peerIDs := []string{}
+	for _, peer := range *allPeers {
+		peerIDs = append(peerIDs, peer.ID())
+	}
+	return peerIDs
+}
+
 // RegisterMessageHandler registers the message handler
 func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
@@ -158,7 +168,7 @@ func (msgr *Messenger) ID() string {
 	return msgr.nodeInfo.PubKey.Address().Hex()
 }
 
-// AttachMessageHandlersToPeer attaches the registerred message handlers to the given peer
+// AttachMessageHandlersToPeer attaches the registered message handlers to the given peer
 func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	messageParser := func(channelID common.ChannelIDEnum, rawMessageBytes common.Bytes) (p2ptypes.Message, error) {
 		peerID := peer.ID()

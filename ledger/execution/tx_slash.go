@@ -30,7 +30,8 @@ func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorMan
 func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
-	validatorAddresses := getValidatorAddresses(exec.consensus.GetLedger(), exec.valMgr)
+	validatorSet := getValidatorSet(exec.consensus.GetLedger(), exec.valMgr)
+	validatorAddresses := getValidatorAddresses(validatorSet)
 
 	// Validate proposer, basic
 	res := tx.Proposer.ValidateBasic()
@@ -115,7 +116,7 @@ func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, transac
 	}
 
 	// TODO: We should transfer the collateral to a special address, e.g. 0x0 instead of
-	//       transfering to the proposer, so the proposer gain no extra benefit if it colludes with
+	//       transferring to the proposer, so the proposer gain no extra benefit if it colludes with
 	//       the address that overspent
 
 	// Slash: transfer the collateral and remainding deposit to the validator that identified the overspending

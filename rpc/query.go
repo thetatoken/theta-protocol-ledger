@@ -331,6 +331,8 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 type GetStatusArgs struct{}
 
 type GetStatusResult struct {
+	Address                    string            `json:"address"`
+	PeerID                     string            `json:"peer_id"`
 	LatestFinalizedBlockHash   common.Hash       `json:"latest_finalized_block_hash"`
 	LatestFinalizedBlockHeight common.JSONUint64 `json:"latest_finalized_block_height"`
 	LatestFinalizedBlockTime   *common.JSONBig   `json:"latest_finalized_block_time"`
@@ -342,6 +344,8 @@ type GetStatusResult struct {
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
 	s := t.consensus.GetSummary()
+	result.Address = t.consensus.ID()
+	result.PeerID = t.dispatcher.ID()
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
 		result.LatestFinalizedBlockHash = latestFinalizedHash
@@ -356,6 +360,21 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	}
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
+
+	return
+}
+
+// ------------------------------ GetPeers -----------------------------------
+
+type GetPeersArgs struct{}
+
+type GetPeersResult struct {
+	Peers []string `json:"peers"`
+}
+
+func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
+	peers := t.dispatcher.Peers()
+	result.Peers = peers
 
 	return
 }

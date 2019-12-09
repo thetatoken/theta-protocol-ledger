@@ -182,7 +182,7 @@ func (w *trezorDriver) trezorSignMsg(derivationPath []uint32, txrlp common.Bytes
 	response := res.(*trezor.ThetaMessageSignature)
 	responseSig := response.Signature
 	if len(responseSig) != 65 {
-		return common.Address{}, nil, errors.New("Singature should be 65 bytes long")
+		return common.Address{}, nil, errors.New("Signature should be 65 bytes long")
 	}
 	sigBytes := responseSig
 

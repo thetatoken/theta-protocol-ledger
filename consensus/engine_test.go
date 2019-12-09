@@ -102,7 +102,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	invalidBlock.Signature, _ = privKey.Sign(invalidBlock.SignBytes())
 	res = ce.validateBlock(invalidBlock, chain.Root())
 	require.True(res.IsError(), "Missing height")
-	require.Equal("Block height is incorrect", res.Message)
+	require.Equal("Block is older than last finalized block", res.Message)
 
 	invalidBlock = core.NewBlock()
 	invalidBlock.ChainID = chain.ChainID

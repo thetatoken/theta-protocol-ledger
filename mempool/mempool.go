@@ -191,7 +191,7 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 
 	// only record the transactions that passed the screening. This is because that
 	// an invalid transaction could becoume valid later on. For example, assume expected
-	// sequence for an account is 6. The account accidently submits txA (seq = 7), got rejected.
+	// sequence for an account is 6. The account accidentally submits txA (seq = 7), got rejected.
 	// He then submit txB(seq = 6), and then txA(seq = 7) again. For the second submission, txA
 	// should not be rejected even though it has been submitted earlier.
 	mp.txBookeepper.record(rawTx)

@@ -127,7 +127,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
-	// Set ledger state pointer to intial state.
+	// Set ledger state pointer to initial state.
 	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
@@ -299,6 +299,16 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) result.Result {
+	// Ignore old blocks.
+	if lfh := e.state.GetLastFinalizedBlock().Height; block.Height <= lfh {
+		e.logger.WithFields(log.Fields{
+			"lastFinalizedHeight": lfh,
+			"block":               block.Hash().Hex(),
+			"block.Height":        block.Height,
+		}).Warn("Block.Height <= last finalized height")
+		return result.Error("Block is older than last finalized block")
+	}
+
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -319,9 +329,18 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return result.Error("Block epoch must be greater than parent epoch")
 	}
 	if !parent.Status.IsValid() {
+		if parent.Status.IsPending() {
+			// Should never happen
+			e.logger.WithFields(log.Fields{
+				"parent":        block.Parent.Hex(),
+				"parent.status": parent.Status,
+				"block":         block.Hash().Hex(),
+			}).Panic("Parent block is pending")
+		}
 		e.logger.WithFields(log.Fields{
-			"parent": block.Parent.Hex(),
-			"block":  block.Hash().Hex(),
+			"parent":        block.Parent.Hex(),
+			"parent.status": parent.Status,
+			"block":         block.Hash().Hex(),
 		}).Warn("Block is referring to invalid parent block")
 		return result.Error("Parent block is invalid")
 	}

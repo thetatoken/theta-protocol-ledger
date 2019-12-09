@@ -65,7 +65,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg:                         &sync.WaitGroup{},
+		wg: &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -213,7 +213,7 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				peerNetAddress := addresses[j]
 				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
 				if err != nil {
-					logger.Warnf("Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
+					logger.Debugf("Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
 				} else {
 					logger.Infof("Successfully connected to discovery peer %v", peerNetAddress.String())
 				}
