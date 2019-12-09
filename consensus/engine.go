@@ -598,10 +598,10 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	}
 
 	if e.validateBlock(block, parent).IsError() {
-		e.chain.MarkBlockInvalid(block.Hash())
 		e.logger.WithFields(log.Fields{
 			"block.Hash": block.Hash().Hex(),
 		}).Warn("Block is invalid")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 
@@ -622,6 +622,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 			"error":            result.Message,
 			"parent.StateHash": parent.StateHash,
 		}).Error("Failed to reset state to parent.StateHash")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 	result = e.ledger.ApplyBlockTxs(block)
@@ -632,6 +633,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 			"block":           block.Hash().Hex(),
 			"block.StateHash": block.StateHash.Hex(),
 		}).Error("Failed to apply block Txs")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 
