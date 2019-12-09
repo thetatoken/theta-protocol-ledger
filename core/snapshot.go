@@ -50,7 +50,7 @@ type SnapshotMetadata struct {
 }
 
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(*metadata)
+	raw, err := rlp.EncodeToBytes(metadata)
 	if err != nil {
 		logger.Error("Failed to encode snapshot metadata")
 		return err
