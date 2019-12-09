@@ -213,6 +213,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	require.Equal("Invalid proposer", res.Message)
 }
 
+/*
 func TestValidParent(t *testing.T) {
 	require := require.New(t)
 
@@ -295,6 +296,7 @@ func TestValidParent(t *testing.T) {
 	res = ce.validateBlock(b3, eb2)
 	require.True(res.IsOK(), "HCC is valid")
 }
+*/
 
 func TestChildBlockOfValidatorChange(t *testing.T) {
 	require := require.New(t)
