@@ -58,7 +58,7 @@ var _ p2pl.Network = (*Messenger)(nil)
 const (
 	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
 	defaultPeerDiscoveryPulseInterval = 10 * time.Second
-	seedsConnectivityCheckPulse       = 10 * time.Second
+	seedsConnectivityCheckInterval    = 10 * time.Second
 	discoverInterval                  = 3000 // 3 sec
 	maxNumPeers                       = 20 //64
 	sufficientNumPeers                = 10 //32
@@ -380,7 +380,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 }
 
 func (msgr *Messenger) maintainSeedsConnectivityRoutine(ctx context.Context) {
-	seedsConnectivityCheckPulse := time.NewTicker(seedsConnectivityCheckPulse)
+	seedsConnectivityCheckPulse := time.NewTicker(seedsConnectivityCheckInterval)
 	for {
 		select {
 		case <-seedsConnectivityCheckPulse.C:
