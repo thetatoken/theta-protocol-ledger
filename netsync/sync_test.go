@@ -3,6 +3,12 @@ package netsync
 import (
 	"context"
 	"testing"
+	"time"
+
+	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/rlp"
+	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/kvstore"
 
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -52,7 +58,6 @@ func (m *MockMsgHandler) HandleMessage(message types.Message) error {
 	return nil
 }
 
-/*
 func TestSyncManager(t *testing.T) {
 	assert := assert.New(t)
 	core.ResetTestBlocks()
@@ -103,6 +108,11 @@ func TestSyncManager(t *testing.T) {
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
 	assert.Equal(core.GetTestBlock("A4").Hash().Hex(), msg1.Entries[0])
+
+	res = <-mockMsgHandler.C
+	msg11, ok := res.(dispatcher.DataResponse)
+	assert.True(ok)
+	assert.Equal(common.ChannelIDHeader, msg11.ChannelID)
 
 	res = <-mockMsgHandler.C
 	msg2, ok := res.(dispatcher.InventoryRequest)
@@ -160,7 +170,6 @@ func TestSyncManager(t *testing.T) {
 		assert.Equal(core.GetTestBlock(expected[i]).Hash(), msg.(*core.Block).Hash())
 	}
 }
-*/
 
 type MockConsensus struct {
 	chain *blockchain.Chain
