@@ -265,14 +265,12 @@ func (e *ConsensusEngine) mainLoop() {
 			case <-e.proposalTimer.C:
 				e.propose()
 			case <-e.guardianTimer.C:
-				if e.guardian.IsGuardian() {
-					v := e.guardian.GetVoteToBroadcast()
+				v := e.guardian.GetVoteToBroadcast()
 
-					if v != nil {
-						e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
-						e.broadcastGuardianVote(v)
-						e.guardian.StartNewRound()
-					}
+				if v != nil {
+					e.guardian.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting guardian vote")
+					e.broadcastGuardianVote(v)
+					e.guardian.StartNewRound()
 				}
 			}
 		}
@@ -329,6 +327,16 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) result.Result {
+	// Ignore old blocks.
+	if lfh := e.state.GetLastFinalizedBlock().Height; block.Height <= lfh {
+		e.logger.WithFields(log.Fields{
+			"lastFinalizedHeight": lfh,
+			"block":               block.Hash().Hex(),
+			"block.Height":        block.Height,
+		}).Warn("Block.Height <= last finalized height")
+		return result.Error("Block is older than last finalized block")
+	}
+
 	// Validate parent.
 	if parent.Height+1 != block.Height {
 		e.logger.WithFields(log.Fields{
@@ -349,9 +357,18 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		return result.Error("Block epoch must be greater than parent epoch")
 	}
 	if !parent.Status.IsValid() {
+		if parent.Status.IsPending() {
+			// Should never happen
+			e.logger.WithFields(log.Fields{
+				"parent":        block.Parent.Hex(),
+				"parent.status": parent.Status,
+				"block":         block.Hash().Hex(),
+			}).Panic("Parent block is pending")
+		}
 		e.logger.WithFields(log.Fields{
-			"parent": block.Parent.Hex(),
-			"block":  block.Hash().Hex(),
+			"parent":        block.Parent.Hex(),
+			"parent.status": parent.Status,
+			"block":         block.Hash().Hex(),
 		}).Warn("Block is referring to invalid parent block")
 		return result.Error("Parent block is invalid")
 	}
@@ -581,10 +598,10 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	}
 
 	if e.validateBlock(block, parent).IsError() {
-		e.chain.MarkBlockInvalid(block.Hash())
 		e.logger.WithFields(log.Fields{
 			"block.Hash": block.Hash().Hex(),
 		}).Warn("Block is invalid")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 
@@ -605,6 +622,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 			"error":            result.Message,
 			"parent.StateHash": parent.StateHash,
 		}).Error("Failed to reset state to parent.StateHash")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 	result = e.ledger.ApplyBlockTxs(block)
@@ -615,6 +633,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 			"block":           block.Hash().Hex(),
 			"block.StateHash": block.StateHash.Hex(),
 		}).Error("Failed to apply block Txs")
+		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
 

@@ -79,25 +79,29 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 		return val, fmt.Errorf("Block has already been added: %X", hash[:])
 	}
 
+	// Update parent if present.
 	if !block.Parent.IsEmpty() && !isSnapshotRoot {
 		parentBlock, err := ch.findBlock(block.Parent)
-		if err == store.ErrKeyNotFound {
-			// Parent block is not known yet, abandon block.
-			return nil, errors.Errorf("Unknown parent block: %v", block.Parent.Hex())
-		}
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to find parent block")
-		}
-
-		parentBlock.Children = append(parentBlock.Children, hash)
-
-		err = ch.saveBlock(parentBlock)
-		if err != nil {
-			log.Panic(err)
+		if err == nil {
+			parentBlock.Children = append(parentBlock.Children, hash)
+			err = ch.saveBlock(parentBlock)
+			if err != nil {
+				log.Panic(err)
+			}
 		}
 	}
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
+
+	// Update children if present.
+	children := ch.findBlocksByHeight(block.Height + 1)
+	extendedBlock.Children = []common.Hash{}
+	for i := 0; i < len(children); i++ {
+		if children[i].Parent != block.Hash() {
+			continue
+		}
+		extendedBlock.Children = append(extendedBlock.Children, children[i].Hash())
+	}
 
 	err = ch.saveBlock(extendedBlock)
 	if err != nil {
@@ -108,6 +112,15 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 	ch.AddTxsToIndex(extendedBlock, false)
 
 	return extendedBlock, nil
+}
+
+// FixBlockIndex fixes index for given block.
+func (ch *Chain) FixBlockIndex(block *core.ExtendedBlock) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	ch.AddBlockByHeightIndex(block.Height, block.Hash())
+	ch.AddTxsToIndex(block, false)
 }
 
 // blockByHeightIndexKey constructs the DB key for the given block height.

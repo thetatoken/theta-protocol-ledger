@@ -18,11 +18,11 @@ Signature Gossip](https://arxiv.org/pdf/1911.04698.pdf).
 
 ### On Mac OS X
 
-Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.9.7**. On Mac OS X, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.11**. On Mac OS X, install Go with the following command
 
 ```
-brew install go@1.9
-brew link go@1.9 --force
+brew install go@1.11
+brew link go@1.11 --force
 ```
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
@@ -54,7 +54,7 @@ On Windows, first install [Chocolatey](https://chocolatey.org/) with with the fo
 Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
 
 ```
-choco install golang --version 1.9.7 --force
+choco install golang --version 1.11 --force
 ```
 
 Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
