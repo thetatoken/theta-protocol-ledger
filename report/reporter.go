@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,10 +23,11 @@ var client *statsd.Client
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "statsd"})
 var reportPeersPort string = ":9000"
 var reportStatsdPort string = ":8125"
-var setPeersSuffix string = "/setPeers"
+var setPeersSuffix string = "/peers/set"
 
-const sleepTime time.Duration = time.Second * 10
-const flushDuration time.Duration = time.Second * 10
+const step int64 = 60
+const sleepTime time.Duration = time.Second * 60
+const flushDuration time.Duration = time.Second * 60
 
 type Reporter struct {
 	client *statsd.Client
@@ -100,30 +103,60 @@ func (rp *Reporter) reportOnlineAndSync() {
 	for {
 		select {
 		case <-rp.ticker.C:
-			rp.client.Incr("guardian.online", 1)
+			rp.client.Incr("guardian.online", step)
 			rp.mu.Lock()
 			if rp.inSync {
-				rp.client.Incr("guardian.inSync", 1)
+				rp.client.Incr("guardian.inSync", step)
 			}
-			// peerIDs = rp.disp.GetPeers()
-			// logger.Infof(" get IDs %v\n", peerIDs)
 			rp.mu.Unlock()
+			rp.handlePeers()
 		}
 	}
 }
 
 func (rp *Reporter) handlePeers() {
-	url := "http://" + viper.GetString(common.CfgMetricsServer) + reportStatsdPort + setPeersSuffix
-	jsonStr := []byte(`{"title": "Buy cheese and bread for breakfast."}`)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonStr))
+	url := "http://" + viper.GetString(common.CfgMetricsServer) + reportPeersPort + setPeersSuffix
+	jsonStr := fmt.Sprintf("{\"id\":\"%s\", \"ip\": \"%s\", \"peers\" : [%s]}", rp.id, rp.ipAddr, rp.peersToString())
+	data := []byte(jsonStr)
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
+	if err != nil {
+		logger.Errorf("Reporter failed to create request: %v", err)
+		return
+	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
-
+	if err != nil {
+		logger.Errorf("Reporter failed to create request: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	log.Debug("response Status:", resp.Status)
+	log.Debug("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	log.Debug("response Body:", string(body))
 }
 
 func (rp *Reporter) SetInSync(inSync bool) {
 	rp.mu.Lock()
 	rp.inSync = inSync
 	rp.mu.Unlock()
+}
+
+func (rp *Reporter) peersToString() string {
+	p := rp.disp.Peers()
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, peer := range p {
+		if i > 0 {
+			sb.WriteString(",\"")
+		} else {
+			sb.WriteString("\"")
+		}
+		sb.WriteString(peer)
+		sb.WriteString("\"")
+	}
+	sb.WriteString("]")
+	log.Debug("peers is : %v, stringbuilder is : %s \n", p, sb.String())
+	return sb.String()
 }
