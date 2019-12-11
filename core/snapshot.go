@@ -56,47 +56,62 @@ type SnapshotMetadata struct {
 }
 
 type LastCheckpoint struct {
-	CheckpointHeader    BlockHeader
-	IntermediateHeaders []BlockHeader
+	CheckpointHeader    *BlockHeader
+	IntermediateHeaders []*BlockHeader
 }
 
 func WriteSnapshotHeader(writer *bufio.Writer, snapshotHeader *SnapshotHeader) error {
-	err := writeObject(writer, snapshotHeader)
+	raw, err := rlp.EncodeToBytes(*snapshotHeader)
+	if err != nil {
+		logger.Errorf("Failed to encode snapshot header: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
 	return err
 }
 
 func WriteLastCheckpoint(writer *bufio.Writer, lastCheckpoint *LastCheckpoint) error {
-	err := writeObject(writer, lastCheckpoint)
+	raw, err := rlp.EncodeToBytes(*lastCheckpoint)
+	if err != nil {
+		logger.Errorf("Failed to encode last checkpoint: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
 	return err
 }
 
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
-	err := writeObject(writer, metadata)
+	raw, err := rlp.EncodeToBytes(*metadata)
+	if err != nil {
+		logger.Errorf("Failed to encode metadata: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
 	return err
 }
 
 func WriteRecord(writer *bufio.Writer, k, v common.Bytes) error {
 	record := SnapshotTrieRecord{K: k, V: v}
-	err := writeObject(writer, record)
+	raw, err := rlp.EncodeToBytes(record)
+	if err != nil {
+		logger.Errorf("Failed to encode record: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
 	return err
 }
 
-func writeObject(writer *bufio.Writer, object interface{}) error {
-	raw, err := rlp.EncodeToBytes(object)
-	if err != nil {
-		logger.Error("Failed to encode snapshot object")
-		return err
-	}
+func writeBytes(writer *bufio.Writer, raw []byte) error {
 	// write length first
-	_, err = writer.Write(Itobytes(uint64(len(raw))))
+	_, err := writer.Write(Itobytes(uint64(len(raw))))
 	if err != nil {
-		logger.Error("Failed to write snapshot object length")
+		logger.Errorf("Failed to write snapshot object length: %v", err)
 		return err
 	}
 	// write the object itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		logger.Error("Failed to write snapshot object")
+		logger.Errorf("Failed to write snapshot object: %v", err)
 		return err
 	}
 	err = writer.Flush()

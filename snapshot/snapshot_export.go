@@ -75,17 +75,17 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	currBlock := lastFinalizedBlock
 	for currHeight > lastCheckpointHeight {
 		parentHash := currBlock.Parent
-		currBlock, err := chain.FindBlock(parentHash)
+		currBlock, err = chain.FindBlock(parentHash)
 		if err != nil {
 			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
 			return "", err
 		}
-		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, *currBlock.Block.BlockHeader)
+		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
 		currHeight = currBlock.Height
 	}
 
 	lastCheckpointBlock := currBlock
-	lastCheckpoint.CheckpointHeader = *lastCheckpointBlock.BlockHeader
+	lastCheckpoint.CheckpointHeader = lastCheckpointBlock.BlockHeader
 
 	err = core.WriteLastCheckpoint(writer, lastCheckpoint)
 	if err != nil {

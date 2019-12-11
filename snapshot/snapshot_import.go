@@ -162,7 +162,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 		}
 
 		ckb := core.Block{
-			BlockHeader: &lastCheckpoint.CheckpointHeader,
+			BlockHeader: lastCheckpoint.CheckpointHeader,
 		}
 		eckb := core.ExtendedBlock{
 			Block:  &ckb,
