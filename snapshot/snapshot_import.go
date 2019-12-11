@@ -148,8 +148,10 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	snapshotVersion := uint(1)
 	snapshotHeader := core.SnapshotHeader{}
 	err = core.ReadRecord(snapshotFile, snapshotHeader)
-	if err != nil { // version < 2, reset snapshotFile
+	if err != nil || snapshotHeader.Magic != core.SnapshotHeaderMagic { // older version, reset snapshotFile
 		snapshotFile.Seek(0, 0)
+	} else {
+		snapshotVersion = snapshotHeader.Version
 	}
 
 	lastCheckpoint := core.LastCheckpoint{}

@@ -57,6 +57,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 	// --------------- Export the Header Section --------------- //
 
 	snapshotHeader := &core.SnapshotHeader{
+		Magic:   core.SnapshotHeaderMagic,
 		Version: 2,
 	}
 	err = core.WriteSnapshotHeader(writer, snapshotHeader)

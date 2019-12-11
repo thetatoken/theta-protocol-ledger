@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
+const SnapshotHeaderMagic = "ThetaToDaMoon"
 const BlockTrioStoreKeyPrefix = "prooftrio_"
 const (
 	SVStart = iota
@@ -45,6 +46,7 @@ type SnapshotBlockTrio struct {
 }
 
 type SnapshotHeader struct {
+	Magic   string
 	Version uint
 }
 
