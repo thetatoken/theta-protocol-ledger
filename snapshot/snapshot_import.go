@@ -141,13 +141,45 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	}
 	defer snapshotFile.Close()
 
+	kvstore := kvstore.NewKVStore(db)
+
 	// ------------------------------ Load State ------------------------------ //
+
+	snapshotVersion := uint(1)
+	snapshotHeader := core.SnapshotHeader{}
+	err = core.ReadRecord(snapshotFile, snapshotHeader)
+	if err != nil { // version < 2, reset snapshotFile
+		snapshotFile.Seek(0, 0)
+	}
+
+	lastCheckpoint := core.LastCheckpoint{}
+	if snapshotVersion >= 2 {
+		err = core.ReadRecord(snapshotFile, &lastCheckpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to load snapshot last checkpoint, %v", err)
+		}
+
+		ckb := core.Block{
+			BlockHeader: &lastCheckpoint.CheckpointHeader,
+		}
+		eckb := core.ExtendedBlock{
+			Block:  &ckb,
+			Status: core.BlockStatusTrusted, // HCC links between all three blocks
+		}
+		ckbHash := ckb.BlockHeader.Hash()
+
+		existingCkbExt := core.ExtendedBlock{}
+		if kvstore.Get(ckbHash[:], &existingCkbExt) != nil {
+			kvstore.Put(ckbHash[:], eckb)
+		}
+	}
 
 	metadata := core.SnapshotMetadata{}
 	err = core.ReadRecord(snapshotFile, &metadata)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
+
 	sv, _, err := loadState(snapshotFile, db)
 	if err != nil {
 		return nil, nil, err
@@ -155,13 +187,15 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	// ----------------------------- Validity Checks -------------------------- //
 
+	if err = checkLastCheckpoint(sv, &lastCheckpoint, db); err != nil {
+		return nil, nil, fmt.Errorf("Snapshot last checkpoint validation failed: %v", err)
+	}
+
 	if err = checkSnapshot(sv, &metadata, db); err != nil {
 		return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
 	}
 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
-
-	kvstore := kvstore.NewKVStore(db)
 
 	for _, blockTrio := range metadata.ProofTrios {
 		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
@@ -529,6 +563,13 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 	}
 
 	return sv, hash, nil
+}
+
+func checkLastCheckpoint(sv *state.StoreView, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
+	// TO BE IMPLEMENTED
+	// 1. Verify the parent hash pointers intermediate headers
+	// 2. Verify the GCP of the last checkpoint block
+	return nil
 }
 
 func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db database.Database) error {

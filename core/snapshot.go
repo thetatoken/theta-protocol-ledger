@@ -44,51 +44,62 @@ type SnapshotBlockTrio struct {
 	Third  SnapshotThirdBlock
 }
 
+type SnapshotHeader struct {
+	Version uint
+}
+
 type SnapshotMetadata struct {
 	ProofTrios []SnapshotBlockTrio
 	TailTrio   SnapshotBlockTrio
 }
 
+type LastCheckpoint struct {
+	CheckpointHeader    BlockHeader
+	IntermediateHeaders []BlockHeader
+}
+
+func WriteSnapshotHeader(writer *bufio.Writer, snapshotHeader *SnapshotHeader) error {
+	err := writeObject(writer, snapshotHeader)
+	return err
+}
+
+func WriteLastCheckpoint(writer *bufio.Writer, lastCheckpoint *LastCheckpoint) error {
+	err := writeObject(writer, lastCheckpoint)
+	return err
+}
+
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(metadata)
-	if err != nil {
-		logger.Error("Failed to encode snapshot metadata")
-		return err
-	}
-	// write length first
-	_, err = writer.Write(Itobytes(uint64(len(raw))))
-	if err != nil {
-		logger.Error("Failed to write snapshot metadata length")
-		return err
-	}
-	// write metadata itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		logger.Error("Failed to write snapshot metadata")
-		return err
-	}
-	return nil
+	err := writeObject(writer, metadata)
+	return err
 }
 
 func WriteRecord(writer *bufio.Writer, k, v common.Bytes) error {
 	record := SnapshotTrieRecord{K: k, V: v}
-	raw, err := rlp.EncodeToBytes(record)
+	err := writeObject(writer, record)
+	return err
+}
+
+func writeObject(writer *bufio.Writer, object interface{}) error {
+	raw, err := rlp.EncodeToBytes(object)
 	if err != nil {
-		return fmt.Errorf("Failed to encode storage record, %v", err)
+		logger.Error("Failed to encode snapshot object")
+		return err
 	}
 	// write length first
 	_, err = writer.Write(Itobytes(uint64(len(raw))))
 	if err != nil {
-		return fmt.Errorf("Failed to write storage record length, %v", err)
+		logger.Error("Failed to write snapshot object length")
+		return err
 	}
-	// write record itself
+	// write the object itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		return fmt.Errorf("Failed to write storage record, %v", err)
+		logger.Error("Failed to write snapshot object")
+		return err
 	}
 	err = writer.Flush()
 	if err != nil {
-		return fmt.Errorf("Failed to flush storage record, %v", err)
+		return fmt.Errorf("Failed to flush snapshot object, %v", err)
 	}
 	return nil
 }
