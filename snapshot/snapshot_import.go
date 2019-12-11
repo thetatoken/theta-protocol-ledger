@@ -827,7 +827,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		existingFirstExt := core.ExtendedBlock{}
 		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
 			logger.Infof("Saving the the first snapshot tail block: %v", firstBlockHash.Hex())
-			err := kvstore.Put(firstBlockHash[:], &firstExt)
+			err := kvstore.Put(firstBlockHash[:], firstExt)
 			if err != nil {
 				logger.Panicf("Failed to save the first snapshot tail block: %v, err: %v", firstBlockHash.Hex(), err)
 			}
@@ -845,7 +845,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	existingSecondExt := core.ExtendedBlock{}
 	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
 		logger.Infof("Saving the the second snapshot tail block: %v", secondBlockHash.Hex())
-		err := kvstore.Put(secondBlockHash[:], &secondExt)
+		err := kvstore.Put(secondBlockHash[:], secondExt)
 		if err != nil {
 			logger.Panicf("Failed to save the second snapshot tail block: %v, err: %v", secondBlockHash.Hex(), err)
 		}
