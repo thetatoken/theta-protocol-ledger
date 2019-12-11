@@ -33,8 +33,7 @@ var Channels = []cmn.ChannelIDEnum {
 // Peer models a peer node in a network
 //
 type Peer struct {
-	id         pr.ID
-	addrs      []ma.Multiaddr
+	addrInfo   pr.AddrInfo
 	isOutbound bool
 	streamMap  map[cmn.ChannelIDEnum](*transport.BufferedStream) // channelID -> stream
 	mutex      *sync.Mutex
@@ -56,8 +55,7 @@ type Peer struct {
 
 func CreatePeer(addrInfo pr.AddrInfo, isOutbound bool) *Peer {
 	peer := &Peer{
-		id:         addrInfo.ID,
-		addrs:      addrInfo.Addrs,
+		addrInfo:   addrInfo,
 		isOutbound: isOutbound,
 		streamMap:  make(map[cmn.ChannelIDEnum](*transport.BufferedStream)),
 		mutex:      &sync.Mutex{},
@@ -77,7 +75,7 @@ func (peer *Peer) OpenStreams() error {
 		for _, channel := range Channels {
 			stream, err := peer.onStream(channel)
 			if err != nil {
-				logger.Debugf("Failed to create stream with peer %v %v for channel %v, %v", peer.id, peer.addrs, channel, err)
+				logger.Debugf("Failed to create stream with peer %v %v for channel %v, %v", peer.addrInfo.ID, peer.addrInfo.Addrs, channel, err)
 				continue
 			}
 			peer.streamMap[channel] = stream
@@ -150,7 +148,7 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 
 		n, err = stream.Write(msgBytes)
 		if err != nil {
-			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.id, channelID, err)
+			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.addrInfo.ID, channelID, err)
 			return false
 		}
 	} else {
@@ -165,7 +163,7 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 
 		n, err = rawStream.Write(msgBytes)
 		if err != nil {
-			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.id, channelID, err)
+			logger.Errorf("Error writing stream to peer %v for channel %v, %v", peer.addrInfo.ID, channelID, err)
 			return false
 		}
 	}
@@ -180,12 +178,17 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 
 // ID returns the unique idenitifier of the peer in the P2P network
 func (peer *Peer) ID() pr.ID {
-	return peer.id
+	return peer.addrInfo.ID
 }
 
 // Addrs returns the Multiaddresses of the peer in the P2P network
 func (peer *Peer) Addrs() []ma.Multiaddr {
-	return peer.addrs
+	return peer.addrInfo.Addrs
+}
+
+// AddrInfo returns the addrInfo of the peer in the P2P network
+func (peer *Peer) AddrInfo() pr.AddrInfo {
+	return peer.addrInfo
 }
 
 

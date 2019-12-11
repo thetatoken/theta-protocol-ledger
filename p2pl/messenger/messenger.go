@@ -56,12 +56,13 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 var _ p2pl.Network = (*Messenger)(nil)
 
 const (
-	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
-	defaultPeerDiscoveryPulseInterval = 10 * time.Second
-	seedsConnectivityCheckInterval    = 10 * time.Second
-	discoverInterval                  = 3000 // 3 sec
-	maxNumPeers                       = 20 //64
-	sufficientNumPeers                = 10 //32
+	thetaP2PProtocolPrefix                = "/theta/1.0.0/"
+	defaultPeerDiscoveryPulseInterval     = 10 * time.Second
+	discoverInterval                      = 3000 // 3 sec
+	maxNumPeers                           = 20 //64
+	sufficientNumPeers                    = 10 //32
+	normalSeedConnectivityCheckInterval   = 60
+	seedOnlySeedConnectivityCheckInterval = 10
 )
 
 type Messenger struct {
@@ -72,6 +73,7 @@ type Messenger struct {
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
+	seedPeerOnly  bool
 
 	peerTable    *peer.PeerTable
 	newPeers     chan pr.ID
@@ -212,7 +214,7 @@ func (msgr *Messenger) GetPeerIDs() *[]pr.ID {
 
 // CreateMessenger creates an instance of Messenger
 func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
-	port int, peerDiscoverable bool, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
+	port int, seedPeerOnly bool, msgrConfig MessengerConfig, needMdns bool) (*Messenger, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -224,6 +226,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		newPeerError:      make(chan pr.ID),
 		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
 		needMdns:          needMdns,
+		seedPeerOnly:      seedPeerOnly,
 		config:            msgrConfig,
 		wg:                &sync.WaitGroup{},
 	}
@@ -238,7 +241,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	}
 
 	var extMultiAddr ma.Multiaddr
-	if peerDiscoverable {
+	if !seedPeerOnly {
 		externalIP, err := messenger.GetPublicIP()
 		if err != nil {
 			return messenger, err
@@ -287,7 +290,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		messenger.seedPeers = append(messenger.seedPeers, peer)
 	}
 
-	if peerDiscoverable {
+	if !seedPeerOnly {
 		// kad-dht
 		dopts := []dhtopts.Option{
 			dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
@@ -319,7 +322,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	host.Network().Notify((*PeerNotif)(messenger))
 
-	logger.Infof("Created node %v, %v, discoverable: %v", host.ID(), host.Addrs(), peerDiscoverable)
+	logger.Infof("Created node %v, %v, seedPeerOnly: %v", host.ID(), host.Addrs(), seedPeerOnly)
 	return messenger, nil
 }
 
@@ -380,7 +383,13 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 }
 
 func (msgr *Messenger) maintainSeedsConnectivityRoutine(ctx context.Context) {
-	seedsConnectivityCheckPulse := time.NewTicker(seedsConnectivityCheckInterval)
+	var seedsConnectivityCheckPulse *time.Ticker
+	if msgr.seedPeerOnly {
+		seedsConnectivityCheckPulse = time.NewTicker(seedOnlySeedConnectivityCheckInterval * time.Second)
+	} else {
+		seedsConnectivityCheckPulse = time.NewTicker(normalSeedConnectivityCheckInterval * time.Second)
+	}
+	
 	for {
 		select {
 		case <-seedsConnectivityCheckPulse.C:
@@ -390,6 +399,17 @@ func (msgr *Messenger) maintainSeedsConnectivityRoutine(ctx context.Context) {
 }
 
 func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
+	if !msgr.seedPeerOnly {
+		for _, peer := range *(msgr.peerTable.GetAllPeerIDs()) {
+			for _, seed := range msgr.seedPeers {
+				if peer == seed.ID {
+					// don't proceed if there's at least one seed in peer table
+					return
+				}
+			}
+		}
+	}
+
 	for _, seedPeer := range msgr.seedPeers {
 		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 		peer := msgr.peerTable.GetPeer(seedPeer.ID)
@@ -412,8 +432,29 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.ctx = c
 	msgr.cancel = cancel
 
-	// seeds
-	perm := rand.Perm(len(msgr.seedPeers))
+	// seeds & previously persisted peers
+	connections := msgr.seedPeers
+	if !msgr.seedPeerOnly {
+		prevPeers, err := msgr.peerTable.RetrievePeers()
+		if err == nil {
+			for _, prevPeer := range prevPeers {
+				exists := false
+				for _, seed := range connections {
+					if seed.ID == prevPeer.ID {
+						exists = true
+						break
+					}
+				}
+				if !exists {
+					connections = append(connections, prevPeer)
+				}
+			}
+		}
+	}
+
+	logger.Infof("Connecting to: %v", connections)
+
+	perm := rand.Perm(len(connections))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		msgr.wg.Add(1)
 		go func(i int) {
@@ -421,7 +462,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 			j := perm[i]
-			seedPeer := msgr.seedPeers[j]
+			seedPeer := connections[j]
 			var err error
 			for i := 0; i < 3; i++ { // try up to 3 times
 				err = msgr.host.Connect(ctx, *seedPeer)

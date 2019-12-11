@@ -47,14 +47,14 @@ const (
 	CfgLibP2PSeeds = "p2p.libp2p_seeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
 	CfgLibP2PRendezvous = "p2p.libp2p_rendezvous"
-	// CfgLibP2PDiscoverable sets if the libp2p nodes is discoverable
-	CfgLibP2PDiscoverable = "p2p.libp2p_discoverable"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 	// CfgP2PSeedPeerOnly decides whether the node will connect to peers other than the seeds.
 	CfgP2PSeedPeerOnly = "p2p.seedPeerOnly"
+	// CfgMaxPeerPersistence sets the max number of peers to persist for normal nodes
+	CfgMaxPeerPersistence = "p2p.maxPeerPersistence"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -105,15 +105,14 @@ func init() {
 
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
-
+	viper.SetDefault(CfgMaxPeerPersistence, 10)
+	
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
-
-	viper.SetDefault(CfgLibP2PDiscoverable, true)
 }
 
 // WriteInitialConfig writes initial config file to file system.
