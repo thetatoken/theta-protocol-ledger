@@ -694,7 +694,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	hl := sv.GetStakeTransactionHeightList()
 
 	if secondBlock.Height != core.GenesisBlockHeight {
-		firstExt := core.ExtendedBlock{
+		firstExt := &core.ExtendedBlock{
 			Block:              &firstBlock,
 			Status:             core.BlockStatusTrusted, // HCC links between all three blocks
 			Children:           []common.Hash{secondBlock.Hash()},
@@ -704,11 +704,14 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 		existingFirstExt := core.ExtendedBlock{}
 		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
-			kvstore.Put(firstBlockHash[:], firstExt)
+			err := kvstore.Put(firstBlockHash[:], firstExt)
+			if err != nil {
+				logger.Panic(err)
+			}
 		}
 	}
 
-	secondExt := core.ExtendedBlock{
+	secondExt := &core.ExtendedBlock{
 		Block:              &secondBlock,
 		Status:             core.BlockStatusTrusted,
 		Children:           []common.Hash{},
@@ -718,7 +721,10 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 	existingSecondExt := core.ExtendedBlock{}
 	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
-		kvstore.Put(secondBlockHash[:], secondExt)
+		err := kvstore.Put(secondBlockHash[:], secondExt)
+		if err != nil {
+			logger.Panic(err)
+		}
 	}
 
 	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
