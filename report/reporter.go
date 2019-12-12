@@ -63,7 +63,7 @@ func NewReporter(disp *dp.Dispatcher) *Reporter {
 		ticker: time.NewTicker(sleepTime),
 	}
 
-	logger.Infof("node ID is %s, IP Address is %s \n", rp.id, rp.ipAddr)
+	logger.Infof("node ID is %s, IP Address is %s", rp.id, rp.ipAddr)
 
 	return rp
 }

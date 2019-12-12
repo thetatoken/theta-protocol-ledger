@@ -110,6 +110,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	for ; ; i-- {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
+			logger.Errorf("Failed to find block for VCP: %v, err: %v", blockHash.Hex(), err)
 			return nil, err
 		}
 		if block == nil {

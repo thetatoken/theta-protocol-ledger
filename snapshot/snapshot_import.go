@@ -154,7 +154,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 		snapshotVersion = snapshotHeader.Version
 	}
 
-	logger.Infof("Reading snapshot header, version: %v, magic: %v\n", snapshotVersion, snapshotHeader.Magic)
+	logger.Infof("Reading snapshot header, version: %v, magic: %v", snapshotVersion, snapshotHeader.Magic)
 
 	lastCheckpoint := core.LastCheckpoint{}
 	if snapshotVersion >= 2 {
@@ -174,7 +174,11 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 		existingCkbExt := core.ExtendedBlock{}
 		if kvstore.Get(ckbHash[:], &existingCkbExt) != nil {
-			kvstore.Put(ckbHash[:], eckb)
+			logger.Infof("Saving the last checkpoint block: %v", ckbHash.Hex())
+			err = kvstore.Put(ckbHash[:], &eckb)
+			if err != nil {
+				logger.Panicf("Failed to save the last checkpoint: %v, err: %v", ckbHash.Hex(), err)
+			}
 		}
 	}
 
@@ -749,7 +753,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 		existingFirstExt := core.ExtendedBlock{}
 		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
-			kvstore.Put(firstBlockHash[:], firstExt)
+			logger.Infof("Saving the the first snapshot tail block: %v", firstBlockHash.Hex())
+			err := kvstore.Put(firstBlockHash[:], &firstExt)
+			if err != nil {
+				logger.Panicf("Failed to save the first snapshot tail block: %v, err: %v", firstBlockHash.Hex(), err)
+			}
 		}
 	}
 
@@ -763,7 +771,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 	existingSecondExt := core.ExtendedBlock{}
 	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
-		kvstore.Put(secondBlockHash[:], secondExt)
+		logger.Infof("Saving the the second snapshot tail block: %v", secondBlockHash.Hex())
+		err := kvstore.Put(secondBlockHash[:], &secondExt)
+		if err != nil {
+			logger.Panicf("Failed to save the second snapshot tail block: %v, err: %v", secondBlockHash.Hex(), err)
+		}
 	}
 
 	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
