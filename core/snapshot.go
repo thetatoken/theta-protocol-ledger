@@ -140,7 +140,7 @@ func ReadRecord(file *os.File, obj interface{}) error {
 		return fmt.Errorf("Failed to read record, %v < %v", n, size)
 	}
 	err = rlp.DecodeBytes(bytes, obj)
-	return nil
+	return err
 }
 
 func Bytestoi(arr []byte) uint64 {
