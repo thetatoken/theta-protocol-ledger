@@ -180,6 +180,21 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 				logger.Panicf("Failed to save the last checkpoint: %v, err: %v", ckbHash.Hex(), err)
 			}
 		}
+
+		for _, intermediateHeader := range lastCheckpoint.IntermediateHeaders {
+			ibHash := intermediateHeader.Hash()
+			eib := core.ExtendedBlock{
+				Block: &core.Block{BlockHeader: intermediateHeader},
+			}
+			existingEib := core.ExtendedBlock{}
+			if kvstore.Get(ibHash[:], &existingEib) != nil {
+				logger.Debugf("Saving intermediate blocks: %v", ibHash.Hex())
+				err = kvstore.Put(ibHash[:], &eib)
+				if err != nil {
+					logger.Panicf("Failed to save ntermediate block: %v, err: %v", ibHash.Hex(), err)
+				}
+			}
+		}
 	}
 
 	metadata := core.SnapshotMetadata{}
