@@ -106,7 +106,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		if err == nil {
 			metadata.ProofTrios = append(metadata.ProofTrios, *blockTrio)
 			if height == core.GenesisBlockHeight {
-				genesisBlockHeader = &blockTrio.Second.Header
+				genesisBlockHeader = blockTrio.Second.Header
 			}
 			continue
 		}
@@ -118,7 +118,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 			metadata.ProofTrios = append(metadata.ProofTrios,
 				core.SnapshotBlockTrio{
 					First:  core.SnapshotFirstBlock{},
-					Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+					Second: core.SnapshotSecondBlock{Header: genesisBlock.BlockHeader},
 					Third:  core.SnapshotThirdBlock{},
 				})
 		} else {
@@ -168,9 +168,9 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 					}
 					metadata.ProofTrios = append(metadata.ProofTrios,
 						core.SnapshotBlockTrio{
-							First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
-							Second: core.SnapshotSecondBlock{Header: child},
-							Third:  core.SnapshotThirdBlock{Header: grandChild},
+							First:  core.SnapshotFirstBlock{Header: block.BlockHeader, Proof: *vcpProof},
+							Second: core.SnapshotSecondBlock{Header: &child},
+							Third:  core.SnapshotThirdBlock{Header: &grandChild},
 						})
 					foundDirectlyFinalizedBlock = true
 					break
@@ -206,9 +206,9 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		return "", fmt.Errorf("Failed to get VCP Proof")
 	}
 	metadata.TailTrio = core.SnapshotBlockTrio{
-		First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
-		Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader},
-		Third:  core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, VoteSet: childVoteSet},
+		First:  core.SnapshotFirstBlock{Header: parentBlock.BlockHeader, Proof: *vcpProof},
+		Second: core.SnapshotSecondBlock{Header: lastFinalizedBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{Header: childBlock.BlockHeader, VoteSet: childVoteSet},
 	}
 
 	err = core.WriteMetadata(writer, metadata)

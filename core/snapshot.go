@@ -26,16 +26,16 @@ type SnapshotTrieRecord struct {
 }
 
 type SnapshotFirstBlock struct {
-	Header BlockHeader
+	Header *BlockHeader
 	Proof  VCPProof
 }
 
 type SnapshotSecondBlock struct {
-	Header BlockHeader
+	Header *BlockHeader
 }
 
 type SnapshotThirdBlock struct {
-	Header  BlockHeader
+	Header  *BlockHeader
 	VoteSet *VoteSet
 }
 

@@ -146,13 +146,15 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	// ------------------------------ Load State ------------------------------ //
 
 	snapshotVersion := uint(1)
-	snapshotHeader := core.SnapshotHeader{}
+	snapshotHeader := &core.SnapshotHeader{}
 	err = core.ReadRecord(snapshotFile, snapshotHeader)
 	if err != nil || snapshotHeader.Magic != core.SnapshotHeaderMagic { // older version, reset snapshotFile
 		snapshotFile.Seek(0, 0)
 	} else {
 		snapshotVersion = snapshotHeader.Version
 	}
+
+	logger.Infof("Reading snapshot header, version: %v, magic: %v\n", snapshotVersion, snapshotHeader.Magic)
 
 	lastCheckpoint := core.LastCheckpoint{}
 	if snapshotVersion >= 2 {
@@ -414,7 +416,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 
 			if provenValSet == nil {
 				if proofTrio.First.Header.Height == core.GenesisBlockHeight {
-					provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
+					provenValSet, err = checkGenesisBlock(proofTrio.Second.Header, db)
 				} else {
 					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
 				}
@@ -611,7 +613,7 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 		third := blockTrio.Third
 		if idx == 0 {
 			// special handling for the genesis block
-			provenValSet, err = checkGenesisBlock(&second.Header, db)
+			provenValSet, err = checkGenesisBlock(second.Header, db)
 			if err != nil {
 				return nil, fmt.Errorf("Invalid genesis block: %v", err)
 			}
@@ -626,7 +628,7 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 			}
 
 			// third.Header.HCC.Votes contains the votes for the second block in the trio
-			if err := validateVotes(provenValSet, &second.Header, third.Header.HCC.Votes); err != nil {
+			if err := validateVotes(provenValSet, second.Header, third.Header.HCC.Votes); err != nil {
 				return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
 			}
 			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
@@ -646,12 +648,12 @@ func checkTailTrio(sv *state.StoreView, provenValSet *core.ValidatorSet, tailTri
 	third := &tailTrio.Third
 
 	if second.Header.Height == core.GenesisBlockHeight {
-		_, err := checkGenesisBlock(&second.Header, sv.GetDB())
+		_, err := checkGenesisBlock(second.Header, sv.GetDB())
 		if err != nil {
 			return err
 		}
 	} else {
-		validateVotes(provenValSet, &third.Header, third.VoteSet)
+		validateVotes(provenValSet, third.Header, third.VoteSet)
 		retrievedValSet := getValidatorSetFromSV(sv)
 		if !provenValSet.Equals(retrievedValSet) {
 			return fmt.Errorf("The latest proven and retrieved validator set does not match")
@@ -732,8 +734,8 @@ func validateVotes(validatorSet *core.ValidatorSet, block *core.BlockHeader, vot
 
 func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstore store.Store) *core.BlockHeader {
 	tailBlockTrio := &metadata.TailTrio
-	firstBlock := core.Block{BlockHeader: &tailBlockTrio.First.Header}
-	secondBlock := core.Block{BlockHeader: &tailBlockTrio.Second.Header}
+	firstBlock := core.Block{BlockHeader: tailBlockTrio.First.Header}
+	secondBlock := core.Block{BlockHeader: tailBlockTrio.Second.Header}
 	hl := sv.GetStakeTransactionHeightList()
 
 	if secondBlock.Height != core.GenesisBlockHeight {
