@@ -227,6 +227,7 @@ const (
 	TxTypeSmartContract
 	TxTypeDepositStake
 	TxTypeWithdrawStake
+	TxTypeDepositStakeTxV2
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -539,6 +540,8 @@ func getTxType(tx types.Tx) byte {
 		t = TxTypeDepositStake
 	case *types.WithdrawStakeTx:
 		t = TxTypeWithdrawStake
+	case *types.DepositStakeTxV2:
+		t = TxTypeDepositStakeTxV2
 	}
 
 	return t
