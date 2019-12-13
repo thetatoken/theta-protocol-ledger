@@ -80,7 +80,10 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 		kvstore := kvstore.NewKVStore(db)
 		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
-		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		err = kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		lastCC = tailBlock
 	}
@@ -128,7 +131,10 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 		kvstore := kvstore.NewKVStore(tmpdb)
 		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
-		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		err = kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return snapshotBlockHeader, nil
@@ -222,7 +228,10 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	for _, blockTrio := range metadata.ProofTrios {
 		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
-		kvstore.Put(blockTrioKey, blockTrio)
+		err = kvstore.Put(blockTrioKey, blockTrio)
+		if err != nil {
+			logger.Panicf("Failed to save ProofTrios: err: %v", err)
+		}
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
@@ -282,13 +291,19 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
 				block.Status = core.BlockStatusTrusted
-				kvstore.Put(blockHash[:], block)
+				err = kvstore.Put(blockHash[:], block)
+				if err != nil {
+					return nil, nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				existingBlock.Txs = block.Txs
 				existingBlock.Status = core.BlockStatusTrusted
-				kvstore.Put(blockHash[:], existingBlock)
+				err = kvstore.Put(blockHash[:], existingBlock)
+				if err != nil {
+					return nil, nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			}
@@ -481,14 +496,20 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			}
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
-				kvstore.Put(blockHash[:], block)
+				err = kvstore.Put(blockHash[:], block)
+				if err != nil {
+					return nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
 					existingBlock.Txs = block.Txs
 					existingBlock.HasValidatorUpdate = true
-					kvstore.Put(blockHash[:], existingBlock)
+					err = kvstore.Put(blockHash[:], existingBlock)
+					if err != nil {
+						return nil, err
+					}
 					chain.AddBlockByHeightIndex(block.Height, blockHash)
 					chain.AddTxsToIndex(block, true)
 				}
