@@ -146,7 +146,6 @@ func (rp *Reporter) SetInSync(inSync bool) {
 func (rp *Reporter) peersToString() string {
 	p := rp.disp.Peers()
 	var sb strings.Builder
-	sb.WriteString("[")
 	for i, peer := range p {
 		if i > 0 {
 			sb.WriteString(",\"")
@@ -156,7 +155,6 @@ func (rp *Reporter) peersToString() string {
 		sb.WriteString(peer)
 		sb.WriteString("\"")
 	}
-	sb.WriteString("]")
 	log.Debug("peers is : %v, stringbuilder is : %s \n", p, sb.String())
 	return sb.String()
 }
