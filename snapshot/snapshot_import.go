@@ -216,10 +216,6 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	// ----------------------------- Validity Checks -------------------------- //
 
-	if err = checkLastCheckpoint(sv, &lastCheckpoint, db); err != nil {
-		return nil, nil, fmt.Errorf("Snapshot last checkpoint validation failed: %v", err)
-	}
-
 	if err = checkSnapshot(sv, &metadata, db); err != nil {
 		return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
 	}
@@ -235,6 +231,15 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
+
+	// ----------------------------- More Validity Checks -------------------------- //
+
+	if snapshotVersion >= 2 {
+		if err = checkLastCheckpoint(sv, secondBlockHeader, &lastCheckpoint, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot last checkpoint validation failed: %v", err)
+		}
+	}
+
 	return secondBlockHeader, &metadata, nil
 }
 
@@ -609,10 +614,42 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 	return sv, hash, nil
 }
 
-func checkLastCheckpoint(sv *state.StoreView, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
-	// TO BE IMPLEMENTED
-	// 1. Verify the parent hash pointers intermediate headers
-	// 2. Verify the GCP of the last checkpoint block
+func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
+	if snapshotBlockHeader == nil {
+		return fmt.Errorf("The snapshot block header is nil")
+	}
+
+	lastCheckpointHeader := lastCheckpoint.CheckpointHeader
+	if lastCheckpointHeader == nil {
+		return fmt.Errorf("The last checkpoint header is nil")
+	}
+
+	// Verify that the snapshot block is a descendent of the last checkpoint
+	store := kvstore.NewKVStore(db)
+	lastCheckpointHash := lastCheckpointHeader.Hash()
+	snapshotBlockHash := snapshotBlockHeader.Hash()
+
+	isDescendent := false
+	hash := snapshotBlockHash
+	for i := int64(0); i < common.CheckpointInterval; i++ {
+		if hash == lastCheckpointHash {
+			isDescendent = true
+			break
+		}
+
+		var block core.ExtendedBlock
+		err := store.Get(hash[:], &block)
+		if err != nil {
+			return fmt.Errorf("Failed to find block when verifying the last checkpoint, block hash: %v", hash.Hex())
+		}
+		hash = block.Parent
+	}
+
+	if !isDescendent {
+		return fmt.Errorf("Snapshot block %v is not a descendant of the last checkpoint %v",
+			snapshotBlockHash.Hex(), lastCheckpointHash.Hex())
+	}
+
 	return nil
 }
 
