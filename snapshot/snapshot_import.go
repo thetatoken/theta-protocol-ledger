@@ -816,7 +816,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 	hl := sv.GetStakeTransactionHeightList()
 
 	if secondBlock.Height != core.GenesisBlockHeight {
-		firstExt := core.ExtendedBlock{
+		firstExt := &core.ExtendedBlock{
 			Block:              &firstBlock,
 			Status:             core.BlockStatusTrusted, // HCC links between all three blocks
 			Children:           []common.Hash{secondBlock.Hash()},
@@ -834,7 +834,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		}
 	}
 
-	secondExt := core.ExtendedBlock{
+	secondExt := &core.ExtendedBlock{
 		Block:              &secondBlock,
 		Status:             core.BlockStatusTrusted,
 		Children:           []common.Hash{},

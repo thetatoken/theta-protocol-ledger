@@ -227,6 +227,7 @@ const (
 	TxTypeSmartContract
 	TxTypeDepositStake
 	TxTypeWithdrawStake
+	TxTypeDepositStakeTxV2
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -348,6 +349,7 @@ type GetStatusResult struct {
 	LatestFinalizedBlockTime   *common.JSONBig   `json:"latest_finalized_block_time"`
 	LatestFinalizedBlockEpoch  common.JSONUint64 `json:"latest_finalized_block_epoch"`
 	CurrentEpoch               common.JSONUint64 `json:"current_epoch"`
+	CurrentHeight              common.JSONUint64 `json:"current_height"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
 }
@@ -371,6 +373,19 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
 
+	maxVoteHeight := uint64(0)
+	epochVotes, err := t.consensus.State().GetEpochVotes()
+	if err != nil {
+		return err
+	}
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+			}
+		}
+		result.CurrentHeight = common.JSONUint64(maxVoteHeight - 1) // current finalized height is at most maxVoteHeight-1
+	}
 	return
 }
 
@@ -539,6 +554,8 @@ func getTxType(tx types.Tx) byte {
 		t = TxTypeDepositStake
 	case *types.WithdrawStakeTx:
 		t = TxTypeWithdrawStake
+	case *types.DepositStakeTxV2:
+		t = TxTypeDepositStakeTxV2
 	}
 
 	return t
