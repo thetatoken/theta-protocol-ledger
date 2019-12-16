@@ -271,6 +271,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
+			msgr.host.Network().ClosePeer(peer.ID())
 			msgr.peerTable.DeletePeer(pid)
 			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
 		case <-ctx.Done():
@@ -298,6 +299,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			seedPeer := msgr.seedPeers[j]
 			var err error
 			for i := 0; i < 3; i++ { // try up to 3 times
+				if msgr.host.Network().Connectedness(seedPeer.ID) == network.Connected {
+					break
+				}
+
 				err = msgr.host.Connect(ctx, *seedPeer)
 				if err == nil {
 					logger.Infof("Successfully connected to seed peer: %v", seedPeer)
@@ -307,19 +312,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			}
 
 			if err != nil {
-				logger.Errorf("Failed to connect to seed peer %v: %v", seedPeer, err)
+				logger.Errorf("Failed to connect to seed peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
 			}
 		}(i)
 	}
 
 	// kad-dht
-	if len(msgr.seedPeers) > 0 {
-		peerinfo := msgr.seedPeers[0]
-		if err := msgr.host.Connect(ctx, *peerinfo); err != nil {
-			logger.Errorf("Could not start peer discovery via DHT: %v", err)
-		}
-	}
-
 	if msgr.dht != nil {
 		bcfg := kaddht.DefaultBootstrapConfig
 		bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
@@ -344,7 +342,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 // Stop is called when the Messenger stops
 func (msgr *Messenger) Stop() {
+	for _, pid := range msgr.host.Peerstore().Peers() {
+		msgr.host.Network().ClosePeer(pid)
+	}
+		
 	msgr.cancel()
+	logger.Info("Messenger shut down %v", msgr.host.ID())
 }
 
 // Wait suspends the caller goroutine
