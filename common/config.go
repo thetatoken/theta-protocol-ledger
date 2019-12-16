@@ -55,6 +55,10 @@ const (
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 	// CfgP2PSeedPeerOnly decides whether the node will connect to peers other than the seeds.
 	CfgP2PSeedPeerOnly = "p2p.seedPeerOnly"
+	// CfgP2PMinNumPeers specifies the minimal number of peers a node tries to maintain
+	CfgP2PMinNumPeers = "p2p.minNumPeers"
+	// CfgP2PMaxNumPeers specifies the maximal number of peers a node can simultaneously connected to
+	CfgP2PMaxNumPeers = "p2p.maxNumPeers"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -115,6 +119,8 @@ func init() {
 	viper.SetDefault(CfgP2POpt, P2POptBoth)
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
+	viper.SetDefault(CfgP2PMinNumPeers, 32)
+	viper.SetDefault(CfgP2PMaxNumPeers, 64)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
@@ -127,8 +133,7 @@ func init() {
 
 	viper.SetDefault(CfgLibP2PDiscoverable, true)
 
-	// viper.SetDefault(CfgMetricsServer, "localhost")
-	viper.SetDefault(CfgMetricsServer, "34.220.181.170")
+	viper.SetDefault(CfgMetricsServer, "guardian-metrics.thetatoken.org")
 }
 
 // WriteInitialConfig writes initial config file to file system.

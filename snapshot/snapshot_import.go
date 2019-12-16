@@ -80,7 +80,10 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 		kvstore := kvstore.NewKVStore(db)
 		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
-		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		err = kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		if err != nil {
+			return nil, nil, err
+		}
 
 		lastCC = tailBlock
 	}
@@ -128,7 +131,10 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 		kvstore := kvstore.NewKVStore(tmpdb)
 		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
 		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
-		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		err = kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return snapshotBlockHeader, nil
@@ -141,13 +147,68 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	}
 	defer snapshotFile.Close()
 
+	kvstore := kvstore.NewKVStore(db)
+
 	// ------------------------------ Load State ------------------------------ //
+
+	snapshotVersion := uint(1)
+	snapshotHeader := &core.SnapshotHeader{}
+	err = core.ReadRecord(snapshotFile, snapshotHeader)
+	if err != nil || snapshotHeader.Magic != core.SnapshotHeaderMagic { // older version, reset snapshotFile
+		snapshotFile.Seek(0, 0)
+	} else {
+		snapshotVersion = snapshotHeader.Version
+	}
+
+	logger.Infof("Reading snapshot header, version: %v, magic: %v", snapshotVersion, snapshotHeader.Magic)
+
+	lastCheckpoint := core.LastCheckpoint{}
+	if snapshotVersion >= 2 {
+		err = core.ReadRecord(snapshotFile, &lastCheckpoint)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Failed to load snapshot last checkpoint, %v", err)
+		}
+
+		ckb := core.Block{
+			BlockHeader: lastCheckpoint.CheckpointHeader,
+		}
+		eckb := core.ExtendedBlock{
+			Block:  &ckb,
+			Status: core.BlockStatusTrusted, // HCC links between all three blocks
+		}
+		ckbHash := ckb.BlockHeader.Hash()
+
+		existingCkbExt := core.ExtendedBlock{}
+		if kvstore.Get(ckbHash[:], &existingCkbExt) != nil {
+			logger.Infof("Saving the last checkpoint block: %v", ckbHash.Hex())
+			err = kvstore.Put(ckbHash[:], &eckb)
+			if err != nil {
+				logger.Panicf("Failed to save the last checkpoint: %v, err: %v", ckbHash.Hex(), err)
+			}
+		}
+
+		for _, intermediateHeader := range lastCheckpoint.IntermediateHeaders {
+			ibHash := intermediateHeader.Hash()
+			eib := core.ExtendedBlock{
+				Block: &core.Block{BlockHeader: intermediateHeader},
+			}
+			existingEib := core.ExtendedBlock{}
+			if kvstore.Get(ibHash[:], &existingEib) != nil {
+				logger.Debugf("Saving intermediate blocks: %v", ibHash.Hex())
+				err = kvstore.Put(ibHash[:], &eib)
+				if err != nil {
+					logger.Panicf("Failed to save ntermediate block: %v, err: %v", ibHash.Hex(), err)
+				}
+			}
+		}
+	}
 
 	metadata := core.SnapshotMetadata{}
 	err = core.ReadRecord(snapshotFile, &metadata)
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
+
 	sv, _, err := loadState(snapshotFile, db)
 	if err != nil {
 		return nil, nil, err
@@ -161,14 +222,24 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
 
-	kvstore := kvstore.NewKVStore(db)
-
 	for _, blockTrio := range metadata.ProofTrios {
 		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
-		kvstore.Put(blockTrioKey, blockTrio)
+		err = kvstore.Put(blockTrioKey, blockTrio)
+		if err != nil {
+			logger.Panicf("Failed to save ProofTrios: err: %v", err)
+		}
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
+
+	// ----------------------------- More Validity Checks -------------------------- //
+
+	if snapshotVersion >= 2 {
+		if err = checkLastCheckpoint(sv, secondBlockHeader, &lastCheckpoint, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot last checkpoint validation failed: %v", err)
+		}
+	}
+
 	return secondBlockHeader, &metadata, nil
 }
 
@@ -225,13 +296,19 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
 				block.Status = core.BlockStatusTrusted
-				kvstore.Put(blockHash[:], block)
+				err = kvstore.Put(blockHash[:], block)
+				if err != nil {
+					return nil, nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				existingBlock.Txs = block.Txs
 				existingBlock.Status = core.BlockStatusTrusted
-				kvstore.Put(blockHash[:], existingBlock)
+				err = kvstore.Put(blockHash[:], existingBlock)
+				if err != nil {
+					return nil, nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			}
@@ -378,7 +455,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 
 			if provenValSet == nil {
 				if proofTrio.First.Header.Height == core.GenesisBlockHeight {
-					provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
+					provenValSet, err = checkGenesisBlock(proofTrio.Second.Header, db)
 				} else {
 					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
 				}
@@ -424,14 +501,20 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			}
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
-				kvstore.Put(blockHash[:], block)
+				err = kvstore.Put(blockHash[:], block)
+				if err != nil {
+					return nil, err
+				}
 				chain.AddBlockByHeightIndex(block.Height, blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
 					existingBlock.Txs = block.Txs
 					existingBlock.HasValidatorUpdate = true
-					kvstore.Put(blockHash[:], existingBlock)
+					err = kvstore.Put(blockHash[:], existingBlock)
+					if err != nil {
+						return nil, err
+					}
 					chain.AddBlockByHeightIndex(block.Height, blockHash)
 					chain.AddTxsToIndex(block, true)
 				}
@@ -531,6 +614,45 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 	return sv, hash, nil
 }
 
+func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
+	if snapshotBlockHeader == nil {
+		return fmt.Errorf("The snapshot block header is nil")
+	}
+
+	lastCheckpointHeader := lastCheckpoint.CheckpointHeader
+	if lastCheckpointHeader == nil {
+		return fmt.Errorf("The last checkpoint header is nil")
+	}
+
+	// Verify that the snapshot block is a descendent of the last checkpoint
+	store := kvstore.NewKVStore(db)
+	lastCheckpointHash := lastCheckpointHeader.Hash()
+	snapshotBlockHash := snapshotBlockHeader.Hash()
+
+	isDescendent := false
+	hash := snapshotBlockHash
+	for i := int64(0); i < common.CheckpointInterval; i++ {
+		if hash == lastCheckpointHash {
+			isDescendent = true
+			break
+		}
+
+		var block core.ExtendedBlock
+		err := store.Get(hash[:], &block)
+		if err != nil {
+			return fmt.Errorf("Failed to find block when verifying the last checkpoint, block hash: %v", hash.Hex())
+		}
+		hash = block.Parent
+	}
+
+	if !isDescendent {
+		return fmt.Errorf("Snapshot block %v is not a descendant of the last checkpoint %v",
+			snapshotBlockHash.Hex(), lastCheckpointHash.Hex())
+	}
+
+	return nil
+}
+
 func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db database.Database) error {
 	tailTrio := &metadata.TailTrio
 	secondBlock := tailTrio.Second.Header
@@ -568,7 +690,7 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 		third := blockTrio.Third
 		if idx == 0 {
 			// special handling for the genesis block
-			provenValSet, err = checkGenesisBlock(&second.Header, db)
+			provenValSet, err = checkGenesisBlock(second.Header, db)
 			if err != nil {
 				return nil, fmt.Errorf("Invalid genesis block: %v", err)
 			}
@@ -583,7 +705,7 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 			}
 
 			// third.Header.HCC.Votes contains the votes for the second block in the trio
-			if err := validateVotes(provenValSet, &second.Header, third.Header.HCC.Votes); err != nil {
+			if err := validateVotes(provenValSet, second.Header, third.Header.HCC.Votes); err != nil {
 				return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
 			}
 			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
@@ -603,12 +725,12 @@ func checkTailTrio(sv *state.StoreView, provenValSet *core.ValidatorSet, tailTri
 	third := &tailTrio.Third
 
 	if second.Header.Height == core.GenesisBlockHeight {
-		_, err := checkGenesisBlock(&second.Header, sv.GetDB())
+		_, err := checkGenesisBlock(second.Header, sv.GetDB())
 		if err != nil {
 			return err
 		}
 	} else {
-		validateVotes(provenValSet, &third.Header, third.VoteSet)
+		validateVotes(provenValSet, third.Header, third.VoteSet)
 		retrievedValSet := getValidatorSetFromSV(sv)
 		if !provenValSet.Equals(retrievedValSet) {
 			return fmt.Errorf("The latest proven and retrieved validator set does not match")
@@ -689,8 +811,8 @@ func validateVotes(validatorSet *core.ValidatorSet, block *core.BlockHeader, vot
 
 func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstore store.Store) *core.BlockHeader {
 	tailBlockTrio := &metadata.TailTrio
-	firstBlock := core.Block{BlockHeader: &tailBlockTrio.First.Header}
-	secondBlock := core.Block{BlockHeader: &tailBlockTrio.Second.Header}
+	firstBlock := core.Block{BlockHeader: tailBlockTrio.First.Header}
+	secondBlock := core.Block{BlockHeader: tailBlockTrio.Second.Header}
 	hl := sv.GetStakeTransactionHeightList()
 
 	if secondBlock.Height != core.GenesisBlockHeight {
@@ -704,9 +826,10 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 		existingFirstExt := core.ExtendedBlock{}
 		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
-			err := kvstore.Put(firstBlockHash[:], firstExt)
+			logger.Infof("Saving the the first snapshot tail block: %v", firstBlockHash.Hex())
+			err := kvstore.Put(firstBlockHash[:], &firstExt)
 			if err != nil {
-				logger.Panic(err)
+				logger.Panicf("Failed to save the first snapshot tail block: %v, err: %v", firstBlockHash.Hex(), err)
 			}
 		}
 	}
@@ -721,9 +844,10 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 
 	existingSecondExt := core.ExtendedBlock{}
 	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
-		err := kvstore.Put(secondBlockHash[:], secondExt)
+		logger.Infof("Saving the the second snapshot tail block: %v", secondBlockHash.Hex())
+		err := kvstore.Put(secondBlockHash[:], &secondExt)
 		if err != nil {
-			logger.Panic(err)
+			logger.Panicf("Failed to save the second snapshot tail block: %v, err: %v", secondBlockHash.Hex(), err)
 		}
 	}
 

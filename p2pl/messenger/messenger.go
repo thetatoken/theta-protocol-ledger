@@ -56,8 +56,6 @@ const (
 	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
 	defaultPeerDiscoveryPulseInterval = 30 * time.Second
 	discoverInterval                  = 3000 // 3 sec
-	maxNumPeers                       = 64
-	sufficientNumPeers                = 32
 )
 
 type Messenger struct {
@@ -166,7 +164,9 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		return addrs
 	}
 
-	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
+	minNumPeers := viper.GetInt(common.CfgP2PMinNumPeers)
+	maxNumPeers := viper.GetInt(common.CfgP2PMaxNumPeers)
+	cm := connmgr.NewConnManager(minNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(),
