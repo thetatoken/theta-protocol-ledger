@@ -252,9 +252,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 			isOutbound := strings.Compare(msgr.host.ID().String(), pid.String()) > 0
 			peer := peer.CreatePeer(pr, isOutbound)
-			peer.Start(msgr.ctx)
-			msgr.attachHandlersToPeer(peer)
 			msgr.peerTable.AddPeer(peer)
+			msgr.attachHandlersToPeer(peer)
+			peer.Start(msgr.ctx)
 			go peer.OpenStreams()
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
 		case pid := <-msgr.peerDead:
@@ -479,21 +479,33 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
-		peer := msgr.peerTable.GetPeer(peerID)
-		if peer == nil {
-			logger.Errorf("Can't find peer %v to accept stream", peerID)
+		if strings.Compare(msgr.host.ID().String(), peerID.String()) > 0 {
+			logger.Warnf("Received stream from an outbound peer")
 			return
+		}
+
+		remotePeer := msgr.peerTable.GetPeer(peerID)
+		if remotePeer == nil {
+			var addrInfo pr.AddrInfo
+			addrInfo.ID = peerID
+			addrInfo.Addrs = append(addrInfo.Addrs, strm.Conn().RemoteMultiaddr())
+			remotePeer = peer.CreatePeer(addrInfo, true)
+			msgr.peerTable.AddPeer(remotePeer)
+			msgr.attachHandlersToPeer(remotePeer)
+			remotePeer.Start(msgr.ctx)
+
+			logger.Infof("Peer connected (via stream), id: %v, addrs: %v", remotePeer.ID, remotePeer.Addrs)
 		}
 
 		reuseStream := viper.GetBool(common.CfgP2PReuseStream)
 		if reuseStream {
 			errorHandler := func(interface{}) {
-				peer.StopStream(channelID)
+				remotePeer.StopStream(channelID)
 			}
 			stream := transport.NewBufferedStream(strm, errorHandler)
 			stream.Start(msgr.ctx)
 			go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
-			peer.AcceptStream(channelID, stream)
+			remotePeer.AcceptStream(channelID, stream)
 
 		} else {
 			rawPeerMsg, err := ioutil.ReadAll(strm)
