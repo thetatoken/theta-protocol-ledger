@@ -86,6 +86,9 @@ const (
 
 	// CfgProfEnabled to enable profiling
 	CfgProfEnabled = "prof.enabled"
+
+	// CfgForceGCEnabled to enable force GC
+	CfgForceGCEnabled = "gc.enabled"
 )
 
 // Starting block heights of features.
@@ -139,6 +142,8 @@ func init() {
 	viper.SetDefault(CfgMetricsServer, "guardian-metrics.thetatoken.org")
 
 	viper.SetDefault(CfgProfEnabled, false)
+
+	viper.SetDefault(CfgForceGCEnabled, true)
 }
 
 // WriteInitialConfig writes initial config file to file system.

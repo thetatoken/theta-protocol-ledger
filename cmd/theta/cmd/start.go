@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -119,6 +120,10 @@ func runStart(cmd *cobra.Command, args []string) {
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
+	}
+
+	if viper.GetBool(common.CfgForceGCEnabled) {
+		go memoryCleanupRoutine()
 	}
 
 	go func() {
@@ -294,4 +299,26 @@ func printExitBanner() {
 	fmt.Println(" #################################################### ")
 	fmt.Println("")
 	fmt.Println("")
+}
+
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+// memoryCleanupRoutine peridically forces memory garbage collection.
+func memoryCleanupRoutine() {
+	var m runtime.MemStats
+	t := time.NewTicker(30 * time.Second)
+	for {
+		<-t.C
+
+		runtime.ReadMemStats(&m)
+		log.Debugf("Memory usage: Alloc = %v MiB\tTotalAlloc = %v MiB\tSys = %v MiB\tNumGC = %v"+
+			"\tStackInuse = %v\tStackSys=%v\tHeapInuse:%v\tHeapSys:%v\n",
+			bToMb(m.Alloc), bToMb(m.TotalAlloc), bToMb(m.Sys), m.NumGC, bToMb(m.StackInuse),
+			bToMb(m.StackSys), bToMb(m.HeapInuse), bToMb(m.HeapSys))
+
+		runtime.GC()
+	}
+
 }
