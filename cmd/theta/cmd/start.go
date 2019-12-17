@@ -314,7 +314,7 @@ func memoryCleanupRoutine() {
 
 		runtime.ReadMemStats(&m)
 		log.Debugf("Memory usage: Alloc = %v MiB\tTotalAlloc = %v MiB\tSys = %v MiB\tNumGC = %v"+
-			"\tStackInuse = %v\tStackSys=%v\tHeapInuse:%v\tHeapSys:%v\n",
+			"\tStackInuse = %v MiB\tStackSys = %v MiB\tHeapInuse = %v MiB\tHeapSys = %v MiB\n",
 			bToMb(m.Alloc), bToMb(m.TotalAlloc), bToMb(m.Sys), m.NumGC, bToMb(m.StackInuse),
 			bToMb(m.StackSys), bToMb(m.HeapInuse), bToMb(m.HeapSys))
 
