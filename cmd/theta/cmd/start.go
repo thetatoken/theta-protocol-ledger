@@ -3,6 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
@@ -112,6 +114,12 @@ func runStart(cmd *cobra.Command, args []string) {
 	}()
 
 	n.Start(ctx)
+
+	if viper.GetBool(common.CfgProfEnabled) {
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
 
 	go func() {
 		n.Wait()

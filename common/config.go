@@ -83,6 +83,9 @@ const (
 
 	// Graphite Server to collet metrics
 	CfgMetricsServer = "metrics.server"
+
+	// CfgProfEnabled to enable profiling
+	CfgProfEnabled = "prof.enabled"
 )
 
 // Starting block heights of features.
@@ -134,6 +137,8 @@ func init() {
 	viper.SetDefault(CfgLibP2PDiscoverable, true)
 
 	viper.SetDefault(CfgMetricsServer, "guardian-metrics.thetatoken.org")
+
+	viper.SetDefault(CfgProfEnabled, false)
 }
 
 // WriteInitialConfig writes initial config file to file system.
