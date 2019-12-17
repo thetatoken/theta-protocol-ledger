@@ -342,6 +342,7 @@ type GetStatusArgs struct{}
 
 type GetStatusResult struct {
 	Address                    string            `json:"address"`
+	ChainID                    string            `json:"chain_id"`
 	PeerID                     string            `json:"peer_id"`
 	LatestFinalizedBlockHash   common.Hash       `json:"latest_finalized_block_hash"`
 	LatestFinalizedBlockHeight common.JSONUint64 `json:"latest_finalized_block_height"`
@@ -356,6 +357,7 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	s := t.consensus.GetSummary()
 	result.Address = t.consensus.ID()
 	result.PeerID = t.dispatcher.ID()
+	result.ChainID = t.consensus.Chain().ChainID
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
 		result.LatestFinalizedBlockHash = latestFinalizedHash

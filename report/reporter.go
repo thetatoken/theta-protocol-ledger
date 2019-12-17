@@ -11,7 +11,6 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
-	statsd "github.com/smira/go-statsd"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
@@ -19,20 +18,17 @@ import (
 	dp "github.com/thetatoken/theta/dispatcher"
 )
 
-var client *statsd.Client
-var logger *log.Entry = log.WithFields(log.Fields{"prefix": "statsd"})
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "reporter"})
 var reportPeersPort string = ":9000"
-var reportStatsdPort string = ":8125"
 var setPeersSuffix string = "/peers/set"
+var peerUrl string
+var rpcJSON = []byte(`{"jsonrpc": "2.0", "method": "theta.GetStatus", "params": [{}], "id": 0}`)
 
-const step int64 = 60
 const sleepTime time.Duration = time.Second * 60
-const flushDuration time.Duration = time.Second * 60
+const rpcUrl = "http://localhost:16888/rpc"
 
 type Reporter struct {
-	client *statsd.Client
-	inSync bool
-	mu     *sync.Mutex
+	init   bool
 	id     string
 	ipAddr string
 
@@ -49,22 +45,19 @@ type Reporter struct {
 
 // NewReporter instantiates a reporter instance
 func NewReporter(disp *dp.Dispatcher) *Reporter {
+	peerUrl = "http://" + viper.GetString(common.CfgMetricsServer) + reportPeersPort + setPeersSuffix
 	ipAddr, err := util.GetPublicIP()
 	if err != nil {
 		logger.Errorf("Reporter failed to retrieve the node's IP address: %v", err)
 	}
-
-	var client *statsd.Client
-	if mserver := viper.GetString(common.CfgMetricsServer) + reportStatsdPort; mserver != "" {
-		client = statsd.NewClient(mserver, statsd.MetricPrefix("theta."), statsd.FlushInterval(flushDuration))
-	} else {
+	var ok bool = true
+	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
 		logger.Infof("metrics server is not in config file")
+		ok = false
 	}
 
 	rp := &Reporter{
-		client: client,
-		inSync: false,
-		mu:     &sync.Mutex{},
+		init:   ok,
 		id:     disp.ID(),
 		ipAddr: ipAddr,
 		disp:   disp,
@@ -78,12 +71,10 @@ func NewReporter(disp *dp.Dispatcher) *Reporter {
 
 // Start is called when the reporter starts
 func (rp *Reporter) Start(ctx context.Context) error {
-	if rp.client == nil {
-		return fmt.Errorf("Failed to start the stats reporter, rp.client == nil")
+	if !rp.init {
+
 	}
-
 	go rp.reportOnlineAndSync()
-
 	return nil
 }
 
@@ -99,24 +90,42 @@ func (rp *Reporter) Wait() {
 
 //report online & sync
 func (rp *Reporter) reportOnlineAndSync() {
-	// var peerIDs *[]pr.ID
 	for {
 		select {
 		case <-rp.ticker.C:
-			rp.client.Incr("guardian.online", step)
-			rp.mu.Lock()
-			if rp.inSync {
-				rp.client.Incr("guardian.inSync", step)
-			}
-			rp.mu.Unlock()
 			rp.handlePeers()
 		}
 	}
 }
 
+func (rp *Reporter) statusToString() string {
+	req, err := http.NewRequest("POST", rpcUrl, bytes.NewBuffer(rpcJSON))
+	if err != nil {
+		logger.Errorf("Reporter failed to send getting node status request: %v", err)
+		return ""
+	}
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logger.Errorf("Reporter failed to get node status: %v", err)
+		return ""
+	}
+	defer resp.Body.Close()
+	log.Debug("response Status:", resp.Status)
+	log.Debug("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	bodyStr := string(body)
+	log.Debug("response Body:", bodyStr)
+	start := strings.Index(bodyStr[1:], "{")
+	result := bodyStr[start+2 : len(bodyStr)-3]
+	return result
+}
+
 func (rp *Reporter) handlePeers() {
 	url := "http://" + viper.GetString(common.CfgMetricsServer) + reportPeersPort + setPeersSuffix
-	jsonStr := fmt.Sprintf("{\"id\":\"%s\", \"ip\": \"%s\", \"peers\" : [%s]}", rp.id, rp.ipAddr, rp.peersToString())
+	jsonStr := fmt.Sprintf("{\"id\":\"%s\", \"ip\": \"%s\", \"peers\" : [%s], %s}",
+		rp.id, rp.ipAddr, rp.peersToString(), rp.statusToString())
 	data := []byte(jsonStr)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	if err != nil {
@@ -135,12 +144,6 @@ func (rp *Reporter) handlePeers() {
 	log.Debug("response Headers:", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
 	log.Debug("response Body:", string(body))
-}
-
-func (rp *Reporter) SetInSync(inSync bool) {
-	rp.mu.Lock()
-	rp.inSync = inSync
-	rp.mu.Unlock()
 }
 
 func (rp *Reporter) peersToString() string {

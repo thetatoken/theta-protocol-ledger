@@ -266,7 +266,6 @@ func (rm *RequestManager) tryToDownload() {
 	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
-	rm.reporter.SetInSync(!hasUndownloadedBlocks)
 
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
