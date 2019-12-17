@@ -97,9 +97,9 @@ func (sb *SendBuffer) Stop() {
 	if sb.stopped {
 		return
 	}
+	sb.stopped = true
 	sb.workspace = nil
 	sb.cancel()
-	sb.stopped = true
 	close(sb.queue)
 }
 

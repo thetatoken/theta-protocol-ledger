@@ -345,7 +345,7 @@ func (msgr *Messenger) Stop() {
 	for _, pid := range msgr.host.Peerstore().Peers() {
 		msgr.host.Network().ClosePeer(pid)
 	}
-		
+
 	msgr.cancel()
 	logger.Info("Messenger shut down %v", msgr.host.ID())
 }
@@ -544,7 +544,8 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 
 		msgSize, err := stream.Read(msgBuffer)
 		if err != nil {
-			continue
+			logger.Errorf("Failed to read stream: %v", err)
+			return
 		}
 
 		if msgSize > bufferSize {

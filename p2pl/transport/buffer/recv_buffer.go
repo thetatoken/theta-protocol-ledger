@@ -107,6 +107,7 @@ func (rb *RecvBuffer) Stop() {
 	if rb.stopped {
 		return
 	}
+	rb.stopped = true
 	rb.workspace = nil
 	rb.cancel()
 	close(rb.queue)
