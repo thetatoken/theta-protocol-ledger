@@ -46,6 +46,9 @@ func encodeMessage(message interface{}) (common.Bytes, error) {
 }
 
 func decodeMessage(raw common.Bytes) (interface{}, error) {
+	if len(raw) <= 1 {
+		return nil, fmt.Errorf("Invalid message size")
+	}
 	var msgID common.MessageIDEnum
 	err := rlp.DecodeBytes(raw[:1], &msgID)
 	if err != nil {
