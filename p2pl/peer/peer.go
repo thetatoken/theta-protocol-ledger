@@ -5,14 +5,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/spf13/viper"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	cmn "github.com/thetatoken/theta/common"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/p2pl/transport"
 
-	"github.com/thetatoken/theta/rlp"
 	"github.com/libp2p/go-libp2p-core/network"
+	"github.com/thetatoken/theta/rlp"
 
 	pr "github.com/libp2p/go-libp2p-core/peer"
 	ma "github.com/multiformats/go-multiaddr"
@@ -42,12 +42,12 @@ type Peer struct {
 	streamMap  map[cmn.ChannelIDEnum](*transport.BufferedStream) // channelID -> stream
 	mutex      *sync.Mutex
 
-	onStream     StreamCreator
-	onRawStream  RawStreamCreator
-	onParse      MessageParser
-	onEncode     MessageEncoder
-	onReceive    ReceiveHandler
-	onError      ErrorHandler
+	onStream    StreamCreator
+	onRawStream RawStreamCreator
+	onParse     MessageParser
+	onEncode    MessageEncoder
+	onReceive   ReceiveHandler
+	onError     ErrorHandler
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -83,6 +83,11 @@ func (peer *Peer) OpenStreams() error {
 				logger.Debugf("Failed to create stream with peer %v %v for channel %v, %v", peer.id, peer.addrs, channel, err)
 				continue
 			}
+
+			if s, ok := peer.streamMap[channel]; ok {
+				s.Stop()
+			}
+
 			peer.streamMap[channel] = stream
 		}
 	}
@@ -93,6 +98,9 @@ func (peer *Peer) AcceptStream(channel cmn.ChannelIDEnum, stream *transport.Buff
 	if !peer.isOutbound {
 		peer.mutex.Lock()
 		defer peer.mutex.Unlock()
+		if s, ok := peer.streamMap[channel]; ok {
+			s.Stop()
+		}
 		peer.streamMap[channel] = stream
 	}
 }

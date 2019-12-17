@@ -71,6 +71,7 @@ func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser, onErr
 		config:      config,
 		wg:          &sync.WaitGroup{},
 		onError:     onError,
+		stopped:     true,
 	}
 }
 
@@ -88,6 +89,7 @@ func (rb *RecvBuffer) Start(ctx context.Context) bool {
 	ctx, cancel := context.WithCancel(ctx)
 	rb.ctx = ctx
 	rb.cancel = cancel
+	rb.stopped = false
 
 	rb.wg.Add(1)
 	go rb.recvRoutine()
@@ -102,15 +104,25 @@ func (rb *RecvBuffer) Wait() {
 
 // Stop is called when the RecvBuffer stops
 func (rb *RecvBuffer) Stop() {
+	if rb.stopped {
+		return
+	}
 	rb.workspace = nil
 	rb.cancel()
+	close(rb.queue)
 }
 
 // Read blocks until a message can be retrived from the queue
-func (rb *RecvBuffer) Read() []byte {
-	msg := <-rb.queue
+func (rb *RecvBuffer) Read() ([]byte, error) {
+	if rb.stopped {
+		return nil, fmt.Errorf("RecvBuffer is already stopped")
+	}
+	msg, ok := <-rb.queue
+	if !ok {
+		return nil, fmt.Errorf("queue closed")
+	}
 	atomic.AddInt32(&rb.queueSize, -1)
-	return msg
+	return msg, nil
 }
 
 // GetSize returns the size of the SendBuffer. It is goroutine safe

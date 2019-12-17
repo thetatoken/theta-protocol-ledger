@@ -74,10 +74,13 @@ func (s *BufferedStream) HasStarted() bool {
 
 // TODO: Read implements the io.Reader
 func (s *BufferedStream) Read(msg []byte) (int, error) {
-	msgRead := s.recvBuf.Read()
+	var err error
+	msgRead, err := s.recvBuf.Read()
+	if err != nil {
+		return 0, err
+	}
 	toCopy := len(msgRead)
 
-	var err error
 	n := copy(msg, msgRead)
 	if n < toCopy {
 		err = io.ErrShortBuffer

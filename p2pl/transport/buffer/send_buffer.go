@@ -61,6 +61,7 @@ func NewSendBuffer(config SendBufferConfig, rawStream cmn.ReadWriteCloser, onErr
 		config:      config,
 		wg:          &sync.WaitGroup{},
 		onError:     onError,
+		stopped:     true,
 	}
 }
 
@@ -78,6 +79,7 @@ func (sb *SendBuffer) Start(ctx context.Context) bool {
 	ctx, cancel := context.WithCancel(ctx)
 	sb.ctx = ctx
 	sb.cancel = cancel
+	sb.stopped = false
 
 	sb.wg.Add(1)
 	go sb.sendRoutine()
@@ -92,8 +94,13 @@ func (sb *SendBuffer) Wait() {
 
 // Stop is called when the SendBuffer stops
 func (sb *SendBuffer) Stop() {
+	if sb.stopped {
+		return
+	}
 	sb.workspace = nil
 	sb.cancel()
+	sb.stopped = true
+	close(sb.queue)
 }
 
 // GetSize returns the size of the SendBuffer. It is goroutine safe
@@ -115,6 +122,9 @@ func (sb *SendBuffer) CanInsert() bool {
 // Write insert the bytes to queue, and times out after
 // the configured timeout. It is goroutine safe
 func (sb *SendBuffer) Write(bytes []byte) bool {
+	if sb.stopped {
+		return false
+	}
 	select {
 	case sb.queue <- bytes:
 		atomic.AddInt32(&sb.queueSize, 1)
@@ -132,28 +142,29 @@ func (sb *SendBuffer) sendRoutine() {
 		select {
 		case <-sb.ctx.Done():
 			return
-		default:
-		}
-
-		sb.workspace = <-sb.queue
-
-		for {
-			// Block until sendMonitor allows sending
-			sb.sendMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&sb.config.SendRate), true)
-			totalBytesSent, success, exhausted := sb.sendChunkBatch()
-			sb.sendMonitor.Update(totalBytesSent)
-
-			if exhausted {
-				break
+		case msg, ok := <-sb.queue:
+			if !ok {
+				return
 			}
-			if !success {
-				sb.errorCount++
-				if sb.errorCount >= MaxErrorInARow {
-					return
+			sb.workspace = msg
+			for {
+				// Block until sendMonitor allows sending
+				sb.sendMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&sb.config.SendRate), true)
+				totalBytesSent, success, exhausted := sb.sendChunkBatch()
+				sb.sendMonitor.Update(totalBytesSent)
+
+				if exhausted {
+					break
 				}
-				break
-			} else {
-				sb.errorCount = 0
+				if !success {
+					sb.errorCount++
+					if sb.errorCount >= MaxErrorInARow {
+						return
+					}
+					break
+				} else {
+					sb.errorCount = 0
+				}
 			}
 		}
 
