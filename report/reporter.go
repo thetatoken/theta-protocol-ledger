@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"net/http"
 	"strings"
 	"sync"
@@ -13,8 +14,11 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
+	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/core"
 	dp "github.com/thetatoken/theta/dispatcher"
 )
 
@@ -25,15 +29,16 @@ var peerUrl string
 var rpcJSON = []byte(`{"jsonrpc": "2.0", "method": "theta.GetStatus", "params": [{}], "id": 0}`)
 
 const sleepTime time.Duration = time.Second * 60
-const rpcUrl = "http://localhost:16888/rpc"
 
 type Reporter struct {
 	init   bool
 	id     string
 	ipAddr string
 
-	disp   *dp.Dispatcher
-	ticker *time.Ticker
+	consensus *consensus.ConsensusEngine
+	disp      *dp.Dispatcher
+	chain     *blockchain.Chain
+	ticker    *time.Ticker
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -44,7 +49,7 @@ type Reporter struct {
 }
 
 // NewReporter instantiates a reporter instance
-func NewReporter(disp *dp.Dispatcher) *Reporter {
+func NewReporter(disp *dp.Dispatcher, consensus *consensus.ConsensusEngine, chain *blockchain.Chain) *Reporter {
 	peerUrl = "http://" + viper.GetString(common.CfgMetricsServer) + reportPeersPort + setPeersSuffix
 	ipAddr, err := util.GetPublicIP()
 	if err != nil {
@@ -57,11 +62,13 @@ func NewReporter(disp *dp.Dispatcher) *Reporter {
 	}
 
 	rp := &Reporter{
-		init:   ok,
-		id:     disp.ID(),
-		ipAddr: ipAddr,
-		disp:   disp,
-		ticker: time.NewTicker(sleepTime),
+		init:      ok,
+		id:        disp.ID(),
+		ipAddr:    ipAddr,
+		consensus: consensus,
+		disp:      disp,
+		chain:     chain,
+		ticker:    time.NewTicker(sleepTime),
 	}
 
 	logger.Infof("node ID is %s, IP Address is %s", rp.id, rp.ipAddr)
@@ -99,26 +106,16 @@ func (rp *Reporter) reportOnlineAndSync() {
 }
 
 func (rp *Reporter) statusToString() string {
-	req, err := http.NewRequest("POST", rpcUrl, bytes.NewBuffer(rpcJSON))
-	if err != nil {
-		logger.Errorf("Reporter failed to send getting node status request: %v", err)
-		return ""
+	s := rp.consensus.GetSummary()
+	latestFinalizedHash := s.LastFinalizedBlock
+	addition := ""
+	if !latestFinalizedHash.IsEmpty() {
+		block, err := rp.chain.FindBlock(latestFinalizedHash)
+		if err == nil {
+			addition = fmt.Sprintf(`,"LatestFinalizedBlockHeight":%d,"syncing":"%v"`, common.JSONUint64(block.Height), isSyncing(block))
+		}
 	}
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		logger.Errorf("Reporter failed to get node status: %v", err)
-		return ""
-	}
-	defer resp.Body.Close()
-	log.Debug("response Status:", resp.Status)
-	log.Debug("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	bodyStr := string(body)
-	log.Debug("response Body:", bodyStr)
-	start := strings.Index(bodyStr[1:], "{")
-	result := bodyStr[start+2 : len(bodyStr)-3]
+	result := fmt.Sprintf(`"address":"%s", "chain_id":"%s"%s`, rp.consensus.ID(), rp.chain.ChainID, addition)
 	return result
 }
 
@@ -160,4 +157,12 @@ func (rp *Reporter) peersToString() string {
 	}
 	log.Debug("peers is : %v, stringbuilder is : %s \n", p, sb.String())
 	return sb.String()
+}
+
+func isSyncing(block *core.ExtendedBlock) bool {
+	currentTime := big.NewInt(time.Now().Unix())
+	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
+	threshold := new(big.Int).Sub(currentTime, maxDiff)
+	isSyncing := block.Timestamp.Cmp(threshold) < 0
+	return isSyncing
 }

@@ -64,7 +64,7 @@ func NewNode(params *Params) *Node {
 	validatorManager := consensus.NewRotatingValidatorManager()
 	dispatcher := dp.NewDispatcher(params.NetworkOld, params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
-	reporter := rp.NewReporter(dispatcher)
+	reporter := rp.NewReporter(dispatcher, consensus, chain)
 
 	// TODO: check if this is a guardian node
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, reporter)
