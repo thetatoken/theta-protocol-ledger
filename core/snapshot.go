@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
+const SnapshotHeaderMagic = "ThetaToDaMoon"
 const BlockTrioStoreKeyPrefix = "prooftrio_"
 const (
 	SVStart = iota
@@ -25,16 +26,16 @@ type SnapshotTrieRecord struct {
 }
 
 type SnapshotFirstBlock struct {
-	Header BlockHeader
+	Header *BlockHeader
 	Proof  VCPProof
 }
 
 type SnapshotSecondBlock struct {
-	Header BlockHeader
+	Header *BlockHeader
 }
 
 type SnapshotThirdBlock struct {
-	Header  BlockHeader
+	Header  *BlockHeader
 	VoteSet *VoteSet
 }
 
@@ -44,51 +45,78 @@ type SnapshotBlockTrio struct {
 	Third  SnapshotThirdBlock
 }
 
+type SnapshotHeader struct {
+	Magic   string
+	Version uint
+}
+
 type SnapshotMetadata struct {
 	ProofTrios []SnapshotBlockTrio
 	TailTrio   SnapshotBlockTrio
 }
 
+type LastCheckpoint struct {
+	CheckpointHeader    *BlockHeader
+	IntermediateHeaders []*BlockHeader
+}
+
+func WriteSnapshotHeader(writer *bufio.Writer, snapshotHeader *SnapshotHeader) error {
+	raw, err := rlp.EncodeToBytes(*snapshotHeader)
+	if err != nil {
+		logger.Errorf("Failed to encode snapshot header: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
+	return err
+}
+
+func WriteLastCheckpoint(writer *bufio.Writer, lastCheckpoint *LastCheckpoint) error {
+	raw, err := rlp.EncodeToBytes(*lastCheckpoint)
+	if err != nil {
+		logger.Errorf("Failed to encode last checkpoint: %v", err)
+		return err
+	}
+	err = writeBytes(writer, raw)
+	return err
+}
+
 func WriteMetadata(writer *bufio.Writer, metadata *SnapshotMetadata) error {
-	raw, err := rlp.EncodeToBytes(metadata)
+	raw, err := rlp.EncodeToBytes(*metadata)
 	if err != nil {
-		logger.Error("Failed to encode snapshot metadata")
+		logger.Errorf("Failed to encode metadata: %v", err)
 		return err
 	}
-	// write length first
-	_, err = writer.Write(Itobytes(uint64(len(raw))))
-	if err != nil {
-		logger.Error("Failed to write snapshot metadata length")
-		return err
-	}
-	// write metadata itself
-	_, err = writer.Write(raw)
-	if err != nil {
-		logger.Error("Failed to write snapshot metadata")
-		return err
-	}
-	return nil
+	err = writeBytes(writer, raw)
+	return err
 }
 
 func WriteRecord(writer *bufio.Writer, k, v common.Bytes) error {
 	record := SnapshotTrieRecord{K: k, V: v}
 	raw, err := rlp.EncodeToBytes(record)
 	if err != nil {
-		return fmt.Errorf("Failed to encode storage record, %v", err)
+		logger.Errorf("Failed to encode record: %v", err)
+		return err
 	}
+	err = writeBytes(writer, raw)
+	return err
+}
+
+func writeBytes(writer *bufio.Writer, raw []byte) error {
 	// write length first
-	_, err = writer.Write(Itobytes(uint64(len(raw))))
+	_, err := writer.Write(Itobytes(uint64(len(raw))))
 	if err != nil {
-		return fmt.Errorf("Failed to write storage record length, %v", err)
+		logger.Errorf("Failed to write snapshot object length: %v", err)
+		return err
 	}
-	// write record itself
+	// write the object itself
 	_, err = writer.Write(raw)
 	if err != nil {
-		return fmt.Errorf("Failed to write storage record, %v", err)
+		logger.Errorf("Failed to write snapshot object: %v", err)
+		return err
 	}
 	err = writer.Flush()
 	if err != nil {
-		return fmt.Errorf("Failed to flush storage record, %v", err)
+		return fmt.Errorf("Failed to flush snapshot object, %v", err)
 	}
 	return nil
 }
@@ -112,7 +140,7 @@ func ReadRecord(file *os.File, obj interface{}) error {
 		return fmt.Errorf("Failed to read record, %v < %v", n, size)
 	}
 	err = rlp.DecodeBytes(bytes, obj)
-	return nil
+	return err
 }
 
 func Bytestoi(arr []byte) uint64 {

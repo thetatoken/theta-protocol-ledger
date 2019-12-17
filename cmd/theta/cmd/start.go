@@ -105,6 +105,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		<-c
 		signal.Stop(c)
 		cancel()
+		network.Stop()
 		// Wait at most 5 seconds before forcefully shutting down.
 		<-time.After(time.Duration(5) * time.Second)
 		close(done)

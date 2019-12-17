@@ -60,7 +60,7 @@ func main() {
 		panic(fmt.Sprintf("Failed to write genesis snapshot: %v", err))
 	}
 
-	genesisBlockHeader := &metadata.TailTrio.Second.Header
+	genesisBlockHeader := metadata.TailTrio.Second.Header
 	genesisBlockHash := genesisBlockHeader.Hash()
 
 	fmt.Println("")
@@ -105,7 +105,7 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 
 	metadata.TailTrio = core.SnapshotBlockTrio{
 		First:  core.SnapshotFirstBlock{},
-		Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+		Second: core.SnapshotSecondBlock{Header: genesisBlock.BlockHeader},
 		Third:  core.SnapshotThirdBlock{},
 	}
 

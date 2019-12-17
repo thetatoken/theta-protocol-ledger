@@ -21,8 +21,6 @@ import (
 )
 
 func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, snapshotDir string, height uint64) (string, error) {
-	metadata := &core.SnapshotMetadata{}
-
 	var lastFinalizedBlock *core.ExtendedBlock
 	if height != 0 {
 		blocks := chain.FindBlocksByHeight(height)
@@ -44,9 +42,59 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 			return "", err
 		}
 	}
-
 	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
 
+	currentTime := time.Now().UTC()
+	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
+	snapshotPath := path.Join(snapshotDir, filename)
+	file, err := os.Create(snapshotPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+
+	// --------------- Export the Header Section --------------- //
+
+	snapshotHeader := &core.SnapshotHeader{
+		Magic:   core.SnapshotHeaderMagic,
+		Version: 2,
+	}
+	err = core.WriteSnapshotHeader(writer, snapshotHeader)
+	if err != nil {
+		return "", err
+	}
+
+	// ------------ Export the Last Checkpoint Section ------------- //
+
+	lastFinalizedBlockHeight := lastFinalizedBlock.Height
+	lastCheckpointHeight := common.LastCheckPointHeight(lastFinalizedBlockHeight)
+	lastCheckpoint := &core.LastCheckpoint{}
+
+	currHeight := lastFinalizedBlockHeight
+	currBlock := lastFinalizedBlock
+	for currHeight > lastCheckpointHeight {
+		parentHash := currBlock.Parent
+		currBlock, err = chain.FindBlock(parentHash)
+		if err != nil {
+			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
+			return "", err
+		}
+		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
+		currHeight = currBlock.Height
+	}
+
+	lastCheckpointBlock := currBlock
+	lastCheckpoint.CheckpointHeader = lastCheckpointBlock.BlockHeader
+
+	err = core.WriteLastCheckpoint(writer, lastCheckpoint)
+	if err != nil {
+		return "", err
+	}
+
+	// -------------- Export the Metadata Section -------------- //
+
+	metadata := &core.SnapshotMetadata{}
 	var genesisBlockHeader *core.BlockHeader
 	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
@@ -58,7 +106,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		if err == nil {
 			metadata.ProofTrios = append(metadata.ProofTrios, *blockTrio)
 			if height == core.GenesisBlockHeight {
-				genesisBlockHeader = &blockTrio.Second.Header
+				genesisBlockHeader = blockTrio.Second.Header
 			}
 			continue
 		}
@@ -70,7 +118,7 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 			metadata.ProofTrios = append(metadata.ProofTrios,
 				core.SnapshotBlockTrio{
 					First:  core.SnapshotFirstBlock{},
-					Second: core.SnapshotSecondBlock{Header: *genesisBlock.BlockHeader},
+					Second: core.SnapshotSecondBlock{Header: genesisBlock.BlockHeader},
 					Third:  core.SnapshotThirdBlock{},
 				})
 		} else {
@@ -120,9 +168,9 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 					}
 					metadata.ProofTrios = append(metadata.ProofTrios,
 						core.SnapshotBlockTrio{
-							First:  core.SnapshotFirstBlock{Header: *block.BlockHeader, Proof: *vcpProof},
-							Second: core.SnapshotSecondBlock{Header: child},
-							Third:  core.SnapshotThirdBlock{Header: grandChild},
+							First:  core.SnapshotFirstBlock{Header: block.BlockHeader, Proof: *vcpProof},
+							Second: core.SnapshotSecondBlock{Header: &child},
+							Third:  core.SnapshotThirdBlock{Header: &grandChild},
 						})
 					foundDirectlyFinalizedBlock = true
 					break
@@ -158,27 +206,29 @@ func ExportSnapshot(db database.Database, consensus *cns.ConsensusEngine, chain 
 		return "", fmt.Errorf("Failed to get VCP Proof")
 	}
 	metadata.TailTrio = core.SnapshotBlockTrio{
-		First:  core.SnapshotFirstBlock{Header: *parentBlock.BlockHeader, Proof: *vcpProof},
-		Second: core.SnapshotSecondBlock{Header: *lastFinalizedBlock.BlockHeader},
-		Third:  core.SnapshotThirdBlock{Header: *childBlock.BlockHeader, VoteSet: childVoteSet},
+		First:  core.SnapshotFirstBlock{Header: parentBlock.BlockHeader, Proof: *vcpProof},
+		Second: core.SnapshotSecondBlock{Header: lastFinalizedBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{Header: childBlock.BlockHeader, VoteSet: childVoteSet},
 	}
 
-	currentTime := time.Now().UTC()
-	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
-	snapshotPath := path.Join(snapshotDir, filename)
-	file, err := os.Create(snapshotPath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close()
-	writer := bufio.NewWriter(file)
 	err = core.WriteMetadata(writer, metadata)
 	if err != nil {
 		return "", err
 	}
 
+	// -------------- Export the StoreView Section -------------- //
+
+	// Genesis storeview
 	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
 	writeStoreView(genesisSV, false, writer, db)
+
+	// Last checkpoint storeview
+	if lastFinalizedBlock.Height != lastCheckpointHeight {
+		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
+		writeStoreView(lastCheckpointSV, true, writer, db)
+	}
+
+	// Parent block storeview
 	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
 	writeStoreView(parentSV, true, writer, db)
 	writeStoreView(sv, true, writer, db)

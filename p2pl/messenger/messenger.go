@@ -56,8 +56,6 @@ const (
 	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
 	defaultPeerDiscoveryPulseInterval = 30 * time.Second
 	discoverInterval                  = 3000 // 3 sec
-	maxNumPeers                       = 64
-	sufficientNumPeers                = 32
 )
 
 type Messenger struct {
@@ -166,7 +164,9 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		return addrs
 	}
 
-	cm := connmgr.NewConnManager(sufficientNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
+	minNumPeers := viper.GetInt(common.CfgP2PMinNumPeers)
+	maxNumPeers := viper.GetInt(common.CfgP2PMaxNumPeers)
+	cm := connmgr.NewConnManager(minNumPeers, maxNumPeers, defaultPeerDiscoveryPulseInterval)
 	host, err := libp2p.New(
 		ctx,
 		libp2p.EnableRelay(),
@@ -252,9 +252,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 			isOutbound := strings.Compare(msgr.host.ID().String(), pid.String()) > 0
 			peer := peer.CreatePeer(pr, isOutbound)
-			peer.Start(msgr.ctx)
-			msgr.attachHandlersToPeer(peer)
 			msgr.peerTable.AddPeer(peer)
+			msgr.attachHandlersToPeer(peer)
+			peer.Start(msgr.ctx)
 			go peer.OpenStreams()
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
 		case pid := <-msgr.peerDead:
@@ -271,6 +271,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
+			msgr.host.Network().ClosePeer(peer.ID())
 			msgr.peerTable.DeletePeer(pid)
 			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
 		case <-ctx.Done():
@@ -298,6 +299,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			seedPeer := msgr.seedPeers[j]
 			var err error
 			for i := 0; i < 3; i++ { // try up to 3 times
+				if msgr.host.Network().Connectedness(seedPeer.ID) == network.Connected {
+					break
+				}
+
 				err = msgr.host.Connect(ctx, *seedPeer)
 				if err == nil {
 					logger.Infof("Successfully connected to seed peer: %v", seedPeer)
@@ -307,19 +312,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			}
 
 			if err != nil {
-				logger.Errorf("Failed to connect to seed peer %v: %v", seedPeer, err)
+				logger.Errorf("Failed to connect to seed peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
 			}
 		}(i)
 	}
 
 	// kad-dht
-	if len(msgr.seedPeers) > 0 {
-		peerinfo := msgr.seedPeers[0]
-		if err := msgr.host.Connect(ctx, *peerinfo); err != nil {
-			logger.Errorf("Could not start peer discovery via DHT: %v", err)
-		}
-	}
-
 	if msgr.dht != nil {
 		bcfg := kaddht.DefaultBootstrapConfig
 		bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
@@ -344,7 +342,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 // Stop is called when the Messenger stops
 func (msgr *Messenger) Stop() {
+	for _, pid := range msgr.host.Peerstore().Peers() {
+		msgr.host.Network().ClosePeer(pid)
+	}
+		
 	msgr.cancel()
+	logger.Info("Messenger shut down %v", msgr.host.ID())
 }
 
 // Wait suspends the caller goroutine
@@ -476,21 +479,33 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
-		peer := msgr.peerTable.GetPeer(peerID)
-		if peer == nil {
-			logger.Errorf("Can't find peer %v to accept stream", peerID)
+		if strings.Compare(msgr.host.ID().String(), peerID.String()) > 0 {
+			logger.Warnf("Received stream from an outbound peer")
 			return
+		}
+
+		remotePeer := msgr.peerTable.GetPeer(peerID)
+		if remotePeer == nil {
+			var addrInfo pr.AddrInfo
+			addrInfo.ID = peerID
+			addrInfo.Addrs = append(addrInfo.Addrs, strm.Conn().RemoteMultiaddr())
+			remotePeer = peer.CreatePeer(addrInfo, true)
+			msgr.peerTable.AddPeer(remotePeer)
+			msgr.attachHandlersToPeer(remotePeer)
+			remotePeer.Start(msgr.ctx)
+
+			logger.Infof("Peer connected (via stream), id: %v, addrs: %v", remotePeer.ID, remotePeer.Addrs)
 		}
 
 		reuseStream := viper.GetBool(common.CfgP2PReuseStream)
 		if reuseStream {
 			errorHandler := func(interface{}) {
-				peer.StopStream(channelID)
+				remotePeer.StopStream(channelID)
 			}
 			stream := transport.NewBufferedStream(strm, errorHandler)
 			stream.Start(msgr.ctx)
 			go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
-			peer.AcceptStream(channelID, stream)
+			remotePeer.AcceptStream(channelID, stream)
 
 		} else {
 			rawPeerMsg, err := ioutil.ReadAll(strm)
