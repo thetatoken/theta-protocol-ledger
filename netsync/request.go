@@ -296,6 +296,16 @@ func (rm *RequestManager) tryToDownload() {
 	if rm.ifDownloadByHash {
 		rm.downloadBlockFromHash()
 	}
+
+	// Remove downloaded blocks from header queue
+	// newQ := []*PendingBlock{}
+	newQ := &HeaderHeap{}
+	for _, header := range *rm.pendingBlocksWithHeader {
+		if _, ok := rm.pendingBlocksByHash[header.hash.Hex()]; ok {
+			heap.Push(newQ, header)
+		}
+	}
+	rm.pendingBlocksWithHeader = newQ
 }
 
 //compatible with older version, download block from hash
