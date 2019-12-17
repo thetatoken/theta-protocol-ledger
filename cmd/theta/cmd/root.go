@@ -6,6 +6,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/thetatoken/theta/common/util"
+
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,6 +60,8 @@ func initConfig() {
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
+
+	util.InitLog()
 }
 
 // getDefaultConfigPath returns the default config path.

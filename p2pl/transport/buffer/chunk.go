@@ -92,8 +92,6 @@ func NewEmptyChunk(seqID int32) *Chunk {
 }
 
 func NewChunkFromRawBytes(bytes []byte) (*Chunk, error) {
-	log.Debugf("NewChunkFromRawBytes, bytes: %s", bytes)
-
 	if len(bytes) < headerSize {
 		return nil, fmt.Errorf("At least %v bytes needed to create a chunk", headerSize)
 	}
