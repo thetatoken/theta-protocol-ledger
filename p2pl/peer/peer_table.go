@@ -160,7 +160,7 @@ func (pt *PeerTable) GetAllPeerIDs() *[]pr.ID {
 	return &ret
 }
 
-func (pt *PeerTable) RetrievePeers() (res []*pr.AddrInfo, err error) {
+func (pt *PeerTable) RetrievePreviousPeers() (res []*pr.AddrInfo, err error) {
 	dat, err := pt.db.Get([]byte(dbKey), nil)
 	if err != nil {
 		logger.Warnf("Failed to retrieve previously persisted peers")

@@ -413,10 +413,12 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 		}
 	}
 
-	for _, seedPeer := range msgr.seedPeers {
+	perm := rand.Perm(len(msgr.seedPeers))
+	for _, idx := range perm {
 		time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
+		seedPeer := msgr.seedPeers[idx]
 		peer := msgr.peerTable.GetPeer(seedPeer.ID)
-		if peer == nil {
+		if peer == nil { // if peer is not in peer table, then connect
 			go func() {
 				err := msgr.host.Connect(ctx, *seedPeer)
 				if err == nil {
@@ -425,6 +427,9 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 					logger.Warnf("Failed to re-connect to seed peer %v, %v", seedPeer, err)
 				}
 			}()
+			if !msgr.seedPeerOnly {
+				break // if not seed peer only, just connect to one
+			}
 		}
 	}
 }
@@ -439,7 +444,7 @@ func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
 			}
 		}
 		if !msgr.seedPeerOnly {
-			prevPeers, err := msgr.peerTable.RetrievePeers()
+			prevPeers, err := msgr.peerTable.RetrievePreviousPeers()
 			if err == nil {
 				for _, prevPeer := range prevPeers {
 					if msgr.peerTable.PeerExists(prevPeer.ID) {
@@ -491,7 +496,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// seeds & previously persisted peers
 	connections := msgr.seedPeers
 	if !msgr.seedPeerOnly {
-		prevPeers, err := msgr.peerTable.RetrievePeers()
+		prevPeers, err := msgr.peerTable.RetrievePreviousPeers()
 		if err == nil {
 			for _, prevPeer := range prevPeers {
 				exists := false
