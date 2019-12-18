@@ -20,6 +20,7 @@ import (
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	dp "github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/version"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "reporter"})
@@ -115,7 +116,7 @@ func (rp *Reporter) statusToString() string {
 			addition = fmt.Sprintf(`,"LatestFinalizedBlockHeight":%d,"syncing":"%v"`, common.JSONUint64(block.Height), isSyncing(block))
 		}
 	}
-	result := fmt.Sprintf(`"address":"%s", "chain_id":"%s"%s`, rp.consensus.ID(), rp.chain.ChainID, addition)
+	result := fmt.Sprintf(`"version":"%s", "git_hash":"%s", "address":"%s", "chain_id":"%s"%s`, version.Version, version.GitHash, rp.consensus.ID(), rp.chain.ChainID, addition)
 	return result
 }
 

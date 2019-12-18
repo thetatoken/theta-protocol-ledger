@@ -39,6 +39,7 @@ import (
 	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
 	ps "github.com/libp2p/go-libp2p-pubsub"
 	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+
 	// "github.com/libp2p/go-libp2p/p2p/discovery"
 
 	ds "github.com/ipfs/go-datastore"
@@ -59,6 +60,7 @@ const (
 	connectInterval                   = 1000 // 1 sec
 	lowConnectivityCheckInterval      = 60
 	highConnectivityCheckInterval     = 10
+	bufferPoolSize                    = 8
 )
 
 type Messenger struct {
@@ -75,6 +77,9 @@ type Messenger struct {
 	newPeers     chan pr.ID
 	peerDead     chan pr.ID
 	newPeerError chan pr.ID
+
+	msgBlockBufferPool  chan []byte
+	msgNormalBufferPool chan []byte
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -127,17 +132,25 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	ctx, cancel := context.WithCancel(ctx)
 
 	pt := peer.CreatePeerTable()
+
 	messenger := &Messenger{
-		peerTable:         &pt,
-		newPeers:          make(chan pr.ID),
-		peerDead:          make(chan pr.ID),
-		newPeerError:      make(chan pr.ID),
-		msgHandlerMap:     make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
-		needMdns:          needMdns,
-		seedPeerOnly:      seedPeerOnly,
-		config:            msgrConfig,
-		wg:                &sync.WaitGroup{},
-		ctx:           ctx,
+		peerTable:           &pt,
+		newPeers:            make(chan pr.ID),
+		peerDead:            make(chan pr.ID),
+		newPeerError:        make(chan pr.ID),
+		msgBlockBufferPool:  make(chan []byte, bufferPoolSize),
+		msgNormalBufferPool: make(chan []byte, bufferPoolSize),
+		msgHandlerMap:       make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
+		needMdns:            needMdns,
+		seedPeerOnly:        seedPeerOnly,
+		config:              msgrConfig,
+		wg:                  &sync.WaitGroup{},
+		ctx:                 ctx,
+	}
+
+	for i := 0; i < bufferPoolSize; i++ {
+		messenger.msgBlockBufferPool <- make([]byte, p2pcmn.MaxBlockMessageSize)
+		messenger.msgNormalBufferPool <- make([]byte, p2pcmn.MaxNormalMessageSize)
 	}
 
 	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))
@@ -306,8 +319,8 @@ func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
 	} else {
 		seedsConnectivityCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
 	}
-	sufficientConnectionsCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second) 
-	
+	sufficientConnectionsCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
+
 	for {
 		select {
 		case <-seedsConnectivityCheckPulse.C:
@@ -383,7 +396,7 @@ func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
 				}
 			}
 		}
-		
+
 		if len(connections) > 0 {
 			perm := rand.Perm(len(connections))
 			msgr.wg.Add(1)
@@ -671,14 +684,6 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 }
 
 func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, peerID string, channelID common.ChannelIDEnum) {
-	bufferSize := p2pcmn.MaxNormalMessageSize
-	if channelID == common.ChannelIDBlock || channelID == common.ChannelIDProposal {
-		bufferSize = p2pcmn.MaxBlockMessageSize
-	}
-
-	msgBuffer := make([]byte, bufferSize)
-	defer func() { msgBuffer = nil }()
-
 	for {
 		if msgr.ctx != nil {
 			select {
@@ -688,14 +693,33 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 			}
 		}
 
-		msgSize, err := stream.Read(msgBuffer)
+		var msgBuffer []byte
+		var bufferSize int
+		var bufferPool chan []byte
+		if channelID == common.ChannelIDBlock || channelID == common.ChannelIDProposal {
+			bufferSize = p2pcmn.MaxBlockMessageSize
+			bufferPool = msgr.msgBlockBufferPool
+		} else {
+			bufferSize = p2pcmn.MaxNormalMessageSize
+			bufferPool = msgr.msgNormalBufferPool
+		}
+
+		msgBuffer, msgSize, err := stream.Read(bufferPool)
 		if err != nil {
 			logger.Warnf("Failed to read stream: %v", err)
+			if msgBuffer != nil {
+				bufferPool <- msgBuffer
+			}
 			return
 		}
 
+		if msgBuffer == nil {
+			// Should not happen
+			logger.Panic("msgBuffer cannot be nil")
+		}
 		if msgSize > bufferSize {
 			logger.Errorf("Message ignored since it exceeds the peer message size limit, size: %v", msgSize)
+			bufferPool <- msgBuffer
 			continue
 		}
 
@@ -703,6 +727,7 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 
 		msgHandler := msgr.msgHandlerMap[channelID]
 		message, err := msgHandler.ParseMessage(peerID, channelID, rawPeerMsg)
+		bufferPool <- msgBuffer
 		if err != nil {
 			logger.Errorf("Failed to parse message, %v. msgSize: %v, len(): %v, channel: %v, peer: %v, msg: %v", err, msgSize, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
 			return

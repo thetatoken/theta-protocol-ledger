@@ -73,20 +73,21 @@ func (s *BufferedStream) HasStarted() bool {
 }
 
 // TODO: Read implements the io.Reader
-func (s *BufferedStream) Read(msg []byte) (int, error) {
+func (s *BufferedStream) Read(bufferPool chan []byte) ([]byte, int, error) {
 	var err error
 	msgRead, err := s.recvBuf.Read()
 	if err != nil {
-		return 0, err
+		return nil, 0, err
 	}
 	toCopy := len(msgRead)
 
+	msg := <-bufferPool
 	n := copy(msg, msgRead)
 	if n < toCopy {
 		err = io.ErrShortBuffer
 	}
 
-	return n, err
+	return msg, n, err
 }
 
 // Write implements the io.Writer, and supports writting
