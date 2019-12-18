@@ -109,8 +109,8 @@ func init() {
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
-	viper.SetDefault(CfgSyncDownloadByHash, true)
-	viper.SetDefault(CfgSyncDownloadByHeader, false)
+	viper.SetDefault(CfgSyncDownloadByHash, false)
+	viper.SetDefault(CfgSyncDownloadByHeader, true)
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
