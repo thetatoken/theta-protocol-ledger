@@ -18,29 +18,19 @@ Signature Gossip](https://arxiv.org/pdf/1911.04698.pdf).
 
 ### On Mac OS X
 
-Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.11**. On Mac OS X, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.12.1**. On Mac OS X, install Go with the following command
 
 ```
-brew install go@1.11
-brew link go@1.11 --force
+brew install go@1.12.1
+brew link go@1.12.1 --force
 ```
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
 
 ```
 git clone https://github.com/thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
-```
-
-Install [glide](https://github.com/Masterminds/glide). Then execute the following commands to download all dependencies:
-
-```
 export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 cd $THETA_HOME
-make get_vendor_deps
-```
-Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the following command
-```
-brew install jq
 ```
 
 ### On Windows
@@ -54,7 +44,7 @@ On Windows, first install [Chocolatey](https://chocolatey.org/) with with the fo
 Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
 
 ```
-choco install golang --version 1.11 --force
+choco install golang --version 1.12.1 --force
 ```
 
 Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
@@ -69,32 +59,16 @@ And set the db_home location to windows as below.
 db_home:  windows
 ```
 
-Install [jq](https://stedolan.github.io/jq/) to run the unit tests. 
-
-Run the following command
-```
-choco install jq
-```
 Then, use the installed [Cygwin terminal](https://www.cygwin.com/) to run the following commands. Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
 
 ```bash
 git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
-Install [Glide](https://github.com/Masterminds/glide). 
-Then execute the following commands to download all dependencies:
-
-```bash
-export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
-cd $THETA_HOME
-make tools
-glide install
-```
-
-
 ## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `theta` and `thetacli` are generated. `theta` can be regarded as the launcher of the Theta Ledger node, and `thetacli` is a wallet with command line tools to interact with the ledger. 
 ```
+export GO111MODULE=on
 make install
 ```
 
