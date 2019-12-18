@@ -264,6 +264,7 @@ func TestValidParent(t *testing.T) {
 	eb2, err := chain.AddBlock(b2)
 	require.Nil(err)
 
+	eb1 = chain.MarkBlockInvalid(eb1.Hash())
 	res := ce.validateBlock(b2, eb1)
 	require.True(res.IsError(), "Parent block is invalid")
 	require.Equal("Parent block is invalid", res.Message)
