@@ -347,7 +347,7 @@ func (msgr *Messenger) Stop() {
 	}
 
 	msgr.cancel()
-	logger.Info("Messenger shut down %v", msgr.host.ID())
+	logger.Infof("Messenger shut down %v", msgr.host.ID())
 }
 
 // Wait suspends the caller goroutine
