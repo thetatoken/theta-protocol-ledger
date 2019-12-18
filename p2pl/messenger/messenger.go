@@ -56,13 +56,13 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 var _ p2pl.Network = (*Messenger)(nil)
 
 const (
-	thetaP2PProtocolPrefix                = "/theta/1.0.0/"
-	defaultPeerDiscoveryPulseInterval     = 10 * time.Second
-	discoverInterval                      = 3000 // 3 sec
-	maxNumPeers                           = 20 //64
-	sufficientNumPeers                    = 10 //32
-	normalSeedConnectivityCheckInterval   = 60
-	seedOnlySeedConnectivityCheckInterval = 10
+	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
+	defaultPeerDiscoveryPulseInterval = 10 * time.Second
+	connectInterval                   = 1000 // 1 sec
+	maxNumPeers                       = 64
+	sufficientNumPeers                = 32
+	lowConnectivityCheckInterval      = 60
+	highConnectivityCheckInterval     = 10
 )
 
 type Messenger struct {
@@ -382,18 +382,21 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 	}
 }
 
-func (msgr *Messenger) maintainSeedsConnectivityRoutine(ctx context.Context) {
-	var seedsConnectivityCheckPulse *time.Ticker
+func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
+	var seedsConnectivityCheckPulse, sufficientConnectionsCheckPulse *time.Ticker
 	if msgr.seedPeerOnly {
-		seedsConnectivityCheckPulse = time.NewTicker(seedOnlySeedConnectivityCheckInterval * time.Second)
+		seedsConnectivityCheckPulse = time.NewTicker(highConnectivityCheckInterval * time.Second)
 	} else {
-		seedsConnectivityCheckPulse = time.NewTicker(normalSeedConnectivityCheckInterval * time.Second)
+		seedsConnectivityCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
 	}
+	sufficientConnectionsCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second) 
 	
 	for {
 		select {
 		case <-seedsConnectivityCheckPulse.C:
 			msgr.maintainSeedsConnectivity(ctx)
+		case <-sufficientConnectionsCheckPulse.C:
+			msgr.maintainSufficientConnections(ctx)
 		}
 	}
 }
@@ -411,7 +414,7 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 	}
 
 	for _, seedPeer := range msgr.seedPeers {
-		time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
+		time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
 		peer := msgr.peerTable.GetPeer(seedPeer.ID)
 		if peer == nil {
 			go func() {
@@ -422,6 +425,59 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 					logger.Warnf("Failed to re-connect to seed peer %v, %v", seedPeer, err)
 				}
 			}()
+		}
+	}
+}
+
+func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
+	diff := sufficientNumPeers - msgr.peerTable.GetTotalNumPeers()
+	if diff > 0 {
+		var connections []*pr.AddrInfo
+		for _, seed := range msgr.seedPeers {
+			if !msgr.peerTable.PeerExists(seed.ID) {
+				connections = append(connections, seed)
+			}
+		}
+		if !msgr.seedPeerOnly {
+			prevPeers, err := msgr.peerTable.RetrievePeers()
+			if err == nil {
+				for _, prevPeer := range prevPeers {
+					if msgr.peerTable.PeerExists(prevPeer.ID) {
+						continue
+					}
+
+					exists := false
+					for _, seed := range connections {
+						if seed.ID == prevPeer.ID {
+							exists = true
+							break
+						}
+					}
+					if !exists {
+						connections = append(connections, prevPeer)
+					}
+				}
+			}
+		}
+		
+		perm := rand.Perm(len(connections))
+		num := int(diff)
+		if num > len(perm) {
+			num = len(perm)
+		}
+		// or num = 1?
+		for i := 0; i < num; i++ {
+			time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
+			go func(i int) {
+				j := perm[i]
+				peer := connections[j]
+				err := msgr.host.Connect(ctx, *peer)
+				if err == nil {
+					logger.Infof("Successfully re-connected to peer: %v", peer)
+				} else {
+					logger.Warnf("Failed to re-connect to peer %v, %v", peer, err)
+				}
+			}(i)
 		}
 	}
 }
@@ -456,11 +512,12 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 	perm := rand.Perm(len(connections))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
+		time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
+
 		msgr.wg.Add(1)
 		go func(i int) {
 			defer msgr.wg.Done()
 
-			time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 			j := perm[i]
 			seedPeer := connections[j]
 			var err error
@@ -505,7 +562,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// }
 
 	go msgr.processLoop(ctx)
-	go msgr.maintainSeedsConnectivityRoutine(ctx)
+	go msgr.maintainConnectivityRoutine(ctx)
 
 	return nil
 }
