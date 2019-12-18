@@ -251,6 +251,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 	for {
 		select {
 		case pid := <-msgr.newPeers:
+			if msgr.peerTable.PeerExists(pid) {
+				continue
+			}
 			pr := msgr.host.Peerstore().PeerInfo(pid)
 			if pr.ID == "" {
 				continue
@@ -260,7 +263,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			msgr.peerTable.AddPeer(peer)
 			msgr.attachHandlersToPeer(peer)
 			peer.Start(msgr.ctx)
-			go peer.OpenStreams()
+			if isOutbound {
+				go peer.OpenStreams()
+			}
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
 		case pid := <-msgr.newPeerError:
 			peer := msgr.peerTable.GetPeer(pid)
