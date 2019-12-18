@@ -455,7 +455,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 			}
 
 			if err != nil {
-				logger.Errorf("Failed to connect to seed peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
+				logger.Warnf("Failed to connect to peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
 			}
 		}(i)
 	}
@@ -656,7 +656,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 		} else {
 			rawPeerMsg, err := ioutil.ReadAll(strm)
 			if err != nil {
-				logger.Errorf("Failed to read stream, %v. channel: %v, peer: %v", err, channelID, peerID)
+				logger.Warnf("Failed to read stream, %v. channel: %v, peer: %v", err, channelID, peerID)
 				return
 			}
 			msgHandler := msgr.msgHandlerMap[channelID]
@@ -690,7 +690,7 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 
 		msgSize, err := stream.Read(msgBuffer)
 		if err != nil {
-			logger.Errorf("Failed to read stream: %v", err)
+			logger.Warnf("Failed to read stream: %v", err)
 			return
 		}
 
