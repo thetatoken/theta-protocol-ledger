@@ -93,7 +93,7 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 
 	pt.peerMap[peer.ID()] = peer
 
-	go pt.persistPeers()
+	pt.persistPeers()
 
 	return true
 }
@@ -195,7 +195,11 @@ func (pt *PeerTable) persistPeers() {
 			peerAddrInfos[i] = string(json)
 		}
 	}
-	pt.db.Put([]byte(dbKey), []byte(strings.Join(peerAddrInfos, "|")), nil)
+	go pt.writeToDB(dbKey, strings.Join(peerAddrInfos, "|"))
+}
+
+func (pt *PeerTable) writeToDB(key, value string) {
+	pt.db.Put([]byte(key), []byte(value), nil)
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
