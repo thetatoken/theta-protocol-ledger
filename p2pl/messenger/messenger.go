@@ -60,7 +60,6 @@ const (
 	connectInterval                   = 1000 // 1 sec
 	lowConnectivityCheckInterval      = 60
 	highConnectivityCheckInterval     = 10
-	bufferPoolSize                    = 8
 )
 
 type Messenger struct {
@@ -132,6 +131,8 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	ctx, cancel := context.WithCancel(ctx)
 
 	pt := peer.CreatePeerTable()
+
+	bufferPoolSize := viper.GetInt(common.CfgBufferPoolSize)
 
 	messenger := &Messenger{
 		peerTable:           &pt,
