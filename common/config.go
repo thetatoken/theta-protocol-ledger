@@ -47,8 +47,6 @@ const (
 	CfgLibP2PSeeds = "p2p.libp2p_seeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
 	CfgLibP2PRendezvous = "p2p.libp2p_rendezvous"
-	// CfgLibP2PDiscoverable sets if the libp2p nodes is discoverable
-	CfgLibP2PDiscoverable = "p2p.libp2p_discoverable"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
@@ -59,6 +57,8 @@ const (
 	CfgP2PMinNumPeers = "p2p.minNumPeers"
 	// CfgP2PMaxNumPeers specifies the maximal number of peers a node can simultaneously connected to
 	CfgP2PMaxNumPeers = "p2p.maxNumPeers"
+	// CfgMaxNumPersistentPeers sets the max number of peers to persist for normal nodes
+	CfgMaxNumPersistentPeers = "p2p.maxNumPersistentPeers"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -127,7 +127,8 @@ func init() {
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
-
+	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
+	
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
@@ -137,12 +138,9 @@ func init() {
 
 	viper.SetDefault(CfgGuardianRoundLength, 30)
 
-	viper.SetDefault(CfgLibP2PDiscoverable, true)
-
 	viper.SetDefault(CfgMetricsServer, "guardian-metrics.thetatoken.org")
-
+	
 	viper.SetDefault(CfgProfEnabled, false)
-
 	viper.SetDefault(CfgForceGCEnabled, true)
 }
 

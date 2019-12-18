@@ -59,8 +59,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	if p2pOpt != common.P2POptOld {
 		port := viper.GetInt(common.CfgP2PLPort)
 		peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
-		peerDiscoverable := viper.GetBool(common.CfgLibP2PDiscoverable)
-		network = newMessenger(privKey, peerSeeds, port, peerDiscoverable, ctx)
+		seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+		network = newMessenger(privKey, peerSeeds, port, seedPeerOnly, ctx)
 	}
 	if p2pOpt != common.P2POptLibp2p {
 		portOld := viper.GetInt(common.CfgP2PPort)
@@ -227,13 +227,13 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	return nodePrivKey, nil
 }
 
-func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, peerDiscoverable bool, ctx context.Context) *msgl.Messenger {
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, seedPeerOnly bool, ctx context.Context) *msgl.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key:")
 	msgrConfig := msgl.GetDefaultMessengerConfig()
-	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, peerDiscoverable, msgrConfig, true, ctx)
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, seedPeerOnly, msgrConfig, true, ctx)
 	if err != nil {
 		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance.")
 	}

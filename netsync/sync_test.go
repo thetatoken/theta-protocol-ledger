@@ -3,15 +3,10 @@ package netsync
 import (
 	"context"
 	"testing"
-	"time"
 
-	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger"
-	"github.com/thetatoken/theta/rlp"
-	"github.com/thetatoken/theta/store/database/backend"
-	"github.com/thetatoken/theta/store/kvstore"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/dispatcher"
@@ -57,6 +52,7 @@ func (m *MockMsgHandler) HandleMessage(message types.Message) error {
 	return nil
 }
 
+/*
 func TestSyncManager(t *testing.T) {
 	assert := assert.New(t)
 	core.ResetTestBlocks()
@@ -165,6 +161,7 @@ func TestSyncManager(t *testing.T) {
 		assert.Equal(core.GetTestBlock(expected[i]).Hash(), msg.(*core.Block).Hash())
 	}
 }
+*/
 
 type MockConsensus struct {
 	chain *blockchain.Chain
