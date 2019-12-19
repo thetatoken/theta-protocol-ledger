@@ -122,6 +122,8 @@ func (sb *SendBuffer) CanInsert() bool {
 // Write insert the bytes to queue, and times out after
 // the configured timeout. It is goroutine safe
 func (sb *SendBuffer) Write(bytes []byte) bool {
+	defer sb.recover()
+
 	if sb.stopped {
 		return false
 	}
