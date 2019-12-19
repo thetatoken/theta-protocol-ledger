@@ -34,19 +34,19 @@ const (
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
 	// CfgP2PReuseStream sets whether to reuse libp2p stream
-	CfgP2PReuseStream = "p2p.reuse_stream"
+	CfgP2PReuseStream = "p2p.reuseStream"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
-	CfgP2PLPort = "p2p.port_l"
+	CfgP2PLPort = "p2p.portL"
 	// CfgP2PSeeds sets the boostrap peers.
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgLibP2PSeeds sets the boostrap peers in libp2p format.
-	CfgLibP2PSeeds = "p2p.libp2p_seeds"
+	CfgLibP2PSeeds = "p2p.libp2pSeeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
-	CfgLibP2PRendezvous = "p2p.libp2p_rendezvous"
+	CfgLibP2PRendezvous = "p2p.libp2pRendezvous"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
