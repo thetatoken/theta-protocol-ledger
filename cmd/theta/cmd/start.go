@@ -17,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
@@ -301,10 +302,6 @@ func printExitBanner() {
 	fmt.Println("")
 }
 
-func bToMb(b uint64) uint64 {
-	return b / 1024 / 1024
-}
-
 // memoryCleanupRoutine peridically forces memory garbage collection.
 func memoryCleanupRoutine() {
 	var m runtime.MemStats
@@ -313,10 +310,10 @@ func memoryCleanupRoutine() {
 		<-t.C
 
 		runtime.ReadMemStats(&m)
-		log.Debugf("Memory usage: Alloc = %v MiB\tTotalAlloc = %v MiB\tSys = %v MiB\tNumGC = %v"+
-			"\tStackInuse = %v MiB\tStackSys = %v MiB\tHeapInuse = %v MiB\tHeapSys = %v MiB\n",
-			bToMb(m.Alloc), bToMb(m.TotalAlloc), bToMb(m.Sys), m.NumGC, bToMb(m.StackInuse),
-			bToMb(m.StackSys), bToMb(m.HeapInuse), bToMb(m.HeapSys))
+		log.Debugf("Memory usage: Alloc = %.3f MiB\tTotalAlloc = %.3f MiB\tSys = %.3f MiB\tNumGC = %v"+
+			"\tStackInuse = %.3f MiB\tStackSys = %.3f MiB\tHeapInuse = %.3f MiB\tHeapSys = %.3f MiB\n",
+			util.BToMb(m.Alloc), util.BToMb(m.TotalAlloc), util.BToMb(m.Sys), m.NumGC, util.BToMb(m.StackInuse),
+			util.BToMb(m.StackSys), util.BToMb(m.HeapInuse), util.BToMb(m.HeapSys))
 
 		runtime.GC()
 	}

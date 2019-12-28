@@ -80,6 +80,11 @@ type Messenger struct {
 	msgBlockBufferPool  chan []byte
 	msgNormalBufferPool chan []byte
 
+	// Stats.
+	statsEnabled bool
+	statsLock    sync.Mutex
+	statsCounter map[common.ChannelIDEnum]uint64
+
 	// Life cycle
 	wg      *sync.WaitGroup
 	quit    chan struct{}
@@ -145,6 +150,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		needMdns:            needMdns,
 		seedPeerOnly:        seedPeerOnly,
 		config:              msgrConfig,
+		statsCounter:        make(map[common.ChannelIDEnum]uint64),
 		wg:                  &sync.WaitGroup{},
 		ctx:                 ctx,
 	}
@@ -495,6 +501,18 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	go msgr.processLoop(ctx)
 	go msgr.maintainConnectivityRoutine(ctx)
 
+	msgr.statsEnabled = viper.GetBool(common.CfgProfEnabled)
+	if msgr.statsEnabled {
+		go func() {
+			t := time.NewTicker(3 * time.Second)
+
+			for {
+				<-t.C
+				msgr.printStats()
+			}
+		}()
+	}
+
 	return nil
 }
 
@@ -584,6 +602,37 @@ func (msgr *Messenger) Peers() []string {
 	return peerIDs
 }
 
+func (msgr *Messenger) recordReceivedBytes(cid common.ChannelIDEnum, size int) {
+	if !msgr.statsEnabled {
+		return
+	}
+
+	msgr.statsLock.Lock()
+	defer msgr.statsLock.Unlock()
+
+	old, ok := msgr.statsCounter[cid]
+	if ok {
+		msgr.statsCounter[cid] = old + uint64(size)
+	} else {
+		msgr.statsCounter[cid] = uint64(size)
+	}
+}
+
+func (msgr *Messenger) printStats() {
+	msgr.statsLock.Lock()
+	defer msgr.statsLock.Unlock()
+
+	ret := "Received bytes:"
+	for k := byte(0); k <= byte(common.ChannelIDGuardian); k++ {
+		v, ok := msgr.statsCounter[common.ChannelIDEnum(k)]
+		if !ok {
+			continue
+		}
+		ret += fmt.Sprintf(" channel %v: %.3f MB\t", k, util.BToMb(v))
+	}
+	logger.Debug(ret)
+}
+
 // RegisterMessageHandler registers the message handler
 func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()
@@ -601,7 +650,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 			logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
 			continue
 		}
-		go func() {
+		go func(channelID common.ChannelIDEnum) {
 			defer sub.Cancel()
 
 			var msg *ps.Message
@@ -629,9 +678,11 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 					return
 				}
 
+				msgr.recordReceivedBytes(channelID, len(msg.Data))
+
 				msgHandler.HandleMessage(message)
 			}
-		}()
+		}(channelID)
 	}
 }
 
@@ -679,6 +730,9 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 				logger.Errorf("Failed to parse message, %v. len(): %v, channel: %v, peer: %v, msg: %v", err, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
 				return
 			}
+
+			msgr.recordReceivedBytes(channelID, len(rawPeerMsg))
+
 			msgHandler.HandleMessage(message)
 		}
 	})
@@ -733,6 +787,9 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 			logger.Errorf("Failed to parse message, %v. msgSize: %v, len(): %v, channel: %v, peer: %v, msg: %v", err, msgSize, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
 			return
 		}
+
+		msgr.recordReceivedBytes(channelID, len(rawPeerMsg))
+
 		msgHandler.HandleMessage(message)
 	}
 }
@@ -746,6 +803,9 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 			logger.Errorf("Failed to setup message parser for channelID %v", channelID)
 		}
 		message, err := msgHandler.ParseMessage(peerID.String(), channelID, rawMessageBytes)
+
+		msgr.recordReceivedBytes(channelID, len(rawMessageBytes))
+
 		return message, err
 	}
 	peer.SetMessageParser(messageParser)
