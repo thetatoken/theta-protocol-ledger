@@ -738,9 +738,13 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 
 		rm.syncMgr.PassdownMessage(block)
 
-		rm.syncMgr.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
-			ChannelID: common.ChannelIDBlock,
-			Entries:   []string{block.Hash().Hex()},
-		})
+		p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+		if p2pOpt != common.P2POptLibp2p {
+			// Need to manually gossip if not using Libp2p
+			rm.syncMgr.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+				ChannelID: common.ChannelIDBlock,
+				Entries:   []string{block.Hash().Hex()},
+			})
+		}
 	}
 }
