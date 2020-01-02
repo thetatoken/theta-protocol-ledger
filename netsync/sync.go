@@ -712,7 +712,8 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 	sm.requestMgr.AddBlock(block)
 
-	if sm.requestMgr.IsGossipBlock(block.Hash()) {
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if sm.requestMgr.IsGossipBlock(block.Hash()) && p2pOpt != common.P2POptLibp2p {
 		// Gossip the block out using hash
 		sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
 			ChannelID: common.ChannelIDBlock,
@@ -754,22 +755,26 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 
 	sm.PassdownMessage(vote)
 
-	hash := vote.Hash()
-	if sm.voteCache.Contains(hash) {
-		return
-	}
-	sm.voteCache.Add(hash, struct{}{})
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if p2pOpt != common.P2POptLibp2p {
+		// Need to manually gossip if not using Libp2p
+		hash := vote.Hash()
+		if sm.voteCache.Contains(hash) {
+			return
+		}
+		sm.voteCache.Add(hash, struct{}{})
 
-	payload, err := rlp.EncodeToBytes(vote)
-	if err != nil {
-		sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
-		return
+		payload, err := rlp.EncodeToBytes(vote)
+		if err != nil {
+			sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
+			return
+		}
+		msg := dispatcher.DataResponse{
+			ChannelID: common.ChannelIDVote,
+			Payload:   payload,
+		}
+		sm.dispatcher.SendData([]string{}, msg)
 	}
-	msg := dispatcher.DataResponse{
-		ChannelID: common.ChannelIDVote,
-		Payload:   payload,
-	}
-	sm.dispatcher.SendData([]string{}, msg)
 }
 
 func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
