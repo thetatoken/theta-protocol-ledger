@@ -499,8 +499,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 // Stop is called when the Messenger stops
 func (msgr *Messenger) Stop() {
-	for _, pid := range msgr.host.Peerstore().Peers() {
-		msgr.host.Network().ClosePeer(pid)
+	if msgr.host.Peerstore() != nil && msgr.host.Peerstore().Peers() != nil {
+		for _, pid := range msgr.host.Peerstore().Peers() {
+			msgr.host.Network().ClosePeer(pid)
+		}	
 	}
 
 	msgr.cancel()
