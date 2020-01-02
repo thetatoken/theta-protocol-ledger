@@ -67,7 +67,7 @@ type Messenger struct {
 	host          host.Host
 	msgHandlerMap map[common.ChannelIDEnum](p2pl.MessageHandler)
 	config        MessengerConfig
-	seedPeers     []*pr.AddrInfo
+	seedPeers     map[pr.ID]*pr.AddrInfo
 	pubsub        *ps.PubSub
 	dht           *kaddht.IpfsDHT
 	needMdns      bool
@@ -143,6 +143,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		msgHandlerMap:       make(map[common.ChannelIDEnum](p2pl.MessageHandler)),
 		needMdns:            needMdns,
 		seedPeerOnly:        seedPeerOnly,
+		seedPeers:           make(map[pr.ID]*pr.AddrInfo),
 		config:              msgrConfig,
 		wg:                  &sync.WaitGroup{},
 		ctx:                 ctx,
@@ -211,7 +212,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 			cancel()
 			return messenger, err
 		}
-		messenger.seedPeers = append(messenger.seedPeers, peer)
+		messenger.seedPeers[peer.ID] = peer
 	}
 
 	if !seedPeerOnly {
@@ -250,6 +251,11 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	return messenger, nil
 }
 
+func (msgr *Messenger) isSeedPeer(pid pr.ID) bool {
+	_, isSeed := msgr.seedPeers[pid]
+	return isSeed
+}
+
 func (msgr *Messenger) processLoop(ctx context.Context) {
 	defer func() {
 		// Clean up go routines.
@@ -267,6 +273,15 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			if msgr.peerTable.PeerExists(pid) {
 				continue
 			}
+
+			if msgr.seedPeerOnly {
+				if !msgr.isSeedPeer(pid) {
+					msgr.host.Network().ClosePeer(pid)
+					// msgr.host.Peerstore().UpdateAddrs(pid, peerstore.ConnectedAddrTTL, time.Duration(1 * time.Millisecond))
+					continue
+				}
+			}
+
 			pr := msgr.host.Peerstore().PeerInfo(pid)
 			if pr.ID == "" {
 				continue
@@ -287,6 +302,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
+			msgr.host.Network().ClosePeer(pid)
 			msgr.peerTable.DeletePeer(pid)
 		case pid := <-msgr.peerDead:
 			peer := msgr.peerTable.GetPeer(pid)
@@ -302,7 +318,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
-			msgr.host.Network().ClosePeer(peer.ID())
+			msgr.host.Network().ClosePeer(pid)
 			msgr.peerTable.DeletePeer(pid)
 			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
 		case <-ctx.Done():
@@ -333,20 +349,23 @@ func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
 
 func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 	if !msgr.seedPeerOnly {
-		for _, peer := range *(msgr.peerTable.GetAllPeerIDs()) {
-			for _, seed := range msgr.seedPeers {
-				if peer == seed.ID {
-					// don't proceed if there's at least one seed in peer table
-					return
-				}
+		for _, pid := range *(msgr.peerTable.GetAllPeerIDs()) {
+			if msgr.isSeedPeer(pid) {
+				// don't proceed if there's at least one seed in peer table
+				return
 			}
 		}
 	}
 
-	perm := rand.Perm(len(msgr.seedPeers))
+	seedPeers := make([]*pr.AddrInfo, 0, len(msgr.seedPeers))
+	for _, seedPeer := range msgr.seedPeers {
+		seedPeers = append(seedPeers, seedPeer)
+	}
+
+	perm := rand.Perm(len(seedPeers))
 	for _, idx := range perm {
 		time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
-		seedPeer := msgr.seedPeers[idx]
+		seedPeer := seedPeers[idx]
 		peer := msgr.peerTable.GetPeer(seedPeer.ID)
 		if peer == nil { // if peer is not in peer table, then connect
 			msgr.wg.Add(1)
@@ -359,9 +378,9 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 					logger.Warnf("Failed to re-connect to seed peer %v, %v", seedPeer, err)
 				}
 			}()
-			if !msgr.seedPeerOnly {
-				break // if not seed peer only, just connect to one
-			}
+		}
+		if !msgr.seedPeerOnly {
+			break // if not seed peer only, sufficient to have at least one connection
 		}
 	}
 }
@@ -422,7 +441,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.cancel = cancel
 
 	// seeds & previously persisted peers
-	connections := msgr.seedPeers
+	connections := make([]*pr.AddrInfo, 0)
+	for _, seed := range msgr.seedPeers {
+		connections = append(connections, seed)
+	}
 	if !msgr.seedPeerOnly {
 		prevPeers, err := msgr.peerTable.RetrievePreviousPeers()
 		if err == nil {
@@ -566,8 +588,6 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 		return false
 	}
 
-	// logger.Infof("------------ peerstore: %v", msgr.host.Peerstore().Peers())
-
 	success := peer.Send(message.ChannelID, message.Content)
 	return success
 }
@@ -638,6 +658,14 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
+		
+		if msgr.seedPeerOnly {
+			if !msgr.isSeedPeer(peerID) {
+				msgr.host.Network().ClosePeer(peerID)
+				return
+			}
+		}
+
 		if strings.Compare(msgr.host.ID().String(), peerID.String()) > 0 {
 			logger.Warnf("Received stream from an outbound peer")
 			return
