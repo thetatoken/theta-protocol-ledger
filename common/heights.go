@@ -1,7 +1,7 @@
 package common
 
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
-const HeightEnableValidatorReward uint64 = 10000000000
+const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
