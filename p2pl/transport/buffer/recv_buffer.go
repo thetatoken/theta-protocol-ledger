@@ -109,6 +109,10 @@ func (rb *RecvBuffer) Stop() {
 	}
 	rb.stopped = true
 	rb.workspace = nil
+
+	rb.rolloverBytes = nil
+	rb.precedingBytes = nil
+	
 	rb.cancel()
 	close(rb.queue)
 }
