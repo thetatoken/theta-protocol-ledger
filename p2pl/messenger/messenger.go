@@ -767,6 +767,8 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 }
 
 func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, peerID string, channelID common.ChannelIDEnum) {
+	defer stream.Stop()
+
 	for {
 		if msgr.ctx != nil {
 			select {

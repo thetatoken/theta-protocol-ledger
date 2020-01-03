@@ -20,7 +20,6 @@ type BufferedStream struct {
 	recvBuf buf.RecvBuffer
 
 	// Life cycle
-	started bool
 	wg      *sync.WaitGroup
 	quit    chan struct{}
 	ctx     context.Context
@@ -33,7 +32,7 @@ func NewBufferedStream(rawStream p2pcmn.ReadWriteCloser, onError p2pcmn.ErrorHan
 		rawStream: rawStream,
 		sendBuf:   buf.NewSendBuffer(buf.GetDefaultSendBufferConfig(), rawStream, onError),
 		recvBuf:   buf.NewRecvBuffer(buf.GetDefaultRecvBufferConfig(), rawStream, onError),
-		started:   false,
+		stopped:   true,
 	}
 
 	return s
@@ -47,7 +46,7 @@ func (s *BufferedStream) Start(ctx context.Context) bool {
 	s.sendBuf.Start(ctx)
 	s.recvBuf.Start(ctx)
 
-	s.started = true
+	s.stopped = false
 
 	return true
 }
@@ -59,17 +58,17 @@ func (s *BufferedStream) Wait() {
 
 // Stop is called when the BufferedStream stops
 func (s *BufferedStream) Stop() {
-	s.started = false
+	if s.stopped {
+		return
+	}
+
+	s.stopped = true
 
 	s.recvBuf.Stop()
 	s.sendBuf.Stop()
 	s.Close()
 
 	s.cancel()
-}
-
-func (s *BufferedStream) HasStarted() bool {
-	return s.started
 }
 
 // TODO: Read implements the io.Reader

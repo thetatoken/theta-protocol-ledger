@@ -130,9 +130,7 @@ func (peer *Peer) Stop() {
 	defer peer.mutex.Unlock()
 
 	for _, stream := range peer.streamMap {
-		if stream.HasStarted() {
-			stream.Stop()
-		}
+		stream.Stop()
 	}
 	// peer.streamMap = nil
 }

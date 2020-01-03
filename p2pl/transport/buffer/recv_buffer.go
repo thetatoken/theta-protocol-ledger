@@ -282,8 +282,8 @@ func (rb *RecvBuffer) recover() {
 		if rb.onError != nil {
 			rb.onError(err)
 		}
-		rb.Stop()
 	}
+	rb.Stop()
 }
 
 /*
