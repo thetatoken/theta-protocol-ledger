@@ -13,8 +13,9 @@ if [ "$1" =  "force" ] || [[ "$(docker images -q theta_builder_image 2> /dev/nul
     docker build -t theta_builder_image $SCRIPTPATH
 fi
 
-
+set +e
 docker stop theta_builder
 docker rm theta_builder
+set -e
 
 docker run --name theta_builder -it -v "$GOPATH:/go" theta_builder_image
