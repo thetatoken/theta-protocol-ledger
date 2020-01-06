@@ -104,6 +104,10 @@ func (rb *RecvBuffer) Wait() {
 
 // Stop is called when the RecvBuffer stops
 func (rb *RecvBuffer) Stop() {
+	defer func() {
+		recover() // Ignore closing closed channel exception.
+	}()
+
 	if rb.stopped {
 		return
 	}
@@ -112,7 +116,7 @@ func (rb *RecvBuffer) Stop() {
 
 	rb.rolloverBytes = nil
 	rb.precedingBytes = nil
-	
+
 	rb.cancel()
 	close(rb.queue)
 }
