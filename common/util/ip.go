@@ -53,6 +53,7 @@ func GetPublicIP() (string, error) {
 	}()
 	wait.Add(1)
 
+	var defaultIP string
 	go func() {
 		if runtime.GOOS == "windows" {
 			cmd := exec.Command("cmd", "/c", "nslookup myip.opendns.com resolver1.opendns.com")
@@ -60,6 +61,7 @@ func GetPublicIP() (string, error) {
 			if err == nil {
 				res := strings.TrimSpace(string(out))
 				ip := res[strings.LastIndex(res, " ")+1:]
+				defaultIP = ip
 				mu.Lock()
 				defer mu.Unlock()
 				ipMap[ip]++
@@ -69,6 +71,7 @@ func GetPublicIP() (string, error) {
 			out, err := cmd.CombinedOutput()
 			if err == nil {
 				ip := strings.TrimSpace(string(out))
+				defaultIP = ip
 				mu.Lock()
 				defer mu.Unlock()
 				ipMap[ip]++
@@ -88,9 +91,13 @@ func GetPublicIP() (string, error) {
 		}
 	}
 
-	if majorityIP == "" {
-		return "", fmt.Errorf("Can't get external IP")
+	if majorityIP != "" {
+		return majorityIP, nil
 	}
 
-	return majorityIP, nil
+	if defaultIP != "" {
+		return defaultIP, nil
+	}
+
+	return "", fmt.Errorf("Can't get external IP")
 }
