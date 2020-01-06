@@ -94,6 +94,10 @@ func (sb *SendBuffer) Wait() {
 
 // Stop is called when the SendBuffer stops
 func (sb *SendBuffer) Stop() {
+	defer func() {
+		recover() // Ignore closing closed channel exception.
+	}()
+
 	if sb.stopped {
 		return
 	}
