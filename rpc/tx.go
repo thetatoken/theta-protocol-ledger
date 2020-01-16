@@ -132,6 +132,8 @@ func (t *ThetaRPCService) BroadcastRawTransaction(
 		return err
 	}
 
+	t.mempool.BroadcastTx(txBytes)
+
 	finalized := make(chan *core.Block)
 	timeout := time.NewTimer(txTimeout)
 	defer timeout.Stop()
@@ -171,7 +173,14 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 
 	logger.Infof("Broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
-	return t.mempool.InsertTransaction(txBytes)
+	err = t.mempool.InsertTransaction(txBytes)
+	if err != nil {
+		return err
+	}
+
+	t.mempool.BroadcastTx(txBytes)
+
+	return nil
 }
 
 // -------------------------- Utilities -------------------------- //
