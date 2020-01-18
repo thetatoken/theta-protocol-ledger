@@ -26,7 +26,7 @@ var withdrawStakeCmd = &cobra.Command{
 }
 
 func doWithdrawStakeCmd(cmd *cobra.Command, args []string) {
-	wallet, sourceAddress, err := walletUnlock(cmd, sourceFlag)
+	wallet, sourceAddress, err := walletUnlockWithPath(cmd, sourceFlag, pathFlag)
 	if err != nil {
 		return
 	}
@@ -83,6 +83,7 @@ func init() {
 	withdrawStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	withdrawStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	withdrawStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
+	withdrawStakeCmd.Flags().StringVar(&pathFlag, "path", "", "Wallet derivation path")
 	withdrawStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	withdrawStakeCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	withdrawStakeCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")

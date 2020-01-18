@@ -45,6 +45,9 @@ type Network interface {
 	// Send sends the given message to the peer specified by the peerID
 	Send(peerID string, message types.Message) bool
 
+	// Peers return the IDs of all peers
+	Peers() []string
+
 	// RegisterMessageHandler registers message handler
 	RegisterMessageHandler(messageHandler MessageHandler)
 

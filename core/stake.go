@@ -1,6 +1,7 @@
 package core
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -48,10 +49,49 @@ func (s *Stake) String() string {
 		s.Source, s.Amount, s.Withdrawn, s.ReturnHeight)
 }
 
+type StakeJSON struct {
+	Source       common.Address  `json:"source"`
+	Amount       *common.JSONBig `json:"amount"`
+	Withdrawn    bool            `json:"withdrawn"`
+	ReturnHeight *common.JSONBig `json:"return_height"`
+}
+
+func NewStakeJSON(stake Stake) StakeJSON {
+	return StakeJSON{
+		Source:       stake.Source,
+		Amount:       (*common.JSONBig)(stake.Amount),
+		Withdrawn:    stake.Withdrawn,
+		ReturnHeight: (*common.JSONBig)(new(big.Int).SetUint64(stake.ReturnHeight)),
+	}
+}
+
+func (s StakeJSON) Stake() Stake {
+	return Stake{
+		Source:       s.Source,
+		Amount:       s.Amount.ToInt(),
+		Withdrawn:    s.Withdrawn,
+		ReturnHeight: s.ReturnHeight.ToInt().Uint64(),
+	}
+}
+
+func (s Stake) MarshalJSON() ([]byte, error) {
+	return json.Marshal(NewStakeJSON(s))
+}
+
+func (s *Stake) UnmarshalJSON(data []byte) error {
+	var a StakeJSON
+	if err := json.Unmarshal(data, &a); err != nil {
+		return err
+	}
+	*s = a.Stake()
+	return nil
+}
+
 //
 // ------- StakeHolder ------- //
 //
 
+// TODO: Should rename StakeHolder to StakeDelegate
 type StakeHolder struct {
 	Holder common.Address
 	Stakes []*Stake

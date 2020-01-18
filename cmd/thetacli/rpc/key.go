@@ -18,7 +18,7 @@ type UnlockKeyResult struct {
 func (t *ThetaCliRPCService) UnlockKey(args *UnlockKeyArgs, result *UnlockKeyResult) (err error) {
 	address := common.HexToAddress(args.Address)
 	password := args.Password
-	err = t.wallet.Unlock(address, password)
+	err = t.wallet.Unlock(address, password, nil)
 	if err != nil {
 		result.Unlocked = false
 		return err

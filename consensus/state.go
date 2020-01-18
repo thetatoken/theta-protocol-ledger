@@ -51,7 +51,7 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 	}
 	err := s.Load()
 	if err != nil {
-		panic(err)
+		log.Panic(err)
 	}
 	return s
 }

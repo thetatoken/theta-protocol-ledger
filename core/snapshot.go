@@ -128,18 +128,45 @@ func Itobytes(val uint64) []byte {
 ////////////////////////////////////////
 
 type proofKV struct {
-	key []byte
-	val []byte
+	Key []byte
+	Val []byte
 }
 
 type VCPProof struct {
 	kvs []*proofKV
 }
 
+func (vp VCPProof) GetKvs() []*proofKV {
+	return vp.kvs
+}
+
+var _ rlp.Encoder = (*VCPProof)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (vp VCPProof) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, vp.GetKvs())
+}
+
+var _ rlp.Decoder = (*VCPProof)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (vp *VCPProof) DecodeRLP(stream *rlp.Stream) error {
+	proof := []*proofKV{}
+	err := stream.Decode(&proof)
+	if err != nil {
+		return err
+	}
+	vp.kvs = []*proofKV{}
+	for _, kv := range proof {
+		vp.kvs = append(vp.kvs, kv)
+	}
+	return nil
+}
+
 func (vp *VCPProof) Get(key []byte) (value []byte, err error) {
 	for _, kv := range vp.kvs {
-		if bytes.Compare(key, kv.key) == 0 {
-			return kv.val, nil
+		if bytes.Compare(key, kv.Key) == 0 {
+			return kv.Val, nil
 		}
 	}
 	return nil, fmt.Errorf("key %v does not exist", hex.EncodeToString(key))
@@ -147,7 +174,7 @@ func (vp *VCPProof) Get(key []byte) (value []byte, err error) {
 
 func (vp *VCPProof) Has(key []byte) (bool, error) {
 	for _, kv := range vp.kvs {
-		if bytes.Compare(key, kv.key) == 0 {
+		if bytes.Compare(key, kv.Key) == 0 {
 			return true, nil
 		}
 	}
@@ -156,8 +183,8 @@ func (vp *VCPProof) Has(key []byte) (bool, error) {
 
 func (vp *VCPProof) Put(key []byte, value []byte) error {
 	for _, kv := range vp.kvs {
-		if bytes.Compare(key, kv.key) == 0 {
-			kv.val = value
+		if bytes.Compare(key, kv.Key) == 0 {
+			kv.Val = value
 			return nil
 		}
 	}

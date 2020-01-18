@@ -1,9 +1,9 @@
 # Theta configuration
 storage:
+  statePruningInterval: 4
   statePruningRetainedBlocks: 128
 p2p:
   port: 16000
-  seeds: 18.218.16.108:21000,18.191.88.191:21000,18.222.201.29:21000
 rpc:
   enabled: true
 log:

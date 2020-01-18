@@ -53,4 +53,5 @@ func TestTxCallbackManager(t *testing.T) {
 	m.callbacks[0].created = time.Now().Add(-txTimeout).Add(-1 * time.Second)
 	m.Trim()
 	assert.Equal(1, len(m.txHashToCallback))
+	assert.Equal(1, len(m.callbacks))
 }

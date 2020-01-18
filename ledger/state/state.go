@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"log"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -86,22 +87,22 @@ func (s *LedgerState) Height() uint64 {
 }
 
 // Delivered returns a view of current state that contains both committed and delivered
-// transcations.
+// transactions.
 func (s *LedgerState) Delivered() *StoreView {
 	return s.delivered
 }
 
-// Checked creates a fresh clone of delivered view to be used for checking transcations.
+// Checked creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Checked() *StoreView {
 	return s.checked
 }
 
-// Screened creates a fresh clone of delivered view to be used for checking transcations.
+// Screened creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Screened() *StoreView {
 	return s.screened
 }
 
-// Finalized creates a fresh clone of delivered view to be used for checking transcations.
+// Finalized creates a fresh clone of delivered view to be used for checking transactions.
 func (s *LedgerState) Finalized() *StoreView {
 	return s.finalized
 }
@@ -115,11 +116,11 @@ func (s *LedgerState) Commit() common.Hash {
 	var err error
 	s.checked, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Errorf("Commit: failed to copy to the checked view: %v", err))
+		log.Panicf("Commit: failed to copy to the checked view: %v", err)
 	}
 	s.screened, err = s.delivered.Copy()
 	if err != nil {
-		panic(fmt.Errorf("Commit: failed to copy to the screened view: %v", err))
+		log.Panicf("Commit: failed to copy to the screened view: %v", err)
 	}
 	return hash
 }

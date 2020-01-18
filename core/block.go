@@ -20,7 +20,7 @@ const (
 )
 
 var (
-	EmptyRootHash = calculateRootHash([]common.Bytes{})
+	EmptyRootHash = CalculateRootHash([]common.Bytes{})
 )
 
 // Block represents a block in chain.
@@ -53,11 +53,23 @@ func (b *Block) AddTxs(txs []common.Bytes) {
 
 // updateTxHash calculate transaction root hash.
 func (b *Block) updateTxHash() {
-	b.TxHash = calculateRootHash(b.Txs)
+	b.TxHash = CalculateRootHash(b.Txs)
 	b.ReceiptHash = EmptyRootHash
 }
 
-func calculateRootHash(items []common.Bytes) common.Hash {
+// Validate checks the block is legitimate.
+func (b *Block) Validate(chainID string) result.Result {
+	res := b.BlockHeader.Validate(chainID)
+	if res.IsError() {
+		return res
+	}
+	if b.TxHash != CalculateRootHash(b.Txs) {
+		return result.Error("TxHash does not match")
+	}
+	return result.OK
+}
+
+func CalculateRootHash(items []common.Bytes) common.Hash {
 	keybuf := new(bytes.Buffer)
 	trie := new(trie.Trie)
 	for i := 0; i < len(items); i++ {
@@ -145,7 +157,10 @@ func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
 }
 
 // Validate checks the header is legitimate.
-func (h *BlockHeader) Validate() result.Result {
+func (h *BlockHeader) Validate(chainID string) result.Result {
+	if chainID != h.ChainID {
+		return result.Error("ChainID mismatch")
+	}
 	if h.Parent.IsEmpty() {
 		return result.Error("Parent is empty")
 	}
@@ -189,6 +204,7 @@ const (
 	BlockStatusDirectlyFinalized
 	BlockStatusIndirectlyFinalized
 	BlockStatusTrusted
+	BlockStatusDisposed
 )
 
 func (bs BlockStatus) IsPending() bool {
@@ -217,12 +233,12 @@ func (bs BlockStatus) IsTrusted() bool {
 }
 
 func (bs BlockStatus) IsInvalid() bool {
-	return bs == BlockStatusInvalid
+	return bs == BlockStatusInvalid || bs == BlockStatusDisposed
 }
 
 // IsValid returns whether block has been validated.
 func (bs BlockStatus) IsValid() bool {
-	return bs != BlockStatusPending && bs != BlockStatusInvalid
+	return bs != BlockStatusPending && bs != BlockStatusInvalid && bs != BlockStatusDisposed
 }
 
 // func (bs BlockStatus) MarshalJSON() ([]byte, error) {
@@ -291,6 +307,6 @@ func (eb *ExtendedBlock) MarshalJSON() ([]byte, error) {
 		Hash common.Hash
 	}{
 		ExtendedBlockInnerJSON: ExtendedBlockInnerJSON(*eb),
-		Hash:                   eb.Hash(),
+		Hash: eb.Hash(),
 	})
 }

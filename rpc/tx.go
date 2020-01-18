@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/hexutil"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 )
@@ -48,6 +49,9 @@ func (m *TxCallbackManager) AddCallback(txHash common.Hash, cb func(*core.Block)
 }
 
 func (m *TxCallbackManager) RemoveCallback(txHash common.Hash) (cb *Callback, exists bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	key := txHash.Hex()
 	cb, exists = m.txHashToCallback[key]
 	if exists {
@@ -57,6 +61,9 @@ func (m *TxCallbackManager) RemoveCallback(txHash common.Hash) (cb *Callback, ex
 }
 
 func (m *TxCallbackManager) Trim() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	i := 0
 	for ; i < len(m.callbacks); i++ {
 		cb := m.callbacks[i]
@@ -110,7 +117,7 @@ type BroadcastRawTransactionResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransaction(
 	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
-	txBytes, err := hex.DecodeString(args.TxBytes)
+	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err
 	}
@@ -154,7 +161,7 @@ type BroadcastRawTransactionAsyncResult struct {
 
 func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
-	txBytes, err := hex.DecodeString(args.TxBytes)
+	txBytes, err := decodeTxHexBytes(args.TxBytes)
 	if err != nil {
 		return err
 	}
@@ -165,4 +172,13 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	logger.Infof("Broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	return t.mempool.InsertTransaction(txBytes)
+}
+
+// -------------------------- Utilities -------------------------- //
+
+func decodeTxHexBytes(txBytes string) ([]byte, error) {
+	if hexutil.Has0xPrefix(txBytes) {
+		txBytes = txBytes[2:]
+	}
+	return hex.DecodeString(txBytes)
 }

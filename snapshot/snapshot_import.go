@@ -7,10 +7,16 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sort"
 	"strconv"
+	"strings"
 
+	"github.com/thetatoken/theta/ledger"
+
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
@@ -49,23 +55,46 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
-	logger.Printf("Loading snapshot from: %v", filePath)
-	blockHeader, err := loadSnapshot(filePath, db)
+func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader *core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
+	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
+	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Printf("Snapshot loaded successfully.")
-	return blockHeader, nil
+
+	// load previous chain, if any
+	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, chain, db)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// load chain correction, if any
+	if len(chainCorrectionPath) != 0 {
+		headBlock, tailBlock, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, chain, db, ledger)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		snapshotBlock := core.ExtendedBlock{}
+		kvstore := kvstore.NewKVStore(db)
+		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
+		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
+		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+
+		lastCC = tailBlock
+	}
+
+	return snapshotBlockHeader, lastCC, nil
 }
 
 // ValidateSnapshot validates the snapshot using a temporary database
-func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
-	logger.Printf("Verifying snapshot: %v", filePath)
+func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string) (*core.BlockHeader, error) {
+	logger.Printf("Verifying snapshot: %v", snapshotFilePath)
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
 	if err != nil {
-		panic(fmt.Sprintf("Failed to create temporary db for snapshot verification: %v", err))
+		log.Panicf("Failed to create temporary db for snapshot verification: %v", err)
 	}
 	mainTmpDBPath := path.Join(tmpdbRoot, "main")
 	refTmpDBPath := path.Join(tmpdbRoot, "ref")
@@ -76,38 +105,58 @@ func ValidateSnapshot(filePath string) (*core.BlockHeader, error) {
 
 	tmpdb, err := backend.NewLDBDatabase(mainTmpDBPath, refTmpDBPath, 256, 0)
 
-	blockHeader, err := loadSnapshot(filePath, tmpdb)
+	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, tmpdb)
 	if err != nil {
 		return nil, err
 	}
 	logger.Printf("Snapshot verified.")
 
-	return blockHeader, nil
-}
-
-func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, error) {
-	file, err := os.Open(filePath)
+	// load previous chain, if any
+	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, nil, tmpdb)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+
+	// load chain correction, if any
+	if len(chainCorrectionPath) != 0 {
+		headBlock, _, err := LoadChainCorrection(chainCorrectionPath, snapshotBlockHeader, metadata, nil, tmpdb, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		snapshotBlock := core.ExtendedBlock{}
+		kvstore := kvstore.NewKVStore(tmpdb)
+		kvstore.Get(snapshotBlockHeader.Hash().Bytes(), &snapshotBlock)
+		snapshotBlock.Children = []common.Hash{headBlock.Hash()}
+		kvstore.Put(snapshotBlockHeader.Hash().Bytes(), snapshotBlock)
+	}
+
+	return snapshotBlockHeader, nil
+}
+
+func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+	snapshotFile, err := os.Open(snapshotFilePath)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer snapshotFile.Close()
 
 	// ------------------------------ Load State ------------------------------ //
 
 	metadata := core.SnapshotMetadata{}
-	err = core.ReadRecord(file, &metadata)
+	err = core.ReadRecord(snapshotFile, &metadata)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
+		return nil, nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
-	sv, _, err := loadState(file, db)
+	sv, _, err := loadState(snapshotFile, db)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// ----------------------------- Validity Checks -------------------------- //
 
 	if err = checkSnapshot(sv, &metadata, db); err != nil {
-		return nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+		return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
 	}
 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
@@ -120,8 +169,301 @@ func loadSnapshot(filePath string, db database.Database) (*core.BlockHeader, err
 	}
 
 	secondBlockHeader := saveTailBlocks(&metadata, sv, kvstore)
+	return secondBlockHeader, &metadata, nil
+}
 
-	return secondBlockHeader, nil
+func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (headBlock, tailBlock *core.ExtendedBlock, err error) {
+	chainFile, err := os.Open(chainImportDirPath)
+	if err != nil {
+		return
+	}
+	defer chainFile.Close()
+
+	kvstore := kvstore.NewKVStore(db)
+
+	var count uint64
+	var prevBlock *core.ExtendedBlock
+	blockStack := make([]*core.ExtendedBlock, 0)
+	for {
+		backupBlock := &core.BackupBlock{}
+		err := core.ReadRecord(chainFile, backupBlock)
+		if err != nil {
+			if err == io.EOF {
+				if prevBlock.Height != snapshotBlockHeader.Height+1 {
+					return nil, nil, fmt.Errorf("Chain's head block height: %v, snapshot's height: %v", prevBlock.Height, snapshotBlockHeader.Height)
+				}
+				break
+			}
+			return nil, nil, fmt.Errorf("Failed to read backup record, %v", err)
+		}
+		block := backupBlock.Block
+
+		if count == 0 {
+			tailBlock = block
+		}
+
+		if block.Height <= snapshotBlockHeader.Height {
+			return nil, nil, fmt.Errorf("Block height is %v, must be > than snapshot height %v", block.Height, snapshotBlockHeader.Height)
+		}
+
+		blockHash := block.Hash()
+
+		if prevBlock != nil {
+			// check chaining
+			if block.Height != prevBlock.Height-1 {
+				return nil, nil, fmt.Errorf("Block height: %v, prev block height: %v", block.Height, prevBlock.Height)
+			}
+			if prevBlock.Parent != blockHash {
+				return nil, nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.Height, prevBlock.Parent, blockHash)
+			}
+		}
+
+		if chain != nil {
+			if block.ChainID != chain.ChainID {
+				return nil, nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			}
+			existingBlock := core.ExtendedBlock{}
+			if kvstore.Get(blockHash[:], &existingBlock) != nil {
+				block.Status = core.BlockStatusTrusted
+				kvstore.Put(blockHash[:], block)
+				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddTxsToIndex(block, true)
+			} else {
+				existingBlock.Txs = block.Txs
+				existingBlock.Status = core.BlockStatusTrusted
+				kvstore.Put(blockHash[:], existingBlock)
+				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddTxsToIndex(block, true)
+			}
+		}
+
+		count++
+		prevBlock = block
+		blockStack = append(blockStack, block)
+	}
+
+	if ledger != nil {
+		for {
+			num := len(blockStack)
+			if num == 0 {
+				break
+			}
+			block := blockStack[num-1]
+			blockStack = blockStack[:num-1]
+			parent, _ := chain.FindBlock(block.Parent)
+
+			result := ledger.ResetState(parent.Height, parent.StateHash)
+			if result.IsError() {
+				return nil, nil, fmt.Errorf("%v", result.String())
+			}
+
+			_, result = ledger.ApplyBlockTxsForChainCorrection(block.Block)
+			if result.IsError() {
+				return nil, nil, fmt.Errorf("%v", result.String())
+			}
+		}
+	}
+
+	headBlock = prevBlock
+	return
+}
+
+func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
+	if len(chainImportDirPath) != 0 {
+		if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
+			fileInfos, err := ioutil.ReadDir(chainImportDirPath)
+			if err != nil {
+				return fmt.Errorf("Failed to read chain import directory %v: %v", chainImportDirPath, err)
+			}
+
+			var chainFileNames []string
+			for _, fileInfo := range fileInfos {
+				chainFileNames = append(chainFileNames, fileInfo.Name())
+			}
+
+			sort.Slice(chainFileNames, func(i, j int) bool {
+				start1, _ := getChainBoundary(chainFileNames[i])
+				start2, _ := getChainBoundary(chainFileNames[j])
+				return start1 > start2
+			})
+
+			var blockEnd uint64
+			var prevBlock *core.ExtendedBlock
+			for _, fileName := range chainFileNames {
+				start, end := getChainBoundary(fileName)
+				if start > snapshotBlockHeader.Height {
+					continue
+				}
+				if end < snapshotBlockHeader.Height {
+					if end != blockEnd {
+						return fmt.Errorf("Missing chain file ending at height %v", blockEnd)
+					}
+				}
+
+				chainFilePath := path.Join(chainImportDirPath, fileName)
+				prevBlock, err = loadChainSegment(chainFilePath, start, end, prevBlock, snapshotBlockHeader, metadata, chain, db)
+				if err != nil {
+					return err
+				}
+				blockEnd = start - 1
+			}
+
+			start, _ := getChainBoundary(chainFileNames[len(chainFileNames)-1])
+			if prevBlock.Height != start {
+				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.Height, start)
+			}
+
+			logger.Printf("Chain loaded successfully.")
+		}
+	}
+	return nil
+}
+
+func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) (*core.ExtendedBlock, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	kvstore := kvstore.NewKVStore(db)
+
+	var count uint64
+	var proofTrio, prevTrio core.SnapshotBlockTrio
+	for {
+		backupBlock := &core.BackupBlock{}
+		err := core.ReadRecord(file, backupBlock)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, fmt.Errorf("Failed to read backup record, %v", err)
+		}
+		block := backupBlock.Block
+
+		if count == 0 {
+			if block.Height != end {
+				return nil, fmt.Errorf("Last block height doesn't match, %v : %v", block.Height, end)
+			}
+		}
+
+		if block.Height > snapshotBlockHeader.Height {
+			count++
+			continue
+		}
+
+		// check block itself
+		var provenValSet *core.ValidatorSet
+		if block.Height == core.GenesisBlockHeight {
+			provenValSet, err = checkGenesisBlock(block.BlockHeader, db)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			if chain != nil {
+				if res := block.Validate(chain.ChainID); res.IsError() {
+					return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
+				}
+			}
+
+			for {
+				proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
+				if proofTrio.First.Header.Height+2 <= block.Height || len(metadata.ProofTrios) == 1 {
+					break
+				}
+				provenValSet = nil
+				metadata.ProofTrios = metadata.ProofTrios[:len(metadata.ProofTrios)-1]
+				prevTrio = proofTrio
+			}
+
+			if provenValSet == nil {
+				if proofTrio.First.Header.Height == core.GenesisBlockHeight {
+					provenValSet, err = checkGenesisBlock(&proofTrio.Second.Header, db)
+				} else {
+					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
+				}
+				if err != nil {
+					return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+				}
+			}
+		}
+
+		// check votes
+		if err := validateVotes(provenValSet, block.BlockHeader, backupBlock.Votes); err != nil {
+			return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
+		}
+
+		blockHash := block.Hash()
+
+		// check against snapshot block
+		if block.Height == snapshotBlockHeader.Height {
+			if blockHash != snapshotBlockHeader.Hash() {
+				return nil, fmt.Errorf("Chain loading reached snapshot block, but block hash doesn't match, %v : %v", blockHash, snapshotBlockHeader.Hash())
+			}
+		} else {
+			// check chaining
+			if block.Height != prevBlock.Height-1 {
+				return nil, fmt.Errorf("Block height missing at %v", prevBlock.Height-1)
+			}
+			if prevBlock.Parent != blockHash {
+				return nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.Height, prevBlock.Parent, blockHash)
+			}
+
+			// check against genesis block
+			if block.Height == core.GenesisBlockHeight {
+				_, err := checkGenesisBlock(block.BlockHeader, db)
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+
+		if chain != nil {
+			if block.ChainID != chain.ChainID {
+				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			}
+			existingBlock := core.ExtendedBlock{}
+			if kvstore.Get(blockHash[:], &existingBlock) != nil {
+				kvstore.Put(blockHash[:], block)
+				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddTxsToIndex(block, true)
+			} else {
+				if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
+					existingBlock.Txs = block.Txs
+					existingBlock.HasValidatorUpdate = true
+					kvstore.Put(blockHash[:], existingBlock)
+					chain.AddBlockByHeightIndex(block.Height, blockHash)
+					chain.AddTxsToIndex(block, true)
+				}
+			}
+		}
+
+		count++
+		prevBlock = block
+	}
+
+	if prevBlock == nil {
+		return nil, fmt.Errorf("Empty chain file for height %v to %v", start, end)
+	}
+	if prevBlock.Height != start {
+		return nil, fmt.Errorf("Chain file for height %v to %v has first block height %v", start, end, prevBlock.Height)
+	}
+	if count != end-start+1 {
+		return nil, fmt.Errorf("Expect %v blocks, but actually got %v", end-start+1, count)
+	}
+
+	return prevBlock, nil
+}
+
+func getChainBoundary(filename string) (start, end uint64) {
+	filename = filename[len("theta_chain-"):]
+	idx := strings.Index(filename, "-")
+	startStr := filename[:idx]
+	start, _ = strconv.ParseUint(startStr, 10, 64)
+	filename = filename[idx+1:]
+	filename = filename[:strings.Index(filename, "-")]
+	end, _ = strconv.ParseUint(filename, 10, 64)
+	return
 }
 
 func loadState(file *os.File, db database.Database) (*state.StoreView, common.Hash, error) {
@@ -216,6 +558,8 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 }
 
 func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) (*core.ValidatorSet, error) {
+	logger.Debugf("Check validator set change proofs...")
+
 	var provenValSet *core.ValidatorSet // the proven validator set so far
 	var err error
 	for idx, blockTrio := range proofTrios {
@@ -247,6 +591,8 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 				return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
 			}
 		}
+
+		logger.Debugf("Block height: %v, Currently proven validator set: %v", first.Header.Height, provenValSet)
 	}
 
 	return provenValSet, nil
@@ -283,6 +629,9 @@ func checkGenesisBlock(block *core.BlockHeader, db database.Database) (*core.Val
 	} else {
 		expectedGenesisHash = viper.GetString(common.CfgGenesisHash)
 	}
+
+	// logger.Infof("Expected genesis hash: %v", expectedGenesisHash)
+	// logger.Infof("Acutal   genesis hash: %v", block.Hash().Hex())
 
 	if block.Hash() != common.HexToHash(expectedGenesisHash) {
 		return nil, fmt.Errorf("Genesis block hash mismatch, expected: %v, calculated: %v",
@@ -352,7 +701,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 			HasValidatorUpdate: hl.Contains(firstBlock.Height),
 		}
 		firstBlockHash := firstBlock.BlockHeader.Hash()
-		kvstore.Put(firstBlockHash[:], firstExt)
+
+		existingFirstExt := core.ExtendedBlock{}
+		if kvstore.Get(firstBlockHash[:], &existingFirstExt) != nil {
+			kvstore.Put(firstBlockHash[:], firstExt)
+		}
 	}
 
 	secondExt := core.ExtendedBlock{
@@ -362,7 +715,11 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		HasValidatorUpdate: hl.Contains(secondBlock.Height),
 	}
 	secondBlockHash := secondBlock.BlockHeader.Hash()
-	kvstore.Put(secondBlockHash[:], secondExt)
+
+	existingSecondExt := core.ExtendedBlock{}
+	if kvstore.Get(secondBlockHash[:], &existingSecondExt) != nil {
+		kvstore.Put(secondBlockHash[:], secondExt)
+	}
 
 	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
 		// TODO: this would lead to mismatch between the proven and retrieved validator set,

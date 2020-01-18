@@ -259,6 +259,8 @@ imports:
   - internal/scram
 - name: gopkg.in/yaml.v2
   version: 5420a8b6744d3b0345ab293f6fcba19c978f1183
+- name: github.com/hashicorp/golang-lru
+  version: 7087cb70de9f7a8bc0a10c375cb0d2280a8edf9c
 testImports:
 - name: github.com/kr/pretty
   version: 73f6ac0b30a98e433b289500d779f50c1a6f0712
@@ -268,3 +270,4 @@ testImports:
   version: 788fd78401277ebd861206a03c884797c6ec5541
 - name: github.com/aws/aws-sdk-go
   version: ddc06f9fad886ea5daa5f828f3ca094084f8c2a7
+

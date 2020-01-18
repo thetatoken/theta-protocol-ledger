@@ -27,7 +27,7 @@ var depositStakeCmd = &cobra.Command{
 }
 
 func doDepositStakeCmd(cmd *cobra.Command, args []string) {
-	wallet, sourceAddress, err := walletUnlock(cmd, sourceFlag)
+	wallet, sourceAddress, err := walletUnlockWithPath(cmd, sourceFlag, pathFlag)
 	if err != nil {
 		return
 	}
@@ -95,6 +95,7 @@ func init() {
 	depositStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	depositStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	depositStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
+	depositStakeCmd.Flags().StringVar(&pathFlag, "path", "", "Wallet derivation path")
 	depositStakeCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	depositStakeCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	depositStakeCmd.Flags().StringVar(&stakeInThetaFlag, "stake", "5000000", "Theta amount to stake")

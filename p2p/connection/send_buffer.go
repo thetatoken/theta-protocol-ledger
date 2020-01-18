@@ -66,7 +66,7 @@ func (sb *SendBuffer) insert(bytes []byte) bool {
 	}
 }
 
-// attemptInsert attemps to insert bytes into the queue. It is a
+// attemptInsert attempts to insert bytes into the queue. It is a
 // non-blocking call. It is goroutine safe
 func (sb *SendBuffer) attemptInsert(bytes []byte) bool {
 	select {

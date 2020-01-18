@@ -138,12 +138,39 @@ func TestDedup(t *testing.T) {
 	v := res.Votes()[0]
 	assert.Equal(v.ID, common.HexToAddress("A1"))
 	assert.Equal(uint64(5), v.Epoch)
+
+	// Test FilterByValidators()
+	votes3 := NewVoteSet()
+	votes3.AddVote(Vote{
+		Block: CreateTestBlock("B1", "").Hash(),
+		ID:    common.HexToAddress("A1"),
+		Epoch: 1,
+	})
+	votes3.AddVote(Vote{
+		Block: CreateTestBlock("B1", "").Hash(),
+		ID:    common.HexToAddress("A2"),
+		Epoch: 1,
+	})
+	votes3.AddVote(Vote{
+		Block: CreateTestBlock("B1", "").Hash(),
+		ID:    common.HexToAddress("A3"),
+		Epoch: 1,
+	})
+
+	vs := NewValidatorSet()
+	vs.AddValidator(NewValidator(common.HexToAddress("A1").Hex(), big.NewInt(1e10)))
+	vs.AddValidator(NewValidator(common.HexToAddress("A3").Hex(), big.NewInt(1e10)))
+	vs.AddValidator(NewValidator(common.HexToAddress("A4").Hex(), big.NewInt(1e10)))
+	res = votes3.FilterByValidators(vs)
+	assert.Equal(2, len(res.Votes()))
+	assert.Equal(res.Votes()[0].ID, common.HexToAddress("A1"))
+	assert.Equal(res.Votes()[1].ID, common.HexToAddress("A3"))
 }
 
 func TestCommitCertificate(t *testing.T) {
 	assert := assert.New(t)
 
-	// Begining of setup.
+	// Beginning of setup.
 	ten18 := new(big.Int).SetUint64(1e18) // 10^18
 
 	va1Stake := new(big.Int).Mul(new(big.Int).SetUint64(100000001), ten18) // 100 million + 1

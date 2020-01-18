@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -26,6 +27,11 @@ func txFromBytes(raw []byte) error {
 	tx, err := types.TxFromBytes(raw)
 	if err == nil {
 		fmt.Printf("\nTx: %v\n\n", tx)
+		if jsonStr, err := json.MarshalIndent(tx, "", "    "); err == nil {
+			fmt.Printf("\nJSON: %s\n", jsonStr)
+		} else {
+			fmt.Printf("\nJSON: %v\n", err)
+		}
 		return nil
 	}
 	return fmt.Errorf("Not a transaction")

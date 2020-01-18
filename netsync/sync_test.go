@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/consensus"
-	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/crypto"
-	"github.com/thetatoken/theta/ledger"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/store/kvstore"
+
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/dispatcher"
@@ -107,6 +108,11 @@ func TestSyncManager(t *testing.T) {
 	assert.True(ok)
 	assert.Equal(common.ChannelIDBlock, msg1.ChannelID)
 	assert.Equal(core.GetTestBlock("A4").Hash().Hex(), msg1.Entries[0])
+
+	res = <-mockMsgHandler.C
+	msg11, ok := res.(dispatcher.DataResponse)
+	assert.True(ok)
+	assert.Equal(common.ChannelIDHeader, msg11.ChannelID)
 
 	res = <-mockMsgHandler.C
 	msg2, ok := res.(dispatcher.InventoryRequest)

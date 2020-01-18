@@ -18,7 +18,7 @@ type Envelope struct {
 	Content interface{}
 }
 
-// Simnet represents an instance of simluated network.
+// Simnet represents an instance of simulated network.
 type Simnet struct {
 	Endpoints  []*SimnetEndpoint
 	msgHandler p2p.MessageHandler
@@ -192,6 +192,11 @@ func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 		se.network.AddMessage(Envelope{From: se.ID(), To: id, Content: message.Content})
 	}()
 	return true
+}
+
+// Peers returns the IDs of all peers
+func (se *SimnetEndpoint) Peers() []string {
+	return []string{}
 }
 
 // RegisterMessageHandler implements the Network interface.

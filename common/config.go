@@ -7,6 +7,8 @@ import (
 const (
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
+	// CfgGenesisChainID defines the chainID.
+	CfgGenesisChainID = "genesis.chainID"
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
@@ -14,8 +16,6 @@ const (
 	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
-	// CfgConsensusMaxNumValidators defines the max number validators allowed
-	CfgConsensusMaxNumValidators = "consensus.maxNumValidators"
 
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
 	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
@@ -26,6 +26,10 @@ const (
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
+	// CfgSyncDownloadByHash indicates whether should download blocks using hash.
+	CfgSyncDownloadByHash = "sync.downloadByHash"
+	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
+	CfgSyncDownloadByHeader = "sync.downloadByHeader"
 
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
@@ -37,9 +41,16 @@ const (
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
+	// CfgP2PSeedPeerOnly decides whether the node will connect to peers other than the seeds.
+	CfgP2PSeedPeerOnly = "p2p.seedPeerOnly"
+
+	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
+	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
 
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
+	// CfgRPCAddress sets the binding address of RPC service.
+	CfgRPCAddress = "rpc.address"
 	// CfgRPCPort sets the port of RPC service.
 	CfgRPCPort = "rpc.port"
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
@@ -52,7 +63,7 @@ const (
 	CfgLogPrintSelfID = "log.printSelfID"
 )
 
-// InitialConfig is the default configuartion produced by init command.
+// InitialConfig is the default configuration produced by init command.
 const InitialConfig = `# Theta configuration
 p2p:
   port: 5000
@@ -63,9 +74,10 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
-	viper.SetDefault(CfgConsensusMaxNumValidators, 7)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
+	viper.SetDefault(CfgSyncDownloadByHash, false)
+	viper.SetDefault(CfgSyncDownloadByHeader, true)
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
@@ -77,7 +89,9 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
+	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 
+	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 

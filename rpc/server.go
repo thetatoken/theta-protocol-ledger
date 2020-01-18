@@ -16,6 +16,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/consensus"
+	"github.com/thetatoken/theta/dispatcher"
 	"github.com/thetatoken/theta/ledger"
 	"github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/rpc/lib/rpc-codec/jsonrpc2"
@@ -26,10 +27,11 @@ import (
 var logger *log.Entry
 
 type ThetaRPCService struct {
-	mempool   *mempool.Mempool
-	ledger    *ledger.Ledger
-	chain     *blockchain.Chain
-	consensus *consensus.ConsensusEngine
+	mempool    *mempool.Mempool
+	ledger     *ledger.Ledger
+	dispatcher *dispatcher.Dispatcher
+	chain      *blockchain.Chain
+	consensus  *consensus.ConsensusEngine
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -49,7 +51,8 @@ type ThetaRPCServer struct {
 }
 
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
-func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *blockchain.Chain, consensus *consensus.ConsensusEngine) *ThetaRPCServer {
+func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatcher *dispatcher.Dispatcher,
+	chain *blockchain.Chain, consensus *consensus.ConsensusEngine) *ThetaRPCServer {
 	t := &ThetaRPCServer{
 		ThetaRPCService: &ThetaRPCService{
 			wg: &sync.WaitGroup{},
@@ -58,6 +61,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, chain *b
 
 	t.mempool = mempool
 	t.ledger = ledger
+	t.dispatcher = dispatcher
 	t.chain = chain
 	t.consensus = consensus
 
@@ -105,12 +109,13 @@ func (t *ThetaRPCServer) mainLoop() {
 }
 
 func (t *ThetaRPCServer) serve() {
+	address := viper.GetString(common.CfgRPCAddress)
 	port := viper.GetString(common.CfgRPCPort)
-	l, err := net.Listen("tcp", ":"+port)
+	l, err := net.Listen("tcp", address+":"+port)
 	if err != nil {
 		logger.WithFields(log.Fields{"error": err}).Fatal("Failed to create listener")
 	} else {
-		logger.WithFields(log.Fields{"port": port}).Info("RPC server started")
+		logger.WithFields(log.Fields{"address": address, "port": port}).Info("RPC server started")
 	}
 	defer l.Close()
 

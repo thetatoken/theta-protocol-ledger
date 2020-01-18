@@ -213,7 +213,7 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				peerNetAddress := addresses[j]
 				peer, err := pdmh.discMgr.connectToOutboundPeer(peerNetAddress, true)
 				if err != nil {
-					logger.Warnf("Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
+					logger.Debugf("Failed to connect to discovery peer %v: %v", peerNetAddress.String(), err)
 				} else {
 					logger.Infof("Successfully connected to discovery peer %v", peerNetAddress.String())
 				}
@@ -274,6 +274,13 @@ func (pdmh *PeerDiscoveryMessageHandler) sendAddresses(peer *pr.Peer, peerIDAddr
 		Addresses: peerIDAddrs,
 	}
 	peer.Send(common.ChannelIDPeerDiscovery, message)
+}
+
+func Fuzz(data []byte) int {
+	if _, err := decodePeerDiscoveryMessage(data); err != nil {
+		return 1
+	}
+	return 0
 }
 
 func decodePeerDiscoveryMessage(msgBytes common.Bytes) (message PeerDiscoveryMessage, err error) {

@@ -45,15 +45,15 @@ func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 	}
 }
 
-// FindTxByHash looks up transaction by hash and additionaly returns the containing block.
+// FindTxByHash looks up transaction by hash and additionally returns the containing block.
 func (ch *Chain) FindTxByHash(hash common.Hash) (tx common.Bytes, block *core.ExtendedBlock, founded bool) {
 	txIndexEntry := &TxIndexEntry{}
 	err := ch.store.Get(txIndexKey(hash), txIndexEntry)
 	if err != nil {
-		if err == store.ErrKeyNotFound {
-			return nil, nil, false
+		if err != store.ErrKeyNotFound {
+			logger.Error(err)
 		}
-		logger.Panic(err)
+		return nil, nil, false
 	}
 	block, err = ch.FindBlock(txIndexEntry.BlockHash)
 	if err != nil {

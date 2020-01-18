@@ -4,10 +4,15 @@ import (
 	"fmt"
 	"path"
 
+	log "github.com/sirupsen/logrus"
+
+	"github.com/thetatoken/theta/wallet/coldwallet"
 	cw "github.com/thetatoken/theta/wallet/coldwallet"
 	sw "github.com/thetatoken/theta/wallet/softwallet"
 	"github.com/thetatoken/theta/wallet/types"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "wallet"})
 
 func OpenWallet(cfgPath string, walletType types.WalletType, encrypted bool) (types.Wallet, error) {
 	var wallet types.Wallet
@@ -24,7 +29,15 @@ func OpenWallet(cfgPath string, walletType types.WalletType, encrypted bool) (ty
 			return nil, err
 		}
 	} else {
-		hub, err := cw.NewLedgerHub() // only support Ledger Nano S for now
+		var hub *coldwallet.Hub
+		var err error
+		// only support Ledger Nano S and Trezor for now
+		if walletType == types.WalletTypeColdNano {
+			hub, err = cw.NewLedgerHub()
+		} else {
+			hub, err = cw.NewTrezorHub()
+		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -33,7 +46,8 @@ func OpenWallet(cfgPath string, walletType types.WalletType, encrypted bool) (ty
 			return nil, fmt.Errorf("No cold wallet detected")
 		}
 		if len(wallets) > 1 {
-			return nil, fmt.Errorf("Multiple cold wallets detected, for now we only support one cold wallet at a time")
+			//return nil, fmt.Errorf("Multiple cold wallets detected, for now we only support one cold wallet at a time")
+			logger.Warnf("Multiple cold wallets detected, for now we only support the first one. Support for multiple wallets comes later.")
 		}
 		wallet = wallets[0]
 	}

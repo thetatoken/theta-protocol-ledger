@@ -103,7 +103,8 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 	if hl == nil {
 		hl = &types.HeightList{}
 	}
-	hl.Append(view.Height())
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+	hl.Append(blockHeight)
 	view.UpdateStakeTransactionHeightList(hl)
 
 	sourceAccount.Sequence++

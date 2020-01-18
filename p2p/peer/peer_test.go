@@ -13,6 +13,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
 	cn "github.com/thetatoken/theta/p2p/connection"
 	nu "github.com/thetatoken/theta/p2p/netutil"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
@@ -39,8 +40,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 	go func() {
 		outboundPeer := newOutboundPeer("127.0.0.1:" + strconv.Itoa(port))
-		randPeerPubKey := p2ptypes.GetTestRandPubKey()
-		peerANodeInfo := p2ptypes.CreateNodeInfo(randPeerPubKey, uint16(port))
+		randPeerPrivKey, _, _ := crypto.GenerateKeyPair()
+		peerANodeInfo := p2ptypes.CreateLocalNodeInfo(randPeerPrivKey, uint16(port))
 		err := outboundPeer.Handshake(&peerANodeInfo) // send out PeerA's node info
 		assert.Nil(err)
 		assert.True(outboundPeer.IsOutbound())
@@ -74,8 +75,8 @@ func TestPeerHandshakeAndCommunication(t *testing.T) {
 
 	// Handshake checks
 	inboundPeer := newInboundPeer(netconn)
-	peerBPubKey := p2ptypes.GetTestRandPubKey()
-	peerBNodeInfo := p2ptypes.CreateNodeInfo(peerBPubKey, uint16(port))
+	peerBPrivKey, _, _ := crypto.GenerateKeyPair()
+	peerBNodeInfo := p2ptypes.CreateLocalNodeInfo(peerBPrivKey, uint16(port))
 	err = inboundPeer.Handshake(&peerBNodeInfo) // send out PeerB's node info
 	assert.Nil(err)
 	assert.False(inboundPeer.IsOutbound())

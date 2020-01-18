@@ -238,8 +238,7 @@ func TestMempoolUpdate(t *testing.T) {
 		common.Bytes("tx4"), // intentionally repeated tx
 	}
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 	assert.Equal(5, mempool.Size())
 
 	log.Infof("----- Reap all remaining transactions -----")
@@ -279,8 +278,7 @@ func TestMempoolUpdateAndInsert(t *testing.T) {
 		common.Bytes("tx1"),
 	}
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 	assert.Equal(2, mempool.Size())
 
 	// tx4 and tx1 are from the same address.
@@ -316,8 +314,7 @@ func TestMempoolBigBatchUpdateAndReaping(t *testing.T) {
 
 	t1 := time.Now()
 
-	success := mempool.Update(committedRawTxs)
-	assert.True(success)
+	mempool.Update(committedRawTxs)
 
 	t2 := time.Now()
 	elapsedA := t2.Sub(t1)
@@ -458,6 +455,11 @@ func newTestLedger() core.Ledger {
 	}
 }
 
+func (tl *TestLedger) ScreenTxUnsafe(rawTx common.Bytes) result.Result {
+	_, res := tl.ScreenTx(rawTx)
+	return res
+}
+
 func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*core.TxInfo, result.Result) {
 	txInfo := &core.TxInfo{
 		EffectiveGasPrice: new(big.Int).SetUint64(tl.effectiveGasPriceList[tl.counter]),
@@ -468,11 +470,15 @@ func (tl *TestLedger) ScreenTx(rawTx common.Bytes) (*core.TxInfo, result.Result)
 	return txInfo, result.OK
 }
 
-func (tl *TestLedger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (tl *TestLedger) GetCurrentBlock() *core.Block {
+	return nil
+}
+
+func (tl *TestLedger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	return common.Hash{}, []common.Bytes{}, result.OK
 }
 
-func (tl *TestLedger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+func (tl *TestLedger) ApplyBlockTxs(block *core.Block) result.Result {
 	return result.OK
 }
 
@@ -490,6 +496,10 @@ func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 
 func (tl *TestLedger) PruneState(endHeight uint64) error {
 	return nil
+}
+
+func (tl *TestLedger) ApplyBlockTxsForChainCorrection(block *core.Block) (common.Hash, result.Result) {
+	return common.Hash{}, result.Result{}
 }
 
 type TestNetworkMessageInterceptor struct {

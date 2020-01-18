@@ -1,14 +1,15 @@
 package consensus
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 
-	"github.com/spf13/viper"
+	log "github.com/sirupsen/logrus"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 )
+
+const MaxValidatorCount int = 31
 
 //
 // -------------------------------- FixedValidatorManager ----------------------------------
@@ -45,7 +46,7 @@ func (m *FixedValidatorManager) GetNextProposer(blockHash common.Hash, _ uint64)
 
 func (m *FixedValidatorManager) getProposerFromValidators(valSet *core.ValidatorSet) core.Validator {
 	if valSet.Size() == 0 {
-		panic("No validators have been added")
+		log.Panic("No validators have been added")
 	}
 
 	return valSet.Validators()[0]
@@ -97,7 +98,7 @@ func (m *RotatingValidatorManager) GetNextProposer(blockHash common.Hash, epoch 
 
 func (m *RotatingValidatorManager) getProposerFromValidators(valSet *core.ValidatorSet, epoch uint64) core.Validator {
 	if valSet.Size() == 0 {
-		panic("No validators have been added")
+		log.Panic("No validators have been added")
 	}
 
 	totalStake := valSet.TotalStake()
@@ -118,7 +119,8 @@ func (m *RotatingValidatorManager) getProposerFromValidators(valSet *core.Valida
 	}
 
 	// Should not reach here.
-	panic("Failed to randomly select a validator")
+	log.Panic("Failed to randomly select a validator")
+	panic("Should not reach here")
 }
 
 // GetValidatorSet returns the validator set for given block.
@@ -138,7 +140,7 @@ func (m *RotatingValidatorManager) GetNextValidatorSet(blockHash common.Hash) *c
 //
 
 func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.ValidatorSet {
-	maxNumValidators := viper.GetInt(common.CfgConsensusMaxNumValidators)
+	maxNumValidators := MaxValidatorCount
 	topStakeHolders := vcp.GetTopStakeHolders(maxNumValidators)
 
 	valSet := core.NewValidatorSet()
@@ -158,10 +160,10 @@ func SelectTopStakeHoldersAsValidators(vcp *core.ValidatorCandidatePool) *core.V
 func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, blockHash common.Hash, isNext bool) *core.ValidatorSet {
 	vcp, err := consensus.GetLedger().GetFinalizedValidatorCandidatePool(blockHash, isNext)
 	if err != nil {
-		panic(fmt.Sprintf("Failed to get the validator candiate pool: %v", err))
+		log.Panicf("Failed to get the validator candidate pool: %v", err)
 	}
 	if vcp == nil {
-		panic(fmt.Sprintf("Failed to retrieve the validator candidate pool"))
+		log.Panic("Failed to retrieve the validator candidate pool")
 	}
 
 	return SelectTopStakeHoldersAsValidators(vcp)
@@ -183,7 +185,7 @@ func randUint64(rnd *rand.Rand, max uint64) uint64 {
 
 func scaleDown(x *big.Int, scalingFactor *big.Int) uint64 {
 	if scalingFactor.Cmp(common.Big0) == 0 {
-		panic("scalingFactor is zero")
+		log.Panic("scalingFactor is zero")
 	}
 	scaledX := new(big.Int).Div(x, scalingFactor)
 	scaledXUint64 := scaledX.Uint64()

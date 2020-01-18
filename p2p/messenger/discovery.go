@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	cn "github.com/thetatoken/theta/p2p/connection"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
@@ -116,6 +118,11 @@ func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
 		return err
 	}
 
+	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	if seedPeerOnly {
+		return nil // if seed peer only, we don't need to start the peer discovery manager
+	}
+
 	err = discMgr.peerDiscMsgHandler.Start(c)
 	if err != nil {
 		return err
@@ -183,12 +190,12 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
-	logger.Infof("Connecting to outbound peer: %v...", peerNetAddress)
+	logger.Debugf("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
 	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
-		logger.Warnf("Failed to create outbound peer: %v", peerNetAddress)
+		logger.Debugf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
 	}
 	peer.SetPersistency(persistent)

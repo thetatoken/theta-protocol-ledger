@@ -11,6 +11,7 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/version"
 )
 
@@ -61,10 +62,13 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 	if err != nil {
 		return err
 	}
+
 	account := ledgerState.GetAccount(address)
 	if account == nil {
 		return fmt.Errorf("Account with address %s is not found", address.Hex())
 	}
+	account.UpdateToHeight(ledgerState.Height())
+
 	result.Account = account
 	return nil
 }
@@ -113,6 +117,7 @@ const (
 	TxStatusNotFound  = "not_found"
 	TxStatusPending   = "pending"
 	TxStatusFinalized = "finalized"
+	TxStatusAbandoned = "abandoned"
 )
 
 func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTransactionResult) (err error) {
@@ -120,12 +125,22 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return errors.New("Transanction hash must be specified")
 	}
 	hash := common.HexToHash(args.Hash)
+	result.TxHash = hash
+
 	raw, block, found := t.chain.FindTxByHash(hash)
 	if !found {
-		result.Status = TxStatusNotFound
+		txStatus, exists := t.mempool.GetTransactionStatus(args.Hash)
+		if exists {
+			if txStatus == mempool.TxStatusAbandoned {
+				result.Status = TxStatusAbandoned
+			} else {
+				result.Status = TxStatusPending
+			}
+		} else {
+			result.Status = TxStatusNotFound
+		}
 		return nil
 	}
-	result.TxHash = hash
 	result.BlockHash = block.Hash()
 	result.BlockHeight = common.JSONUint64(block.Height)
 
@@ -316,6 +331,8 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 type GetStatusArgs struct{}
 
 type GetStatusResult struct {
+	Address                    string            `json:"address"`
+	PeerID                     string            `json:"peer_id"`
 	LatestFinalizedBlockHash   common.Hash       `json:"latest_finalized_block_hash"`
 	LatestFinalizedBlockHeight common.JSONUint64 `json:"latest_finalized_block_height"`
 	LatestFinalizedBlockTime   *common.JSONBig   `json:"latest_finalized_block_time"`
@@ -327,6 +344,8 @@ type GetStatusResult struct {
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
 	s := t.consensus.GetSummary()
+	result.Address = t.consensus.ID()
+	result.PeerID = t.dispatcher.ID()
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
 		result.LatestFinalizedBlockHash = latestFinalizedHash
@@ -345,6 +364,21 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	return
 }
 
+// ------------------------------ GetPeers -----------------------------------
+
+type GetPeersArgs struct{}
+
+type GetPeersResult struct {
+	Peers []string `json:"peers"`
+}
+
+func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
+	peers := t.dispatcher.Peers()
+	result.Peers = peers
+
+	return
+}
+
 // ------------------------------ GetVcp -----------------------------------
 
 type GetVcpByHeightArgs struct {
@@ -356,8 +390,9 @@ type GetVcpResult struct {
 }
 
 type BlockHashVcpPair struct {
-	BlockHash common.Hash
-	Vcp       *core.ValidatorCandidatePool
+	BlockHash  common.Hash
+	Vcp        *core.ValidatorCandidatePool
+	HeightList *types.HeightList
 }
 
 func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVcpResult) (err error) {
@@ -375,11 +410,15 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 		blockHash := b.Hash()
 		stateRoot := b.StateHash
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the VCP for height %v does not exists, it might have been pruned", height)
+		}
 		vcp := blockStoreView.GetValidatorCandidatePool()
-
+		hl := blockStoreView.GetStakeTransactionHeightList()
 		blockHashVcpPairs = append(blockHashVcpPairs, BlockHashVcpPair{
-			BlockHash: blockHash,
-			Vcp:       vcp,
+			BlockHash:  blockHash,
+			Vcp:        vcp,
+			HeightList: hl,
 		})
 	}
 

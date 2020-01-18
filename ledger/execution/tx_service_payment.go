@@ -43,6 +43,10 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	sourceAddress := tx.Source.Address
 	targetAddress := tx.Target.Address
 
+	if sourceAddress == targetAddress {
+		return result.Error("Source and target address for the service payment cannot be identical: %v", sourceAddress)
+	}
+
 	sourceAccount, res := getInput(view, tx.Source)
 	if res.IsError() {
 		return res
@@ -64,12 +68,6 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 		errMsg := fmt.Sprintf("sanityCheckForServicePaymentTx failed on source signature, addr: %v", sourceAddress.Hex())
 		logger.Infof(errMsg)
 		return result.Error(errMsg)
-	}
-
-	// Verify target
-	if targetAccount.Sequence+1 != tx.Target.Sequence {
-		return result.Error("ServicePayment: Got %v, expected %v. (acc.seq=%v)",
-			tx.Target.Sequence, targetAccount.Sequence+1, targetAccount.Sequence)
 	}
 
 	targetSignBytes := tx.TargetSignBytes(chainID)
@@ -140,15 +138,14 @@ func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView
 
 	currentBlockHeight := view.Height()
 	reserveSequence := tx.ReserveSequence
-	shouldSlash, slashIntent := sourceAccount.TransferReservedFund(accCoinsMap, currentBlockHeight, reserveSequence, tx)
+	shouldSlash, _ := sourceAccount.TransferReservedFund(accCoinsMap, currentBlockHeight, reserveSequence, tx)
 	if shouldSlash {
-		view.AddSlashIntent(slashIntent)
+		//view.AddSlashIntent(slashIntent)
 	}
 	if !chargeFee(targetAccount, tx.Fee) {
 		// should charge after transfer the fund, so an empty address has some fund to pay the tx fee
 		return common.Hash{}, result.Error("failed to charge transaction fee")
 	}
-	targetAccount.Sequence++ // targetAccount broadcasted the transaction
 
 	view.SetAccount(sourceAddress, sourceAccount)
 	view.SetAccount(targetAddress, targetAccount)

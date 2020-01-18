@@ -93,6 +93,56 @@ func TestFinalizePreviousBlocks(t *testing.T) {
 	}
 
 }
+func TestFinalizePreviousBlocks2(t *testing.T) {
+	assert := assert.New(t)
+	require := require.New(t)
+	core.ResetTestBlocks()
+
+	ch := CreateTestChainByBlocks([]string{
+		"a1", "a0",
+		"a2", "a1",
+		"a3", "a2",
+		"a4", "a3",
+		"a5", "a4",
+		"b2", "a1",
+		"b3", "b2",
+		"b4", "b3",
+		"b5", "b4",
+		"b6", "b5",
+		"b7", "b6",
+		"c1", "a0",
+	})
+	block, err := ch.FindBlock(core.GetTestBlock("b3").Hash())
+	require.Nil(err)
+
+	ch.FinalizePreviousBlocks(block.Hash())
+
+	for _, name := range []string{"a0", "a1", "b2", "b3"} {
+		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
+		assert.Nil(err)
+		assert.True(block.Status.IsFinalized())
+	}
+
+	for _, name := range []string{"b7", "b6", "b5", "b4", "c1", "a2", "a3"} {
+		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
+		assert.False(block.Status.IsFinalized())
+	}
+
+	block, err = ch.FindBlock(core.GetTestBlock("a5").Hash())
+	require.Nil(err)
+	ch.FinalizePreviousBlocks(block.Hash())
+
+	for _, name := range []string{"a0", "a1", "a2", "a3", "a4", "a5", "b2", "b3"} {
+		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
+		assert.True(block.Status.IsFinalized())
+	}
+
+	for _, name := range []string{"b7", "b6", "b5", "b4", "c1"} {
+		block, err = ch.FindBlock(core.GetTestBlock(name).Hash())
+		assert.False(block.Status.IsFinalized())
+	}
+
+}
 
 func TestBlockIndex(t *testing.T) {
 	assert := assert.New(t)

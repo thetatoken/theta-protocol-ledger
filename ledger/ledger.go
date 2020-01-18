@@ -33,10 +33,11 @@ var _ core.Ledger = (*Ledger)(nil)
 // Ledger implements the core.Ledger interface
 //
 type Ledger struct {
-	chain     *blockchain.Chain
-	consensus core.ConsensusEngine
-	valMgr    core.ValidatorManager
-	mempool   *mp.Mempool
+	chain        *blockchain.Chain
+	consensus    core.ConsensusEngine
+	valMgr       core.ValidatorManager
+	mempool      *mp.Mempool
+	currentBlock *core.Block
 
 	mu       *sync.RWMutex // Lock for accessing ledger state.
 	state    *st.LedgerState
@@ -64,26 +65,31 @@ func (ledger *Ledger) State() *st.LedgerState {
 	return ledger.state
 }
 
+// GetCurrentBlock returns the block currently being processed
+func (ledger *Ledger) GetCurrentBlock() *core.Block {
+	return ledger.currentBlock
+}
+
 // GetScreenedSnapshot returns a snapshot of screened ledger state to query about accounts, etc.
 func (ledger *Ledger) GetScreenedSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Screened().Copy()
 }
 
 // GetDeliveredSnapshot returns a snapshot of delivered ledger state to query about accounts, etc.
 func (ledger *Ledger) GetDeliveredSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Delivered().Copy()
 }
 
 // GetFinalizedSnapshot returns a snapshot of finalized ledger state to query about accounts, etc.
 func (ledger *Ledger) GetFinalizedSnapshot() (*st.StoreView, error) {
-	ledger.mu.RLock()
-	defer ledger.mu.RUnlock()
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
 
 	return ledger.state.Finalized().Copy()
 }
@@ -130,6 +136,18 @@ func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, e
 	return &block, nil
 }
 
+// ScreenTxUnsafe screens the given transaction without locking.
+func (ledger *Ledger) ScreenTxUnsafe(rawTx common.Bytes) (res result.Result) {
+	var tx types.Tx
+	tx, err := types.TxFromBytes(rawTx)
+	if err != nil {
+		return result.Error("Error decoding tx: %v", err)
+	}
+
+	_, res = ledger.executor.ScreenTx(tx)
+	return res
+}
+
 // ScreenTx screens the given transaction
 func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res result.Result) {
 	var tx types.Tx
@@ -161,7 +179,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
-func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
@@ -170,11 +188,14 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
 	view := ledger.state.Checked()
 
 	// Add special transactions
 	rawTxCandidates := []common.Bytes{}
-	ledger.addSpecialTransactions(view, &rawTxCandidates)
+	ledger.addSpecialTransactions(block, view, &rawTxCandidates)
 
 	// Add regular transactions submitted by the clients
 	regularRawTxs := ledger.mempool.ReapUnsafe(core.MaxNumRegularTxsPerBlock)
@@ -206,7 +227,7 @@ func (ledger *Ledger) ProposeBlockTxs() (stateRootHash common.Hash, blockRawTxs 
 // ApplyBlockTxs applies the given block transactions. If any of the transactions failed, it returns
 // an error immediately. If all the transactions execute successfully, it then validates the state
 // root hash. If the states root hash matches the expected value, it clears the transactions from the mempool
-func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoot common.Hash) result.Result {
+func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	ledger.mempool.Lock()
@@ -214,6 +235,12 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
+
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
+	blockRawTxs := ledger.currentBlock.Txs
+	expectedStateRoot := ledger.currentBlock.StateHash
 
 	view := ledger.state.Delivered()
 
@@ -254,6 +281,50 @@ func (ledger *Ledger) ApplyBlockTxs(blockRawTxs []common.Bytes, expectedStateRoo
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
+}
+
+// ApplyBlockTxsForChainCorrection applies all block's txs and re-calculate root hash
+func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common.Hash, result.Result) {
+	ledger.mempool.Lock()
+	defer ledger.mempool.Unlock()
+
+	ledger.mu.Lock()
+	defer ledger.mu.Unlock()
+
+	ledger.currentBlock = block
+	defer func() { ledger.currentBlock = nil }()
+
+	blockRawTxs := ledger.currentBlock.Txs
+
+	view := ledger.state.Delivered()
+
+	currHeight := view.Height()
+	currStateRoot := view.Hash()
+
+	hasValidatorUpdate := false
+	for _, rawTx := range blockRawTxs {
+		tx, err := types.TxFromBytes(rawTx)
+		if err != nil {
+			ledger.resetState(currHeight, currStateRoot)
+			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
+		}
+		if _, ok := tx.(*types.DepositStakeTx); ok {
+			hasValidatorUpdate = true
+		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+			hasValidatorUpdate = true
+		}
+		_, res := ledger.executor.ExecuteTx(tx)
+		if res.IsError() {
+			ledger.resetState(currHeight, currStateRoot)
+			return common.Hash{}, res
+		}
+	}
+
+	ledger.handleDelayedStateUpdates(view)
+
+	ledger.state.Commit() // commit to persistent storage
+
+	return view.Hash(), result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
 
 // PruneState attempts to prune the state up to the targetEndHeight
@@ -434,13 +505,13 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 
 	for _, returnedStake := range returnedStakes {
 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
-			panic(fmt.Sprintf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
-				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight))
+			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
 		}
 		sourceAddress := returnedStake.Source
 		sourceAccount := view.GetAccount(sourceAddress)
 		if sourceAccount == nil {
-			panic(fmt.Sprintf("Failed to retrieve source account for stake return: %v", sourceAddress))
+			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
 		}
 		returnedCoins := types.Coins{
 			ThetaWei: returnedStake.Amount,
@@ -453,29 +524,31 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
-func (ledger *Ledger) addSpecialTransactions(view *st.StoreView, rawTxs *[]common.Bytes) {
-	extBlk := ledger.consensus.GetLastFinalizedBlock()
-	epoch := ledger.consensus.GetEpoch()
-	proposer := ledger.valMgr.GetProposer(extBlk.Hash(), epoch)
-	validators := ledger.valMgr.GetValidatorSet(extBlk.Hash()).Validators()
+func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {
+	if block == nil {
+		logger.Warnf("addSpecialTransactions: block is nil")
+		return
+	}
 
-	ledger.addCoinbaseTx(view, &proposer, &validators, rawTxs)
-	ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
+	// Note 1: Should call GetNextProposer() with the hash of the parent block, since the current block is not fully assembled yet
+	// Note 2: GetNextProposer() should use the current epoch instead of the parent's epoch, since different epochs might have different proposers
+	// Note 3: Similarly, should call GetNextValidatorSet() on the hash of the parent block
+	parentBlkHash := block.Parent
+	proposer := ledger.valMgr.GetNextProposer(parentBlkHash, block.Epoch)
+	validatorSet := ledger.valMgr.GetNextValidatorSet(parentBlkHash)
+
+	ledger.addCoinbaseTx(view, &proposer, validatorSet, rawTxs)
+	//ledger.addSlashTxs(view, &proposer, &validators, rawTxs)
 }
 
 // addCoinbaseTx adds a Coinbase transaction
-func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}
 
-	validatorAddresses := make([]common.Address, len(*validators))
-	for idx, validator := range *validators {
-		validatorAddress := validator.Address
-		validatorAddresses[idx] = validatorAddress
-	}
-	accountRewardMap := exec.CalculateReward(view, validatorAddresses)
+	accountRewardMap := exec.CalculateReward(view, validatorSet)
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {
@@ -510,7 +583,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 }
 
 // addsSlashTx adds Slash transactions
-func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validators *[]core.Validator, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addSlashTxs(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,

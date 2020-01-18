@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spf13/viper"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
 )
@@ -110,16 +112,33 @@ func (ipl *InboundPeerListener) SetInboundCallback(incb InboundCallback) {
 func (ipl *InboundPeerListener) listenRoutine() {
 	defer ipl.wg.Done()
 
+	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
+
 	for {
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {
 			logger.Fatalf("net listener error: %v", err)
 		}
 
-		peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
-		if ipl.inboundCallback != nil {
-			ipl.inboundCallback(peer, err)
+		if seedPeerOnly {
+			remoteAddr := netutil.NewNetAddress(netconn.RemoteAddr())
+			isNotASeedPeer := !ipl.discMgr.seedPeerConnector.isASeedPeerIgnoringPort(remoteAddr)
+			if isNotASeedPeer {
+				logger.Debugf("%v is not a seed peer, ignore inbound connection request", remoteAddr.String())
+				netconn.Close()
+				continue
+			} else {
+				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
+			}
 		}
+
+		go func(netconn net.Conn) {
+			peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
+			if ipl.inboundCallback != nil {
+				ipl.inboundCallback(peer, err)
+			}
+		}(netconn)
 	}
 }
 

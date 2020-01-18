@@ -54,7 +54,7 @@ func main() {
 	if len(stateHashStr) != 0 {
 		stateHash := common.HexToHash(stateHashStr)
 		sv = state.NewStoreView(0, stateHash, db)
-		filename = "theta_storeview-" + stateHashStr
+		filename = "theta_storeview-" + stateHashStr + ".json"
 	} else {
 		root := core.NewBlock()
 		store := kvstore.NewKVStore(db)
@@ -73,7 +73,7 @@ func main() {
 		}
 
 		sv = state.NewStoreView(finalizedBlock.Height, finalizedBlock.StateHash, db)
-		filename = "theta_storeview-" + heightStr
+		filename = "theta_storeview-" + heightStr + ".json"
 	}
 
 	dumpPath := path.Join(configPath, filename)

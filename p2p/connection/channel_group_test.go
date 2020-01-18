@@ -1,11 +1,12 @@
 package connection
 
 import (
-	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/common"
+	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
 func TestDefaultChannelGroupAddChannel(t *testing.T) {
@@ -162,8 +163,6 @@ func TestRoundRobinChannelSelector2(t *testing.T) {
 	assert := assert.New(t)
 
 	cg := newTestEmptyChannelGroup()
-	strBuf := bytes.NewBufferString("")
-
 	ch1 := createDefaultChannel(common.ChannelIDCheckpoint)
 	ch2 := createDefaultChannel(common.ChannelIDHeader)
 	ch3 := createDefaultChannel(common.ChannelIDBlock)
@@ -206,8 +205,13 @@ func TestRoundRobinChannelSelector2(t *testing.T) {
 	assert.Equal(&ch5, ch)
 
 	// Clearing a channel
+	port := 43253
+	netconn := p2ptypes.GetTestNetconn(port)
+	cfg := GetDefaultConnectionConfig()
+	conn := CreateConnection(netconn, cfg)
+	conn.Start(context.Background())
 
-	nonempty, _, err := ch1.sendPacketTo(strBuf)
+	nonempty, _, err := ch1.sendPacketTo(conn)
 	assert.True(nonempty)
 	assert.Nil(err)
 

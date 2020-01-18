@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"net"
@@ -356,14 +357,14 @@ func (a *AddrBook) loadFromFile(filePath string) bool {
 	// Load addrBookJSON{}
 	r, err := os.Open(filePath)
 	if err != nil {
-		panic(fmt.Sprintf("Error opening file %s: %v", filePath, err))
+		log.Panicf("Error opening file %s: %v", filePath, err)
 	}
 	defer r.Close()
 	aJSON := &addrBookJSON{}
 	dec := json.NewDecoder(r)
 	err = dec.Decode(aJSON)
 	if err != nil {
-		panic(fmt.Sprintf("Error reading file %s: %v", filePath, err))
+		log.Panicf("Error reading file %s: %v", filePath, err)
 	}
 
 	// Restore all the fields...
@@ -728,7 +729,7 @@ func (a *AddrBook) groupKey(na *nu.NetAddress) string {
 func (a *AddrBook) generateAddrBookKey() string {
 	_, pk, err := crypto.GenerateKeyPair()
 	if err != nil {
-		panic(fmt.Sprintf("Unable to generate key for the address book!"))
+		log.Panicf("Unable to generate key for the address book!")
 	}
 	addrBookKeyBytes := pk.Address()
 	addrBookKey := hex.EncodeToString(addrBookKeyBytes[:])
