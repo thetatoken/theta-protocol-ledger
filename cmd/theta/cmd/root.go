@@ -6,6 +6,8 @@ import (
 	"path"
 	"strings"
 
+	"github.com/thetatoken/theta/common"
+
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -42,6 +44,15 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&chainCorrectionPath, "chain_correction", "", "chain correction path")
 	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 	RootCmd.PersistentFlags().StringVar(&nodePassword, "password", "", "password for the node")
+
+	// Support for custom db path
+	RootCmd.PersistentFlags().String("data", "", "data path (default to config path)")
+	viper.BindPFlag(common.CfgDataPath, RootCmd.PersistentFlags().Lookup("data"))
+
+	// Support for custom key path
+	RootCmd.PersistentFlags().String("key", "", "key path (default to config path)")
+	viper.BindPFlag(common.CfgKeyPath, RootCmd.PersistentFlags().Lookup("key"))
+
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -51,6 +62,7 @@ func initConfig() {
 	// Search config (without extension).
 	viper.SetConfigName("config")
 
+	viper.SetEnvPrefix("THETA")
 	viper.AutomaticEnv() // read in environment variables that match
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 

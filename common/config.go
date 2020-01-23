@@ -5,6 +5,12 @@ import (
 )
 
 const (
+	// CfgDataPath defines custom DB path
+	CfgDataPath = "data.path"
+
+	// CfgKeyPath defines custom key path
+	CfgKeyPath = "key.path"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
