@@ -38,7 +38,9 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	viper.BindPFlag(common.CfgConfigPath, RootCmd.PersistentFlags().Lookup("config"))
+
 	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", "", "snapshot path")
 	RootCmd.PersistentFlags().StringVar(&chainImportDirPath, "chain_import", "", "chain import path")
 	RootCmd.PersistentFlags().StringVar(&chainCorrectionPath, "chain_correction", "", "chain correction path")
@@ -55,16 +57,21 @@ func init() {
 
 }
 
-// initConfig reads in config file and ENV variables if set.
+// initConfig is called when cmd.Execute() is called. reads in config file and ENV variables if set.
 func initConfig() {
-	viper.AddConfigPath(cfgPath)
-
 	// Search config (without extension).
 	viper.SetConfigName("config")
 
 	viper.SetEnvPrefix("THETA")
 	viper.AutomaticEnv() // read in environment variables that match
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	cfgPath = viper.GetString(common.CfgConfigPath)
+	if cfgPath == "" {
+		cfgPath = getDefaultConfigPath()
+	}
+
+	viper.AddConfigPath(cfgPath)
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

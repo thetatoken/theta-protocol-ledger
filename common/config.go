@@ -5,6 +5,9 @@ import (
 )
 
 const (
+	// CfgConfigPath defines custom config path
+	CfgConfigPath = "config.path"
+
 	// CfgDataPath defines custom DB path
 	CfgDataPath = "data.path"
 
