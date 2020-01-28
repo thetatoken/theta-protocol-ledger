@@ -456,15 +456,15 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			}).Warn("Guardian votes refers to non-existing block")
 			return result.Error("Block in guardian votes cannot be found")
 		}
-		// Voted block must be at previous checkpoint height.
-		if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-			}).Warn("Guardian votes refers to non-existing block")
-			return result.Error("Block in guardian votes cannot be found")
-		}
+		// // Voted block must be at previous checkpoint height.
+		// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
+		// 	e.logger.WithFields(log.Fields{
+		// 		"block.Hash":          block.Hash().Hex(),
+		// 		"block.Height":        block.Height,
+		// 		"block.GuardianVotes": block.GuardianVotes.String(),
+		// 	}).Warn("Voted block must be at previous checkpoint height")
+		// 	return result.Error("Voted block must be at previous checkpoint height")
+		// }
 		// Voted block must be ascendant.
 		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
 			e.logger.WithFields(log.Fields{
