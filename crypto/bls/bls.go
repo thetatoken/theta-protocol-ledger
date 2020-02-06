@@ -1,56 +1,38 @@
-// Package bls implements a go-wrapper around a library implementing the
-// the BLS12-381 curve and signature scheme. This package exposes a public API for
-// verifying and aggregating BLS signatures used by Theta.
-//
-// Some of the code are adapted from:
-// 	https://github.com/prysmaticlabs/prysm/
-//  https://github.com/phoreproject/bls/
-//
-
 package bls
 
 import (
-	crand "crypto/rand"
-	"encoding/binary"
-	"fmt"
 	"io"
+	"sync"
 
-	phorebls "github.com/phoreproject/bls"
-	"github.com/pkg/errors"
+	bh "github.com/herumi/bls-eth-go-binary/bls"
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/rlp"
 )
 
-// WIP: See BLS standardisation process:
-// https://tools.ietf.org/html/draft-irtf-cfrg-bls-signature-00#ref-I-D.irtf-cfrg-hash-to-curve.
-const (
-	DomainMessage uint64 = iota
-	DomainPop
-)
+func init() {
+	bh.Init(bh.BLS12_381)
+}
 
 // ------------- Signature --------------
 
 // Signature is a message signature.
 type Signature struct {
-	s *phorebls.G2Projective
+	s *bh.Sign
 }
 
 // ToBytes serializes a signature in compressed form.
 func (s *Signature) ToBytes() common.Bytes {
-	ret := phorebls.CompressG2(s.s.ToAffine())
-	return ret[:]
+	return s.s.Serialize()
 }
 
 // SignatureFromBytes creates a BLS signature from a byte slice.
 func SignatureFromBytes(sig []byte) (*Signature, error) {
-	b := toBytes96(sig)
-	a, err := phorebls.DecompressG2(b)
+	s := &bh.Sign{}
+	err := s.Deserialize(sig)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Signature{s: a.ToProjective()}, nil
+	return &Signature{s: s}, nil
 }
 
 // IsEmpty checks if signature is empty.
@@ -59,18 +41,24 @@ func (s *Signature) IsEmpty() bool {
 }
 
 func (s *Signature) String() string {
-	return s.s.String()
+	return s.s.GetHexString()
 }
 
 // Aggregate adds one signature to another
 func (s *Signature) Aggregate(other *Signature) {
-	newS := s.s.Add(other.s)
-	s.s = newS
+	s.s.Add(other.s)
 }
 
 // Copy returns a copy of the signature.
 func (s *Signature) Copy() *Signature {
-	return &Signature{s.s.Copy()}
+	newS := &bh.Sign{}
+	newS.Deserialize(s.s.Serialize())
+	return &Signature{s: newS}
+}
+
+// Equals checks if two signatures are equal
+func (s *Signature) Equals(other *Signature) bool {
+	return s.s.IsEqual(other.s)
 }
 
 var _ rlp.Encoder = (*Signature)(nil)
@@ -106,33 +94,23 @@ func (s *Signature) DecodeRLP(stream *rlp.Stream) error {
 
 // Verify verifies a signature against a message and a public key.
 func (s *Signature) Verify(m []byte, p *PublicKey) bool {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, DomainMessage)
-	h := phorebls.HashG2WithDomain(hash32(m), toBytes8(b))
-	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, s.s)
-	rhs := phorebls.Pairing(p.p, h.ToAffine().ToProjective())
-	return lhs.Equals(rhs)
+	return s.s.Verify(p.p, string(m))
 }
 
-// PopVerify verifies a proof of possession of a public key.
+// PopVerify verifies a proof of possesion of a public key.
 func (s *Signature) PopVerify(p *PublicKey) bool {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, DomainPop)
-	h := phorebls.HashG2WithDomain(hash32(p.ToBytes()), toBytes8(b))
-	lhs := phorebls.Pairing(phorebls.G1ProjectiveOne, s.s)
-	rhs := phorebls.Pairing(p.p, h.ToAffine().ToProjective())
-	return lhs.Equals(rhs)
+	return s.s.VerifyPop(p.p)
 }
 
 // ------------- Public key --------------
 
 // PublicKey is a public key.
 type PublicKey struct {
-	p *phorebls.G1Projective
+	p *bh.PublicKey
 }
 
 func (p *PublicKey) String() string {
-	return p.p.String()
+	return p.p.GetHexString()
 }
 
 var _ rlp.Encoder = (*PublicKey)(nil)
@@ -168,19 +146,18 @@ func (p *PublicKey) DecodeRLP(stream *rlp.Stream) error {
 
 // ToBytes serializes a public key to bytes.
 func (p *PublicKey) ToBytes() common.Bytes {
-	ret := phorebls.CompressG1(p.p.ToAffine())
-	return ret[:]
+	return p.p.Serialize()
 }
 
 // PublicKeyFromBytes creates a BLS public key from a byte slice.
 func PublicKeyFromBytes(pub []byte) (*PublicKey, error) {
-	b := toBytes48(pub)
-	a, err := phorebls.DecompressG1(b)
+	p := &bh.PublicKey{}
+	err := p.Deserialize(pub)
 	if err != nil {
 		return nil, err
 	}
 
-	return &PublicKey{p: a.ToProjective()}, nil
+	return &PublicKey{p: p}, nil
 }
 
 // IsEmpty checks if pubkey is empty.
@@ -189,100 +166,130 @@ func (p *PublicKey) IsEmpty() bool {
 }
 
 // Equals checks if two public keys are equal
-func (p *PublicKey) Equals(other PublicKey) bool {
-	return p.p.Equal(other.p)
+func (p *PublicKey) Equals(other *PublicKey) bool {
+	return p.p.IsEqual(other.p)
 }
 
 // Aggregate adds two public keys together.
 func (p *PublicKey) Aggregate(other *PublicKey) {
-	newP := p.p.Add(other.p)
-	p.p = newP
+	p.p.Add(other.p)
 }
 
 // Copy copies the public key and returns it.
 func (p *PublicKey) Copy() *PublicKey {
-	return &PublicKey{p: p.p.Copy()}
+	newP := &bh.PublicKey{}
+	newP.Deserialize(p.p.Serialize())
+	return &PublicKey{p: newP}
 }
 
 // ------------- Secret key --------------
 
 // SecretKey represents a BLS private key.
 type SecretKey struct {
-	f *phorebls.FR
-}
-
-// GetFRElement gets the underlying FR element.
-func (s *SecretKey) GetFRElement() *phorebls.FR {
-	return s.f
+	f *bh.SecretKey
 }
 
 func (s *SecretKey) String() string {
-	return s.f.String()
+	return s.f.GetHexString()
 }
 
-// Marshal serializes a secret key to bytes.
-func (s *SecretKey) Marshal() []byte {
-	ret := s.f.Bytes()
-	return ret[:]
+// Equals checks if two secret keys are equal
+func (s *SecretKey) Equals(other *SecretKey) bool {
+	return s.f.IsEqual(other.f)
+}
+
+// ToBytes serializes a secret key to bytes.
+func (s *SecretKey) ToBytes() common.Bytes {
+	return s.f.Serialize()
 }
 
 // SecretKeyFromBytes creates a BLS private key from a byte slice.
 func SecretKeyFromBytes(priv []byte) (*SecretKey, error) {
-	if len(priv) != 32 {
-		return nil, fmt.Errorf("expected byte slice of length 32, received: %d", len(priv))
+	sk := &bh.SecretKey{}
+	err := sk.Deserialize(priv)
+	if err != nil {
+		return nil, err
 	}
-	k := toBytes32(priv)
-	val := &SecretKey{phorebls.FRReprToFR(phorebls.FRReprFromBytes(k))}
-	if val.GetFRElement() == nil {
-		return nil, errors.New("invalid private key")
-	}
-	return val, nil
+	return &SecretKey{f: sk}, nil
 }
 
 // Sign signs a message with a secret key.
 func (s *SecretKey) Sign(message []byte) *Signature {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, DomainMessage)
-	h := phorebls.HashG2WithDomain(hash32(message), toBytes8(b)).MulFR(s.f.ToRepr())
-	return &Signature{s: h}
+	sig := s.f.Sign(string(message))
+	return &Signature{s: sig}
 }
 
 // PublicKey converts the private key into a public key.
 func (s *SecretKey) PublicKey() *PublicKey {
-	return &PublicKey{p: phorebls.G1AffineOne.MulFR(s.f.ToRepr())}
+	return &PublicKey{p: s.f.GetPublicKey()}
 }
 
 // PopProve generates a proof of poccession of the secrect key.
 func (s *SecretKey) PopProve() *Signature {
-	b := make([]byte, 8)
-	binary.BigEndian.PutUint64(b, DomainPop)
-	h := phorebls.HashG2WithDomain(hash32(s.PublicKey().ToBytes()), toBytes8(b)).MulFR(s.f.ToRepr())
-	return &Signature{s: h}
+	sig := s.f.GetPop()
+	return &Signature{s: sig}
 }
 
 // ------------- Static functions ----------------
 
+var genkeyLock = sync.Mutex{}
+
 func GenKey(seed io.Reader) (*SecretKey, error) {
-	k, err := phorebls.RandFR(seed)
-	if err != nil {
-		return nil, err
-	}
-	s := &SecretKey{f: k}
-	return s, nil
+	genkeyLock.Lock()
+	defer genkeyLock.Unlock()
+
+	bh.SetRandFunc(seed)
+	defer bh.SetRandFunc(nil)
+
+	k := &bh.SecretKey{}
+	k.SetByCSPRNG()
+	return &SecretKey{f: k}, nil
 }
 
 // RandKey generates a random secret key.
 func RandKey() (*SecretKey, error) {
-	return GenKey(crand.Reader)
+	// genkeyLock.Lock()
+	// defer genkeyLock.Unlock()
+
+	// k := &bh.SecretKey{}
+	// k.SetByCSPRNG()
+	// return &SecretKey{f: k}, nil
+	return GenKey(nil)
 }
 
 // AggregateSignatures adds up all of the signatures.
 func AggregateSignatures(s []*Signature) *Signature {
-	newSig := &Signature{s: phorebls.G2ProjectiveZero.Copy()}
+	newSig := NewAggregateSignature()
 	for _, sig := range s {
 		newSig.Aggregate(sig)
 	}
 	return newSig
+}
+
+func sigExp(s *Signature, exp uint32) *Signature {
+	ret := NewAggregateSignature()
+	c := s.Copy()
+	for exp > 0 {
+		if exp&1 == 1 {
+			ret.Aggregate(c)
+		}
+		exp = exp >> 1
+		c.Aggregate(c)
+	}
+	return ret
+}
+
+func pubkeyExp(p *PublicKey, exp uint32) *PublicKey {
+	ret := NewAggregatePubkey()
+	c := p.Copy()
+	for exp > 0 {
+		if exp&1 == 1 {
+			ret.Aggregate(c)
+		}
+		exp = exp >> 1
+		c.Aggregate(c)
+	}
+	return ret
 }
 
 // AggregateSignaturesVec aggregates signatures based on given vector.
@@ -290,17 +297,16 @@ func AggregateSignaturesVec(s []*Signature, vec []uint32) *Signature {
 	if len(s) != len(vec) {
 		panic("len(sigs) must be equal to len(vec)")
 	}
-	newSig := &Signature{s: phorebls.G2ProjectiveZero.Copy()}
+	newSig := NewAggregateSignature()
 	for i, sig := range s {
-		newS := newSig.s.Add(sig.s.MulFR(phorebls.NewFRRepr(uint64(vec[i]))))
-		newSig.s = newS
+		newSig.Aggregate(sigExp(sig, vec[i]))
 	}
 	return newSig
 }
 
 // AggregatePublicKeys adds public keys together.
 func AggregatePublicKeys(p []*PublicKey) *PublicKey {
-	newPub := &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
+	newPub := NewAggregatePubkey()
 	for _, pub := range p {
 		newPub.Aggregate(pub)
 	}
@@ -312,65 +318,19 @@ func AggregatePublicKeysVec(p []*PublicKey, vec []uint32) *PublicKey {
 	if len(p) != len(vec) {
 		panic("len(pubkeys) must be equal to len(vec)")
 	}
-	newPub := &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
+	newPub := NewAggregatePubkey()
 	for i, pub := range p {
-		newP := newPub.p.Add(pub.p.MulFR(phorebls.NewFRRepr(uint64(vec[i]))))
-		newPub.p = newP
+		newPub.Aggregate(pubkeyExp(pub, vec[i]))
 	}
 	return newPub
 }
 
 // NewAggregateSignature creates a blank aggregate signature.
 func NewAggregateSignature() *Signature {
-	return &Signature{s: phorebls.G2ProjectiveZero.Copy()}
+	return &Signature{s: &bh.Sign{}}
 }
 
 // NewAggregatePubkey creates a blank public key.
 func NewAggregatePubkey() *PublicKey {
-	return &PublicKey{p: phorebls.G1ProjectiveZero.Copy()}
-}
-
-//
-// -------------- utils -----------------
-//
-
-func hash32(in []byte) [32]byte {
-	b := crypto.Keccak256(in)
-	return toBytes32(b)
-}
-
-// toBytes8 is a convenience method for converting a byte slice to a fix
-// sized 8 byte array. This method will truncate the input if it is larger
-// than 8 bytes.
-func toBytes8(x []byte) [8]byte {
-	var y [8]byte
-	copy(y[:], x)
-	return y
-}
-
-// toBytes32 is a convenience method for converting a byte slice to a fix
-// sized 32 byte array. This method will truncate the input if it is larger
-// than 32 bytes.
-func toBytes32(x []byte) [32]byte {
-	var y [32]byte
-	copy(y[:], x)
-	return y
-}
-
-// toBytes48 is a convenience method for converting a byte slice to a fix
-// sized 48 byte array. This method will truncate the input if it is larger
-// than 48 bytes.
-func toBytes48(x []byte) [48]byte {
-	var y [48]byte
-	copy(y[:], x)
-	return y
-}
-
-// toBytes96 is a convenience method for converting a byte slice to a fix
-// sized 96 byte array. This method will truncate the input if it is larger
-// than 96 bytes.
-func toBytes96(x []byte) [96]byte {
-	var y [96]byte
-	copy(y[:], x)
-	return y
+	return &PublicKey{p: &bh.PublicKey{}}
 }

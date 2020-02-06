@@ -222,7 +222,7 @@ func (gcp *GuardianCandidatePool) WithStake() *GuardianCandidatePool {
 // Index returns index of a public key in the pool. Returns -1 if not found.
 func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
 	for i, g := range gcp.SortedGuardians {
-		if pubkey.Equals(*g.Pubkey) {
+		if pubkey.Equals(g.Pubkey) {
 			return i
 		}
 	}
