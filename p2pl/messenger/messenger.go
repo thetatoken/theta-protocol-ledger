@@ -566,7 +566,7 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 		return err
 	}
 
-	err = msgr.pubsub.Publish(strconv.Itoa(int(message.ChannelID)), bytes)
+	err = msgr.pubsub.Publish(viper.GetString(common.CfgLibP2PProtocolPrefix)+strconv.Itoa(int(message.ChannelID)), bytes)
 	if err != nil {
 		log.Errorf("Failed to publish to gossipsub topic: %v", err)
 		return err
@@ -667,7 +667,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 		msgr.registerStreamHandler(channelID)
 
-		sub, err := msgr.pubsub.Subscribe(strconv.Itoa(int(channelID)))
+		sub, err := msgr.pubsub.Subscribe(viper.GetString(common.CfgLibP2PProtocolPrefix)+strconv.Itoa(int(channelID)))
 		if err != nil {
 			logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
 			continue
