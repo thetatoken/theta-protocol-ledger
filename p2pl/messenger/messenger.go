@@ -55,7 +55,7 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 var _ p2pl.Network = (*Messenger)(nil)
 
 const (
-	thetaP2PProtocolPrefix            = "/theta/1.0.0/"
+	// thetaP2PProtocolPrefix            = "/theta/1.0.0/"
 	defaultPeerDiscoveryPulseInterval = 10 * time.Second
 	connectInterval                   = 1000 // 1 sec
 	lowConnectivityCheckInterval      = 60
@@ -227,7 +227,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		dopts := []dhtopts.Option{
 			dhtopts.Datastore(dsync.MutexWrap(ds.NewMapDatastore())),
 			dhtopts.Protocols(
-				protocol.ID(thetaP2PProtocolPrefix + "dht"),
+				protocol.ID(viper.GetString(common.CfgLibP2PProtocolPrefix) + "dht"),
 			),
 		}
 
@@ -710,7 +710,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
-	msgr.host.SetStreamHandler(protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
+	msgr.host.SetStreamHandler(protocol.ID(viper.GetString(common.CfgLibP2PProtocolPrefix)+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
 		
 		if msgr.seedPeerOnly {
@@ -860,7 +860,7 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 	peer.SetReceiveHandler(receiveHandler)
 
 	streamCreator := func(channelID common.ChannelIDEnum) (*transport.BufferedStream, error) {
-		strm, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))))
+		strm, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(viper.GetString(common.CfgLibP2PProtocolPrefix)+strconv.Itoa(int(channelID))))
 		if err != nil {
 			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID(), peer.Addrs())
 			return nil, err
@@ -881,7 +881,7 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 	peer.SetStreamCreator(streamCreator)
 
 	rawStreamCreator := func(channelID common.ChannelIDEnum) (network.Stream, error) {
-		stream, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(thetaP2PProtocolPrefix+strconv.Itoa(int(channelID))))
+		stream, err := msgr.host.NewStream(msgr.ctx, peer.ID(), protocol.ID(viper.GetString(common.CfgLibP2PProtocolPrefix)+strconv.Itoa(int(channelID))))
 		if err != nil {
 			logger.Debugf("Stream open failed: %v. peer: %v, addrs: %v", err, peer.ID(), peer.Addrs())
 			return nil, err

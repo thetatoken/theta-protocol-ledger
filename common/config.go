@@ -47,6 +47,8 @@ const (
 	CfgLibP2PSeeds = "p2p.libp2pSeeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
 	CfgLibP2PRendezvous = "p2p.libp2pRendezvous"
+	// CfgLibP2PProtocolPrefix is the libp2p protocol prefix
+	CfgLibP2PProtocolPrefix = "p2p.libp2pProtocolPrefix"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
