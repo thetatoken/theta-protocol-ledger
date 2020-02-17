@@ -44,6 +44,18 @@ func runStart(cmd *cobra.Command, args []string) {
 	var networkOld *msg.Messenger
 	var network *msgl.Messenger
 
+	// load snapshot
+	if len(snapshotPath) == 0 {
+		snapshotPath = path.Join(cfgPath, "snapshot")
+	}
+
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
+	if err != nil {
+		log.Fatalf("Snapshot validation failed, err: %v", err)
+	}
+	root := &core.Block{BlockHeader: snapshotBlockHeader}
+	viper.Set(common.CfgGenesisChainID, root.ChainID)
+
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
@@ -76,17 +88,6 @@ func runStart(cmd *cobra.Command, args []string) {
 		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
 			mainDBPath, refDBPath, err)
 	}
-
-	if len(snapshotPath) == 0 {
-		snapshotPath = path.Join(cfgPath, "snapshot")
-	}
-
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
-	if err != nil {
-		log.Fatalf("Snapshot validation failed, err: %v", err)
-	}
-	root := &core.Block{BlockHeader: snapshotBlockHeader}
-	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
 		ChainID:             root.ChainID,

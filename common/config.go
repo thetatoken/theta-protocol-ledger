@@ -37,6 +37,8 @@ const (
 	CfgP2PReuseStream = "p2p.reuseStream"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
+	// CfgP2PVersion sets the version of P2P network.
+	CfgP2PVersion = "p2p.version"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
@@ -47,8 +49,6 @@ const (
 	CfgLibP2PSeeds = "p2p.libp2pSeeds"
 	// CfgLibP2PRendezvous is the libp2p rendezvous string
 	CfgLibP2PRendezvous = "p2p.libp2pRendezvous"
-	// CfgLibP2PProtocolPrefix is the libp2p protocol prefix
-	CfgLibP2PProtocolPrefix = "p2p.libp2pProtocolPrefix"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
