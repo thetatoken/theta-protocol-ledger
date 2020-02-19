@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"math/big"
 	"net/http"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -116,7 +117,7 @@ func (rp *Reporter) statusToString() string {
 			addition = fmt.Sprintf(`,"LatestFinalizedBlockHeight":%d,"syncing":"%v"`, common.JSONUint64(block.Height), isSyncing(block))
 		}
 	}
-	result := fmt.Sprintf(`"version":"%s", "git_hash":"%s", "address":"%s", "chain_id":"%s"%s`, version.Version, version.GitHash, rp.consensus.ID(), rp.chain.ChainID, addition)
+	result := fmt.Sprintf(`"version":"%s", "git_hash":"%s", "address":"%s", "chain_id":"%s", "OS":"%s"%s`, version.Version, version.GitHash, rp.consensus.ID(), rp.chain.ChainID, runtime.GOOS, addition)
 	return result
 }
 
