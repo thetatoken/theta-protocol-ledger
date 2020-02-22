@@ -1,26 +1,28 @@
-## thetacli backup snapshot
+## thetacli backup chain_correction
 
-backup snapshot
+backup chain_correction
 
 ### Synopsis
 
-Backup snapshot.
+Backup chain_correction.
 
 ```
-thetacli backup snapshot [flags]
+thetacli backup chain_correction [flags]
 ```
 
 ### Examples
 
 ```
-thetacli backup snapshot
+thetacli backup chain_correction
 ```
 
 ### Options
 
 ```
-      --height uint   Snapshot height
-  -h, --help          help for snapshot
+      --end_block_hash string   Ending block hash
+      --exclusion_txs strings   Exclusion Txs
+  -h, --help                    help for chain_correction
+      --snapshot_height uint    Snapshot height
 ```
 
 ### Options inherited from parent commands

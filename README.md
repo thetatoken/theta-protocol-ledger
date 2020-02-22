@@ -23,7 +23,24 @@ Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The cur
 ```
 brew install go@1.11
 brew link go@1.11 --force
+``` 
+
+Open the `profile` file with the following command.
 ```
+nano /etc/profile
+```
+
+Add the following environment variables.
+```bash
+export GOPATH=$HOME/go
+export PATH=$GOPATH/bin:$PATH
+export GOBIN=$GOPATH/bin
+
+# optional
+export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
+```
+
+Save the file with `Crtl + o`. Hit `enter` to overwrite the file and close it with `Ctrl + x`.
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
 
@@ -31,13 +48,23 @@ Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/sr
 git clone https://github.com/thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
-Install [glide](https://github.com/Masterminds/glide). Then execute the following commands to download all dependencies:
+Install [glide](https://github.com/Masterminds/glide) with the following command.
+
+```
+brew install glide 
+```
+
+Then execute the following commands to download all dependencies:
 
 ```
 export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 cd $THETA_HOME
 make get_vendor_deps
 ```
+
+If you see errors when running the command `make get_vendor_deps` you can try to run the `make get_vendor_deps` cmd with sudo or root.
+
+
 Also make sure `jq` is installed to run the unit tests. On Mac OS X, run the following command
 ```
 brew install jq
@@ -45,24 +72,30 @@ brew install jq
 
 ### On Windows
 
-On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator)
+On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator).
 
 ```bash
 @"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
 ```
 
-Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
+Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command.
 
 ```
 choco install golang --version 1.11 --force
 ```
 
-Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
+Create a `go` folder in the c:\Users\username folder with the following command.
+
+```
+mkdir %USERPROFILE%\go
+```
+
+Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command.
 
 ```
 choco install make --source=cygwin
 ```
-To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\cygwin64\etc` folder.
+To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\tools\cygwin64\etc` folder.
 And set the db_home location to windows as below.
 
 ```
@@ -81,7 +114,7 @@ Then, use the installed [Cygwin terminal](https://www.cygwin.com/) to run the fo
 git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
 ```
 
-Install [Glide](https://github.com/Masterminds/glide). 
+Install [Glide](https://github.com/Masterminds/glide/releases). 
 Then execute the following commands to download all dependencies:
 
 ```bash
@@ -90,6 +123,8 @@ cd $THETA_HOME
 make tools
 glide install
 ```
+
+Install [TDM-GCC](http://tdm-gcc.tdragon.net/download) for compiling files written in C.
 
 
 ## Build and Install
