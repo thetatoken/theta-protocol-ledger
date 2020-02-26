@@ -9,7 +9,9 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -829,6 +831,56 @@ func (tx *DepositStakeTx) SetSignature(addr common.Address, sig *crypto.Signatur
 func (tx *DepositStakeTx) String() string {
 	return fmt.Sprintf("DepositStakeTx{%v -> %v, stake: %v, purpose: %v}",
 		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
+}
+
+type DepositStakeTxV2 struct {
+	Fee     Coins    `json:"fee"`     // Fee
+	Source  TxInput  `json:"source"`  // source staker account
+	Holder  TxOutput `json:"holder"`  // stake holder account
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
+
+	BlsPubkey *bls.PublicKey    `rlp:"nil"`
+	BlsPop    *bls.Signature    `rlp:"nil"`
+	HolderSig *crypto.Signature `rlp:"nil"`
+}
+
+func (_ *DepositStakeTxV2) AssertIsTx() {}
+
+func (tx *DepositStakeTxV2) SignBytes(chainID string) []byte {
+	var txBytes []byte
+	sig := tx.Source.Signature
+	tx.Source.Signature = nil
+	if tx.Purpose == core.StakeForValidator {
+		tmp := &DepositStakeTx{
+			Fee:     tx.Fee,
+			Source:  tx.Source,
+			Holder:  tx.Holder,
+			Purpose: tx.Purpose,
+		}
+		txBytes, _ = TxToBytes(tmp)
+	} else if tx.Purpose == core.StakeForGuardian {
+		txBytes, _ = TxToBytes(tx)
+	}
+
+	signBytes := encodeToBytes(chainID)
+	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
+	tx.Source.Signature = sig
+	return signBytes
+}
+
+func (tx *DepositStakeTxV2) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.Source.Address == addr {
+		tx.Source.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *DepositStakeTxV2) String() string {
+	return fmt.Sprintf("DepositStakeTxV2{%v -> %v, stake: %v, purpose: %v, BlsPubkey: %v, BlsPop: %v}",
+		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose, tx.BlsPubkey, tx.BlsPop)
 }
 
 //-----------------------------------------------------------------------------

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
@@ -45,6 +46,43 @@ func (b *Block) String() string {
 	return fmt.Sprintf("Block{Header: %v, Txs: %v}", b.BlockHeader, txs)
 }
 
+var _ rlp.Encoder = (*Block)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (b *Block) EncodeRLP(w io.Writer) error {
+	if b == nil {
+		return rlp.Encode(w, &Block{})
+	}
+	return rlp.Encode(w, []interface{}{
+		b.BlockHeader,
+		b.Txs,
+	})
+}
+
+// DecodeRLP implements RLP Decoder interface.
+func (b *Block) DecodeRLP(stream *rlp.Stream) error {
+	_, err := stream.List()
+	if err != nil {
+		return err
+	}
+
+	h := &BlockHeader{}
+	err = stream.Decode(h)
+	if err != nil {
+		return err
+	}
+	b.BlockHeader = h
+
+	txs := []common.Bytes{}
+	err = stream.Decode(&txs)
+	if err != nil {
+		return err
+	}
+	b.Txs = txs
+
+	return stream.ListEnd()
+}
+
 // AddTxs adds transactions to the block and update transaction root hash.
 func (b *Block) AddTxs(txs []common.Bytes) {
 	b.Txs = append(b.Txs, txs...)
@@ -82,20 +120,155 @@ func CalculateRootHash(items []common.Bytes) common.Hash {
 
 // BlockHeader contains the essential information of a block.
 type BlockHeader struct {
-	ChainID     string
-	Epoch       uint64
-	Height      uint64
-	Parent      common.Hash
-	HCC         CommitCertificate
-	TxHash      common.Hash
-	ReceiptHash common.Hash `json:"-"`
-	Bloom       Bloom       `json:"-"`
-	StateHash   common.Hash
-	Timestamp   *big.Int
-	Proposer    common.Address
-	Signature   *crypto.Signature
+	ChainID       string
+	Epoch         uint64
+	Height        uint64
+	Parent        common.Hash
+	HCC           CommitCertificate
+	GuardianVotes *AggregatedVotes `rlp:"nil"` // Added in Theta2.0 fork.
+	TxHash        common.Hash
+	ReceiptHash   common.Hash `json:"-"`
+	Bloom         Bloom       `json:"-"`
+	StateHash     common.Hash
+	Timestamp     *big.Int
+	Proposer      common.Address
+	Signature     *crypto.Signature
 
 	hash common.Hash // Cache of calculated hash.
+}
+
+var _ rlp.Encoder = (*BlockHeader)(nil)
+
+// EncodeRLP implements RLP Encoder interface.
+func (h *BlockHeader) EncodeRLP(w io.Writer) error {
+	if h == nil {
+		return rlp.Encode(w, &BlockHeader{})
+	}
+	if h.Height < common.HeightEnableTheta2 {
+		return rlp.Encode(w, []interface{}{
+			h.ChainID,
+			h.Epoch,
+			h.Height,
+			h.Parent,
+			h.HCC,
+			h.TxHash,
+			h.ReceiptHash,
+			h.Bloom,
+			h.StateHash,
+			h.Timestamp,
+			h.Proposer,
+			h.Signature,
+		})
+	}
+
+	// Theta2.0 fork
+	return rlp.Encode(w, []interface{}{
+		h.ChainID,
+		h.Epoch,
+		h.Height,
+		h.Parent,
+		h.HCC,
+		h.TxHash,
+		h.ReceiptHash,
+		h.Bloom,
+		h.StateHash,
+		h.Timestamp,
+		h.Proposer,
+		h.Signature,
+		h.GuardianVotes,
+	})
+
+}
+
+var _ rlp.Decoder = (*BlockHeader)(nil)
+
+// DecodeRLP implements RLP Decoder interface.
+func (h *BlockHeader) DecodeRLP(stream *rlp.Stream) error {
+	_, err := stream.List()
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.ChainID)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Epoch)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Height)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Parent)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.HCC)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.TxHash)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.ReceiptHash)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Bloom)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.StateHash)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Timestamp)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Proposer)
+	if err != nil {
+		return err
+	}
+
+	err = stream.Decode(&h.Signature)
+	if err != nil {
+		return err
+	}
+
+	// Theta2.0 fork
+	if h.Height >= common.HeightEnableTheta2 {
+		raw, err := stream.Raw()
+		if err != nil {
+			return err
+		}
+		if common.Bytes2Hex(raw) == "c0" {
+			h.GuardianVotes = nil
+		} else {
+			gvotes := &AggregatedVotes{}
+			// err = stream.Decode(gvotes)
+			rlp.DecodeBytes(raw, gvotes)
+			if err != nil {
+				return err
+			}
+			h.GuardianVotes = gvotes
+		}
+	}
+
+	return stream.ListEnd()
 }
 
 // Hash of header.
@@ -134,20 +307,10 @@ func (h *BlockHeader) String() string {
 
 // SignBytes returns raw bytes to be signed.
 func (h *BlockHeader) SignBytes() common.Bytes {
-	r := BlockHeader{
-		ChainID:     h.ChainID,
-		Epoch:       h.Epoch,
-		Height:      h.Height,
-		Parent:      h.Parent,
-		HCC:         h.HCC,
-		TxHash:      h.TxHash,
-		ReceiptHash: h.ReceiptHash,
-		Bloom:       h.Bloom,
-		StateHash:   h.StateHash,
-		Timestamp:   h.Timestamp,
-		Proposer:    h.Proposer,
-	}
-	raw, _ := rlp.EncodeToBytes(r)
+	old := h.Signature
+	h.Signature = nil
+	raw, _ := rlp.EncodeToBytes(h)
+	h.Signature = old
 	return raw
 }
 
@@ -296,6 +459,57 @@ func (eb *ExtendedBlock) String() string {
 // ShortString returns a short string describing the block.
 func (eb *ExtendedBlock) ShortString() string {
 	return eb.Hash().String()
+}
+
+// DecodeRLP implements RLP Decoder interface.
+func (eb *ExtendedBlock) DecodeRLP(stream *rlp.Stream) error {
+	_, err := stream.List()
+	if err != nil {
+		return err
+	}
+
+	b := &Block{}
+	err = stream.Decode(b)
+	if err != nil {
+		return err
+	}
+	eb.Block = b
+
+	children := []common.Hash{}
+	err = stream.Decode(&children)
+	if err != nil {
+		return err
+	}
+	eb.Children = children
+
+	var status byte
+	err = stream.Decode(&status)
+	if err != nil {
+		return err
+	}
+	eb.Status = BlockStatus(status)
+
+	var hasValidatorUpdate bool
+	err = stream.Decode(&hasValidatorUpdate)
+	if err != nil {
+		return err
+	}
+	eb.HasValidatorUpdate = hasValidatorUpdate
+
+	return stream.ListEnd()
+}
+
+// EncodeRLP implements RLP Encoder interface.
+func (eb *ExtendedBlock) EncodeRLP(w io.Writer) error {
+	if eb == nil {
+		return rlp.Encode(w, &ExtendedBlock{})
+	}
+	return rlp.Encode(w, []interface{}{
+		eb.Block,
+		eb.Children,
+		eb.Status,
+		eb.HasValidatorUpdate,
+	})
 }
 
 type ExtendedBlockInnerJSON ExtendedBlock

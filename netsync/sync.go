@@ -2,6 +2,7 @@ package netsync
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"sync"
 
@@ -15,6 +16,8 @@ import (
 	"github.com/thetatoken/theta/dispatcher"
 	"github.com/thetatoken/theta/p2p"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/p2pl"
+	rp "github.com/thetatoken/theta/report"
 	"github.com/thetatoken/theta/rlp"
 )
 
@@ -45,11 +48,10 @@ type SyncManager struct {
 	dispatcher *dispatcher.Dispatcher
 	requestMgr *RequestManager
 
-	wg      *sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
-	stopped bool
-
+	wg       *sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stopped  bool
 	incoming chan p2ptypes.Message
 
 	whitelist []string
@@ -59,21 +61,26 @@ type SyncManager struct {
 	voteCache *lru.Cache // Cache for votes
 }
 
-func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, network p2p.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer) *SyncManager {
+func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer, reporter *rp.Reporter) *SyncManager {
 	voteCache, _ := lru.New(voteCacheLimit)
 	sm := &SyncManager{
 		chain:      chain,
 		consensus:  cons,
 		consumer:   consumer,
 		dispatcher: disp,
-
-		wg:       &sync.WaitGroup{},
-		incoming: make(chan p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
+		wg:         &sync.WaitGroup{},
+		incoming:   make(chan p2ptypes.Message, viper.GetInt(common.CfgSyncMessageQueueSize)),
 
 		voteCache: voteCache,
 	}
-	sm.requestMgr = NewRequestManager(sm)
-	network.RegisterMessageHandler(sm)
+	sm.requestMgr = NewRequestManager(sm, reporter)
+
+	if !reflect.ValueOf(networkOld).IsNil() {
+		networkOld.RegisterMessageHandler(sm)
+	}
+	if !reflect.ValueOf(network).IsNil() {
+		network.RegisterMessageHandler(sm)
+	}
 
 	if viper.GetString(common.CfgSyncInboundResponseWhitelist) != "" {
 		sm.whitelist = strings.Split(viper.GetString(common.CfgSyncInboundResponseWhitelist), ",")
@@ -130,6 +137,7 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 		common.ChannelIDProposal,
 		common.ChannelIDCC,
 		common.ChannelIDVote,
+		common.ChannelIDGuardian,
 	}
 }
 
@@ -595,6 +603,25 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":     peerID,
 		}).Debug("Received proposal")
 		m.handleProposal(proposal)
+	case common.ChannelIDGuardian:
+		vote := &core.AggregatedVotes{}
+		err := rlp.DecodeBytes(data.Payload, vote)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode DataResponse payload")
+			return
+		}
+		m.logger.WithFields(log.Fields{
+			"vote.Hash":       vote.Block.Hex(),
+			"vote.GCP":        vote.Gcp.Hex(),
+			"vote.Multiplies": vote.Multiplies,
+			"peer":            peerID,
+		}).Debug("Received guardian vote")
+		m.handleGuardianVote(vote)
 	case common.ChannelIDHeader:
 		headers := &Headers{}
 		err := rlp.DecodeBytes(data.Payload, headers)
@@ -685,7 +712,8 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 	sm.requestMgr.AddBlock(block)
 
-	if sm.requestMgr.IsGossipBlock(block.Hash()) {
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if sm.requestMgr.IsGossipBlock(block.Hash()) && p2pOpt != common.P2POptLibp2p {
 		// Gossip the block out using hash
 		sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
 			ChannelID: common.ChannelIDBlock,
@@ -727,20 +755,28 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 
 	sm.PassdownMessage(vote)
 
-	hash := vote.Hash()
-	if sm.voteCache.Contains(hash) {
-		return
-	}
-	sm.voteCache.Add(hash, struct{}{})
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if p2pOpt != common.P2POptLibp2p {
+		// Need to manually gossip if not using Libp2p
+		hash := vote.Hash()
+		if sm.voteCache.Contains(hash) {
+			return
+		}
+		sm.voteCache.Add(hash, struct{}{})
 
-	payload, err := rlp.EncodeToBytes(vote)
-	if err != nil {
-		sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
-		return
+		payload, err := rlp.EncodeToBytes(vote)
+		if err != nil {
+			sm.logger.WithFields(log.Fields{"vote": vote}).Error("Failed to encode vote")
+			return
+		}
+		msg := dispatcher.DataResponse{
+			ChannelID: common.ChannelIDVote,
+			Payload:   payload,
+		}
+		sm.dispatcher.SendData([]string{}, msg)
 	}
-	msg := dispatcher.DataResponse{
-		ChannelID: common.ChannelIDVote,
-		Payload:   payload,
-	}
-	sm.dispatcher.SendData([]string{}, msg)
+}
+
+func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
+	sm.PassdownMessage(vote)
 }

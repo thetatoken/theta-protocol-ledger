@@ -40,18 +40,38 @@ const (
 	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
 	CfgSyncDownloadByHeader = "sync.downloadByHeader"
 
+	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
+	CfgP2POpt = "p2p.opt"
+	// CfgP2PReuseStream sets whether to reuse libp2p stream
+	CfgP2PReuseStream = "p2p.reuseStream"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
+	// CfgP2PVersion sets the version of P2P network.
+	CfgP2PVersion = "p2p.version"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
+	// CfgP2PLPort sets the port used by P2P network.
+	CfgP2PLPort = "p2p.portL"
 	// CfgP2PSeeds sets the boostrap peers.
 	CfgP2PSeeds = "p2p.seeds"
+	// CfgLibP2PSeeds sets the boostrap peers in libp2p format.
+	CfgLibP2PSeeds = "p2p.libp2pSeeds"
+	// CfgLibP2PRendezvous is the libp2p rendezvous string
+	CfgLibP2PRendezvous = "p2p.libp2pRendezvous"
 	// CfgP2PMessageQueueSize sets the message queue size for network interface.
 	CfgP2PMessageQueueSize = "p2p.messageQueueSize"
 	// CfgP2PSeedPeerOnlyOutbound decides whether only the seed peers can be outbound peers.
 	CfgP2PSeedPeerOnlyOutbound = "p2p.seedPeerOnlyOutbound"
 	// CfgP2PSeedPeerOnly decides whether the node will connect to peers other than the seeds.
 	CfgP2PSeedPeerOnly = "p2p.seedPeerOnly"
+	// CfgP2PMinNumPeers specifies the minimal number of peers a node tries to maintain
+	CfgP2PMinNumPeers = "p2p.minNumPeers"
+	// CfgP2PMaxNumPeers specifies the maximal number of peers a node can simultaneously connected to
+	CfgP2PMaxNumPeers = "p2p.maxNumPeers"
+	// CfgMaxNumPersistentPeers sets the max number of peers to persist for normal nodes
+	CfgMaxNumPersistentPeers = "p2p.maxNumPersistentPeers"
+	// CfgBufferPoolSize defines the number of buffers in the pool.
+	CfgBufferPoolSize = "p2p.bufferPoolSize"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -70,6 +90,23 @@ const (
 	// CfgLogPrintSelfID determines whether to print node's ID in log (Useful in simulation when
 	// there are more than one node running).
 	CfgLogPrintSelfID = "log.printSelfID"
+
+	// CfgGuardianRoundLength defines the length of a guardian voting round.
+	CfgGuardianRoundLength = "guardian.roundLength"
+
+	// Graphite Server to collet metrics
+	CfgMetricsServer = "metrics.server"
+
+	// CfgProfEnabled to enable profiling
+	CfgProfEnabled = "prof.enabled"
+
+	// CfgForceGCEnabled to enable force GC
+	CfgForceGCEnabled = "gc.enabled"
+)
+
+// Starting block heights of features.
+const (
+	FeatureGuardian uint64 = 0
 )
 
 // InitialConfig is the default configuration produced by init command.
@@ -98,7 +135,13 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
+	viper.SetDefault(CfgP2POpt, P2POptBoth)
+	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
+	viper.SetDefault(CfgP2PMinNumPeers, 32)
+	viper.SetDefault(CfgP2PMaxNumPeers, 64)
+	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
+	viper.SetDefault(CfgBufferPoolSize, 8)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
@@ -106,6 +149,13 @@ func init() {
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
+
+	viper.SetDefault(CfgGuardianRoundLength, 30)
+
+	viper.SetDefault(CfgMetricsServer, "guardian-metrics.thetatoken.org")
+
+	viper.SetDefault(CfgProfEnabled, false)
+	viper.SetDefault(CfgForceGCEnabled, true)
 }
 
 // WriteInitialConfig writes initial config file to file system.

@@ -14,6 +14,7 @@ import (
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/dispatcher"
+	rp "github.com/thetatoken/theta/report"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -130,9 +131,11 @@ type RequestManager struct {
 	activePeers    []string
 	refreshCounter int
 	aplock         *sync.RWMutex
+
+	reporter *rp.Reporter
 }
 
-func NewRequestManager(syncMgr *SyncManager) *RequestManager {
+func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestManager {
 	rm := &RequestManager{
 		ticker: time.NewTicker(1 * time.Second),
 
@@ -155,6 +158,8 @@ func NewRequestManager(syncMgr *SyncManager) *RequestManager {
 		activePeers:    []string{},
 		refreshCounter: 0,
 		aplock:         &sync.RWMutex{},
+
+		reporter: reporter,
 	}
 
 	logger := util.GetLoggerForModule("request")
@@ -261,6 +266,7 @@ func (rm *RequestManager) tryToDownload() {
 	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
+
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 
@@ -290,6 +296,16 @@ func (rm *RequestManager) tryToDownload() {
 	if rm.ifDownloadByHash {
 		rm.downloadBlockFromHash()
 	}
+
+	// Remove downloaded blocks from header queue
+	// newQ := []*PendingBlock{}
+	newQ := &HeaderHeap{}
+	for _, header := range *rm.pendingBlocksWithHeader {
+		if _, ok := rm.pendingBlocksByHash[header.hash.Hex()]; ok {
+			heap.Push(newQ, header)
+		}
+	}
+	rm.pendingBlocksWithHeader = newQ
 }
 
 //compatible with older version, download block from hash
@@ -351,8 +367,13 @@ func (rm *RequestManager) downloadBlockFromHash() {
 	for _, el := range elToRemove {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
+		height := uint64(0)
+		if pendingBlock.block != nil {
+			height = pendingBlock.block.Height
+		}
 		rm.logger.WithFields(log.Fields{
-			"block": hash,
+			"block":        hash,
+			"block.Height": height,
 		}).Debug("Removing outdated block")
 		rm.removeEl(el)
 	}
@@ -716,5 +737,14 @@ func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
 		}
 
 		rm.syncMgr.PassdownMessage(block)
+
+		p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+		if p2pOpt != common.P2POptLibp2p {
+			// Need to manually gossip if not using Libp2p
+			rm.syncMgr.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+				ChannelID: common.ChannelIDBlock,
+				Entries:   []string{block.Hash().Hex()},
+			})
+		}
 	}
 }

@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"fmt"
 
-	"github.com/thetatoken/theta/rlp"
+	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/p2p/types"
-
 	dp "github.com/thetatoken/theta/dispatcher"
+	"github.com/thetatoken/theta/p2p/types"
+	"github.com/thetatoken/theta/rlp"
 )
 
 //
@@ -73,5 +73,16 @@ func (mmh *MempoolMessageHandler) HandleMessage(message types.Message) error {
 	if err == DuplicateTxError {
 		return nil
 	}
-	return err
+	if err != nil {
+		return err
+	}
+
+	// When using libp2p gossip, we don't need to re-broadcast txs received from other
+	// nodes.
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if p2pOpt != common.P2POptLibp2p {
+		mmh.mempool.BroadcastTx(rawTx)
+	}
+
+	return nil
 }

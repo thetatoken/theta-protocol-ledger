@@ -270,4 +270,5 @@ testImports:
   version: 788fd78401277ebd861206a03c884797c6ec5541
 - name: github.com/aws/aws-sdk-go
   version: ddc06f9fad886ea5daa5f828f3ca094084f8c2a7
-
+- name: github.com/phoreproject/bls
+  version: da95d4798b09e9f45a29dc53124b2a0b4c1dfc13

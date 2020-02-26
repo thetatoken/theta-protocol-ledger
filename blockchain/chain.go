@@ -280,7 +280,7 @@ func (ch *Chain) IsOrphan(block *core.Block) bool {
 // saveBlock updates a previously stored block.
 func (ch *Chain) saveBlock(block *core.ExtendedBlock) error {
 	hash := block.Hash()
-	return ch.store.Put(hash[:], *block)
+	return ch.store.Put(hash[:], block)
 }
 
 func (ch *Chain) SaveBlock(block *core.ExtendedBlock) error {

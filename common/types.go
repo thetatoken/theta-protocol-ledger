@@ -354,6 +354,15 @@ func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
 
+type MessageIDEnum uint8
+
+const (
+	MessageIDInvRequest MessageIDEnum = iota
+	MessageIDInvResponse
+	MessageIDDataRequest
+	MessageIDDataResponse
+)
+
 // ChannelIDEnum defines the channelID for different type of data for synchronization among blockchain nodes
 type ChannelIDEnum byte
 
@@ -388,4 +397,22 @@ const (
 
 	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
 	ChannelIDPing
+
+	// ChannelIDGurdian indicates the channel for Guardian messages between peers
+	ChannelIDGuardian
+)
+
+// P2POptEnum defines the p2p network
+type P2POptEnum int
+
+const (
+
+	// P2POptOld indicates the old p2p network
+	P2POptOld P2POptEnum = iota
+
+	// P2POptLibp2p indicates libp2p network
+	P2POptLibp2p
+
+	// P2POptBoth indicates using both networks at the same time
+	P2POptBoth
 )

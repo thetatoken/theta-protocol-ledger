@@ -32,9 +32,14 @@ func CodeKey(codeHash common.Bytes) common.Bytes {
 	return append(common.Bytes("ls/ch/"), codeHash...)
 }
 
-// ValidatorCandidatePoolKey returns the state key for the stake holder set
+// ValidatorCandidatePoolKey returns the state key for the validator stake holder set
 func ValidatorCandidatePoolKey() common.Bytes {
 	return common.Bytes("ls/vcp")
+}
+
+// GuardianCandidatePoolKey returns the state key for the guadian stake holder set
+func GuardianCandidatePoolKey() common.Bytes {
+	return common.Bytes("ls/gcp")
 }
 
 // StakeTransactionHeightListKey returns the state key the heights of blocks

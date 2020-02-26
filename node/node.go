@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"log"
+	"reflect"
 	"sync"
 
 	"github.com/spf13/viper"
@@ -16,6 +17,8 @@ import (
 	mp "github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/netsync"
 	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2pl"
+	rp "github.com/thetatoken/theta/report"
 	"github.com/thetatoken/theta/rpc"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store"
@@ -33,6 +36,7 @@ type Node struct {
 	Ledger           core.Ledger
 	Mempool          *mp.Mempool
 	RPC              *rpc.ThetaRPCServer
+	reporter         *rp.Reporter
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -46,7 +50,8 @@ type Params struct {
 	ChainID             string
 	PrivateKey          *crypto.PrivateKey
 	Root                *core.Block
-	Network             p2p.Network
+	NetworkOld          p2p.Network
+	Network             p2pl.Network
 	DB                  database.Database
 	SnapshotPath        string
 	ChainImportDirPath  string
@@ -57,10 +62,12 @@ func NewNode(params *Params) *Node {
 	store := kvstore.NewKVStore(params.DB)
 	chain := blockchain.NewChain(params.ChainID, store, params.Root)
 	validatorManager := consensus.NewRotatingValidatorManager()
-	dispatcher := dp.NewDispatcher(params.Network)
+	dispatcher := dp.NewDispatcher(params.NetworkOld, params.Network)
 	consensus := consensus.NewConsensusEngine(params.PrivateKey, store, chain, dispatcher, validatorManager)
+	reporter := rp.NewReporter(dispatcher, consensus, chain)
 
-	syncMgr := netsync.NewSyncManager(chain, consensus, params.Network, dispatcher, consensus)
+	// TODO: check if this is a guardian node
+	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, reporter)
 	mempool := mp.CreateMempool(dispatcher)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
 
@@ -68,7 +75,13 @@ func NewNode(params *Params) *Node {
 	consensus.SetLedger(ledger)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
-	params.Network.RegisterMessageHandler(txMsgHandler)
+
+	if !reflect.ValueOf(params.Network).IsNil() {
+		params.Network.RegisterMessageHandler(txMsgHandler)
+	}
+	if !reflect.ValueOf(params.NetworkOld).IsNil() {
+		params.NetworkOld.RegisterMessageHandler(txMsgHandler)
+	}
 
 	currentHeight := consensus.GetLastFinalizedBlock().Height
 	if currentHeight <= params.Root.Height {
@@ -98,12 +111,12 @@ func NewNode(params *Params) *Node {
 		Dispatcher:       dispatcher,
 		Ledger:           ledger,
 		Mempool:          mempool,
+		reporter:         reporter,
 	}
 
 	if viper.GetBool(common.CfgRPCEnabled) {
 		node.RPC = rpc.NewThetaRPCServer(mempool, ledger, dispatcher, chain, consensus)
 	}
-
 	return node
 }
 
@@ -117,6 +130,7 @@ func (n *Node) Start(ctx context.Context) {
 	n.SyncManager.Start(n.ctx)
 	n.Dispatcher.Start(n.ctx)
 	n.Mempool.Start(n.ctx)
+	n.reporter.Start(n.ctx)
 
 	if viper.GetBool(common.CfgRPCEnabled) {
 		n.RPC.Start(n.ctx)

@@ -217,9 +217,6 @@ func (mp *Mempool) Start(ctx context.Context) error {
 	mp.ctx = c
 	mp.cancel = cancel
 
-	mp.wg.Add(1)
-	go mp.broadcastTransactionsRoutine()
-
 	return nil
 }
 
@@ -392,36 +389,21 @@ func (mp *Mempool) Flush() {
 	mp.size = 0
 }
 
-// broadcastTransactionRoutine broadcasts transactions to neighoring peers
-func (mp *Mempool) broadcastTransactionsRoutine() {
-	defer mp.wg.Done()
+// BroadcastTx broadcast given raw transaction to the network
+func (mp *Mempool) BroadcastTx(tx common.Bytes) {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
 
-	var next *clist.CElement
-	for {
-		select {
-		case <-mp.ctx.Done():
-			mp.stopped = true
-			return
-		default:
-		}
+	mp.BroadcastTxUnsafe(tx)
+}
 
-		if next == nil {
-			next = mp.newTxs.FrontWait() // Wait until a tx is available
-		}
-
-		rawTx := next.Value.(common.Bytes)
-
-		// Broadcast the transaction
-		data := dp.DataResponse{
-			ChannelID: common.ChannelIDTransaction,
-			Payload:   rawTx,
-		}
-
-		peerIDs := []string{} // empty peerID list means broadcasting to all neighboring peers
-		mp.dispatcher.SendData(peerIDs, data)
-
-		curr := next
-		next = curr.NextWait()
-		mp.newTxs.Remove(curr) // already broadcasted, should remove
+// BroadcastTxUnsafe is the non-locking version of BroadcastTx
+func (mp *Mempool) BroadcastTxUnsafe(tx common.Bytes) {
+	data := dp.DataResponse{
+		ChannelID: common.ChannelIDTransaction,
+		Payload:   tx,
 	}
+
+	peerIDs := []string{}
+	mp.dispatcher.SendData(peerIDs, data)
 }

@@ -16,9 +16,15 @@ linux: gen_version
 docker: 
 	integration/docker/node/build.sh force
 
-install: gen_version
+install: gen_version release
+
+release:
 	go install ./cmd/...
 	go install ./integration/...
+
+debug:
+	go install -race ./cmd/...
+	go install -race ./integration/...
 
 test: test_unit #test_integration test_cluster_deployment
 

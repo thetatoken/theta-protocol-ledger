@@ -15,7 +15,7 @@ type BadgerDatabase struct {
 
 // NewBadgerDatabase returns a BadgerDB wrapped object.
 func NewBadgerDatabase(dirname string) (*BadgerDatabase, error) {
-	opts := badger.DefaultOptions
+	opts := badger.DefaultOptions(dirname)
 	opts.Dir = dirname
 	opts.ValueDir = dirname
 	db, err := badger.Open(opts)

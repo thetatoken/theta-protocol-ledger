@@ -53,7 +53,7 @@ func TestSingleBlockValidation(t *testing.T) {
 	root.Epoch = 0
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	// Valid block
 	b1 := core.NewBlock()
@@ -226,7 +226,7 @@ func TestValidParent(t *testing.T) {
 	root.Epoch = 0
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	b1 := core.NewBlock()
 	b1.ChainID = chain.ChainID
@@ -310,7 +310,7 @@ func TestChildBlockOfValidatorChange(t *testing.T) {
 	root.Epoch = 0
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	b1 := core.NewBlock()
 	b1.ChainID = chain.ChainID
@@ -413,7 +413,7 @@ func TestGrandChildBlockOfValidatorChange(t *testing.T) {
 	root.Epoch = 0
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	b1 := core.NewBlock()
 	b1.ChainID = chain.ChainID
@@ -574,7 +574,7 @@ func TestGrandGrandChildBlockOfValidatorChange(t *testing.T) {
 	root.Epoch = 0
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	b1 := core.NewBlock()
 	b1.ChainID = chain.ChainID
@@ -709,7 +709,7 @@ func TestTipSelection(t *testing.T) {
 	root := core.CreateTestBlock("root", "")
 	chain := blockchain.NewChain("testchain", store, root)
 
-	ce := NewConsensusEngine(nil, store, chain, nil, validatorManager)
+	ce := NewConsensusEngine(privKey, store, chain, nil, validatorManager)
 
 	a1 := core.CreateTestBlock("a1", "root")
 	chain.AddBlock(a1)

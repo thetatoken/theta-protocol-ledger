@@ -31,7 +31,6 @@ func TestConsensusStateBasic(t *testing.T) {
 	state1.SetHighestCCBlock(cc)
 
 	state2 := NewState(db, chain)
-	state2.Load()
 	assert.Equal(uint64(3), state2.GetEpoch())
 	assert.Equal(uint64(10), state2.GetLastVote().Height)
 	assert.NotNil(state2.GetHighestCCBlock())

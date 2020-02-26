@@ -33,6 +33,7 @@ var _ core.Ledger = (*Ledger)(nil)
 // Ledger implements the core.Ledger interface
 //
 type Ledger struct {
+	db           database.Database
 	chain        *blockchain.Chain
 	consensus    core.ConsensusEngine
 	valMgr       core.ValidatorManager
@@ -47,8 +48,9 @@ type Ledger struct {
 // NewLedger creates an instance of Ledger
 func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db)
-	executor := exec.NewExecutor(state, consensus, valMgr)
+	executor := exec.NewExecutor(db, chain, state, consensus, valMgr)
 	ledger := &Ledger{
+		db:        db,
 		chain:     chain,
 		consensus: consensus,
 		valMgr:    valMgr,
@@ -108,6 +110,7 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	for ; ; i-- {
 		block, err := findBlock(store, blockHash)
 		if err != nil {
+			logger.Errorf("Failed to find block for VCP: %v, err: %v", blockHash.Hex(), err)
 			return nil, err
 		}
 		if block == nil {
@@ -118,6 +121,15 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			if storeView == nil {
+				logger.WithFields(log.Fields{
+					"block.Hash":                  blockHash.Hex(),
+					"block.Height":                block.Height,
+					"block.HCC.BlockHash":         block.HCC.BlockHash.Hex(),
+					"block.BlockHeader.StateHash": block.BlockHeader.StateHash.Hex(),
+					"block.Status.IsTrusted()":    block.Status.IsTrusted(),
+				}).Panic("Failed to load state for validator pool")
+			}
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
@@ -125,6 +137,32 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 	}
 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
+}
+
+// GetGuardianCandidatePool returns the guardian candidate pool of the given block.
+func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
+	db := ledger.state.DB()
+	store := kvstore.NewKVStore(db)
+
+	// Find last checkpoint and retrieve GCP.
+	block, err := findBlock(store, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	blockHash = block.Hash()
+	for {
+		block, err := findBlock(store, blockHash)
+		if err != nil {
+			return nil, err
+		}
+		if common.IsCheckPointHeight(block.Height) {
+			stateRoot := block.BlockHeader.StateHash
+			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			gcp := storeView.GetGuardianCandidatePool()
+			return gcp, nil
+		}
+		blockHash = block.Hash()
+	}
 }
 
 func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, error) {
@@ -491,10 +529,11 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 // handleDelayedStateUpdates handles delayed state updates, e.g. stake return, where the stake
 // is returned only after X blocks of its corresponding StakeWithdraw transaction
 func (ledger *Ledger) handleDelayedStateUpdates(view *st.StoreView) {
-	ledger.handleStakeReturn(view)
+	ledger.handleValidatorStakeReturn(view)
+	ledger.handleGuardianStakeReturn(view)
 }
 
-func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
+func (ledger *Ledger) handleValidatorStakeReturn(view *st.StoreView) {
 	vcp := view.GetValidatorCandidatePool()
 	if vcp == nil {
 		return
@@ -523,6 +562,35 @@ func (ledger *Ledger) handleStakeReturn(view *st.StoreView) {
 	view.UpdateValidatorCandidatePool(vcp)
 }
 
+func (ledger *Ledger) handleGuardianStakeReturn(view *st.StoreView) {
+	gcp := view.GetGuardianCandidatePool()
+	if gcp == nil || gcp.Len() == 0 {
+		return
+	}
+
+	currentHeight := view.Height()
+	returnedStakes := gcp.ReturnStakes(currentHeight)
+
+	for _, returnedStake := range returnedStakes {
+		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
+			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
+		}
+		sourceAddress := returnedStake.Source
+		sourceAccount := view.GetAccount(sourceAddress)
+		if sourceAccount == nil {
+			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
+		}
+		returnedCoins := types.Coins{
+			ThetaWei: returnedStake.Amount,
+			TFuelWei: types.Zero,
+		}
+		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
+		view.SetAccount(sourceAddress, sourceAccount)
+	}
+	view.UpdateGuardianCandidatePool(gcp)
+}
+
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {
 	if block == nil {
@@ -542,13 +610,29 @@ func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreVi
 }
 
 // addCoinbaseTx adds a Coinbase transaction
-func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator, validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
+func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator,
+	validatorSet *core.ValidatorSet, rawTxs *[]common.Bytes) {
 	proposerAddress := proposer.Address
 	proposerTxIn := types.TxInput{
 		Address: proposerAddress,
 	}
 
-	accountRewardMap := exec.CalculateReward(view, validatorSet)
+	var accountRewardMap map[string]types.Coins
+	ch := ledger.GetCurrentBlock().Height
+	guardianVotes := ledger.GetCurrentBlock().GuardianVotes
+
+	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
+		guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
+		if err != nil {
+			logger.Panic(err)
+		}
+		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
+		guardianCandidatePool := storeView.GetGuardianCandidatePool()
+
+		accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+	} else {
+		accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil)
+	}
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {

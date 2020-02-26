@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"testing"
 
+	"github.com/thetatoken/theta/crypto/bls"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/theta/common"
@@ -34,6 +36,34 @@ func TestSignature(t *testing.T) {
 	assert.Nil(err)
 
 	ret := &crypto.Signature{}
+	err = rlp.DecodeBytes(b, ret)
+	assert.Nil(err)
+	assert.Equal(sig.ToBytes().String(), ret.ToBytes().String())
+}
+
+func TestBLSPubKey(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, _ := bls.RandKey()
+	b, err := rlp.EncodeToBytes(privKey.PublicKey())
+	assert.Nil(err)
+
+	ret := &bls.PublicKey{}
+	err = rlp.DecodeBytes(b, ret)
+	assert.Nil(err)
+	assert.Equal(privKey.PublicKey().ToBytes().String(), ret.ToBytes().String())
+}
+
+func TestBLSSignature(t *testing.T) {
+	assert := assert.New(t)
+
+	privKey, _ := bls.RandKey()
+	sig := privKey.Sign([]byte("randmon message"))
+
+	b, err := rlp.EncodeToBytes(sig)
+	assert.Nil(err)
+
+	ret := &bls.Signature{}
 	err = rlp.DecodeBytes(b, ret)
 	assert.Nil(err)
 	assert.Equal(sig.ToBytes().String(), ret.ToBytes().String())
@@ -156,6 +186,30 @@ func TestTx(t *testing.T) {
 	assert.Equal(tx1.(*SplitRuleTx).Initiator.Address, tx2.(*SplitRuleTx).Initiator.Address)
 	assert.Equal(tx1.(*SplitRuleTx).Splits, tx2.(*SplitRuleTx).Splits)
 	assert.Equal(tx1.(*SplitRuleTx).Duration, tx2.(*SplitRuleTx).Duration)
+
+	tx1 = &DepositStakeTxV2{}
+	b, err = TxToBytes(tx1)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	assert.Nil(err)
+	tmp, ok := tx2.(*DepositStakeTxV2)
+	assert.True(ok)
+	assert.True(tmp.BlsPop.IsEmpty())
+	assert.True(tmp.BlsPubkey.IsEmpty())
+
+	tmp = &DepositStakeTxV2{}
+	blsPrivkey, err := bls.RandKey()
+	assert.Nil(err)
+	tmp.BlsPubkey = blsPrivkey.PublicKey()
+	tmp.BlsPop = blsPrivkey.PopProve()
+	b, err = TxToBytes(tmp)
+	require.Nil(err)
+	tx2, err = TxFromBytes(b)
+	assert.Nil(err)
+	tmp2, ok := tx2.(*DepositStakeTxV2)
+	assert.True(ok)
+	assert.False(tmp2.BlsPop.IsEmpty())
+	assert.False(tmp2.BlsPubkey.IsEmpty())
 }
 
 func TestFuzz(t *testing.T) {

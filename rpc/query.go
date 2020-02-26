@@ -1,10 +1,14 @@
 package rpc
 
 import (
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
+
+	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
@@ -192,14 +196,16 @@ type GetBlockResult struct {
 }
 
 type GetBlockResultInner struct {
-	ChainID   string            `json:"chain_id"`
-	Epoch     common.JSONUint64 `json:"epoch"`
-	Height    common.JSONUint64 `json:"height"`
-	Parent    common.Hash       `json:"parent"`
-	TxHash    common.Hash       `json:"transactions_hash"`
-	StateHash common.Hash       `json:"state_hash"`
-	Timestamp *common.JSONBig   `json:"timestamp"`
-	Proposer  common.Address    `json:"proposer"`
+	ChainID       string                 `json:"chain_id"`
+	Epoch         common.JSONUint64      `json:"epoch"`
+	Height        common.JSONUint64      `json:"height"`
+	Parent        common.Hash            `json:"parent"`
+	TxHash        common.Hash            `json:"transactions_hash"`
+	StateHash     common.Hash            `json:"state_hash"`
+	Timestamp     *common.JSONBig        `json:"timestamp"`
+	Proposer      common.Address         `json:"proposer"`
+	HCC           core.CommitCertificate `json:"hcc"`
+	GuardianVotes *core.AggregatedVotes  `json:"guardian_votes"`
 
 	Children []common.Hash    `json:"children"`
 	Status   core.BlockStatus `json:"status"`
@@ -221,6 +227,7 @@ const (
 	TxTypeSmartContract
 	TxTypeDepositStake
 	TxTypeWithdrawStake
+	TxTypeDepositStakeTxV2
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -244,6 +251,8 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 	result.Proposer = block.Proposer
 	result.Children = block.Children
 	result.Status = block.Status
+	result.HCC = block.HCC
+	result.GuardianVotes = block.GuardianVotes
 
 	result.Hash = block.Hash()
 
@@ -303,6 +312,8 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	result.Proposer = block.Proposer
 	result.Children = block.Children
 	result.Status = block.Status
+	result.HCC = block.HCC
+	result.GuardianVotes = block.GuardianVotes
 
 	result.Hash = block.Hash()
 
@@ -332,12 +343,14 @@ type GetStatusArgs struct{}
 
 type GetStatusResult struct {
 	Address                    string            `json:"address"`
+	ChainID                    string            `json:"chain_id"`
 	PeerID                     string            `json:"peer_id"`
 	LatestFinalizedBlockHash   common.Hash       `json:"latest_finalized_block_hash"`
 	LatestFinalizedBlockHeight common.JSONUint64 `json:"latest_finalized_block_height"`
 	LatestFinalizedBlockTime   *common.JSONBig   `json:"latest_finalized_block_time"`
 	LatestFinalizedBlockEpoch  common.JSONUint64 `json:"latest_finalized_block_epoch"`
 	CurrentEpoch               common.JSONUint64 `json:"current_epoch"`
+	CurrentHeight              common.JSONUint64 `json:"current_height"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
 }
@@ -346,6 +359,7 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	s := t.consensus.GetSummary()
 	result.Address = t.consensus.ID()
 	result.PeerID = t.dispatcher.ID()
+	result.ChainID = t.consensus.Chain().ChainID
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
 		result.LatestFinalizedBlockHash = latestFinalizedHash
@@ -361,6 +375,19 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
 
+	maxVoteHeight := uint64(0)
+	epochVotes, err := t.consensus.State().GetEpochVotes()
+	if err != nil {
+		return err
+	}
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+			}
+		}
+		result.CurrentHeight = common.JSONUint64(maxVoteHeight - 1) // current finalized height is at most maxVoteHeight-1
+	}
 	return
 }
 
@@ -427,6 +454,83 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	return nil
 }
 
+// ------------------------------ GetGcp -----------------------------------
+
+type GetGcpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetGcpResult struct {
+	BlockHashGcpPairs []BlockHashGcpPair
+}
+
+type BlockHashGcpPair struct {
+	BlockHash common.Hash
+	Gcp       *core.GuardianCandidatePool
+}
+
+func (t *ThetaRPCService) GetGcpByHeight(args *GetGcpByHeightArgs, result *GetGcpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashGcpPairs := []BlockHashGcpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the GCP for height %v does not exists, it might have been pruned", height)
+		}
+		gcp := blockStoreView.GetGuardianCandidatePool()
+		blockHashGcpPairs = append(blockHashGcpPairs, BlockHashGcpPair{
+			BlockHash: blockHash,
+			Gcp:       gcp,
+		})
+	}
+
+	result.BlockHashGcpPairs = blockHashGcpPairs
+
+	return nil
+}
+
+// ------------------------------ GetGuardianKey -----------------------------------
+
+type GetGuardianInfoArgs struct{}
+
+type GetGuardianInfoResult struct {
+	BLSPubkey string
+	BLSPop    string
+	Address   string
+	Signature string
+}
+
+func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *GetGuardianInfoResult) (err error) {
+	privKey := t.consensus.PrivateKey()
+	blsKey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(privKey.PublicKey().ToBytes())))
+	if err != nil {
+		return fmt.Errorf("Failed to get BLS key: %v", err.Error())
+	}
+
+	result.Address = privKey.PublicKey().Address().Hex()
+	result.BLSPubkey = hex.EncodeToString(blsKey.PublicKey().ToBytes())
+	popBytes := blsKey.PopProve().ToBytes()
+	result.BLSPop = hex.EncodeToString(popBytes)
+
+	sig, err := privKey.Sign(popBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to generate signature: %v", err.Error())
+	}
+	result.Signature = hex.EncodeToString(sig.ToBytes())
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {
@@ -452,6 +556,8 @@ func getTxType(tx types.Tx) byte {
 		t = TxTypeDepositStake
 	case *types.WithdrawStakeTx:
 		t = TxTypeWithdrawStake
+	case *types.DepositStakeTxV2:
+		t = TxTypeDepositStakeTxV2
 	}
 
 	return t

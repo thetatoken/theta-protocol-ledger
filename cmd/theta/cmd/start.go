@@ -3,9 +3,12 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"os/signal"
 	"path"
+	"runtime"
 	"strings"
 	"time"
 
@@ -14,10 +17,12 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/node"
-	"github.com/thetatoken/theta/p2p/messenger"
+	msg "github.com/thetatoken/theta/p2p/messenger"
+	msgl "github.com/thetatoken/theta/p2pl/messenger"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/version"
@@ -36,19 +41,46 @@ func init() {
 }
 
 func runStart(cmd *cobra.Command, args []string) {
-	port := viper.GetInt(common.CfgP2PPort)
+	var networkOld *msg.Messenger
+	var network *msgl.Messenger
+
+	// load snapshot
+	if len(snapshotPath) == 0 {
+		snapshotPath = path.Join(cfgPath, "snapshot")
+	}
+
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
+	if err != nil {
+		log.Fatalf("Snapshot validation failed, err: %v", err)
+	}
+	root := &core.Block{BlockHeader: snapshotBlockHeader}
+	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
 	}
-	peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
-	network := newMessenger(privKey, peerSeeds, port)
+	// trap Ctrl+C and call cancel on the context
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+	if p2pOpt != common.P2POptOld {
+		port := viper.GetInt(common.CfgP2PLPort)
+		peerSeeds := strings.FieldsFunc(viper.GetString(common.CfgLibP2PSeeds), f)
+		seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+		network = newMessenger(privKey, peerSeeds, port, seedPeerOnly, ctx)
+	}
+	if p2pOpt != common.P2POptLibp2p {
+		portOld := viper.GetInt(common.CfgP2PPort)
+		peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
+		networkOld = newMessengerOld(privKey, peerSeedsOld, portOld, ctx)
+	}
+
 	dbPath := viper.GetString(common.CfgDataPath)
 	if dbPath == "" {
 		dbPath = cfgPath
@@ -62,32 +94,20 @@ func runStart(cmd *cobra.Command, args []string) {
 			mainDBPath, refDBPath, err)
 	}
 
-	if len(snapshotPath) == 0 {
-		snapshotPath = path.Join(cfgPath, "snapshot")
-	}
-
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
-	if err != nil {
-		log.Fatalf("Snapshot validation failed, err: %v", err)
-	}
-	root := &core.Block{BlockHeader: snapshotBlockHeader}
-
-	viper.Set(common.CfgGenesisChainID, root.ChainID)
-
 	params := &node.Params{
 		ChainID:             root.ChainID,
 		PrivateKey:          privKey,
 		Root:                root,
+		NetworkOld:          networkOld,
 		Network:             network,
 		DB:                  db,
 		SnapshotPath:        snapshotPath,
 		ChainImportDirPath:  chainImportDirPath,
 		ChainCorrectionPath: chainCorrectionPath,
 	}
+
 	n := node.NewNode(params)
 
-	// trap Ctrl+C and call cancel on the context
-	ctx, cancel := context.WithCancel(context.Background())
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt)
 	done := make(chan struct{})
@@ -95,12 +115,23 @@ func runStart(cmd *cobra.Command, args []string) {
 		<-c
 		signal.Stop(c)
 		cancel()
+		network.Stop()
 		// Wait at most 5 seconds before forcefully shutting down.
 		<-time.After(time.Duration(5) * time.Second)
 		close(done)
 	}()
 
 	n.Start(ctx)
+
+	if viper.GetBool(common.CfgProfEnabled) {
+		go func() {
+			log.Println(http.ListenAndServe("localhost:6060", nil))
+		}()
+	}
+
+	if viper.GetBool(common.CfgForceGCEnabled) {
+		go memoryCleanupRoutine()
+	}
 
 	go func() {
 		n.Wait()
@@ -208,16 +239,29 @@ func loadOrCreateKey() (*crypto.PrivateKey, error) {
 	return nodePrivKey, nil
 }
 
-func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int) *messenger.Messenger {
+func newMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, seedPeerOnly bool, ctx context.Context) *msgl.Messenger {
+	log.WithFields(log.Fields{
+		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
+		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
+	}).Info("Using key:")
+	msgrConfig := msgl.GetDefaultMessengerConfig()
+	messenger, err := msgl.CreateMessenger(privKey.PublicKey(), seedPeerNetAddresses, port, seedPeerOnly, msgrConfig, true, ctx)
+	if err != nil {
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance.")
+	}
+	return messenger
+}
+
+func newMessengerOld(privKey *crypto.PrivateKey, seedPeerNetAddresses []string, port int, ctx context.Context) *msg.Messenger {
 	log.WithFields(log.Fields{
 		"pubKey":  fmt.Sprintf("%v", privKey.PublicKey().ToBytes()),
 		"address": fmt.Sprintf("%v", privKey.PublicKey().Address()),
 	}).Info("Using key")
-	msgrConfig := messenger.GetDefaultMessengerConfig()
+	msgrConfig := msg.GetDefaultMessengerConfig()
 	msgrConfig.SetAddressBookFilePath(path.Join(cfgPath, "addrbook.json"))
-	messenger, err := messenger.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
+	messenger, err := msg.CreateMessenger(privKey, seedPeerNetAddresses, port, msgrConfig)
 	if err != nil {
-		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create PeerDiscoveryManager instance")
+		log.WithFields(log.Fields{"err": err}).Fatal("Failed to create Messenger instance")
 	}
 	return messenger
 }
@@ -267,4 +311,22 @@ func printExitBanner() {
 	fmt.Println(" #################################################### ")
 	fmt.Println("")
 	fmt.Println("")
+}
+
+// memoryCleanupRoutine peridically forces memory garbage collection.
+func memoryCleanupRoutine() {
+	var m runtime.MemStats
+	t := time.NewTicker(30 * time.Second)
+	for {
+		<-t.C
+
+		runtime.ReadMemStats(&m)
+		log.Debugf("Memory usage: Alloc = %.3f MiB\tTotalAlloc = %.3f MiB\tSys = %.3f MiB\tNumGC = %v"+
+			"\tStackInuse = %.3f MiB\tStackSys = %.3f MiB\tHeapInuse = %.3f MiB\tHeapSys = %.3f MiB\n",
+			util.BToMb(m.Alloc), util.BToMb(m.TotalAlloc), util.BToMb(m.Sys), m.NumGC, util.BToMb(m.StackInuse),
+			util.BToMb(m.StackSys), util.BToMb(m.HeapInuse), util.BToMb(m.HeapSys))
+
+		runtime.GC()
+	}
+
 }

@@ -1,0 +1,14 @@
+# Theta configuration
+genesis:
+  hash: "0x2789f210f63d15e864ee41a16c87350ffbe02d1f6f9cb723afa3ad956d7a8d25"
+storage:
+  statePruningRetainedBlocks: 1024
+p2p:
+  opt: 1
+  portL: 60001
+  libp2pRendezvous: theta_testnet_sapphire
+  libp2pSeeds: /ip4/127.0.0.1/tcp/50001/ipfs/12D3KooWDYYjn2eCD3viA8xsE8fhsnhcgptizHiywK8bTfmftpZ6,/ip4/127.0.0.1/tcp/50002/ipfs/12D3KooWP7UQM56CoP2ggZNERdQhuJRc8KN1A1iqdPscYJZPsWDZ,/ip4/127.0.0.1/tcp/50003/ipfs/12D3KooWAmBXBCRUQmMvzU2Gy48hJRMPPgNtzLVipWz2nUCbcq4C,/ip4/127.0.0.1/tcp/50004/ipfs/12D3KooWGK9snBWHR1vXfnGsGFZyRQxLp7z2tPBL29oYAVF1vuPW
+rpc:
+  enabled: true
+log:
+  levels: "*:info,guardian:debug"

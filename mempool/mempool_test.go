@@ -397,7 +397,7 @@ func newTestMempool(peerID string, simnet *p2psim.Simnet) (*Mempool, context.Con
 	ctx := context.Background()
 
 	messenger := simnet.AddEndpoint(peerID)
-	dispatcher := dp.NewDispatcher(messenger)
+	dispatcher := dp.NewDispatcher(messenger, nil)
 	mempool := CreateMempool(dispatcher)
 	mempool.SetLedger(newTestLedger())
 	txMsgHandler := CreateMempoolMessageHandler(mempool)
@@ -491,6 +491,10 @@ func (tl *TestLedger) FinalizeState(height uint64, rootHash common.Hash) result.
 }
 
 func (tl *TestLedger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*core.ValidatorCandidatePool, error) {
+	return nil, nil
+}
+
+func (tl *TestLedger) GetGuardianCandidatePool(blockHash common.Hash) (*core.GuardianCandidatePool, error) {
 	return nil, nil
 }
 

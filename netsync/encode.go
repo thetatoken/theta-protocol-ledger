@@ -10,27 +10,27 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
-type MessageIDEnum uint8
+// type MessageIDEnum uint8
 
-const (
-	MessageIDInvRequest MessageIDEnum = iota
-	MessageIDInvResponse
-	MessageIDDataRequest
-	MessageIDDataResponse
-)
+// const (
+// 	MessageIDInvRequest MessageIDEnum = iota
+// 	MessageIDInvResponse
+// 	MessageIDDataRequest
+// 	MessageIDDataResponse
+// )
 
 func encodeMessage(message interface{}) (common.Bytes, error) {
 	var buf bytes.Buffer
-	var msgID MessageIDEnum
+	var msgID common.MessageIDEnum
 	switch message.(type) {
 	case dispatcher.InventoryRequest:
-		msgID = MessageIDInvRequest
+		msgID = common.MessageIDInvRequest
 	case dispatcher.InventoryResponse:
-		msgID = MessageIDInvResponse
+		msgID = common.MessageIDInvResponse
 	case dispatcher.DataRequest:
-		msgID = MessageIDDataRequest
+		msgID = common.MessageIDDataRequest
 	case dispatcher.DataResponse:
-		msgID = MessageIDDataResponse
+		msgID = common.MessageIDDataResponse
 	default:
 		return nil, errors.New("Unsupported message type")
 	}
@@ -46,24 +46,27 @@ func encodeMessage(message interface{}) (common.Bytes, error) {
 }
 
 func decodeMessage(raw common.Bytes) (interface{}, error) {
-	var msgID MessageIDEnum
+	if len(raw) <= 1 {
+		return nil, fmt.Errorf("Invalid message size")
+	}
+	var msgID common.MessageIDEnum
 	err := rlp.DecodeBytes(raw[:1], &msgID)
 	if err != nil {
 		return nil, err
 	}
-	if msgID == MessageIDInvRequest {
+	if msgID == common.MessageIDInvRequest {
 		data := dispatcher.InventoryRequest{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
-	} else if msgID == MessageIDInvResponse {
+	} else if msgID == common.MessageIDInvResponse {
 		data := dispatcher.InventoryResponse{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
-	} else if msgID == MessageIDDataRequest {
+	} else if msgID == common.MessageIDDataRequest {
 		data := dispatcher.DataRequest{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
-	} else if msgID == MessageIDDataResponse {
+	} else if msgID == common.MessageIDDataResponse {
 		data := dispatcher.DataResponse{}
 		err = rlp.DecodeBytes(raw[1:], &data)
 		return data, err
