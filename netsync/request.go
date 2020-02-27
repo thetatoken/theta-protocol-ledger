@@ -245,7 +245,10 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 
 		blocks := rm.syncMgr.chain.FindBlocksByHeight(index)
 		for _, b := range blocks {
-			starts = append(starts, b.Hash().Hex())
+			// Exclude orphan blocks and pending blocks
+			if b.Status != core.BlockStatusPending && b.Status != core.BlockStatusInvalid {
+				starts = append(starts, b.Hash().Hex())
+			}
 		}
 	}
 

@@ -209,7 +209,10 @@ func (m *SyncManager) locateStart(starts []string) common.Hash {
 	var start common.Hash
 	for i := 0; i < len(starts); i++ {
 		curr := common.HexToHash(starts[i])
-		if _, err := m.chain.FindBlock(curr); err == nil {
+		b, err := m.chain.FindBlock(curr)
+		if err == nil &&
+			b.Status != core.BlockStatusPending &&
+			b.Status != core.BlockStatusInvalid {
 			start = curr
 			break
 		}
