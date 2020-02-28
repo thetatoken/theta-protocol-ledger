@@ -135,7 +135,7 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
-	viper.SetDefault(CfgP2POpt, P2POptBoth)
+	viper.SetDefault(CfgP2POpt, P2POptLibp2p)
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
