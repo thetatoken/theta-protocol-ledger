@@ -101,6 +101,18 @@ func (dp Dispatcher) ID() string {
 	return ""
 }
 
+// TODO: for 1.3.0 upgrade only, delete it after the upgrade completed
+// ID returns the ID of the node
+func (dp Dispatcher) LibP2PID() string {
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.ID()
+	}
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.ID()
+	}
+	return ""
+}
+
 // Peers returns the IDs of all peers
 func (dp *Dispatcher) Peers() []string {
 	if !reflect.ValueOf(dp.p2pnet).IsNil() {

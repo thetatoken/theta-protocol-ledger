@@ -358,7 +358,8 @@ type GetStatusResult struct {
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
 	s := t.consensus.GetSummary()
 	result.Address = t.consensus.ID()
-	result.PeerID = t.dispatcher.ID()
+	//result.PeerID = t.dispatcher.ID()
+	result.PeerID = t.dispatcher.LibP2PID() // TODO: use ID() instead after 1.3.0 upgrade
 	result.ChainID = t.consensus.Chain().ChainID
 	latestFinalizedHash := s.LastFinalizedBlock
 	if !latestFinalizedHash.IsEmpty() {
