@@ -51,7 +51,7 @@ const (
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
-	CfgP2PLPort = "p2p.portL"
+	CfgP2PLPort = "p2p.libp2pPort"
 	// CfgP2PSeeds sets the boostrap peers.
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgLibP2PSeeds sets the boostrap peers in libp2p format.
