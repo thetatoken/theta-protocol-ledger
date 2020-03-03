@@ -76,7 +76,7 @@ type Messenger struct {
 	newPeers     chan pr.ID
 	peerDead     chan pr.ID
 	newPeerError chan pr.ID
-	
+
 	protocolPrefix string
 
 	msgBlockBufferPool  chan []byte
@@ -152,7 +152,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		needMdns:            needMdns,
 		seedPeerOnly:        seedPeerOnly,
 		seedPeers:           make(map[pr.ID]*pr.AddrInfo),
-		protocolPrefix:		 "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/",
+		protocolPrefix:      "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/",
 		config:              msgrConfig,
 		statsCounter:        make(map[common.ChannelIDEnum]uint64),
 		wg:                  &sync.WaitGroup{},
@@ -177,7 +177,9 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if !seedPeerOnly {
 		externalIP, err := util.GetPublicIP()
 		if err != nil {
-			return messenger, err
+			logger.Warnf("Cannot to get the node's external IP address, use 0.0.0.0: %v", err)
+			externalIP = "0.0.0.0"
+			//return messenger, err
 		}
 
 		extMultiAddr, err = createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
@@ -546,7 +548,7 @@ func (msgr *Messenger) Stop() {
 	if msgr.host.Peerstore() != nil && msgr.host.Peerstore().Peers() != nil {
 		for _, pid := range msgr.host.Peerstore().Peers() {
 			msgr.host.Network().ClosePeer(pid)
-		}	
+		}
 	}
 
 	msgr.cancel()
@@ -670,7 +672,7 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 
 		msgr.registerStreamHandler(channelID)
 
-		sub, err := msgr.pubsub.Subscribe(msgr.protocolPrefix+strconv.Itoa(int(channelID)))
+		sub, err := msgr.pubsub.Subscribe(msgr.protocolPrefix + strconv.Itoa(int(channelID)))
 		if err != nil {
 			logger.Errorf("Failed to subscribe to channel %v, %v", channelID, err)
 			continue
@@ -715,7 +717,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(msgr.protocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
-		
+
 		if msgr.seedPeerOnly {
 			if !msgr.isSeedPeer(peerID) {
 				msgr.host.Network().ClosePeer(peerID)
