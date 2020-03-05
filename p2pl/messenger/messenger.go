@@ -295,9 +295,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			if int(msgr.peerTable.GetTotalNumPeers()) >= viper.GetInt(common.CfgP2PMaxNumPeers) {
-                msgr.host.Network().ClosePeer(pid)
-                continue
-            }
+				msgr.host.Network().ClosePeer(pid)
+				continue
+			}
 
 			pr := msgr.host.Peerstore().PeerInfo(pid)
 			if pr.ID == "" {
@@ -330,7 +330,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			if msgr.host.Network().Connectedness(pid) == network.Connected {
 				// still connected, must be a duplicate connection being closed.
 				// we respawn the writer as we need to ensure there is a stream active
-				log.Infof("peer declared dead but still connected, should be a duplicated connection:", pid)
+				logger.Warnf("peer declared dead but still connected, should be a duplicated connection: %v", pid)
 				continue
 			}
 
