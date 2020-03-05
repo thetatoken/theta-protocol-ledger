@@ -294,6 +294,11 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 				}
 			}
 
+			if int(msgr.peerTable.GetTotalNumPeers()) >= viper.GetInt(common.CfgP2PMaxNumPeers) {
+                msgr.host.Network().ClosePeer(pid)
+                continue
+            }
+
 			pr := msgr.host.Peerstore().PeerInfo(pid)
 			if pr.ID == "" {
 				continue
