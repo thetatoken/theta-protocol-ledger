@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
 
 	homedir "github.com/mitchellh/go-homedir"
@@ -38,23 +39,40 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", getDefaultConfigPath(), fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	RootCmd.PersistentFlags().StringVar(&cfgPath, "config", "", fmt.Sprintf("config path (default is %s)", getDefaultConfigPath()))
+	viper.BindPFlag(common.CfgConfigPath, RootCmd.PersistentFlags().Lookup("config"))
+
 	RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", "", "snapshot path")
 	RootCmd.PersistentFlags().StringVar(&chainImportDirPath, "chain_import", "", "chain import path")
 	RootCmd.PersistentFlags().StringVar(&chainCorrectionPath, "chain_correction", "", "chain correction path")
 	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 	RootCmd.PersistentFlags().StringVar(&nodePassword, "password", "", "password for the node")
+
+	// Support for custom db path
+	RootCmd.PersistentFlags().String("data", "", "data path (default to config path)")
+	viper.BindPFlag(common.CfgDataPath, RootCmd.PersistentFlags().Lookup("data"))
+
+	// Support for custom key path
+	RootCmd.PersistentFlags().String("key", "", "key path (default to config path)")
+	viper.BindPFlag(common.CfgKeyPath, RootCmd.PersistentFlags().Lookup("key"))
+
 }
 
-// initConfig reads in config file and ENV variables if set.
+// initConfig is called when cmd.Execute() is called. reads in config file and ENV variables if set.
 func initConfig() {
-	viper.AddConfigPath(cfgPath)
-
 	// Search config (without extension).
 	viper.SetConfigName("config")
 
+	viper.SetEnvPrefix("THETA")
 	viper.AutomaticEnv() // read in environment variables that match
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
+	cfgPath = viper.GetString(common.CfgConfigPath)
+	if cfgPath == "" {
+		cfgPath = getDefaultConfigPath()
+	}
+
+	viper.AddConfigPath(cfgPath)
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {

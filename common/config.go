@@ -5,6 +5,15 @@ import (
 )
 
 const (
+	// CfgConfigPath defines custom config path
+	CfgConfigPath = "config.path"
+
+	// CfgDataPath defines custom DB path
+	CfgDataPath = "data.path"
+
+	// CfgKeyPath defines custom key path
+	CfgKeyPath = "key.path"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
@@ -37,10 +46,12 @@ const (
 	CfgP2PReuseStream = "p2p.reuseStream"
 	// CfgP2PName sets the ID of local node in P2P network.
 	CfgP2PName = "p2p.name"
+	// CfgP2PVersion sets the version of P2P network.
+	CfgP2PVersion = "p2p.version"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
-	CfgP2PLPort = "p2p.portL"
+	CfgP2PLPort = "p2p.libp2pPort"
 	// CfgP2PSeeds sets the boostrap peers.
 	CfgP2PSeeds = "p2p.seeds"
 	// CfgLibP2PSeeds sets the boostrap peers in libp2p format.
@@ -124,11 +135,12 @@ func init() {
 	viper.SetDefault(CfgP2PPort, 50001)
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
-	viper.SetDefault(CfgP2POpt, P2POptBoth)
+	//viper.SetDefault(CfgP2POpt, P2POptLibp2p) // FIXME: this for some reason doesn't work
+	viper.SetDefault(CfgP2POpt, 1) // P2POptLibp2p == 1
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
-	viper.SetDefault(CfgP2PMaxNumPeers, 64)
+	viper.SetDefault(CfgP2PMaxNumPeers, 256)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
 	viper.SetDefault(CfgBufferPoolSize, 8)
 

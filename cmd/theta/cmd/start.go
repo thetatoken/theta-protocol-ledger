@@ -44,6 +44,18 @@ func runStart(cmd *cobra.Command, args []string) {
 	var networkOld *msg.Messenger
 	var network *msgl.Messenger
 
+	// load snapshot
+	if len(snapshotPath) == 0 {
+		snapshotPath = path.Join(cfgPath, "snapshot")
+	}
+
+	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
+	if err != nil {
+		log.Fatalf("Snapshot validation failed, err: %v", err)
+	}
+	root := &core.Block{BlockHeader: snapshotBlockHeader}
+	viper.Set(common.CfgGenesisChainID, root.ChainID)
+
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
@@ -69,24 +81,18 @@ func runStart(cmd *cobra.Command, args []string) {
 		networkOld = newMessengerOld(privKey, peerSeedsOld, portOld, ctx)
 	}
 
-	mainDBPath := path.Join(cfgPath, "db", "main")
-	refDBPath := path.Join(cfgPath, "db", "ref")
+	dbPath := viper.GetString(common.CfgDataPath)
+	if dbPath == "" {
+		dbPath = cfgPath
+	}
+
+	mainDBPath := path.Join(dbPath, "db", "main")
+	refDBPath := path.Join(dbPath, "db", "ref")
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 	if err != nil {
 		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
 			mainDBPath, refDBPath, err)
 	}
-
-	if len(snapshotPath) == 0 {
-		snapshotPath = path.Join(cfgPath, "snapshot")
-	}
-
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
-	if err != nil {
-		log.Fatalf("Snapshot validation failed, err: %v", err)
-	}
-	root := &core.Block{BlockHeader: snapshotBlockHeader}
-	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	params := &node.Params{
 		ChainID:             root.ChainID,
@@ -139,7 +145,12 @@ func runStart(cmd *cobra.Command, args []string) {
 }
 
 func loadOrCreateKey() (*crypto.PrivateKey, error) {
-	keysDir := path.Join(cfgPath, "key")
+	keyPath := viper.GetString(common.CfgKeyPath)
+	if keyPath == "" {
+		keyPath = cfgPath
+	}
+
+	keysDir := path.Join(keyPath, "key")
 	keystore, err := ks.NewKeystoreEncrypted(keysDir, ks.StandardScryptN, ks.StandardScryptP)
 	if err != nil {
 		log.Fatalf("Failed to create key store: %v", err)
