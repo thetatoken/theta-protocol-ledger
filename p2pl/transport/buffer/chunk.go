@@ -57,7 +57,7 @@ type Chunk struct {
 // the subslice content[startIdx:startIdx+payloadSize] as the payload of the chunk,
 // and adds the meta data (isEOF, seqID) after the payload
 func NewChunk(content []byte, startIdx, payloadSize int32, isEOF byte, seqID int32) *Chunk {
-	log.Debugf("NewChunk: startIdx = %v, payloadSize = %v, isEOF = %v, seqID = %v", startIdx, payloadSize, isEOF, seqID)
+	//logger.Debugf("NewChunk: startIdx = %v, payloadSize = %v, isEOF = %v, seqID = %v", startIdx, payloadSize, isEOF, seqID)
 
 	numBytes := headerSize + payloadSize
 	bytes := make([]byte, numBytes)
