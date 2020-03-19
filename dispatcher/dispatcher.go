@@ -72,22 +72,42 @@ func (dp *Dispatcher) Wait() {
 
 // GetInventory sends out the InventoryRequest
 func (dp *Dispatcher) GetInventory(peerIDs []string, invreq InventoryRequest) {
-	dp.send(peerIDs, invreq.ChannelID, invreq)
+	if len(peerIDs) == 0 {
+		dp.broadcastToNeighbors(invreq.ChannelID, invreq)
+	} else {
+		dp.send(peerIDs, invreq.ChannelID, invreq)
+	}
 }
 
 // SendInventory sends out the InventoryResponse
 func (dp *Dispatcher) SendInventory(peerIDs []string, invrsp InventoryResponse) {
-	dp.send(peerIDs, invrsp.ChannelID, invrsp)
+	if len(peerIDs) == 0 {
+		dp.broadcastToNeighbors(invrsp.ChannelID, invrsp)
+	} else {
+		dp.send(peerIDs, invrsp.ChannelID, invrsp)
+	}
 }
 
 // GetData sends out the DataRequest
 func (dp *Dispatcher) GetData(peerIDs []string, datareq DataRequest) {
-	dp.send(peerIDs, datareq.ChannelID, datareq)
+	if len(peerIDs) == 0 {
+		dp.broadcastToNeighbors(datareq.ChannelID, datareq)
+	} else {
+		dp.send(peerIDs, datareq.ChannelID, datareq)
+	}
 }
 
 // SendData sends out the DataResponse
 func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
-	dp.send(peerIDs, datarsp.ChannelID, datarsp)
+	if len(peerIDs) == 0 {
+		if datarsp.ChannelID == common.ChannelIDGuardian || datarsp.ChannelID == common.ChannelIDProposal {
+			dp.broadcastToNeighbors(datarsp.ChannelID, datarsp)
+		} else {
+			dp.broadcastToAll(datarsp.ChannelID, datarsp)
+		}
+	} else {
+		dp.send(peerIDs, datarsp.ChannelID, datarsp)
+	}
 }
 
 // ID returns the ID of the node
@@ -124,6 +144,7 @@ func (dp *Dispatcher) Peers() []string {
 	return []string{}
 }
 
+// send delivers message directly to a list of peers.
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	messageOld := p2ptypes.Message{
 		ChannelID: channelID,
@@ -133,28 +154,52 @@ func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, con
 		ChannelID: channelID,
 		Content:   content,
 	}
-	if len(peerIDs) == 0 {
-		if !reflect.ValueOf(dp.p2pnet).IsNil() {
-			dp.p2pnet.Broadcast(messageOld)
-		}
-		if !reflect.ValueOf(dp.p2plnet).IsNil() {
-			if message.ChannelID == common.ChannelIDGuardian {
-				// Send guardian vote to immediate neighbors only.
-				dp.p2plnet.BroadcastToNeighbors(message)
-			} else {
-				dp.p2plnet.Broadcast(message)
+
+	for _, peerID := range peerIDs {
+		go func(peerID string) {
+			if !reflect.ValueOf(dp.p2pnet).IsNil() {
+				dp.p2pnet.Send(peerID, messageOld)
 			}
-		}
-	} else {
-		for _, peerID := range peerIDs {
-			go func(peerID string) {
-				if !reflect.ValueOf(dp.p2pnet).IsNil() {
-					dp.p2pnet.Send(peerID, messageOld)
-				}
-				if !reflect.ValueOf(dp.p2plnet).IsNil() {
-					dp.p2plnet.Send(peerID, message)
-				}
-			}(peerID)
-		}
+			if !reflect.ValueOf(dp.p2plnet).IsNil() {
+				dp.p2plnet.Send(peerID, message)
+			}
+		}(peerID)
+	}
+}
+
+// broadcastToAll publishes given message through gossip. Usually the message is only immediately delivered to
+// a subset of neighbors.
+func (dp *Dispatcher) broadcastToAll(channelID common.ChannelIDEnum, content interface{}) {
+	messageOld := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		dp.p2pnet.Broadcast(messageOld)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		dp.p2plnet.Broadcast(message)
+	}
+}
+
+// broadcastToNeighbors delivers given message to all neighbors.
+func (dp *Dispatcher) broadcastToNeighbors(channelID common.ChannelIDEnum, content interface{}) {
+	messageOld := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
+	message := p2ptypes.Message{
+		ChannelID: channelID,
+		Content:   content,
+	}
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		dp.p2pnet.Broadcast(messageOld)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		dp.p2plnet.BroadcastToNeighbors(message)
 	}
 }
