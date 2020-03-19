@@ -48,8 +48,6 @@ const (
 	CfgP2PName = "p2p.name"
 	// CfgP2PVersion sets the version of P2P network.
 	CfgP2PVersion = "p2p.version"
-	// CfgP2PProtocolPrefix sets the protocol prefix of P2P network.
-	CfgP2PProtocolPrefix = "p2p.protocolPrefix"
 	// CfgP2PPort sets the port used by P2P network.
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
