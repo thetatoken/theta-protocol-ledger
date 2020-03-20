@@ -141,6 +141,13 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	bufferPoolSize := viper.GetInt(common.CfgBufferPoolSize)
 
+	var protocolPrefix string
+	if viper.GetString(common.CfgP2PProtocolPrefix) != "" {
+		protocolPrefix = viper.GetString(common.CfgP2PProtocolPrefix)
+	} else {
+		protocolPrefix = "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/"
+	}
+
 	messenger := &Messenger{
 		peerTable:           &pt,
 		newPeers:            make(chan pr.ID),
@@ -152,7 +159,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		needMdns:            needMdns,
 		seedPeerOnly:        seedPeerOnly,
 		seedPeers:           make(map[pr.ID]*pr.AddrInfo),
-		protocolPrefix:      "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/",
+		protocolPrefix:      protocolPrefix,
 		config:              msgrConfig,
 		statsCounter:        make(map[common.ChannelIDEnum]uint64),
 		wg:                  &sync.WaitGroup{},
