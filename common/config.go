@@ -142,7 +142,8 @@ func init() {
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
-	viper.SetDefault(CfgP2PMaxNumPeers, 256)
+	//viper.SetDefault(CfgP2PMaxNumPeers, 256)
+	viper.SetDefault(CfgP2PMaxNumPeers, 64)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
 	viper.SetDefault(CfgBufferPoolSize, 8)
 
