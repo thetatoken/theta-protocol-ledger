@@ -141,6 +141,13 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	bufferPoolSize := viper.GetInt(common.CfgBufferPoolSize)
 
+	var protocolPrefix string
+	if viper.GetString(common.CfgP2PProtocolPrefix) != "" {
+		protocolPrefix = viper.GetString(common.CfgP2PProtocolPrefix)
+	} else {
+		protocolPrefix = "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/"
+	}
+
 	messenger := &Messenger{
 		peerTable:           &pt,
 		newPeers:            make(chan pr.ID),
@@ -152,7 +159,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		needMdns:            needMdns,
 		seedPeerOnly:        seedPeerOnly,
 		seedPeers:           make(map[pr.ID]*pr.AddrInfo),
-		protocolPrefix:      "/theta/" + viper.GetString(common.CfgGenesisChainID) + "/" + viper.GetString(common.CfgP2PVersion) + "/",
+		protocolPrefix:      protocolPrefix,
 		config:              msgrConfig,
 		statsCounter:        make(map[common.ChannelIDEnum]uint64),
 		wg:                  &sync.WaitGroup{},
@@ -308,9 +315,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			msgr.peerTable.AddPeer(peer)
 			msgr.attachHandlersToPeer(peer)
 			peer.Start(msgr.ctx)
-			if isOutbound {
-				go peer.OpenStreams()
-			}
+			peer.OpenStreams()
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
 		case pid := <-msgr.newPeerError:
 			peer := msgr.peerTable.GetPeer(pid)
@@ -319,8 +324,8 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
-			msgr.host.Network().ClosePeer(pid)
 			msgr.peerTable.DeletePeer(pid)
+			msgr.host.Network().ClosePeer(pid)
 		case pid := <-msgr.peerDead:
 			peer := msgr.peerTable.GetPeer(pid)
 			if peer == nil {
@@ -335,7 +340,6 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			peer.Stop()
-			msgr.host.Network().ClosePeer(pid)
 			msgr.peerTable.DeletePeer(pid)
 			logger.Infof("Peer disconnected, id: %v, addrs: %v", peer.ID(), peer.Addrs())
 		case <-ctx.Done():
@@ -492,20 +496,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 			j := perm[i]
 			seedPeer := connections[j]
-			var err error
-			for i := 0; i < 3; i++ { // try up to 3 times
-				if msgr.host.Network().Connectedness(seedPeer.ID) == network.Connected {
-					break
-				}
-
-				err = msgr.host.Connect(ctx, *seedPeer)
-				if err == nil {
-					logger.Infof("Successfully connected to seed peer: %v", seedPeer)
-					break
-				}
-				time.Sleep(time.Second * 3)
-			}
-
+			err := msgr.host.Connect(ctx, *seedPeer)
 			if err != nil {
 				logger.Warnf("Failed to connect to peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
 			}

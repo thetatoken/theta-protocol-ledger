@@ -113,6 +113,8 @@ func (pt *PeerTable) DeletePeer(peerID pr.ID) {
 			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 		}
 	}
+
+	pt.persistPeers()
 }
 
 // GetPeer returns the peer for the given peerID (if exists)

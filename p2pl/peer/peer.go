@@ -41,6 +41,8 @@ type Peer struct {
 	streamMap  map[cmn.ChannelIDEnum](*transport.BufferedStream) // channelID -> stream
 	mutex      *sync.Mutex
 
+	openStreamsTimer *time.Timer
+
 	onStream    StreamCreator
 	onRawStream RawStreamCreator
 	onParse     MessageParser
@@ -71,25 +73,32 @@ func CreatePeer(addrInfo pr.AddrInfo, isOutbound bool) *Peer {
 
 func (peer *Peer) OpenStreams() error {
 	if peer.isOutbound {
-		peer.mutex.Lock()
-		defer peer.mutex.Unlock()
-
-		time.Sleep(3 * time.Second)
-		for _, channel := range Channels {
-			stream, err := peer.onStream(channel)
-			if err != nil {
-				logger.Debugf("Failed to create stream with peer %v %v for channel %v, %v", peer.addrInfo.ID, peer.addrInfo.Addrs, channel, err)
-				continue
-			}
-
-			if s, ok := peer.streamMap[channel]; ok {
-				s.Stop()
-			}
-
-			peer.streamMap[channel] = stream
-		}
+		peer.openStreamsTimer = time.NewTimer(3 * time.Second)
+		go func() {
+			<-peer.openStreamsTimer.C
+			peer.openStreams()
+		}()
 	}
 	return nil
+}
+
+func (peer *Peer) openStreams() {
+	peer.mutex.Lock()
+	defer peer.mutex.Unlock()
+
+	for _, channel := range Channels {
+		stream, err := peer.onStream(channel)
+		if err != nil {
+			logger.Debugf("Failed to create stream with peer %v %v for channel %v, %v", peer.addrInfo.ID, peer.addrInfo.Addrs, channel, err)
+			continue
+		}
+
+		if s, ok := peer.streamMap[channel]; ok {
+			s.Stop()
+		}
+
+		peer.streamMap[channel] = stream
+	}
 }
 
 func (peer *Peer) AcceptStream(channel cmn.ChannelIDEnum, stream *transport.BufferedStream) {
@@ -126,6 +135,10 @@ func (peer *Peer) Wait() {
 
 // Stop is called when the peer stops
 func (peer *Peer) Stop() {
+	if peer.openStreamsTimer != nil {
+		peer.openStreamsTimer.Stop()
+	}
+
 	peer.mutex.Lock()
 	defer peer.mutex.Unlock()
 

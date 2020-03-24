@@ -44,6 +44,11 @@ func runStart(cmd *cobra.Command, args []string) {
 	var networkOld *msg.Messenger
 	var network *msgl.Messenger
 
+	privKey, err := loadOrCreateKey()
+	if err != nil {
+		log.Fatalf("Failed to load or create key: %v", err)
+	}
+
 	// load snapshot
 	if len(snapshotPath) == 0 {
 		snapshotPath = path.Join(cfgPath, "snapshot")
@@ -59,10 +64,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
 		return c == ','
-	}
-	privKey, err := loadOrCreateKey()
-	if err != nil {
-		log.Fatalf("Failed to load or create key: %v", err)
 	}
 
 	// trap Ctrl+C and call cancel on the context
