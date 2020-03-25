@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/spf13/viper"
+
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/p2p"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
@@ -200,6 +202,7 @@ func (dp *Dispatcher) broadcastToNeighbors(channelID common.ChannelIDEnum, conte
 		dp.p2pnet.Broadcast(messageOld)
 	}
 	if !reflect.ValueOf(dp.p2plnet).IsNil() {
-		dp.p2plnet.BroadcastToNeighbors(message)
+		maxNumPeersToBroadcast := viper.GetInt(common.CfgP2PMaxNumPeersToBroadcast)
+		dp.p2plnet.BroadcastToNeighbors(message, maxNumPeersToBroadcast)
 	}
 }
