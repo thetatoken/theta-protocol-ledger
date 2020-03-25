@@ -45,8 +45,8 @@ type Network interface {
 	// Broadcast publishes the given message
 	Broadcast(message types.Message) chan bool
 
-	// BroadcastToNeighbors broadcasts the given message to all the neighboring peers
-	BroadcastToNeighbors(message types.Message) chan bool
+	// BroadcastToNeighbors broadcasts the given message to the neighboring peers
+	BroadcastToNeighbors(message types.Message, maxNumPeersToBroadcast int) chan bool
 
 	// Send sends the given message to the peer specified by the peerID
 	Send(peerID string, message types.Message) bool

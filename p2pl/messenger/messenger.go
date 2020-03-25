@@ -584,19 +584,51 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 }
 
 // BroadcastToNeighbors broadcasts the given message to neighbors
-func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message) (successes chan bool) {
-	neighbors := *msgr.peerTable.GetAllPeers()
-	for _, peer := range neighbors {
-		if peer.ID() == msgr.host.ID() {
-			continue
-		}
+func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int) (successes chan bool) {
+	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast)
+	for _, pid := range sampledPIDs {
+		go func(pid string) {
+			msgr.Send(pid, message)
+		}(pid)
+	}
+	return make(chan bool)
+}
 
-		go func(peerID pr.ID) {
-			msgr.Send(peerID.String(), message)
-		}(peer.ID())
+// samplePeers randomly sample a subset of peers
+func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
+	// Prioritize seed peers
+	sampledPIDs, idx := []string{}, 0
+	for seedPID := range msgr.seedPeers {
+		// Note: the order of map loop-through is undeterminstic, which effectively shuffles the seed peers
+		sampledPIDs = append(sampledPIDs, seedPID.String())
+		idx++
+		if idx >= maxNumSampledPeers {
+			return sampledPIDs
+		}
 	}
 
-	return make(chan bool)
+	// Randomly sample the remaining peers
+	neighbors := *msgr.peerTable.GetAllPeers()
+	neighborPIDs := []string{}
+	for _, peer := range neighbors {
+		pid := peer.ID()
+		if pid == msgr.host.ID() || msgr.isSeedPeer(pid) {
+			continue
+		}
+		neighborPIDs = append(neighborPIDs, pid.String())
+	}
+
+	numPeersToSample := maxNumSampledPeers - len(msgr.seedPeers) // numPeersToSample is guaranteed > 0
+	sampledNeighbors := util.Sample(neighborPIDs, numPeersToSample)
+	if numPeersToSample >= len(sampledNeighbors) {
+		numPeersToSample = len(sampledNeighbors)
+	}
+
+	for i := 0; i < numPeersToSample; i++ {
+		sampledPIDs = append(sampledPIDs, sampledNeighbors[i])
+	}
+
+	return sampledPIDs
 }
 
 // Send sends the given message to the specified peer

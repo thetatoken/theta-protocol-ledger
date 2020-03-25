@@ -72,6 +72,8 @@ const (
 	CfgP2PMaxNumPeers = "p2p.maxNumPeers"
 	// CfgMaxNumPersistentPeers sets the max number of peers to persist for normal nodes
 	CfgMaxNumPersistentPeers = "p2p.maxNumPersistentPeers"
+	// CfgP2PMaxNumPeersToBroadcast specifies the maximal number of peers to broadcast a message to
+	CfgP2PMaxNumPeersToBroadcast = "p2p.maxNumPeersToBroadcast"
 	// CfgBufferPoolSize defines the number of buffers in the pool.
 	CfgBufferPoolSize = "p2p.bufferPoolSize"
 
@@ -144,6 +146,7 @@ func init() {
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
 	//viper.SetDefault(CfgP2PMaxNumPeers, 256)
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
+	viper.SetDefault(CfgP2PMaxNumPeersToBroadcast, 64)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
 	viper.SetDefault(CfgBufferPoolSize, 8)
 
