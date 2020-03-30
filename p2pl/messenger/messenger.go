@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/rand"
-	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -109,11 +108,7 @@ func GetDefaultMessengerConfig() MessengerConfig {
 	}
 }
 
-func createP2PAddr(netAddr, networkProtocol string) (ma.Multiaddr, error) {
-	ip, port, err := net.SplitHostPort(netAddr)
-	if err != nil {
-		return nil, err
-	}
+func createP2PAddr(ip, port, networkProtocol string) (ma.Multiaddr, error) {
 	ipv := "ip4"
 	if strings.Index(ip, ":") > 0 {
 		ipv = "ip6"
@@ -175,7 +170,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	if err != nil {
 		return messenger, err
 	}
-	localNetAddress, err := createP2PAddr(fmt.Sprintf("0.0.0.0:%v", strconv.Itoa(port)), msgrConfig.networkProtocol)
+	localNetAddress, err := createP2PAddr("0.0.0.0", strconv.Itoa(port), msgrConfig.networkProtocol)
 	if err != nil {
 		return messenger, err
 	}
@@ -189,7 +184,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 			//return messenger, err
 		}
 
-		extMultiAddr, err = createP2PAddr(fmt.Sprintf("%v:%v", externalIP, strconv.Itoa(port)), msgrConfig.networkProtocol)
+		extMultiAddr, err = createP2PAddr(externalIP, strconv.Itoa(port), msgrConfig.networkProtocol)
 		if err != nil {
 			return messenger, err
 		}
