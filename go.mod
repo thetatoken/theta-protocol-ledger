@@ -34,6 +34,7 @@ require (
 	github.com/pion/datachannel v1.4.13
 	github.com/pion/webrtc/v2 v2.1.12
 	github.com/pkg/errors v0.8.1
+	github.com/pkg/profile v1.4.0
 	github.com/prysmaticlabs/prysm v0.0.0-20191018160938-a05dca18c7f7
 	github.com/russross/blackfriday v2.0.0+incompatible // indirect
 	github.com/shurcooL/sanitized_anchor_name v1.0.0 // indirect
