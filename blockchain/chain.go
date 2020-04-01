@@ -13,7 +13,7 @@ import (
 	"github.com/thetatoken/theta/store"
 )
 
-const maxDistance = 200
+const maxDistance = 2000
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "blockchain"})
 
