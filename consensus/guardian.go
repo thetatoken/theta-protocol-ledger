@@ -1,7 +1,11 @@
 package consensus
 
 import (
+	"context"
+	"sync"
+
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
@@ -27,6 +31,9 @@ type GuardianEngine struct {
 	gcp         *core.GuardianCandidatePool
 	gcpHash     common.Hash
 	signerIndex int // Signer's index in current gcp
+
+	incoming chan *core.AggregatedVotes
+	mu       *sync.Mutex
 }
 
 func NewGuardianEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *GuardianEngine {
@@ -34,14 +41,20 @@ func NewGuardianEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *GuardianE
 		logger:  util.GetLoggerForModule("guardian"),
 		engine:  c,
 		privKey: privateKey,
+
+		incoming: make(chan *core.AggregatedVotes, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		mu:       &sync.Mutex{},
 	}
 }
 
-func (g *GuardianEngine) IsGuardian() bool {
+func (g *GuardianEngine) isGuardian() bool {
 	return g.signerIndex >= 0
 }
 
 func (g *GuardianEngine) StartNewBlock(block common.Hash) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	g.block = block
 	g.nextVote = nil
 	g.currVote = nil
@@ -62,7 +75,7 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 		"signerIndex": g.signerIndex,
 	}).Debug("Starting new block")
 
-	if g.IsGuardian() {
+	if g.isGuardian() {
 		g.nextVote = core.NewAggregateVotes(block, gcp)
 		g.nextVote.Sign(g.privKey, g.signerIndex)
 		g.currVote = g.nextVote.Copy()
@@ -74,6 +87,9 @@ func (g *GuardianEngine) StartNewBlock(block common.Hash) {
 }
 
 func (g *GuardianEngine) StartNewRound() {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	if g.round < maxRound {
 		g.round++
 		g.currVote = g.nextVote.Copy()
@@ -81,14 +97,40 @@ func (g *GuardianEngine) StartNewRound() {
 }
 
 func (g *GuardianEngine) GetVoteToBroadcast() *core.AggregatedVotes {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	return g.currVote
 }
 
 func (g *GuardianEngine) GetBestVote() *core.AggregatedVotes {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	return g.nextVote
 }
 
-func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
+func (g *GuardianEngine) Start(ctx context.Context) {
+	go g.mainLoop(ctx)
+}
+
+func (g *GuardianEngine) mainLoop(ctx context.Context) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case vote, ok := <-g.incoming:
+			if ok {
+				g.processVote(vote)
+			}
+		}
+	}
+}
+
+func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
 	if !g.validateVote(vote) {
 		return
 	}
@@ -114,6 +156,10 @@ func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
 	}
 	if mergedVote == nil {
 		// Incoming vote is subset of the current nextVote.
+		g.logger.WithFields(log.Fields{
+			"vote.block":     vote.Block.Hex(),
+			"vote.Mutiplies": vote.Multiplies,
+		}).Debug("Skipping vote: no new index")
 		return
 	}
 	if !g.checkMultipliesForRound(mergedVote, g.round+1) {
@@ -134,6 +180,15 @@ func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
 		"local.round":           g.round,
 		"local.vote.Multiplies": g.nextVote.Multiplies,
 	}).Info("Merged guardian vote")
+}
+
+func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {
+	select {
+	case g.incoming <- vote:
+		return
+	default:
+		g.logger.Debug("GuardianEngine queue is full, discarding vote: %v", vote)
+	}
 }
 
 func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
