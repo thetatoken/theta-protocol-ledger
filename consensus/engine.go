@@ -143,6 +143,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
 
 	e.resetGuardianTimer()
+	e.guardian.Start(e.ctx)
 
 	e.wg.Add(1)
 	go e.mainLoop()
