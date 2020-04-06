@@ -162,8 +162,12 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
-	pdmh.sendAddresses(peer, peerIDAddrs)
+	maxNumPeers := viper.GetInt(common.CfgP2PMaxNumPeers)
+	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
+	if numPeers < maxNumPeers {
+		peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
+		pdmh.sendAddresses(peer, peerIDAddrs)
+	}
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {

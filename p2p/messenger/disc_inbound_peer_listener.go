@@ -113,6 +113,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	defer ipl.wg.Done()
 
 	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	maxNumPeers := viper.GetInt(common.CfgP2PMaxNumPeers)
 	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
 	for {
@@ -130,6 +131,12 @@ func (ipl *InboundPeerListener) listenRoutine() {
 				continue
 			} else {
 				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
+			}
+		} else {
+			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers())
+			if numPeers >= maxNumPeers {
+				logger.Debugf("Max peer number limit reached, ignore inbound connection request")
+				netconn.Close()
 			}
 		}
 
