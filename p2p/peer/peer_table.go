@@ -92,6 +92,8 @@ func (pt *PeerTable) PurgeOldestPeer() string {
 	peer := pt.peers[0]
 	delete(pt.peerMap, peer.ID())
 	pt.peers = pt.peers[1:]
+	netconn := peer.connection.GetNetconn()
+	netconn.Close()
 	return peer.ID()
 }
 
