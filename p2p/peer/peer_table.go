@@ -85,16 +85,14 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 }
 
 // PurgeOldestPeer purges the oldest peer from the PeerTable
-func (pt *PeerTable) PurgeOldestPeer() string {
+func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	peer := pt.peers[0]
 	delete(pt.peerMap, peer.ID())
 	pt.peers = pt.peers[1:]
-	netconn := peer.connection.GetNetconn()
-	netconn.Close()
-	return peer.ID()
+	return peer
 }
 
 // GetPeer returns the peer for the given peerID (if exists)
