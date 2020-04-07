@@ -42,7 +42,7 @@ type PeerDiscoveryManager struct {
 // PeerDiscoveryManagerConfig specifies the configuration for PeerDiscoveryManager
 //
 type PeerDiscoveryManagerConfig struct {
-	MaxNumPeers        uint
+	MaxNumPeers        int
 	SufficientNumPeers uint
 }
 
@@ -91,7 +91,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 // GetDefaultPeerDiscoveryManagerConfig returns the default config for the PeerDiscoveryManager
 func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
-		MaxNumPeers:        128,
+		MaxNumPeers:        viper.GetInt(common.CfgP2PMaxNumPeers),
 		SufficientNumPeers: 32,
 	}
 }

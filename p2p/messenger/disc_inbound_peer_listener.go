@@ -113,6 +113,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	defer ipl.wg.Done()
 
 	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+	maxNumPeers := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers
 	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
 	for {
@@ -121,8 +122,8 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			logger.Fatalf("net listener error: %v", err)
 		}
 
+		remoteAddr := netutil.NewNetAddress(netconn.RemoteAddr())
 		if seedPeerOnly {
-			remoteAddr := netutil.NewNetAddress(netconn.RemoteAddr())
 			isNotASeedPeer := !ipl.discMgr.seedPeerConnector.isASeedPeerIgnoringPort(remoteAddr)
 			if isNotASeedPeer {
 				logger.Debugf("%v is not a seed peer, ignore inbound connection request", remoteAddr.String())
@@ -130,6 +131,18 @@ func (ipl *InboundPeerListener) listenRoutine() {
 				continue
 			} else {
 				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
+			}
+		} else {
+			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers())
+			if numPeers >= maxNumPeers {
+				if viper.GetBool(common.CfgP2PConnectionFIFO) {
+					purgedID := ipl.discMgr.peerTable.PurgeOldestPeer()
+					logger.Debugf("Purged old peer %v to make room for inbound connection request from %v", purgedID, remoteAddr.String())
+				} else {
+					logger.Debugf("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
+					netconn.Close()
+					continue
+				}
 			}
 		}
 
