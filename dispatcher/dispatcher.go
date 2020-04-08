@@ -198,11 +198,12 @@ func (dp *Dispatcher) broadcastToNeighbors(channelID common.ChannelIDEnum, conte
 		ChannelID: channelID,
 		Content:   content,
 	}
+	maxNumPeersToBroadcast := viper.GetInt(common.CfgP2PMaxNumPeersToBroadcast)
 	if !reflect.ValueOf(dp.p2pnet).IsNil() {
-		dp.p2pnet.Broadcast(messageOld)
+		//dp.p2pnet.Broadcast(messageOld)
+		dp.p2pnet.BroadcastToNeighbors(messageOld, maxNumPeersToBroadcast)
 	}
 	if !reflect.ValueOf(dp.p2plnet).IsNil() {
-		maxNumPeersToBroadcast := viper.GetInt(common.CfgP2PMaxNumPeersToBroadcast)
 		dp.p2plnet.BroadcastToNeighbors(message, maxNumPeersToBroadcast)
 	}
 }

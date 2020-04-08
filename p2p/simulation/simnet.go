@@ -186,6 +186,16 @@ func (se *SimnetEndpoint) Broadcast(message p2ptypes.Message) (successes chan bo
 	return successes
 }
 
+// BroadcastToNeighbors implements the Network interface.
+func (se *SimnetEndpoint) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int) (successes chan bool) {
+	successes = make(chan bool, 10)
+	go func() {
+		se.network.AddMessage(Envelope{From: se.ID(), Content: message.Content})
+		successes <- true
+	}()
+	return successes
+}
+
 // Send implements the Network interface.
 func (se *SimnetEndpoint) Send(id string, message p2ptypes.Message) bool {
 	go func() {
