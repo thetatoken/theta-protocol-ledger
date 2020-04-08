@@ -121,7 +121,7 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 	allPeers := msgr.peerTable.GetAllPeers()
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
-		logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
+		//logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success
