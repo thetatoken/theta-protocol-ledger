@@ -24,6 +24,7 @@ type PeerDiscoveryManager struct {
 	addrBook  *AddrBook
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
+	seedPeers map[string]*pr.Peer
 
 	// Three mechanisms for peer discovery
 	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
@@ -56,6 +57,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		messenger: msgr,
 		nodeInfo:  nodeInfo,
 		peerTable: peerTable,
+		seedPeers: make(map[string]*pr.Peer),
 		wg:        &sync.WaitGroup{},
 	}
 
@@ -246,5 +248,14 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
 	discMgr.addrBook.Save()
 
+	if discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress()) {
+		discMgr.seedPeers[peer.ID()] = peer
+	}
+
 	return nil
+}
+
+func (discMgr *PeerDiscoveryManager) isSeedPeer(pid string) bool {
+	_, isSeed := discMgr.seedPeers[pid]
+	return isSeed
 }

@@ -8,6 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
 	pr "github.com/thetatoken/theta/p2p/peer"
@@ -127,6 +128,54 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 		}(peer)
 	}
 	return successes
+}
+
+// BroadcastToNeighbors broadcasts the given message to neighbors
+func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int) (successes chan bool) {
+	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast)
+	for _, pid := range sampledPIDs {
+		go func(pid string) {
+			msgr.Send(pid, message)
+		}(pid)
+	}
+	return make(chan bool)
+}
+
+// samplePeers randomly sample a subset of peers
+func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
+	// Prioritize seed peers
+	sampledPIDs, idx := []string{}, 0
+	for seedPID := range msgr.discMgr.seedPeers {
+		// Note: the order of map loop-through is undeterminstic, which effectively shuffles the seed peers
+		sampledPIDs = append(sampledPIDs, seedPID)
+		idx++
+		if idx >= maxNumSampledPeers {
+			return sampledPIDs
+		}
+	}
+
+	// Randomly sample the remaining peers
+	neighbors := *msgr.peerTable.GetAllPeers()
+	neighborPIDs := []string{}
+	for _, peer := range neighbors {
+		pid := peer.ID()
+		if pid == msgr.ID() || msgr.discMgr.isSeedPeer(pid) {
+			continue
+		}
+		neighborPIDs = append(neighborPIDs, pid)
+	}
+
+	numPeersToSample := maxNumSampledPeers - len(msgr.discMgr.seedPeers) // numPeersToSample is guaranteed > 0
+	sampledNeighbors := util.Sample(neighborPIDs, numPeersToSample)
+	if numPeersToSample >= len(sampledNeighbors) {
+		numPeersToSample = len(sampledNeighbors)
+	}
+
+	for i := 0; i < numPeersToSample; i++ {
+		sampledPIDs = append(sampledPIDs, sampledNeighbors[i])
+	}
+
+	return sampledPIDs
 }
 
 // Send sends the given message to the specified peer
