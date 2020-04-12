@@ -92,7 +92,9 @@ func (g *GuardianEngine) StartNewRound() {
 
 	if g.round < maxRound {
 		g.round++
-		g.currVote = g.nextVote.Copy()
+		if g.nextVote != nil {
+			g.currVote = g.nextVote.Copy()
+		}
 	}
 }
 

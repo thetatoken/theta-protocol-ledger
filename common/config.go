@@ -76,6 +76,8 @@ const (
 	CfgP2PMaxNumPeersToBroadcast = "p2p.maxNumPeersToBroadcast"
 	// CfgBufferPoolSize defines the number of buffers in the pool.
 	CfgBufferPoolSize = "p2p.bufferPoolSize"
+	// CfgP2PConnectionFIFO specifies if the incoming connection policy is FIFO or LIFO
+	CfgP2PConnectionFIFO = "p2p.connectionFIFO"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -140,7 +142,7 @@ func init() {
 	viper.SetDefault(CfgP2PSeeds, "")
 	viper.SetDefault(CfgP2PSeedPeerOnlyOutbound, false)
 	//viper.SetDefault(CfgP2POpt, P2POptLibp2p) // FIXME: this for some reason doesn't work
-	viper.SetDefault(CfgP2POpt, 1) // P2POptLibp2p == 1
+	viper.SetDefault(CfgP2POpt, 0)
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
@@ -149,6 +151,7 @@ func init() {
 	viper.SetDefault(CfgP2PMaxNumPeersToBroadcast, 64)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
 	viper.SetDefault(CfgBufferPoolSize, 8)
+	viper.SetDefault(CfgP2PConnectionFIFO, false)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")

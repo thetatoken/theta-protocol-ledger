@@ -197,7 +197,7 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
 	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
-	numNeeded := int(GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers) - numPeers
+	numNeeded := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers - numPeers
 	if numNeeded > 0 {
 		numToAdd := len(addresses) * peersAddressesSubSamplingPercent / 100
 		if numToAdd < 1 {
