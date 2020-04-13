@@ -54,6 +54,12 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 			if p.ID() == peer.ID() {
 				p.Stop()
 				logger.Warnf("Stopping duplicated peer: %v", p.ID())
+
+				if p.IsOutbound() {
+					// if an outbound peer is being replaced by an inbound one,
+					// preserve the replaced peer's 'isSeed' flag
+					peer.SetSeed(p.IsSeed())
+				}
 				pt.peers[i] = peer
 				break
 			}
@@ -89,9 +95,17 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	peer := pt.peers[0]
-	delete(pt.peerMap, peer.ID())
-	pt.peers = pt.peers[1:]
+	var peer *Peer
+	for idx, pr := range pt.peers {
+		if !pr.IsSeed() {
+			peer = pt.peers[idx]
+		}
+	}
+	if peer != nil {
+		delete(pt.peerMap, peer.ID())
+		pt.peers = pt.peers[1:]
+	}
+	
 	return peer
 }
 

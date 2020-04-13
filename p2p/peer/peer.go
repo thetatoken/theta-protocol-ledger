@@ -32,6 +32,7 @@ type Peer struct {
 
 	isPersistent bool
 	isOutbound   bool
+	isSeed       bool
 	netAddress   *nu.NetAddress
 
 	nodeInfo p2ptypes.NodeInfo // information of the blockchain node of the peer
@@ -55,7 +56,7 @@ type PeerConfig struct {
 }
 
 // CreateOutboundPeer creates an instance of an outbound peer
-func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
+func CreateOutboundPeer(peerAddr *nu.NetAddress, isSeed bool, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
 		logger.Debugf("Error dialing the peer: %v", peerAddr)
@@ -65,6 +66,7 @@ func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConf
 	if peer == nil {
 		return nil, errors.New("Failed to create outbound peer")
 	}
+	peer.SetSeed(isSeed)
 	return peer, nil
 }
 
@@ -260,6 +262,16 @@ func (peer *Peer) IsPersistent() bool {
 // IsOutbound returns whether the peer is an outbound peer
 func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
+}
+
+// SetSeed sets the isSeed for the given peer
+func (peer *Peer) SetSeed(isSeed bool) {
+	peer.isSeed = isSeed
+}
+
+// IsSeed returns whether the peer is a seed peer
+func (peer *Peer) IsSeed() bool {
+	return peer.isSeed
 }
 
 // SetNetAddress sets the network address of the peer

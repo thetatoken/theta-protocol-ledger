@@ -195,7 +195,8 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 	logger.Debugf("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
-	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
+	isSeed := discMgr.seedPeerConnector.isASeedPeer(peerNetAddress)
+	peer, err := pr.CreateOutboundPeer(peerNetAddress, isSeed, peerConfig, connConfig)
 	if err != nil {
 		logger.Debugf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
