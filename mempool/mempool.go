@@ -276,6 +276,15 @@ func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
 		}
 		txGroup := mp.candidateTxs.Pop().(*mempoolTransactionGroup)
 		rawTx, txInfo := txGroup.PopTx()
+
+		// Check for outdated txs
+		txHash := getTransactionHash(rawTx)
+		_, exists := mp.txBookeepper.getStatus(txHash)
+		if !exists {
+			// Tx has been removed from bookkeeper due to timeout, skipping
+			continue
+		}
+
 		txs = append(txs, rawTx)
 
 		if txGroup.IsEmpty() {
