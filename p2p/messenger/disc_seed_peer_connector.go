@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	connectInterval                   = 3000 // 3 sec
-	lowConnectivityCheckInterval      = 60
-	highConnectivityCheckInterval     = 10
+	connectInterval               = 3000 // 3 sec
+	lowConnectivityCheckInterval  = 180
+	highConnectivityCheckInterval = 6
 )
 
 //
