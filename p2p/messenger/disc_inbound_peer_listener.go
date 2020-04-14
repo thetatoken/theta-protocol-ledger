@@ -137,8 +137,10 @@ func (ipl *InboundPeerListener) listenRoutine() {
 			if numPeers >= maxNumPeers {
 				if viper.GetBool(common.CfgP2PConnectionFIFO) {
 					purgedPeer := ipl.discMgr.peerTable.PurgeOldestPeer()
-					purgedPeer.Stop()
-					logger.Debugf("Purged old peer %v to make room for inbound connection request from %v", purgedPeer.ID(), remoteAddr.String())
+					if purgedPeer != nil {
+						purgedPeer.Stop()
+						logger.Debugf("Purged old peer %v to make room for inbound connection request from %v", purgedPeer.ID(), remoteAddr.String())
+					}
 				} else {
 					logger.Debugf("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
 					netconn.Close()
