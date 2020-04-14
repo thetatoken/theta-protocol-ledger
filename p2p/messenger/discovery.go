@@ -25,7 +25,7 @@ type PeerDiscoveryManager struct {
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
 	seedPeers map[string]*pr.Peer
-	
+
 	seedPeerOnly bool
 
 	// Three mechanisms for peer discovery
@@ -231,6 +231,9 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 
 	isSeed := discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress())
 	peer.SetSeed(isSeed)
+	if isSeed {
+		logger.Infof("Handshaked with a seed peer: %v, isOutbound: %v", peer.NetAddress(), peer.IsOutbound())
+	}
 
 	if discMgr.messenger != nil {
 		discMgr.messenger.AttachMessageHandlersToPeer(peer)
