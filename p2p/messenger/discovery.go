@@ -25,6 +25,8 @@ type PeerDiscoveryManager struct {
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
 	seedPeers map[string]*pr.Peer
+	
+	seedPeerOnly bool
 
 	// Three mechanisms for peer discovery
 	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
@@ -54,11 +56,12 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
-		messenger: msgr,
-		nodeInfo:  nodeInfo,
-		peerTable: peerTable,
-		seedPeers: make(map[string]*pr.Peer),
-		wg:        &sync.WaitGroup{},
+		messenger:    msgr,
+		nodeInfo:     nodeInfo,
+		peerTable:    peerTable,
+		seedPeers:    make(map[string]*pr.Peer),
+		seedPeerOnly: viper.GetBool(common.CfgP2PSeedPeerOnly),
+		wg:           &sync.WaitGroup{},
 	}
 
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
@@ -120,8 +123,7 @@ func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
 		return err
 	}
 
-	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
-	if seedPeerOnly {
+	if discMgr.seedPeerOnly {
 		return nil // if seed peer only, we don't need to start the peer discovery manager
 	}
 

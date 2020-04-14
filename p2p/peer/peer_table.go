@@ -27,6 +27,7 @@ type PeerTable struct {
 
 	peerMap map[string]*Peer // map: peerID |-> *Peer
 	peers   []*Peer          // For iteration with deterministic order
+	addrMap map[*nu.NetAddress]*Peer
 }
 
 type PeerIDAddress struct {
@@ -39,6 +40,7 @@ func CreatePeerTable() PeerTable {
 	return PeerTable{
 		mutex:   &sync.Mutex{},
 		peerMap: make(map[string]*Peer),
+		addrMap: make(map[*nu.NetAddress]*Peer),
 	}
 }
 
@@ -69,6 +71,7 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 	}
 
 	pt.peerMap[peer.ID()] = peer
+	pt.addrMap[peer.NetAddress()] = peer
 
 	return true
 }
@@ -78,11 +81,14 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	if _, ok := pt.peerMap[peerID]; !ok {
+	var peer *Peer
+	var ok bool
+	if peer, ok = pt.peerMap[peerID]; !ok {
 		return
 	}
 
 	delete(pt.peerMap, peerID)
+	delete(pt.addrMap, peer.NetAddress())
 	for idx, peer := range pt.peers {
 		if peer.ID() == peerID {
 			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
@@ -121,12 +127,33 @@ func (pt *PeerTable) GetPeer(peerID string) *Peer {
 	return peer
 }
 
+// GetPeerWithAddr returns the peer for the given address (if exists)
+func (pt *PeerTable) GetPeerWithAddr(addr *nu.NetAddress) *Peer {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	peer, exists := pt.addrMap[addr]
+	if !exists {
+		return nil
+	}
+	return peer
+}
+
 // PeerExists indicates whether the PeerTable has a peer for the given peerID
 func (pt *PeerTable) PeerExists(peerID string) bool {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	_, exists := pt.peerMap[peerID]
+	return exists
+}
+
+// PeerAddrExists indicates whether the PeerTable has a peer for the given address
+func (pt *PeerTable) PeerAddrExists(addr *nu.NetAddress) bool {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	_, exists := pt.addrMap[addr]
 	return exists
 }
 
