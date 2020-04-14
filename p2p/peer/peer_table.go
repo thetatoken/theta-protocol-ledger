@@ -56,12 +56,6 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 			if p.ID() == peer.ID() {
 				p.Stop()
 				logger.Warnf("Stopping duplicated peer: %v", p.ID())
-
-				if p.IsOutbound() {
-					// if an outbound peer is being replaced by an inbound one,
-					// preserve the replaced peer's 'isSeed' flag
-					peer.SetSeed(p.IsSeed())
-				}
 				pt.peers[i] = peer
 				break
 			}

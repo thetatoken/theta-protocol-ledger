@@ -197,8 +197,7 @@ func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netut
 	logger.Debugf("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
 	connConfig := cn.GetDefaultConnectionConfig()
-	isSeed := discMgr.seedPeerConnector.isASeedPeer(peerNetAddress)
-	peer, err := pr.CreateOutboundPeer(peerNetAddress, isSeed, peerConfig, connConfig)
+	peer, err := pr.CreateOutboundPeer(peerNetAddress, peerConfig, connConfig)
 	if err != nil {
 		logger.Debugf("Failed to create outbound peer: %v", peerNetAddress)
 		return nil, err
@@ -229,6 +228,9 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		logger.Errorf("Failed to handshake with peer, error: %v", err)
 		return err
 	}
+
+	isSeed := discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress())
+	peer.SetSeed(isSeed)
 
 	if discMgr.messenger != nil {
 		discMgr.messenger.AttachMessageHandlersToPeer(peer)
