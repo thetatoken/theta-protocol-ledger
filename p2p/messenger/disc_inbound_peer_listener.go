@@ -139,10 +139,10 @@ func (ipl *InboundPeerListener) listenRoutine() {
 					purgedPeer := ipl.discMgr.peerTable.PurgeOldestPeer()
 					if purgedPeer != nil {
 						purgedPeer.Stop()
-						logger.Debugf("Purged old peer %v to make room for inbound connection request from %v", purgedPeer.ID(), remoteAddr.String())
+						logger.Infof("Purged old peer %v to make room for inbound connection request from %v", purgedPeer.ID(), remoteAddr.String())
 					}
 				} else {
-					logger.Debugf("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
+					logger.Infof("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
 					netconn.Close()
 					continue
 				}

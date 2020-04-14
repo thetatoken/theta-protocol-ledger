@@ -96,6 +96,7 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	defer pt.mutex.Unlock()
 
 	var peer *Peer
+	var idx int
 	for idx, pr := range pt.peers {
 		if !pr.IsSeed() {
 			peer = pt.peers[idx]
@@ -103,9 +104,9 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	}
 	if peer != nil {
 		delete(pt.peerMap, peer.ID())
-		pt.peers = pt.peers[1:]
+		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 	}
-	
+
 	return peer
 }
 
