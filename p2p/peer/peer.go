@@ -56,7 +56,7 @@ type PeerConfig struct {
 }
 
 // CreateOutboundPeer creates an instance of an outbound peer
-func CreateOutboundPeer(peerAddr *nu.NetAddress, isSeed bool, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
+func CreateOutboundPeer(peerAddr *nu.NetAddress, peerConfig PeerConfig, connConfig cn.ConnectionConfig) (*Peer, error) {
 	netconn, err := dial(peerAddr, peerConfig)
 	if err != nil {
 		logger.Debugf("Error dialing the peer: %v", peerAddr)
@@ -66,7 +66,6 @@ func CreateOutboundPeer(peerAddr *nu.NetAddress, isSeed bool, peerConfig PeerCon
 	if peer == nil {
 		return nil, errors.New("Failed to create outbound peer")
 	}
-	peer.SetSeed(isSeed)
 	return peer, nil
 }
 
