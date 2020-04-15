@@ -140,6 +140,7 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	}
 	if peer != nil {
 		delete(pt.peerMap, peer.ID())
+		delete(pt.addrMap, peer.NetAddress().String())
 		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 	}
 
