@@ -119,9 +119,11 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 	delete(pt.addrMap, peer.NetAddress().String())
 	for idx, peer := range pt.peers {
 		if peer.ID() == peerID {
-			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
+			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...) // not to break in case there are multiple matches
 		}
 	}
+
+	logger.Infof("Deleted peer %v from the peer table", peerID)
 
 	pt.persistPeers()
 }
@@ -131,20 +133,25 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	var peer *Peer
-	var idx int
+	var purgedIdx int
+	var purgedPeer *Peer
 	for idx, pr := range pt.peers {
 		if !pr.IsSeed() {
-			peer = pt.peers[idx]
+			purgedIdx = idx
+			purgedPeer = pr
+			break
 		}
 	}
-	if peer != nil {
-		delete(pt.peerMap, peer.ID())
-		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
+	if purgedPeer != nil {
+		delete(pt.peerMap, purgedPeer.ID())
+		delete(pt.addrMap, purgedPeer.NetAddress().String())
+		pt.peers = append(pt.peers[:purgedIdx], pt.peers[purgedIdx+1:]...)
 	}
 
+	logger.Infof("Purged the oldest peer %v from the peer table, idx: %v", purgedPeer.ID(), purgedIdx)
+
 	pt.persistPeers()
-	return peer
+	return purgedPeer
 }
 
 // GetPeer returns the peer for the given peerID (if exists)

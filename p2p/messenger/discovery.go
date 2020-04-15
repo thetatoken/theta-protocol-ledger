@@ -256,7 +256,7 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
 	discMgr.addrBook.Save()
 
-	if discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress()) {
+	if peer.IsSeed() {
 		discMgr.seedPeers[peer.ID()] = peer
 	}
 
