@@ -133,9 +133,9 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 
 	var peer *Peer
 	var idx int
-	for idx, pr := range pt.peers {
-		if !pr.IsSeed() {
-			peer = pt.peers[idx]
+	for idx, peer = range pt.peers {
+		if !peer.IsSeed() {
+			break
 		}
 	}
 	if peer != nil {
