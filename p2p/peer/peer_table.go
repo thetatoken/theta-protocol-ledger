@@ -119,9 +119,11 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 	delete(pt.addrMap, peer.NetAddress().String())
 	for idx, peer := range pt.peers {
 		if peer.ID() == peerID {
-			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
+			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...) // not to break in case there are multiple matches
 		}
 	}
+
+	logger.Infof("Deleted peer %v from the peer table", peerID)
 
 	pt.persistPeers()
 }
@@ -143,6 +145,8 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 		delete(pt.addrMap, peer.NetAddress().String())
 		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 	}
+
+	logger.Infof("Purged the oldest peer %v from the peer table, idx: %v", peer.ID(), idx)
 
 	pt.persistPeers()
 	return peer
