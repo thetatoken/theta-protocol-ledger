@@ -1,7 +1,6 @@
 package peer
 
 import (
-	"encoding/json"
 	"math/rand"
 	"path"
 	"path/filepath"
@@ -100,6 +99,8 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 	pt.peerMap[peer.ID()] = peer
 	pt.addrMap[peer.NetAddress().String()] = peer
 
+	pt.persistPeers()
+
 	return true
 }
 
@@ -121,6 +122,8 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 		}
 	}
+
+	pt.persistPeers()
 }
 
 // PurgeOldestPeer purges the oldest peer from the PeerTable
@@ -140,6 +143,7 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
 	}
 
+	pt.persistPeers()
 	return peer
 }
 
@@ -242,23 +246,14 @@ func (pt *PeerTable) GetTotalNumPeers() uint {
 	return uint(len(pt.peers))
 }
 
-func (pt *PeerTable) RetrievePreviousPeers() (res []*Peer, err error) {
+func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {
 	dat, err := pt.db.Get([]byte(dbKey), nil)
 	if err != nil {
 		logger.Warnf("Failed to retrieve previously persisted peers")
-		return
+		return nil, err
 	}
-	arr := strings.Split(string(dat), "|")
-	for _, p := range arr {
-		var peer Peer
-		err = json.Unmarshal([]byte(p), &peer)
-		if err != nil {
-			logger.Warnf("Failed to unmarshal peer, %v", p)
-			break
-		}
-		res = append(res, &peer)
-	}
-	return
+	addrs := strings.Split(string(dat), "|")
+	return nu.NewNetAddressStrings(addrs)
 }
 
 func (pt *PeerTable) persistPeers() {
@@ -269,15 +264,12 @@ func (pt *PeerTable) persistPeers() {
 		numInDB = maxPeerPersistence
 	}
 
-	peerJsons := make([]string, numInDB)
+	peerAddrs := make([]string, numInDB)
 	dbPeers := pt.peers[numPeers-numInDB:]
 	for i, p := range dbPeers {
-		json, err := json.Marshal(*p)
-		if err == nil {
-			peerJsons[i] = string(json)
-		}
+		peerAddrs[i] = p.NetAddress().String()
 	}
-	go pt.writeToDB(dbKey, strings.Join(peerJsons, "|"))
+	go pt.writeToDB(dbKey, strings.Join(peerAddrs, "|"))
 }
 
 func (pt *PeerTable) writeToDB(key, value string) {

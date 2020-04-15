@@ -244,6 +244,21 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
 	if numPeers > 0 {
 		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
+			// recover persisted peers
+			var peerNetAddresses []*netutil.NetAddress
+			prevPeerAddrs, err := pdmh.discMgr.peerTable.RetrievePreviousPeers()
+			if err == nil {
+				for _, addr := range prevPeerAddrs {
+					if !pdmh.discMgr.peerTable.PeerAddrExists(addr) {
+						peerNetAddresses = append(peerNetAddresses, addr)
+					}
+				}
+				if len(peerNetAddresses) > 0 {
+					pdmh.connectToOutboundPeers(peerNetAddresses)
+				}
+			}
+
+			// discovery
 			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {

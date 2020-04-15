@@ -107,8 +107,22 @@ func (spc *SeedPeerConnector) isASeedPeer(netAddr *netutil.NetAddress) bool {
 }
 
 func (spc *SeedPeerConnector) connectToSeedPeers() {
-	logger.Infof("Connecting to seed peers...")
-	perm := rand.Perm(len(spc.seedPeerNetAddresses))
+	logger.Infof("Connecting to seed and persisted peers...")
+
+	var peerNetAddresses []netutil.NetAddress
+	// add seed peers first
+	peerNetAddresses = append(peerNetAddresses, spc.seedPeerNetAddresses...)
+	// add persisted peers
+	persistedPeerAddrs, err := spc.discMgr.peerTable.RetrievePreviousPeers()
+	if err == nil {
+		for _, addr := range persistedPeerAddrs {
+			if !spc.isASeedPeer(addr) {
+				peerNetAddresses = append(peerNetAddresses, *addr)
+			}
+		}
+	}
+
+	perm := rand.Perm(len(peerNetAddresses))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		spc.wg.Add(1)
 		go func(i int) {
@@ -116,7 +130,7 @@ func (spc *SeedPeerConnector) connectToSeedPeers() {
 
 			time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
 			j := perm[i]
-			peerNetAddress := spc.seedPeerNetAddresses[j]
+			peerNetAddress := peerNetAddresses[j]
 			_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
 			if err != nil {
 				spc.Connected <- false
