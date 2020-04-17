@@ -99,7 +99,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
 		MaxNumPeers:        viper.GetInt(common.CfgP2PMaxNumPeers),
-		SufficientNumPeers: 32,
+		SufficientNumPeers: uint(viper.GetInt(common.CfgP2PMinNumPeers)),
 	}
 }
 

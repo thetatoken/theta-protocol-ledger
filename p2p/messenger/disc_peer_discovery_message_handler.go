@@ -31,7 +31,7 @@ const (
 	minNumOutboundPeers               = 10
 	maxPeerDiscoveryMessageSize       = 1048576 // 1MB
 	requestPeersAddressesPercent      = 25      // 25%
-	peersAddressesSubSamplingPercent  = 25      // 25%
+	peersAddressesSubSamplingPercent  = 50      // 50%
 	discoverInterval                  = 3000    // 3 sec
 )
 
@@ -167,6 +167,7 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer,
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, message PeerDiscoveryMessage) {
+	logger.Infof("Received peer discovery reply from %v with %v peer addresses", peer.ID(), len(message.Addresses))
 	validAddressMap := make(map[*netutil.NetAddress]bool)
 	for _, idAddr := range message.Addresses {
 		isNotASeedPeer := !pdmh.discMgr.seedPeerConnector.isASeedPeer(idAddr.Addr)
@@ -177,10 +178,15 @@ func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressReply(peer *pr.Peer, m
 			continue
 		}
 
+		logger.Debugf("Discovered peerID: %v, peerAddress: %v, isValid: %v", idAddr.ID, idAddr.Addr, idAddr.Addr.Valid())
+
 		if idAddr.Addr.Valid() && pdmh.discMgr.messenger.ID() != idAddr.ID && !pdmh.discMgr.peerTable.PeerExists(idAddr.ID) {
 			validAddressMap[idAddr.Addr] = true
 		}
 	}
+
+	logger.Infof("%v out of %v peer addresses are valid", len(validAddressMap), len(message.Addresses))
+
 	if len(validAddressMap) > 0 {
 		var validAddresses []*netutil.NetAddress
 		for addr := range validAddressMap {
@@ -197,7 +203,7 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
 	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
-	numNeeded := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers - numPeers
+	numNeeded := int(GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers) - numPeers
 	if numNeeded > 0 {
 		numToAdd := len(addresses) * peersAddressesSubSamplingPercent / 100
 		if numToAdd < 1 {
@@ -205,6 +211,8 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 		} else if numToAdd > numNeeded {
 			numToAdd = numNeeded
 		}
+		logger.Infof("Attempt to connect to %v discovered peers", numToAdd)
+
 		perm := rand.Perm(len(addresses))
 		for i := 0; i < numToAdd; i++ {
 			go func(i int) {
@@ -222,6 +230,8 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 				}
 			}(i)
 		}
+	} else {
+		logger.Infof("No need to proactively connect to more peers.")
 	}
 }
 
@@ -244,6 +254,8 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
 	if numPeers > 0 {
 		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
+			logger.Infof("Attempt to maintain sufficient connectivity...")
+
 			// recover persisted peers
 			var peerNetAddresses []*netutil.NetAddress
 			prevPeerAddrs, err := pdmh.discMgr.peerTable.RetrievePreviousPeers()
@@ -270,6 +282,10 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 				peer := peers[perm[i]]
 				pdmh.requestAddresses(peer)
 			}
+
+			logger.Infof("Sent peer discovery requests to %v peers", numPeersToSendRequest)
+		} else {
+			logger.Infof("Already has sufficient number of peers.")
 		}
 	} else { // no peer left in the peer table, try to reconnect to seed peers
 		pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
