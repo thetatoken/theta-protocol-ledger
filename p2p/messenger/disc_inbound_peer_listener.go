@@ -142,7 +142,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 						logger.Infof("Purged old peer %v to make room for inbound connection request from %v", purgedPeer.ID(), remoteAddr.String())
 					}
 				} else {
-					logger.Infof("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
+					logger.Debugf("Max peers limit %v reached, ignore inbound connection request from %v", maxNumPeers, remoteAddr.String())
 					netconn.Close()
 					continue
 				}
