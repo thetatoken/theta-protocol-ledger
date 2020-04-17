@@ -12,7 +12,7 @@ import (
 
 const (
 	connectInterval               = 3000 // 3 sec
-	lowConnectivityCheckInterval  = 180
+	lowConnectivityCheckInterval  = 1800
 	highConnectivityCheckInterval = 6
 )
 
