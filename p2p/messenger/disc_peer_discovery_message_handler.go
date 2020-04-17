@@ -203,7 +203,8 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
 	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
-	numNeeded := int(GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers) - numPeers
+	sufficientNumPeers := int(GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers)
+	numNeeded := sufficientNumPeers - numPeers
 	if numNeeded > 0 {
 		numToAdd := len(addresses) * peersAddressesSubSamplingPercent / 100
 		if numToAdd < 1 {
@@ -231,7 +232,8 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 			}(i)
 		}
 	} else {
-		logger.Infof("No need to proactively connect to more peers.")
+		logger.Infof("No need to proactively connect to more peers, numPeers: %v, sufficientNumPeers: %v",
+			numPeers, sufficientNumPeers)
 	}
 }
 
@@ -252,8 +254,9 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	sufficientNumPeers := GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers
 	if numPeers > 0 {
-		if numPeers < GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers {
+		if numPeers < sufficientNumPeers {
 			logger.Infof("Attempt to maintain sufficient connectivity...")
 
 			// recover persisted peers
@@ -285,7 +288,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 
 			logger.Infof("Sent peer discovery requests to %v peers", numPeersToSendRequest)
 		} else {
-			logger.Infof("Already has sufficient number of peers.")
+			logger.Infof("Already has sufficient number of peers, numPeers: %v, sufficientNumPeers: %v", numPeers, sufficientNumPeers)
 		}
 	} else { // no peer left in the peer table, try to reconnect to seed peers
 		pdmh.discMgr.seedPeerConnector.connectToSeedPeers()
