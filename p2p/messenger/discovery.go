@@ -25,6 +25,7 @@ type PeerDiscoveryManager struct {
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
 	seedPeers map[string]*pr.Peer
+	mutex     *sync.Mutex
 
 	seedPeerOnly bool
 
@@ -60,6 +61,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		nodeInfo:     nodeInfo,
 		peerTable:    peerTable,
 		seedPeers:    make(map[string]*pr.Peer),
+		mutex:        &sync.Mutex{},
 		seedPeerOnly: viper.GetBool(common.CfgP2PSeedPeerOnly),
 		wg:           &sync.WaitGroup{},
 	}
@@ -257,6 +259,9 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	discMgr.addrBook.Save()
 
 	if peer.IsSeed() {
+		discMgr.mutex.Lock()
+		defer discMgr.mutex.Unlock()
+
 		discMgr.seedPeers[peer.ID()] = peer
 	}
 
@@ -264,6 +269,9 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 }
 
 func (discMgr *PeerDiscoveryManager) isSeedPeer(pid string) bool {
+	discMgr.mutex.Lock()
+	defer discMgr.mutex.Unlock()
+
 	_, isSeed := discMgr.seedPeers[pid]
 	return isSeed
 }
