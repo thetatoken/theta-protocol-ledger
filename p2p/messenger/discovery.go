@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net"
 	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
@@ -175,24 +174,25 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	discMgr.peerTable.DeletePeer(peer.ID())
 	peer.Stop() // TODO: may need to stop peer regardless of the remote address comparison
 
-	if peer.IsPersistent() {
-		var err error
-		for i := 0; i < 3; i++ { // retry up to 3 times
-			if peer.IsOutbound() {
-				_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
-			} else {
-				// For now not to retry connecting to the inbound peer, since that peer will
-				// retry to etablish the connection
-				//_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
-			}
-			if err == nil {
-				logger.Infof("Successfully re-connected to peer %v", peer.NetAddress().String())
-				return
-			}
-			time.Sleep(time.Second * 3)
-		}
-		logger.Errorf("Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
-	}
+	// Disable the retry logic to avoid endless retry
+	// if peer.IsPersistent() {
+	// 	var err error
+	// 	for i := 0; i < 3; i++ { // retry up to 3 times
+	// 		if peer.IsOutbound() {
+	// 			_, err = discMgr.connectToOutboundPeer(peer.NetAddress(), true)
+	// 		} else {
+	// 			// For now not to retry connecting to the inbound peer, since that peer will
+	// 			// retry to etablish the connection
+	// 			//_, err = discMgr.connectWithInboundPeer(peer.GetConnection().GetNetconn(), true)
+	// 		}
+	// 		if err == nil {
+	// 			logger.Infof("Successfully re-connected to peer %v", peer.NetAddress().String())
+	// 			return
+	// 		}
+	// 		time.Sleep(time.Second * 3)
+	// 	}
+	// 	logger.Errorf("Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+	// }
 }
 
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
