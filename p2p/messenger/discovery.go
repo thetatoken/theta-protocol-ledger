@@ -176,7 +176,12 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	peer.Stop() // TODO: may need to stop peer regardless of the remote address comparison
 
 	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
-	if seedPeerOnly && peer.IsPersistent() {
+
+	//shouldRetry := seedPeerOnly && peer.IsPersistent()
+	shouldRetry := (seedPeerOnly && peer.IsSeed()) || (!seedPeerOnly && !peer.IsSeed()) // avoid bombarding the seed nodes
+	if shouldRetry {
+		logger.Infof("Lost connection to peer %v with IP address %v, trying to re-connect", peer.ID(), peer.NetAddress().String())
+
 		var err error
 		for i := 0; i < 3; i++ { // retry up to 3 times
 			if peer.IsOutbound() {
@@ -192,7 +197,7 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 			}
 			time.Sleep(time.Second * 3)
 		}
-		logger.Errorf("Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+		logger.Warnf("Failed to re-connect to peer %v with IP address %v: %v", peer.ID(), peer.NetAddress().String(), err)
 	}
 }
 
