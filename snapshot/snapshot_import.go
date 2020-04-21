@@ -56,12 +56,12 @@ func (s SVStack) peek() *state.StoreView {
 
 // ImportSnapshot loads the snapshot into the given database
 func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader *core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
-	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
+	logger.Infof("Loading snapshot from: %v", snapshotFilePath)
 	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db, "Importing Snapshot")
 	if err != nil {
 		return nil, nil, err
 	}
-	logger.Printf("Snapshot loaded successfully.")
+	logger.Infof("Snapshot loaded successfully.")
 
 	// load previous chain, if any
 	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, chain, db)
@@ -93,7 +93,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 
 // ValidateSnapshot validates the snapshot using a temporary database
 func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string) (*core.BlockHeader, error) {
-	logger.Printf("Verifying snapshot: %v", snapshotFilePath)
+	logger.Infof("Verifying snapshot: %v", snapshotFilePath)
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
 	if err != nil {
@@ -112,7 +112,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 	if err != nil {
 		return nil, err
 	}
-	logger.Printf("Snapshot verified.")
+	logger.Infof("Snapshot verified.")
 
 	// load previous chain, if any
 	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, nil, tmpdb)
@@ -397,7 +397,7 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.Height, start)
 			}
 
-			logger.Printf("Chain loaded successfully.")
+			logger.Infof("Chain loaded successfully.")
 		}
 	}
 	return nil
@@ -579,7 +579,7 @@ func loadState(file *os.File, db database.Database, fileSize uint64, logStr stri
 			curSize += recordSize
 			percentage := curSize / fileSize
 			if percentage > progress && percentage <= 100 && percentage%5 == 0 {
-				logger.Printf("%s, %v%% is done. \n", logStr, percentage)
+				logger.Infof("%s, %v%% done.", logStr, percentage)
 				progress = percentage
 			}
 		}
@@ -627,7 +627,7 @@ func loadState(file *os.File, db database.Database, fileSize uint64, logStr stri
 			}
 		}
 	}
-	logger.Printf("%s, 100%% is done. \n", logStr)
+	logger.Infof("%s, 100%% done.", logStr)
 
 	return sv, hash, nil
 }
