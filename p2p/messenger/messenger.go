@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"sync"
 
+	nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
@@ -53,10 +54,16 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
+	logger.Infof("Perform NAT mapping...")
+	eport, err := natMapping(port)
+	if err != nil {
+		logger.Warnf("Failed to perform NAT mapping: %v", err)
+	}
+
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(port)),
+		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(eport)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}
@@ -251,6 +258,34 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		msgr.discMgr.HandlePeerWithErrors(peer)
 	}
 	peer.GetConnection().SetErrorHandler(errorHandler)
+}
+
+func natMapping(port int) (eport int, err error) {
+	nat, err := nat.DiscoverGateway()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("NAT type: %s", nat.Type())
+
+	iaddr, err := nat.GetInternalAddress()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("Internal address: %s", iaddr)
+
+	eaddr, err := nat.GetExternalAddress()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("External address: %s", eaddr)
+
+	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60)
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("External port for %v is %v", port, eport)
+
+	return eport, nil
 }
 
 // SetAddressBookFilePath sets the address book file path
