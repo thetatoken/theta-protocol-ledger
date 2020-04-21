@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"sync"
+	"time"
 
 	nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
@@ -279,7 +280,7 @@ func natMapping(port int) (eport int, err error) {
 	}
 	logger.Infof("External address: %s", eaddr)
 
-	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60)
+	eport, err = nat.AddPortMapping("tcp", port, "tcp", time.Second*60)
 	if err != nil {
 		return port, err
 	}
