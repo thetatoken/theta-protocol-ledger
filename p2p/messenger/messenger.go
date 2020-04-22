@@ -8,13 +8,15 @@ import (
 
 	"github.com/spf13/viper"
 
-	nat "github.com/libp2p/go-nat"
+	//nat "github.com/fd/go-nat"
+	//nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2p/nat"
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )

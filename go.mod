@@ -5,16 +5,21 @@ require (
 	github.com/bgentry/speakeasy v0.1.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dgraph-io/badger v1.6.0-rc1
+	github.com/fd/go-nat v1.0.0
 	github.com/golang/protobuf v1.3.1
 	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
 	github.com/gorilla/context v1.1.1 // indirect
 	github.com/gorilla/mux v1.6.2
 	github.com/hashicorp/golang-lru v0.5.1
 	github.com/herumi/bls-eth-go-binary v0.0.0-20200107021104-147ed25f233e
+	github.com/huin/goupnp v1.0.0
 	github.com/influxdata/influxdb v1.7.8 // indirect
 	github.com/ipfs/go-datastore v0.0.5
 	github.com/ipfs/go-ipfs-addr v0.0.1
+	github.com/jackpal/gateway v1.0.5
+	github.com/jackpal/go-nat-pmp v1.0.1
 	github.com/karalabe/hid v0.0.0-20180420081245-2b4488a37358
+	github.com/koron/go-ssdp v0.0.0-20180514024734-4a0ed625a78b
 	github.com/libp2p/go-libp2p v0.3.0
 	github.com/libp2p/go-libp2p-connmgr v0.1.1
 	github.com/libp2p/go-libp2p-core v0.2.0
