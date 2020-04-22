@@ -2,7 +2,6 @@ package messenger
 
 import (
 	"context"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -67,8 +66,6 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 		}
 	}
 
-	fmt.Printf("external port: %v\n", eport)
-
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
@@ -82,7 +79,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
 		seedPeerNetAddresses, msgrConfig.networkProtocol,
-		localNetAddress, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
+		localNetAddress, eport, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
 		logger.Errorf("Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
@@ -288,7 +285,7 @@ func natMapping(port int) (eport int, err error) {
 	}
 	logger.Infof("External address: %s", eaddr)
 
-	eport, err = nat.AddPortMapping("tcp", port, "tcp", 5*time.Second)
+	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60*time.Second)
 	if err != nil {
 		return port, err
 	}

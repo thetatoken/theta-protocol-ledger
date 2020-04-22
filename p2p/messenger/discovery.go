@@ -53,7 +53,7 @@ type PeerDiscoveryManagerConfig struct {
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
 func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
 	routabilityRestrict bool, seedPeerNetAddresses []string,
-	networkProtocol string, localNetworkAddr string, skipUPNP bool, peerTable *pr.PeerTable,
+	networkProtocol string, localNetworkAddr string, externalPort int, skipUPNP bool, peerTable *pr.PeerTable,
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
@@ -80,7 +80,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	}
 
 	inlConfig := GetDefaultInboundPeerListenerConfig()
-	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, skipUPNP, inlConfig)
+	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, externalPort, skipUPNP, inlConfig)
 	if err != nil {
 		return discMgr, err
 	}
