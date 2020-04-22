@@ -2,9 +2,12 @@ package messenger
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/spf13/viper"
 
 	nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
@@ -55,11 +58,16 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
-	logger.Infof("Perform NAT mapping...")
-	eport, err := natMapping(port)
-	if err != nil {
-		logger.Warnf("Failed to perform NAT mapping: %v", err)
+	eport := port
+	if viper.GetBool(common.CfgRPCNatMapping) {
+		logger.Infof("Perform NAT mapping...")
+		var err error
+		if eport, err = natMapping(port); err != nil {
+			logger.Warnf("Failed to perform NAT mapping: %v", err)
+		}
 	}
+
+	fmt.Printf("external port: %v\n", eport)
 
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
@@ -280,7 +288,7 @@ func natMapping(port int) (eport int, err error) {
 	}
 	logger.Infof("External address: %s", eaddr)
 
-	eport, err = nat.AddPortMapping("tcp", port, "tcp", time.Second*60)
+	eport, err = nat.AddPortMapping("tcp", port, "tcp", 5*time.Second)
 	if err != nil {
 		return port, err
 	}
