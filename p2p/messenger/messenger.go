@@ -4,13 +4,19 @@ import (
 	"context"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/spf13/viper"
+
+	//nat "github.com/fd/go-nat"
+	//nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
+	"github.com/thetatoken/theta/p2p/nat"
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
@@ -53,10 +59,19 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
+	eport := port
+	if viper.GetBool(common.CfgRPCNatMapping) {
+		logger.Infof("Perform NAT mapping...")
+		var err error
+		if eport, err = natMapping(port); err != nil {
+			logger.Warnf("Failed to perform NAT mapping: %v", err)
+		}
+	}
+
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(port)),
+		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(eport)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}
@@ -66,7 +81,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
 		seedPeerNetAddresses, msgrConfig.networkProtocol,
-		localNetAddress, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
+		localNetAddress, eport, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
 		logger.Errorf("Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
@@ -251,6 +266,34 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		msgr.discMgr.HandlePeerWithErrors(peer)
 	}
 	peer.GetConnection().SetErrorHandler(errorHandler)
+}
+
+func natMapping(port int) (eport int, err error) {
+	nat, err := nat.DiscoverGateway()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("NAT type: %s", nat.Type())
+
+	iaddr, err := nat.GetInternalAddress()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("Internal address: %s", iaddr)
+
+	eaddr, err := nat.GetExternalAddress()
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("External address: %s", eaddr)
+
+	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60*time.Second)
+	if err != nil {
+		return port, err
+	}
+	logger.Infof("External port for %v is %v", port, eport)
+
+	return eport, nil
 }
 
 // SetAddressBookFilePath sets the address book file path

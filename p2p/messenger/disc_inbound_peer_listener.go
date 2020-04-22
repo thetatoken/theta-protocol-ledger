@@ -52,15 +52,15 @@ type InboundPeerListenerConfig struct {
 type InboundCallback func(peer *pr.Peer, err error)
 
 // createInboundPeerListener creates a new inbound peer listener instance
-func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, localAddr string,
+func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, localAddr string, externalPort int,
 	skipUPNP bool, config InboundPeerListenerConfig) (InboundPeerListener, error) {
-	localAddrIP, localAddrPort := splitHostPort(localAddr)
+	localAddrIP, _ := splitHostPort(localAddr)
 	netListener := initiateNetListener(protocol, localAddr)
 	netListenerIP, netListenerPort := splitHostPort(netListener.Addr().String())
 	logger.Infof("Local network listener, ip: %v, port: %v", netListenerIP, netListenerPort)
 
 	internalNetAddr := getInternalNetAddress(localAddr)
-	externalNetAddr := getExternalNetAddress(localAddrIP, localAddrPort, netListenerPort, skipUPNP)
+	externalNetAddr := getExternalNetAddress(localAddrIP, externalPort, netListenerPort, skipUPNP)
 
 	inboundPeerListener := InboundPeerListener{
 		discMgr:      discMgr,
@@ -214,12 +214,12 @@ func getInternalNetAddress(localAddr string) *netutil.NetAddress {
 	return internalAddr
 }
 
-func getExternalNetAddress(localAddrIP string, localAddrPort int, listenerPort int, skipUPNP bool) *netutil.NetAddress {
+func getExternalNetAddress(localAddrIP string, externalPort int, listenerPort int, skipUPNP bool) *netutil.NetAddress {
 	var externalAddr *netutil.NetAddress
 	if !skipUPNP {
 		// If the lAddrIP is INADDR_ANY, try UPNP
 		if localAddrIP == "" || localAddrIP == "0.0.0.0" {
-			externalAddr = getUPNPExternalAddress(localAddrPort, listenerPort)
+			externalAddr = getUPNPExternalAddress(externalPort, listenerPort)
 		}
 	}
 	// Otherwise just use the local address

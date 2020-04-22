@@ -65,7 +65,7 @@ func createPeerDiscoveryMessageHandler(discMgr *PeerDiscoveryManager, selfNetAdd
 	pdmh := PeerDiscoveryMessageHandler{
 		discMgr:                    discMgr,
 		peerDiscoveryPulseInterval: defaultPeerDiscoveryPulseInterval,
-		wg: &sync.WaitGroup{},
+		wg:                         &sync.WaitGroup{},
 	}
 	selfNetAddress, err := netutil.NewNetAddressString(selfNetAddressStr)
 	if err != nil {
@@ -212,7 +212,7 @@ func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*net
 		} else if numToAdd > numNeeded {
 			numToAdd = numNeeded
 		}
-		logger.Infof("Attempt to connect to %v discovered peers", numToAdd)
+		logger.Infof("Already has %v peers, attempt to connect to %v discovered peers", numPeers, numToAdd)
 
 		perm := rand.Perm(len(addresses))
 		for i := 0; i < numToAdd; i++ {

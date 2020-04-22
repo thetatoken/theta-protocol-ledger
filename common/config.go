@@ -78,6 +78,8 @@ const (
 	CfgBufferPoolSize = "p2p.bufferPoolSize"
 	// CfgP2PConnectionFIFO specifies if the incoming connection policy is FIFO or LIFO
 	CfgP2PConnectionFIFO = "p2p.connectionFIFO"
+	// CfgRPCNatMapping sets whether to perform NAT mapping
+	CfgRPCNatMapping = "p2p.natMapping"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -152,6 +154,7 @@ func init() {
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
 	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
+	viper.SetDefault(CfgRPCNatMapping, false)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
