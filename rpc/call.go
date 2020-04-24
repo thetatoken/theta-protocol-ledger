@@ -23,30 +23,30 @@ type CallSmartContractResult struct {
 // the globally consensus state. It can be used for dry run, or for retrieving info from smart contracts
 // without actually spending gas.
 func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result *CallSmartContractResult) (err error) {
-	// sctxBytes, err := hex.DecodeString(args.SctxBytes)
-	// if err != nil {
-	// 	return err
-	// }
+	sctxBytes, err := hex.DecodeString(args.SctxBytes)
+	if err != nil {
+		return err
+	}
 
-	// tx, err := types.TxFromBytes(sctxBytes)
-	// sctx, ok := tx.(*types.SmartContractTx)
-	// if !ok {
-	// 	return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
-	// }
+	tx, err := types.TxFromBytes(sctxBytes)
+	sctx, ok := tx.(*types.SmartContractTx)
+	if !ok {
+		return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
+	}
 
-	// ledgerState, err := t.ledger.GetDeliveredSnapshot()
-	// if err != nil {
-	// 	return err
-	// }
-	// vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, ledgerState)
-	// ledgerState.Save()
+	ledgerState, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, ledgerState)
+	ledgerState.Save()
 
-	// result.VmReturn = hex.EncodeToString(vmRet)
-	// result.ContractAddress = contractAddr
-	// result.GasUsed = common.JSONUint64(gasUsed)
-	// if vmErr != nil {
-	// 	result.VmError = vmErr.Error()
-	// }
+	result.VmReturn = hex.EncodeToString(vmRet)
+	result.ContractAddress = contractAddr
+	result.GasUsed = common.JSONUint64(gasUsed)
+	if vmErr != nil {
+		result.VmError = vmErr.Error()
+	}
 
 	return nil
 }
