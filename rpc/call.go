@@ -1,7 +1,12 @@
 package rpc
 
 import (
+	"encoding/hex"
+	"fmt"
+
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/types"
+	"github.com/thetatoken/theta/ledger/vm"
 )
 
 // ------------------------------- CallSmartContract -----------------------------------
@@ -16,8 +21,6 @@ type CallSmartContractResult struct {
 	GasUsed         common.JSONUint64 `json:"gas_used"`
 	VmError         string            `json:"vm_error"`
 }
-
-// ---- Temporarily disable the CallSmartContract RPC API, more testing needed ---- //
 
 // CallSmartContract calls the smart contract. However, calling a smart contract does NOT modify
 // the globally consensus state. It can be used for dry run, or for retrieving info from smart contracts
