@@ -4,7 +4,6 @@ import (
 	"context"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/spf13/viper"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
-	"github.com/thetatoken/theta/p2p/nat"
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
@@ -30,6 +28,7 @@ var _ p2p.Network = (*Messenger)(nil)
 
 type Messenger struct {
 	discMgr       *PeerDiscoveryManager
+	natMgr        *NATManager
 	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
 
 	peerTable pr.PeerTable
@@ -91,6 +90,11 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	messenger.SetPeerDiscoveryManager(discMgr)
 	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
 
+	natMgr := CreateNATManager(port, &messenger.peerTable)
+	natMgr.SetMessenger(messenger)
+	messenger.SetNATManager(natMgr)
+	messenger.RegisterMessageHandler(natMgr)
+
 	return messenger, nil
 }
 
@@ -109,6 +113,11 @@ func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
 	msgr.discMgr = discMgr
 }
 
+// SetPeerDiscoveryManager sets the PeerDiscoveryManager for the Messenger
+func (msgr *Messenger) SetNATManager(natMgr *NATManager) {
+	msgr.natMgr = natMgr
+}
+
 // Start is called when the Messenger starts
 func (msgr *Messenger) Start(ctx context.Context) error {
 	c, cancel := context.WithCancel(ctx)
@@ -116,6 +125,11 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.cancel = cancel
 
 	err := msgr.discMgr.Start(c)
+	if err != nil {
+		return err
+	}
+
+	err = msgr.natMgr.Start(c)
 	return err
 }
 
@@ -127,6 +141,7 @@ func (msgr *Messenger) Stop() {
 // Wait suspends the caller goroutine
 func (msgr *Messenger) Wait() {
 	msgr.discMgr.Wait()
+	msgr.natMgr.Wait()
 	msgr.wg.Wait()
 }
 
@@ -266,34 +281,6 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 		msgr.discMgr.HandlePeerWithErrors(peer)
 	}
 	peer.GetConnection().SetErrorHandler(errorHandler)
-}
-
-func natMapping(port int) (eport int, err error) {
-	nat, err := nat.DiscoverGateway()
-	if err != nil {
-		return port, err
-	}
-	logger.Infof("NAT type: %s", nat.Type())
-
-	iaddr, err := nat.GetInternalAddress()
-	if err != nil {
-		return port, err
-	}
-	logger.Infof("Internal address: %s", iaddr)
-
-	eaddr, err := nat.GetExternalAddress()
-	if err != nil {
-		return port, err
-	}
-	logger.Infof("External address: %s", eaddr)
-
-	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60*time.Second)
-	if err != nil {
-		return port, err
-	}
-	logger.Infof("External port for %v is %v", port, eport)
-
-	return eport, nil
 }
 
 // SetAddressBookFilePath sets the address book file path
