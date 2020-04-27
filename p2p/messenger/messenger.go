@@ -58,13 +58,11 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
-	var natMgr *NATManager
 	var err error
 	eport := port
+	natMgr := CreateNATManager(port)
 	if viper.GetBool(common.CfgRPCNatMapping) {
-		logger.Infof("Perform NAT mapping...")
-
-		natMgr = CreateNATManager(port)
+		natMgr.DiscoverGateway()
 		if eport, err = natMgr.NatMapping(port); err != nil {
 			logger.Warnf("Failed to perform NAT port mapping: %v", err)
 		}
@@ -93,11 +91,10 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	messenger.SetPeerDiscoveryManager(discMgr)
 	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
 
-	if viper.GetBool(common.CfgRPCNatMapping) {
-		natMgr.SetMessenger(messenger)
-		messenger.SetNATManager(natMgr)
-		messenger.RegisterMessageHandler(natMgr)
-	}
+	// should call SetNATManager regardless of the CfgRPCNatMapping config since the node needs to handle the eport update messages
+	natMgr.SetMessenger(messenger)
+	messenger.SetNATManager(natMgr)
+	messenger.RegisterMessageHandler(natMgr)
 
 	return messenger, nil
 }

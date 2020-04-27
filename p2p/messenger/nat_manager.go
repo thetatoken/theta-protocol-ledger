@@ -41,21 +41,27 @@ type NATManager struct {
 }
 
 func CreateNATManager(port int) *NATManager {
-	natDevice, err := nat.DiscoverGateway()
-	if err != nil {
-		natDevice = nil // still continue to construct NATManager, since we still need to handle the incoming eport update messages
-		logger.Warnf("Failed to detect the NAT device: %v", err)
-	} else {
-		logger.Infof("NAT type: %s", natDevice.Type())
-	}
-
 	nmgr := &NATManager{
-		natDevice: natDevice,
+		natDevice: nil,
 		port:      port,
 		wg:        &sync.WaitGroup{},
 	}
-
 	return nmgr
+}
+
+// DiscoverGateway discovers the gateway for the NAT mapping
+func (nmgr *NATManager) DiscoverGateway() error {
+	logger.Infof("Discovering NAT gateway...")
+	natDevice, err := nat.DiscoverGateway()
+	if err != nil {
+		nmgr.natDevice = nil
+		logger.Warnf("Failed to detect the NAT device: %v", err)
+		return err
+	}
+
+	logger.Infof("NAT type: %s", natDevice.Type())
+	nmgr.natDevice = natDevice
+	return nil
 }
 
 // SetMessenger sets the Messenger for the NATManager
