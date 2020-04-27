@@ -90,10 +90,12 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	messenger.SetPeerDiscoveryManager(discMgr)
 	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
 
-	natMgr := CreateNATManager(port, &messenger.peerTable)
-	natMgr.SetMessenger(messenger)
-	messenger.SetNATManager(natMgr)
-	messenger.RegisterMessageHandler(natMgr)
+	if viper.GetBool(common.CfgRPCNatMapping) {
+		natMgr := CreateNATManager(port, &messenger.peerTable)
+		natMgr.SetMessenger(messenger)
+		messenger.SetNATManager(natMgr)
+		messenger.RegisterMessageHandler(natMgr)
+	}
 
 	return messenger, nil
 }
