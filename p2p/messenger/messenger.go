@@ -58,12 +58,15 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
+	var natMgr *NATManager
+	var err error
 	eport := port
 	if viper.GetBool(common.CfgRPCNatMapping) {
 		logger.Infof("Perform NAT mapping...")
-		var err error
-		if eport, err = natMapping(port); err != nil {
-			logger.Warnf("Failed to perform NAT mapping: %v", err)
+
+		natMgr = CreateNATManager(port)
+		if eport, err = natMgr.NatMapping(port); err != nil {
+			logger.Warnf("Failed to perform NAT port mapping: %v", err)
 		}
 	}
 
@@ -91,7 +94,6 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
 
 	if viper.GetBool(common.CfgRPCNatMapping) {
-		natMgr := CreateNATManager(port, &messenger.peerTable)
 		natMgr.SetMessenger(messenger)
 		messenger.SetNATManager(natMgr)
 		messenger.RegisterMessageHandler(natMgr)
@@ -134,7 +136,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	if msgr.natMgr != nil {
 		err = msgr.natMgr.Start(c)
 	}
-	
+
 	return err
 }
 

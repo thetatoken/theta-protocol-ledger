@@ -15,17 +15,19 @@ import (
 )
 
 const (
-	natMappingPulseInterval = 5 * time.Minute
+	natMappingPulseInterval = 1 * time.Minute
 )
 
 // NatMappingMessage defines the structure of the NAT mapping message
 type NATMappingMessage struct {
-	EPort        uint16
+	EPort uint16
 }
 
 type NATManager struct {
 	port  int
 	eport int
+
+	natDevice nat.NAT
 
 	messenger *Messenger
 	peerTable *pr.PeerTable
@@ -38,19 +40,28 @@ type NATManager struct {
 	stopped bool
 }
 
-func CreateNATManager(port int, peerTable *pr.PeerTable) *NATManager {
+func CreateNATManager(port int) *NATManager {
+	natDevice, err := nat.DiscoverGateway()
+	if err != nil {
+		natDevice = nil // still continue to construct NATManager, since we still need to handle the incoming eport update messages
+		logger.Warnf("Failed to detect the NAT device: %v", err)
+	} else {
+		logger.Infof("NAT type: %s", natDevice.Type())
+	}
+
 	nmgr := &NATManager{
+		natDevice: natDevice,
 		port:      port,
-		peerTable: peerTable,
 		wg:        &sync.WaitGroup{},
 	}
-	
+
 	return nmgr
 }
 
 // SetMessenger sets the Messenger for the NATManager
 func (nmgr *NATManager) SetMessenger(msgr *Messenger) {
 	nmgr.messenger = msgr
+	nmgr.peerTable = &msgr.peerTable
 }
 
 // Start is called when the NATManager instance starts
@@ -59,8 +70,10 @@ func (nmgr *NATManager) Start(ctx context.Context) error {
 	nmgr.ctx = c
 	nmgr.cancel = cancel
 
-	nmgr.wg.Add(1)
-	go nmgr.maintainNATMappingRoutine()
+	if nmgr.natDevice != nil {
+		nmgr.wg.Add(1)
+		go nmgr.maintainNATMappingRoutine()
+	}
 
 	return nil
 }
@@ -88,7 +101,7 @@ func (nmgr *NATManager) maintainNATMappingRoutine() {
 }
 
 func (nmgr *NATManager) maintainNATMapping() {
-	eport, err := natMapping(nmgr.port)
+	eport, err := nmgr.NatMapping(nmgr.port)
 	if err != nil {
 		logger.Warnf("Failed to perform NAT mapping: %v", err)
 	}
@@ -106,29 +119,29 @@ func (nmgr *NATManager) maintainNATMapping() {
 		nmgr.messenger.Broadcast(message)
 
 		nmgr.eport = eport
+
+		logger.Debugf("Notify peers with the new external port: %v", eport)
 	}
 }
 
-func natMapping(port int) (eport int, err error) {
-	nat, err := nat.DiscoverGateway()
-	if err != nil {
-		return port, err
+func (nmgr *NATManager) NatMapping(port int) (eport int, err error) {
+	if nmgr.natDevice == nil {
+		return port, fmt.Errorf("No available NAT device")
 	}
-	logger.Infof("NAT type: %s", nat.Type())
 
-	iaddr, err := nat.GetInternalAddress()
+	iaddr, err := nmgr.natDevice.GetInternalAddress()
 	if err != nil {
 		return port, err
 	}
 	logger.Infof("Internal address: %s", iaddr)
 
-	eaddr, err := nat.GetExternalAddress()
+	eaddr, err := nmgr.natDevice.GetExternalAddress()
 	if err != nil {
 		return port, err
 	}
 	logger.Infof("External address: %s", eaddr)
 
-	eport, err = nat.AddPortMapping("tcp", port, "tcp", 60*time.Second)
+	eport, err = nmgr.natDevice.AddPortMapping("tcp", port, "tcp", 60*time.Second)
 	if err != nil {
 		return port, err
 	}
@@ -181,11 +194,13 @@ func (nmgr *NATManager) HandleMessage(msg types.Message) error {
 		logger.Errorf(errMsg)
 		return errors.New(errMsg)
 	}
-	
+
 	natMsg := (msg.Content).(NATMappingMessage)
 	peerAddr := peer.NetAddress()
 	peerAddr.Port = natMsg.EPort
 	peer.SetNetAddress(peerAddr)
+
+	logger.Debugf("Update peer address for %v - eport: %v, peerAddr: %v", peer.ID(), peerAddr.Port, peerAddr.String())
 
 	return nil
 }
