@@ -131,7 +131,10 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 		return err
 	}
 
-	err = msgr.natMgr.Start(c)
+	if msgr.natMgr != nil {
+		err = msgr.natMgr.Start(c)
+	}
+	
 	return err
 }
 
@@ -143,7 +146,9 @@ func (msgr *Messenger) Stop() {
 // Wait suspends the caller goroutine
 func (msgr *Messenger) Wait() {
 	msgr.discMgr.Wait()
-	msgr.natMgr.Wait()
+	if msgr.natMgr != nil {
+		msgr.natMgr.Wait()
+	}
 	msgr.wg.Wait()
 }
 
