@@ -365,7 +365,7 @@ func newTestPeerDiscoveryManager(seedPeerNetAddressStrs []string, localNetworkAd
 	peerTable := pr.CreatePeerTable()
 	config := GetDefaultPeerDiscoveryManagerConfig()
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &peerNodeInfo, addrbookPath, routabilityRestrict,
-		seedPeerNetAddressStrs, networkProtocol, localNetworkAddress, port,
+		seedPeerNetAddressStrs, networkProtocol, localNetworkAddress, int(port),
 		skipUPNP, &peerTable, config)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create PeerDiscoveryManager instance: %v", err))

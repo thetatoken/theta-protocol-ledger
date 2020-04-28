@@ -128,12 +128,13 @@ func (na *NetAddress) Less(other interface{}) bool {
 
 // String representation.
 func (na *NetAddress) String() string {
-	if na.str == "" {
-		na.str = net.JoinHostPort(
-			na.IP.String(),
-			strconv.FormatUint(uint64(na.Port), 10),
-		)
-	}
+	//if na.str == "" {
+	// Always refresh the string representation since the IP/port may have changed
+	na.str = net.JoinHostPort(
+		na.IP.String(),
+		strconv.FormatUint(uint64(na.Port), 10),
+	)
+	//}
 	return na.str
 }
 
