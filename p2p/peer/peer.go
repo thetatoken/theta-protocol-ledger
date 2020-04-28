@@ -283,6 +283,12 @@ func (peer *Peer) NetAddress() *nu.NetAddress {
 	return peer.netAddress
 }
 
+// SetPort sets the network port of the peer
+func (peer *Peer) SetPort(port uint16) {
+	peer.netAddress.Port = port
+	peer.nodeInfo.Port = port
+}
+
 // ID returns the unique idenitifier of the peer in the P2P network
 func (peer *Peer) ID() string {
 	peerID := peer.nodeInfo.PubKey.Address() // use the blockchain address as the peer ID
