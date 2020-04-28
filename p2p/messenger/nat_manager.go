@@ -206,7 +206,7 @@ func (nmgr *NATManager) HandleMessage(msg types.Message) error {
 	peerAddr.Port = natMsg.EPort
 	peer.SetNetAddress(peerAddr)
 
-	logger.Debugf("Update peer address for %v - eport: %v, peerAddr: %v", peer.ID(), peerAddr.Port, peerAddr.String())
+	logger.Debugf("Update peer address for %v - external port: %v, peerAddr: %v", peer.ID(), peerAddr.Port, peerAddr.String())
 
 	return nil
 }
