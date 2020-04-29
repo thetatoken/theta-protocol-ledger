@@ -283,5 +283,7 @@ func (pt *PeerTable) persistPeers() {
 }
 
 func (pt *PeerTable) writeToDB(key, value string) {
-	pt.db.Put([]byte(key), []byte(value), nil)
+	if pt.db != nil {
+		pt.db.Put([]byte(key), []byte(value), nil)
+	}
 }
