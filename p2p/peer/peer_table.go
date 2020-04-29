@@ -1,6 +1,7 @@
 package peer
 
 import (
+	"fmt"
 	"math/rand"
 	"path"
 	"path/filepath"
@@ -252,6 +253,10 @@ func (pt *PeerTable) GetTotalNumPeers() uint {
 }
 
 func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {
+	if pt.db == nil {
+		return []*nu.NetAddress{}, fmt.Errorf("peerTable DB not ready yet")
+	}
+
 	dat, err := pt.db.Get([]byte(dbKey), nil)
 	if err != nil {
 		logger.Warnf("Failed to retrieve previously persisted peers")
