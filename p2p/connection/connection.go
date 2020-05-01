@@ -293,6 +293,8 @@ func (conn *Connection) CanEnqueueMessage(channelID common.ChannelIDEnum) bool {
 func (conn *Connection) sendRoutine() {
 	defer conn.wg.Done()
 	defer conn.recover()
+	defer conn.flushTimer.Stop()
+	defer conn.pingTimer.Stop()
 
 	for {
 		var err error
