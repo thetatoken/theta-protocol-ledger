@@ -688,6 +688,7 @@ func (rm *RequestManager) resumePendingBlocks() {
 			// In rare cases a block is saved but index is not yet saved before the process is
 			// killed.
 			rm.chain.FixBlockIndex(block)
+			rm.chain.FixMissingChildren(block)
 			rm.addBlock(block.Block)
 		}
 		for _, hash := range block.Children {
