@@ -26,7 +26,8 @@ func NewDepositStakeExecutor() *DepositStakeExecutor {
 
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	// Feature block height check
-	if _, ok := transaction.(*types.DepositStakeTxV2); ok && view.Height() < common.FeatureGuardian {
+	blockHeight := view.Height() + 1
+	if _, ok := transaction.(*types.DepositStakeTxV2); ok && blockHeight < common.HeightEnableTheta2 {
 		return result.Error("Feature guardian is not active yet")
 	}
 
