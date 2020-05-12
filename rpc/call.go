@@ -32,6 +32,9 @@ func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result 
 	}
 
 	tx, err := types.TxFromBytes(sctxBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to parse SmartContractTx, error: %v", err)
+	}
 	sctx, ok := tx.(*types.SmartContractTx)
 	if !ok {
 		return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
