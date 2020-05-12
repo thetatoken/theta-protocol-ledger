@@ -76,6 +76,9 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.Error("Failed to encode smart contract transaction: %v\n", sctx)
 	}
+	if verboseFlag {
+		fmt.Printf("Encoded Tx: %x\n\n", sctxBytes)
+	}
 
 	rpcCallArgs := rpc.CallSmartContractArgs{
 		SctxBytes: hex.EncodeToString(sctxBytes),
@@ -106,6 +109,7 @@ func init() {
 	smartContractCmd.Flags().Uint64Var(&gasLimitFlag, "gas_limit", 0, "The gas limit")
 	smartContractCmd.Flags().StringVar(&dataFlag, "data", "", "The data for the smart contract")
 	smartContractCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
+	smartContractCmd.Flags().BoolVar(&verboseFlag, "verbose", false, "")
 
 	smartContractCmd.MarkFlagRequired("from")
 	smartContractCmd.MarkFlagRequired("gas_price")
