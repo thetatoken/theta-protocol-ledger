@@ -4,7 +4,7 @@ package common
 const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020 PST
 
 // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
-const HeightEnableTheta2 uint64 = 10000000000
+const HeightEnableTheta2 uint64 = 5877350 // approximate time: 12pm May 27th, 2020 PDT
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
