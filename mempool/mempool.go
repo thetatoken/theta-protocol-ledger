@@ -280,12 +280,10 @@ func (mp *Mempool) ReapUnsafe(maxNumTxs int) []common.Bytes {
 		// Check for outdated txs
 		txHash := getTransactionHash(rawTx)
 		_, exists := mp.txBookeepper.getStatus(txHash)
-		if !exists {
-			// Tx has been removed from bookkeeper due to timeout, skipping
-			continue
+		if exists {
+			// Only add back Txs that has not been removed from bookkeeper due to timeout
+			txs = append(txs, rawTx)
 		}
-
-		txs = append(txs, rawTx)
 
 		if txGroup.IsEmpty() {
 			delete(mp.addressToTxGroup, txGroup.address)
@@ -324,6 +322,16 @@ func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
 		txs := txGroup.txs.ElementList()
 		for _, txEl := range *txs {
 			mempoolTx := txEl.(*mempoolTransaction)
+
+			// Check for outdated txs
+			txHash := getTransactionHash(mempoolTx.rawTransaction)
+			_, exists := mp.txBookeepper.getStatus(txHash)
+			if !exists {
+				// Tx has been removed from bookkeeper due to timeout
+				invalidTxs = append(invalidTxs, mempoolTx.rawTransaction)
+				continue
+			}
+
 			checkTxRes := mp.ledger.ScreenTxUnsafe(mempoolTx.rawTransaction)
 			if !checkTxRes.IsOK() {
 				invalidTxs = append(invalidTxs, mempoolTx.rawTransaction)

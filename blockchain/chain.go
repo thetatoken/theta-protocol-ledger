@@ -123,6 +123,28 @@ func (ch *Chain) FixBlockIndex(block *core.ExtendedBlock) {
 	ch.AddTxsToIndex(block, false)
 }
 
+// FixMissingChildren removes dead links to missing children blocks.
+func (ch *Chain) FixMissingChildren(block *core.ExtendedBlock) {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	newChildren := []common.Hash{}
+	for _, hash := range block.Children {
+		_, err := ch.findBlock(hash)
+		if err != nil {
+			logger.Warningf("Removing dead link from block $v to block %v", block.Hash().Hex(), hash.Hex())
+		} else {
+			newChildren = append(newChildren, hash)
+		}
+	}
+	block.Children = newChildren
+
+	err := ch.saveBlock(block)
+	if err != nil {
+		logger.Panic(err)
+	}
+}
+
 // blockByHeightIndexKey constructs the DB key for the given block height.
 func blockByHeightIndexKey(height uint64) common.Bytes {
 	// convert uint64 to []byte

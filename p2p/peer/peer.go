@@ -32,6 +32,7 @@ type Peer struct {
 
 	isPersistent bool
 	isOutbound   bool
+	isSeed       bool
 	netAddress   *nu.NetAddress
 
 	nodeInfo p2ptypes.NodeInfo // information of the blockchain node of the peer
@@ -262,6 +263,16 @@ func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
 }
 
+// SetSeed sets the isSeed for the given peer
+func (peer *Peer) SetSeed(isSeed bool) {
+	peer.isSeed = isSeed
+}
+
+// IsSeed returns whether the peer is a seed peer
+func (peer *Peer) IsSeed() bool {
+	return peer.isSeed
+}
+
 // SetNetAddress sets the network address of the peer
 func (peer *Peer) SetNetAddress(netAddr *nu.NetAddress) {
 	peer.netAddress = netAddr
@@ -270,6 +281,12 @@ func (peer *Peer) SetNetAddress(netAddr *nu.NetAddress) {
 // NetAddress returns the network address of the peer
 func (peer *Peer) NetAddress() *nu.NetAddress {
 	return peer.netAddress
+}
+
+// SetPort sets the network port of the peer
+func (peer *Peer) SetPort(port uint16) {
+	peer.netAddress.Port = port
+	peer.nodeInfo.Port = port
 }
 
 // ID returns the unique idenitifier of the peer in the P2P network

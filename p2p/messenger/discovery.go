@@ -25,6 +25,9 @@ type PeerDiscoveryManager struct {
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
 	seedPeers map[string]*pr.Peer
+	mutex     *sync.Mutex
+
+	seedPeerOnly bool
 
 	// Three mechanisms for peer discovery
 	seedPeerConnector   SeedPeerConnector           // pro-actively connect to seed peers
@@ -50,15 +53,17 @@ type PeerDiscoveryManagerConfig struct {
 // CreatePeerDiscoveryManager creates an instance of the PeerDiscoveryManager
 func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, addrBookFilePath string,
 	routabilityRestrict bool, seedPeerNetAddresses []string,
-	networkProtocol string, localNetworkAddr string, skipUPNP bool, peerTable *pr.PeerTable,
+	networkProtocol string, localNetworkAddr string, externalPort int, skipUPNP bool, peerTable *pr.PeerTable,
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
-		messenger: msgr,
-		nodeInfo:  nodeInfo,
-		peerTable: peerTable,
-		seedPeers: make(map[string]*pr.Peer),
-		wg:        &sync.WaitGroup{},
+		messenger:    msgr,
+		nodeInfo:     nodeInfo,
+		peerTable:    peerTable,
+		seedPeers:    make(map[string]*pr.Peer),
+		mutex:        &sync.Mutex{},
+		seedPeerOnly: viper.GetBool(common.CfgP2PSeedPeerOnly),
+		wg:           &sync.WaitGroup{},
 	}
 
 	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
@@ -75,7 +80,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	}
 
 	inlConfig := GetDefaultInboundPeerListenerConfig()
-	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, skipUPNP, inlConfig)
+	discMgr.inboundPeerListener, err = createInboundPeerListener(discMgr, networkProtocol, localNetworkAddr, externalPort, skipUPNP, inlConfig)
 	if err != nil {
 		return discMgr, err
 	}
@@ -94,7 +99,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 func GetDefaultPeerDiscoveryManagerConfig() PeerDiscoveryManagerConfig {
 	return PeerDiscoveryManagerConfig{
 		MaxNumPeers:        viper.GetInt(common.CfgP2PMaxNumPeers),
-		SufficientNumPeers: 32,
+		SufficientNumPeers: uint(viper.GetInt(common.CfgP2PMinNumPeers)),
 	}
 }
 
@@ -120,8 +125,7 @@ func (discMgr *PeerDiscoveryManager) Start(ctx context.Context) error {
 		return err
 	}
 
-	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
-	if seedPeerOnly {
+	if discMgr.seedPeerOnly {
 		return nil // if seed peer only, we don't need to start the peer discovery manager
 	}
 
@@ -171,7 +175,13 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	discMgr.peerTable.DeletePeer(peer.ID())
 	peer.Stop() // TODO: may need to stop peer regardless of the remote address comparison
 
-	if peer.IsPersistent() {
+	seedPeerOnly := viper.GetBool(common.CfgP2PSeedPeerOnly)
+
+	//shouldRetry := seedPeerOnly && peer.IsPersistent()
+	shouldRetry := (seedPeerOnly && peer.IsSeed()) || (!seedPeerOnly && !peer.IsSeed()) // avoid bombarding the seed nodes
+	if shouldRetry {
+		logger.Infof("Lost connection to peer %v with IP address %v, trying to re-connect", peer.ID(), peer.NetAddress().String())
+
 		var err error
 		for i := 0; i < 3; i++ { // retry up to 3 times
 			if peer.IsOutbound() {
@@ -187,7 +197,7 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 			}
 			time.Sleep(time.Second * 3)
 		}
-		logger.Errorf("Failed to re-connect to peer %v: %v", peer.NetAddress().String(), err)
+		logger.Warnf("Failed to re-connect to peer %v with IP address %v: %v", peer.ID(), peer.NetAddress().String(), err)
 	}
 }
 
@@ -227,6 +237,12 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		return err
 	}
 
+	isSeed := discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress())
+	peer.SetSeed(isSeed)
+	if isSeed {
+		logger.Infof("Handshaked with a seed peer: %v, isOutbound: %v", peer.NetAddress(), peer.IsOutbound())
+	}
+
 	if discMgr.messenger != nil {
 		discMgr.messenger.AttachMessageHandlersToPeer(peer)
 	} else {
@@ -248,7 +264,10 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
 	discMgr.addrBook.Save()
 
-	if discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress()) {
+	if peer.IsSeed() {
+		discMgr.mutex.Lock()
+		defer discMgr.mutex.Unlock()
+
 		discMgr.seedPeers[peer.ID()] = peer
 	}
 
@@ -256,6 +275,9 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 }
 
 func (discMgr *PeerDiscoveryManager) isSeedPeer(pid string) bool {
+	discMgr.mutex.Lock()
+	defer discMgr.mutex.Unlock()
+
 	_, isSeed := discMgr.seedPeers[pid]
 	return isSeed
 }

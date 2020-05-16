@@ -56,12 +56,12 @@ func (s SVStack) peek() *state.StoreView {
 
 // ImportSnapshot loads the snapshot into the given database
 func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader *core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
-	logger.Printf("Loading snapshot from: %v", snapshotFilePath)
-	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db)
+	logger.Infof("Loading snapshot from: %v", snapshotFilePath)
+	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db, "Importing Snapshot")
 	if err != nil {
 		return nil, nil, err
 	}
-	logger.Printf("Snapshot loaded successfully.")
+	logger.Infof("Snapshot loaded successfully.")
 
 	// load previous chain, if any
 	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, chain, db)
@@ -93,7 +93,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 
 // ValidateSnapshot validates the snapshot using a temporary database
 func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string) (*core.BlockHeader, error) {
-	logger.Printf("Verifying snapshot: %v", snapshotFilePath)
+	logger.Infof("Verifying snapshot: %v", snapshotFilePath)
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
 	if err != nil {
@@ -108,11 +108,11 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 
 	tmpdb, err := backend.NewLDBDatabase(mainTmpDBPath, refTmpDBPath, 256, 0)
 
-	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, tmpdb)
+	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, tmpdb, "Validating Snapshot")
 	if err != nil {
 		return nil, err
 	}
-	logger.Printf("Snapshot verified.")
+	logger.Infof("Snapshot verified.")
 
 	// load previous chain, if any
 	err = loadPrevChain(chainImportDirPath, snapshotBlockHeader, metadata, nil, tmpdb)
@@ -140,7 +140,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 	return snapshotBlockHeader, nil
 }
 
-func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (*core.BlockHeader, *core.SnapshotMetadata, error) {
 	snapshotFile, err := os.Open(snapshotFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -153,7 +153,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	snapshotVersion := uint(1)
 	snapshotHeader := &core.SnapshotHeader{}
-	err = core.ReadRecord(snapshotFile, snapshotHeader)
+	_, err = core.ReadRecord(snapshotFile, snapshotHeader)
 	if err != nil || snapshotHeader.Magic != core.SnapshotHeaderMagic { // older version, reset snapshotFile
 		snapshotFile.Seek(0, 0)
 	} else {
@@ -164,7 +164,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 
 	lastCheckpoint := core.LastCheckpoint{}
 	if snapshotVersion >= 2 {
-		err = core.ReadRecord(snapshotFile, &lastCheckpoint)
+		_, err = core.ReadRecord(snapshotFile, &lastCheckpoint)
 		if err != nil {
 			return nil, nil, fmt.Errorf("Failed to load snapshot last checkpoint, %v", err)
 		}
@@ -204,12 +204,19 @@ func loadSnapshot(snapshotFilePath string, db database.Database) (*core.BlockHea
 	}
 
 	metadata := core.SnapshotMetadata{}
-	err = core.ReadRecord(snapshotFile, &metadata)
+	_, err = core.ReadRecord(snapshotFile, &metadata)
+
 	if err != nil {
 		return nil, nil, fmt.Errorf("Failed to load snapshot metadata, %v", err)
 	}
 
-	sv, _, err := loadState(snapshotFile, db)
+	fileInfo, err := os.Stat(snapshotFilePath)
+	var fileSize uint64
+	if err == nil {
+		fileSize = uint64(fileInfo.Size()) / 100
+	}
+
+	sv, _, err := loadState(snapshotFile, db, fileSize, logStr)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -257,7 +264,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 	blockStack := make([]*core.ExtendedBlock, 0)
 	for {
 		backupBlock := &core.BackupBlock{}
-		err := core.ReadRecord(chainFile, backupBlock)
+		_, err := core.ReadRecord(chainFile, backupBlock)
 		if err != nil {
 			if err == io.EOF {
 				if prevBlock.Height != snapshotBlockHeader.Height+1 {
@@ -390,7 +397,7 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.Height, start)
 			}
 
-			logger.Printf("Chain loaded successfully.")
+			logger.Infof("Chain loaded successfully.")
 		}
 	}
 	return nil
@@ -409,7 +416,7 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 	var proofTrio, prevTrio core.SnapshotBlockTrio
 	for {
 		backupBlock := &core.BackupBlock{}
-		err := core.ReadRecord(file, backupBlock)
+		_, err := core.ReadRecord(file, backupBlock)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -549,14 +556,15 @@ func getChainBoundary(filename string) (start, end uint64) {
 	return
 }
 
-func loadState(file *os.File, db database.Database) (*state.StoreView, common.Hash, error) {
+func loadState(file *os.File, db database.Database, fileSize uint64, logStr string) (*state.StoreView, common.Hash, error) {
 	var hash common.Hash
 	var sv *state.StoreView
 	var account *types.Account
 	svStack := make(SVStack, 0)
+	var progress, curSize uint64
 	for {
 		record := core.SnapshotTrieRecord{}
-		err := core.ReadRecord(file, &record)
+		recordSize, err := core.ReadRecord(file, &record)
 		if err != nil {
 			if err == io.EOF {
 				if svStack.peek() != nil {
@@ -565,6 +573,15 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 				break
 			}
 			return nil, common.Hash{}, fmt.Errorf("Failed to read snapshot record, %v", err)
+		}
+
+		if fileSize > 0 {
+			curSize += recordSize
+			percentage := curSize / fileSize
+			if percentage > progress && percentage <= 100 && percentage%5 == 0 {
+				logger.Infof("%s, %v%% done.", logStr, percentage)
+				progress = percentage
+			}
 		}
 
 		if bytes.Equal(record.K, []byte{core.SVStart}) {
@@ -610,6 +627,7 @@ func loadState(file *os.File, db database.Database) (*state.StoreView, common.Ha
 			}
 		}
 	}
+	logger.Infof("%s, 100%% done.", logStr)
 
 	return sv, hash, nil
 }

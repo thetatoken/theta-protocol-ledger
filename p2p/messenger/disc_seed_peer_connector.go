@@ -10,6 +10,12 @@ import (
 	"github.com/thetatoken/theta/p2p/netutil"
 )
 
+const (
+	connectInterval               = 3000 // 3 sec
+	lowConnectivityCheckInterval  = 1800
+	highConnectivityCheckInterval = 6
+)
+
 //
 // SeedPeerConnector proactively connects to seed peers
 //
@@ -68,6 +74,7 @@ func (spc *SeedPeerConnector) Start(ctx context.Context) error {
 	spc.cancel = cancel
 
 	spc.connectToSeedPeers()
+	go spc.maintainConnectivityRoutine()
 	return nil
 }
 
@@ -100,16 +107,30 @@ func (spc *SeedPeerConnector) isASeedPeer(netAddr *netutil.NetAddress) bool {
 }
 
 func (spc *SeedPeerConnector) connectToSeedPeers() {
-	logger.Infof("Connecting to seed peers...")
-	perm := rand.Perm(len(spc.seedPeerNetAddresses))
+	logger.Infof("Connecting to seed and persisted peers...")
+
+	var peerNetAddresses []netutil.NetAddress
+	// add seed peers first
+	peerNetAddresses = append(peerNetAddresses, spc.seedPeerNetAddresses...)
+	// add persisted peers
+	persistedPeerAddrs, err := spc.discMgr.peerTable.RetrievePreviousPeers()
+	if err == nil {
+		for _, addr := range persistedPeerAddrs {
+			if !spc.isASeedPeer(addr) {
+				peerNetAddresses = append(peerNetAddresses, *addr)
+			}
+		}
+	}
+
+	perm := rand.Perm(len(peerNetAddresses))
 	for i := 0; i < len(perm); i++ { // create outbound peers in a random order
 		spc.wg.Add(1)
 		go func(i int) {
 			defer spc.wg.Done()
 
-			time.Sleep(time.Duration(rand.Int63n(3000)) * time.Millisecond)
+			time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
 			j := perm[i]
-			peerNetAddress := spc.seedPeerNetAddresses[j]
+			peerNetAddress := peerNetAddresses[j]
 			_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
 			if err != nil {
 				spc.Connected <- false
@@ -119,5 +140,59 @@ func (spc *SeedPeerConnector) connectToSeedPeers() {
 				logger.Infof("Successfully connected to seed peer %v", peerNetAddress.String())
 			}
 		}(i)
+	}
+}
+
+func (spc *SeedPeerConnector) maintainConnectivityRoutine() {
+	var seedsConnectivityCheckPulse *time.Ticker
+	if spc.discMgr.seedPeerOnly {
+		seedsConnectivityCheckPulse = time.NewTicker(highConnectivityCheckInterval * time.Second)
+	} else {
+		seedsConnectivityCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
+	}
+
+	for {
+		select {
+		case <-seedsConnectivityCheckPulse.C:
+			spc.maintainConnectivity()
+		}
+	}
+}
+
+func (spc *SeedPeerConnector) maintainConnectivity() {
+	allPeers := *(spc.discMgr.peerTable.GetAllPeers())
+	if !spc.discMgr.seedPeerOnly {
+		for _, pr := range allPeers {
+			if pr.IsSeed() {
+				// don't proceed if there's at least one seed in peer table
+				return
+			}
+		}
+	}
+
+	perm := rand.Perm(len(spc.seedPeerNetAddresses))
+	for i := 0; i < len(perm); i++ { // random order
+		spc.wg.Add(1)
+		go func(i int) {
+			defer spc.wg.Done()
+
+			time.Sleep(time.Duration(rand.Int63n(connectInterval)) * time.Millisecond)
+			j := perm[i]
+			peerNetAddress := spc.seedPeerNetAddresses[j]
+			if !spc.discMgr.peerTable.PeerAddrExists(&peerNetAddress) {
+				_, err := spc.discMgr.connectToOutboundPeer(&peerNetAddress, true)
+				if err != nil {
+					spc.Connected <- false
+					logger.Warnf("Failed to connect to seed peer %v: %v", peerNetAddress.String(), err)
+				} else {
+					spc.Connected <- true
+					logger.Infof("Successfully connected to seed peer %v", peerNetAddress.String())
+				}
+			}
+		}(i)
+
+		if !spc.discMgr.seedPeerOnly {
+			break // if not seed peer only, sufficient to have at least one connection
+		}
 	}
 }

@@ -398,8 +398,11 @@ const (
 	// ChannelIDPing indicates the channel for Ping/Pong messages between peers
 	ChannelIDPing
 
-	// ChannelIDGurdian indicates the channel for Guardian messages between peers
+	// ChannelIDGuardian indicates the channel for Guardian messages between peers
 	ChannelIDGuardian
+
+	// ChannelIDNATMapping indicates the channel for NAT Mapping messages between peers
+	ChannelIDNATMapping
 )
 
 // P2POptEnum defines the p2p network

@@ -5,6 +5,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/spf13/viper"
+
+	//nat "github.com/fd/go-nat"
+	//nat "github.com/libp2p/go-nat"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
@@ -24,6 +28,7 @@ var _ p2p.Network = (*Messenger)(nil)
 
 type Messenger struct {
 	discMgr       *PeerDiscoveryManager
+	natMgr        *NATManager
 	msgHandlerMap map[common.ChannelIDEnum](p2p.MessageHandler)
 
 	peerTable pr.PeerTable
@@ -53,10 +58,20 @@ type MessengerConfig struct {
 func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	port int, msgrConfig MessengerConfig) (*Messenger, error) {
 
+	var err error
+	eport := port
+	natMgr := CreateNATManager(port)
+	if viper.GetBool(common.CfgP2PNatMapping) {
+		natMgr.DiscoverGateway()
+		if eport, err = natMgr.NatMapping(port); err != nil {
+			logger.Warnf("Failed to perform NAT port mapping: %v", err)
+		}
+	}
+
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
 		peerTable:     pr.CreatePeerTable(),
-		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(port)),
+		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(eport)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
 	}
@@ -66,7 +81,7 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	discMgr, err := CreatePeerDiscoveryManager(messenger, &(messenger.nodeInfo),
 		msgrConfig.addrBookFilePath, msgrConfig.routabilityRestrict,
 		seedPeerNetAddresses, msgrConfig.networkProtocol,
-		localNetAddress, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
+		localNetAddress, eport, msgrConfig.skipUPNP, &messenger.peerTable, discMgrConfig)
 	if err != nil {
 		logger.Errorf("Failed to create CreatePeerDiscoveryManager")
 		return messenger, err
@@ -75,6 +90,11 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 	discMgr.SetMessenger(messenger)
 	messenger.SetPeerDiscoveryManager(discMgr)
 	messenger.RegisterMessageHandler(&discMgr.peerDiscMsgHandler)
+
+	// should call SetNATManager/RegisterMessageHandler regardless of the CfgP2PNatMapping config since the node needs to handle the eport update messages
+	natMgr.SetMessenger(messenger)
+	messenger.SetNATManager(natMgr)
+	messenger.RegisterMessageHandler(natMgr)
 
 	return messenger, nil
 }
@@ -94,6 +114,11 @@ func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
 	msgr.discMgr = discMgr
 }
 
+// SetPeerDiscoveryManager sets the PeerDiscoveryManager for the Messenger
+func (msgr *Messenger) SetNATManager(natMgr *NATManager) {
+	msgr.natMgr = natMgr
+}
+
 // Start is called when the Messenger starts
 func (msgr *Messenger) Start(ctx context.Context) error {
 	c, cancel := context.WithCancel(ctx)
@@ -101,6 +126,14 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	msgr.cancel = cancel
 
 	err := msgr.discMgr.Start(c)
+	if err != nil {
+		return err
+	}
+
+	if msgr.natMgr != nil {
+		err = msgr.natMgr.Start(c)
+	}
+
 	return err
 }
 
@@ -112,6 +145,9 @@ func (msgr *Messenger) Stop() {
 // Wait suspends the caller goroutine
 func (msgr *Messenger) Wait() {
 	msgr.discMgr.Wait()
+	if msgr.natMgr != nil {
+		msgr.natMgr.Wait()
+	}
 	msgr.wg.Wait()
 }
 

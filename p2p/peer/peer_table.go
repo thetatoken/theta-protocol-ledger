@@ -1,11 +1,22 @@
 package peer
 
 import (
+	"fmt"
 	"math/rand"
+	"path"
+	"path/filepath"
+	"strings"
 	"sync"
 
+	"github.com/thetatoken/theta/common"
 	mm "github.com/thetatoken/theta/common/math"
 	nu "github.com/thetatoken/theta/p2p/netutil"
+
+	"github.com/spf13/viper"
+	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/filter"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 )
 
 const (
@@ -17,6 +28,8 @@ const (
 
 	// max peers returned by GetSelection
 	maxGetSelection = 250
+
+	dbKey = "p2pPeer"
 )
 
 //
@@ -27,6 +40,9 @@ type PeerTable struct {
 
 	peerMap map[string]*Peer // map: peerID |-> *Peer
 	peers   []*Peer          // For iteration with deterministic order
+	addrMap map[string]*Peer
+
+	db *leveldb.DB // peerTable persistence for restart
 }
 
 type PeerIDAddress struct {
@@ -36,9 +52,28 @@ type PeerIDAddress struct {
 
 // CreatePeerTable creates an instance of the PeerTable
 func CreatePeerTable() PeerTable {
+	cfgPath := filepath.Dir(viper.ConfigFileUsed())
+	dbPath := path.Join(cfgPath, "db", "peer_table")
+
+	db, err := leveldb.OpenFile(dbPath, &opt.Options{
+		OpenFilesCacheCapacity: 0,
+		BlockCacheCapacity:     256 / 2 * opt.MiB,
+		WriteBuffer:            256 / 4 * opt.MiB, // Two of these are used internally
+		Filter:                 filter.NewBloomFilter(10),
+	})
+	if _, corrupted := err.(*errors.ErrCorrupted); corrupted {
+		db, err = leveldb.RecoverFile(dbPath, nil)
+	}
+	// (Re)check for errors and abort if opening of the db failed
+	if err != nil {
+		logger.Errorf("Failed to create db for peer table, %v", err)
+	}
+
 	return PeerTable{
 		mutex:   &sync.Mutex{},
 		peerMap: make(map[string]*Peer),
+		addrMap: make(map[string]*Peer),
+		db:      db,
 	}
 }
 
@@ -63,6 +98,9 @@ func (pt *PeerTable) AddPeer(peer *Peer) bool {
 	}
 
 	pt.peerMap[peer.ID()] = peer
+	pt.addrMap[peer.NetAddress().String()] = peer
+
+	pt.persistPeers()
 
 	return true
 }
@@ -72,16 +110,23 @@ func (pt *PeerTable) DeletePeer(peerID string) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	if _, ok := pt.peerMap[peerID]; !ok {
+	var peer *Peer
+	var ok bool
+	if peer, ok = pt.peerMap[peerID]; !ok {
 		return
 	}
 
 	delete(pt.peerMap, peerID)
+	delete(pt.addrMap, peer.NetAddress().String())
 	for idx, peer := range pt.peers {
 		if peer.ID() == peerID {
-			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
+			pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...) // not to break in case there are multiple matches
 		}
 	}
+
+	logger.Infof("Deleted peer %v from the peer table", peerID)
+
+	pt.persistPeers()
 }
 
 // PurgeOldestPeer purges the oldest peer from the PeerTable
@@ -89,9 +134,22 @@ func (pt *PeerTable) PurgeOldestPeer() *Peer {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	peer := pt.peers[0]
-	delete(pt.peerMap, peer.ID())
-	pt.peers = pt.peers[1:]
+	var peer *Peer
+	var idx int
+	for idx, peer = range pt.peers {
+		if !peer.IsSeed() {
+			break
+		}
+	}
+	if peer != nil {
+		delete(pt.peerMap, peer.ID())
+		delete(pt.addrMap, peer.NetAddress().String())
+		pt.peers = append(pt.peers[:idx], pt.peers[idx+1:]...)
+	}
+
+	logger.Infof("Purged the oldest peer %v from the peer table, idx: %v", peer.ID(), idx)
+
+	pt.persistPeers()
 	return peer
 }
 
@@ -107,12 +165,33 @@ func (pt *PeerTable) GetPeer(peerID string) *Peer {
 	return peer
 }
 
+// GetPeerWithAddr returns the peer for the given address (if exists)
+func (pt *PeerTable) GetPeerWithAddr(addr *nu.NetAddress) *Peer {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	peer, exists := pt.addrMap[addr.String()]
+	if !exists {
+		return nil
+	}
+	return peer
+}
+
 // PeerExists indicates whether the PeerTable has a peer for the given peerID
 func (pt *PeerTable) PeerExists(peerID string) bool {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	_, exists := pt.peerMap[peerID]
+	return exists
+}
+
+// PeerAddrExists indicates whether the PeerTable has a peer for the given address
+func (pt *PeerTable) PeerAddrExists(addr *nu.NetAddress) bool {
+	pt.mutex.Lock()
+	defer pt.mutex.Unlock()
+
+	_, exists := pt.addrMap[addr.String()]
 	return exists
 }
 
@@ -171,4 +250,40 @@ func (pt *PeerTable) GetTotalNumPeers() uint {
 	defer pt.mutex.Unlock()
 
 	return uint(len(pt.peers))
+}
+
+func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {
+	if pt.db == nil {
+		return []*nu.NetAddress{}, fmt.Errorf("peerTable DB not ready yet")
+	}
+
+	dat, err := pt.db.Get([]byte(dbKey), nil)
+	if err != nil {
+		logger.Warnf("Failed to retrieve previously persisted peers")
+		return nil, err
+	}
+	addrs := strings.Split(string(dat), "|")
+	return nu.NewNetAddressStrings(addrs)
+}
+
+func (pt *PeerTable) persistPeers() {
+	maxPeerPersistence := viper.GetInt(common.CfgMaxNumPersistentPeers)
+	numPeers := len(pt.peers)
+	numInDB := numPeers
+	if numPeers > maxPeerPersistence {
+		numInDB = maxPeerPersistence
+	}
+
+	peerAddrs := make([]string, numInDB)
+	dbPeers := pt.peers[numPeers-numInDB:]
+	for i, p := range dbPeers {
+		peerAddrs[i] = p.NetAddress().String()
+	}
+	go pt.writeToDB(dbKey, strings.Join(peerAddrs, "|"))
+}
+
+func (pt *PeerTable) writeToDB(key, value string) {
+	if pt.db != nil {
+		pt.db.Put([]byte(key), []byte(value), nil)
+	}
 }

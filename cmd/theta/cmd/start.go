@@ -27,7 +27,6 @@ import (
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/version"
 	ks "github.com/thetatoken/theta/wallet/softwallet/keystore"
-	"github.com/pkg/profile"
 )
 
 // startCmd represents the start command
@@ -126,9 +125,6 @@ func runStart(cmd *cobra.Command, args []string) {
 	n.Start(ctx)
 
 	if viper.GetBool(common.CfgProfEnabled) {
-		// CPU profiling by default
-		defer profile.Start().Stop()
-		
 		go func() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()

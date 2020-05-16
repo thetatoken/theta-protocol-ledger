@@ -121,26 +121,26 @@ func writeBytes(writer *bufio.Writer, raw []byte) error {
 	return nil
 }
 
-func ReadRecord(file *os.File, obj interface{}) error {
+func ReadRecord(file *os.File, obj interface{}) (uint64, error) {
 	sizeBytes := make([]byte, 8)
 	n, err := io.ReadAtLeast(file, sizeBytes, 8)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if n < 8 {
-		return fmt.Errorf("Failed to read record length")
+		return 0, fmt.Errorf("Failed to read record length")
 	}
 	size := Bytestoi(sizeBytes)
 	bytes := make([]byte, size)
 	n, err = io.ReadAtLeast(file, bytes, int(size))
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if uint64(n) < size {
-		return fmt.Errorf("Failed to read record, %v < %v", n, size)
+		return 0, fmt.Errorf("Failed to read record, %v < %v", n, size)
 	}
 	err = rlp.DecodeBytes(bytes, obj)
-	return err
+	return size, err
 }
 
 func Bytestoi(arr []byte) uint64 {
