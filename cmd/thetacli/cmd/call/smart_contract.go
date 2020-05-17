@@ -61,7 +61,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 
 	data, err := hex.DecodeString(dataFlag)
 	if err != nil {
-		utils.Error("Failed to decode data: %v\n", dataFlag)
+		utils.Error("Failed to decode data: %v, err: %v\n", dataFlag, err)
 	}
 
 	sctx := &types.SmartContractTx{

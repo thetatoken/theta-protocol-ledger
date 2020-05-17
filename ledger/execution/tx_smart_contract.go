@@ -62,6 +62,11 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidGasPrice)
 	}
 
+	if tx.GasLimit > types.MaximumTxGasLimit {
+		return result.Error("Invalid gas limit. Gas limit needs to be at most %v", types.MaximumTxGasLimit).
+			WithErrorCode(result.CodeInvalidGasLimit)
+	}
+
 	zero := big.NewInt(0)
 	feeLimit := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(tx.GasLimit))
 	if feeLimit.BitLen() > 255 || feeLimit.Cmp(zero) < 0 {

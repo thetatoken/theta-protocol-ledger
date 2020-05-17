@@ -34,6 +34,10 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	contractAddr = tx.To.Address
 	createContract := (contractAddr == common.Address{})
 
+	if gasLimit > types.MaximumTxGasLimit {
+		return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
+	}
+
 	intrinsicGas, err := calculateIntrinsicGas(tx.Data, createContract)
 	if err != nil {
 		return common.Bytes{}, common.Address{}, 0, err
