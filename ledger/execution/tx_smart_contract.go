@@ -40,7 +40,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	// Get input account
 	fromAccount, success := getInput(view, tx.From)
 	if success.IsError() {
-		return result.Error("Failed to get the from account")
+		return result.Error("Failed to get the account (the address has not Theta nor TFuel)")
 	}
 
 	// Validate input, advanced
