@@ -62,7 +62,7 @@ func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.Ledger
 		releaseFundTxExec:    NewReleaseFundTxExecutor(state),
 		servicePaymentTxExec: NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:      NewSplitRuleTxExecutor(state),
-		smartContractTxExec:  NewSmartContractTxExecutor(state),
+		smartContractTxExec:  NewSmartContractTxExecutor(chain, state),
 		depositStakeTxExec:   NewDepositStakeExecutor(),
 		withdrawStakeTxExec:  NewWithdrawStakeExecutor(state),
 		skipSanityCheck:      false,

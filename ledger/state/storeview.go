@@ -27,7 +27,8 @@ type StoreView struct {
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
-	refund                      uint64 // Gas refund during smart contract execution
+	refund                      uint64       // Gas refund during smart contract execution
+	logs                        []*types.Log // Temporary store of events during smart contract execution
 }
 
 // NewStoreView creates an instance of the StoreView
@@ -335,6 +336,16 @@ func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }
 
+func (sv *StoreView) ResetLogs() {
+	sv.logs = []*types.Log{}
+}
+
+func (sv *StoreView) PopLogs() []*types.Log {
+	ret := sv.logs
+	sv.ResetLogs()
+	return ret
+}
+
 //
 // ---------- Implement vm.StateDB interface -----------
 //
@@ -559,6 +570,6 @@ func (sv *StoreView) Prune() error {
 	return nil
 }
 
-func (sv *StoreView) AddLog(*types.Log) {
-	// TODO
+func (sv *StoreView) AddLog(l *types.Log) {
+	sv.logs = append(sv.logs, l)
 }
