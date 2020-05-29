@@ -195,8 +195,9 @@ type GetBlockArgs struct {
 
 type Tx struct {
 	types.Tx `json:"raw"`
-	Type     byte        `json:"type"`
-	Hash     common.Hash `json:"hash"`
+	Type     byte                       `json:"type"`
+	Hash     common.Hash                `json:"hash"`
+	Receipt  *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type GetBlockResult struct {
@@ -273,12 +274,18 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
 	}
 	return
@@ -334,12 +341,18 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
 	}
 	return
