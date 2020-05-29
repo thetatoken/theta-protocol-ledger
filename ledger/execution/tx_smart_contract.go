@@ -128,7 +128,11 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 
 	// TODO: Add tx receipt: status and events
 	logs := view.PopLogs()
-	exec.chain.AddTxReceipt(txHash, logs, evmRet, contractAddr, gasUsed, evmErr)
+	if evmErr != nil {
+		// Do not record events if transaction is reverted
+		logs = nil
+	}
+	exec.chain.AddTxReceipt(tx, logs, evmRet, contractAddr, gasUsed, evmErr)
 
 	return txHash, result.OK
 }

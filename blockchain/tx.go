@@ -80,23 +80,33 @@ type TxReceiptEntry struct {
 	EvmRet          common.Bytes
 	ContractAddress common.Address
 	GasUsed         uint64
-	EvmErr          error
+	EvmErr          string
 }
 
 // AddTxReceipt adds transaction receipt.
-func (ch *Chain) AddTxReceipt(txHash common.Hash, logs []*types.Log, evmRet common.Bytes,
+func (ch *Chain) AddTxReceipt(tx types.Tx, logs []*types.Log, evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
+	raw, err := types.TxToBytes(tx)
+	if err != nil {
+		// Should never happen
+		logger.Panic(err)
+	}
+	txHash := crypto.Keccak256Hash(raw)
+	errStr := ""
+	if evmErr != nil {
+		errStr = evmErr.Error()
+	}
 	txReceiptEntry := TxReceiptEntry{
 		TxHash:          txHash,
 		Logs:            logs,
 		EvmRet:          evmRet,
 		ContractAddress: contractAddr,
 		GasUsed:         gasUsed,
-		EvmErr:          evmErr,
+		EvmErr:          errStr,
 	}
 	key := txReceiptKey(txHash)
 
-	err := ch.store.Put(key, txReceiptEntry)
+	err = ch.store.Put(key, txReceiptEntry)
 	if err != nil {
 		logger.Panic(err)
 	}
@@ -105,7 +115,11 @@ func (ch *Chain) AddTxReceipt(txHash common.Hash, logs []*types.Log, evmRet comm
 // FindTxReceiptByHash looks up transaction receipt by hash.
 func (ch *Chain) FindTxReceiptByHash(hash common.Hash) (*TxReceiptEntry, bool) {
 	txReceiptEntry := &TxReceiptEntry{}
-	err := ch.store.Get(txReceiptKey(hash), txReceiptEntry)
+
+	key := txReceiptKey(hash)
+
+	err := ch.store.Get(key, txReceiptEntry)
+
 	if err != nil {
 		if err != store.ErrKeyNotFound {
 			logger.Error(err)

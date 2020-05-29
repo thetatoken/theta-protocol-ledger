@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
@@ -107,12 +108,13 @@ type GetTransactionArgs struct {
 }
 
 type GetTransactionResult struct {
-	BlockHash   common.Hash       `json:"block_hash"`
-	BlockHeight common.JSONUint64 `json:"block_height"`
-	Status      TxStatus          `json:"status"`
-	TxHash      common.Hash       `json:"hash"`
-	Type        byte              `json:"type"`
-	Tx          types.Tx          `json:"transaction"`
+	BlockHash   common.Hash                `json:"block_hash"`
+	BlockHeight common.JSONUint64          `json:"block_height"`
+	Status      TxStatus                   `json:"status"`
+	TxHash      common.Hash                `json:"hash"`
+	Type        byte                       `json:"type"`
+	Tx          types.Tx                   `json:"transaction"`
+	Receipt     *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type TxStatus string
@@ -160,6 +162,12 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	}
 	result.Tx = tx
 	result.Type = getTxType(tx)
+
+	// Add receipt
+	receipt, found := t.chain.FindTxReceiptByHash(hash)
+	if found {
+		result.Receipt = receipt
+	}
 
 	return nil
 }
