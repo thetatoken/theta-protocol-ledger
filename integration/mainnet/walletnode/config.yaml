@@ -1,10 +1,16 @@
-# Theta configuration
+# Theta mainnet wallet node configuration
 storage:
-  statePruningInterval: 4
-  statePruningRetainedBlocks: 128
+  statePruningRetainedBlocks: 1024
 p2p:
-  port: 16000
+  opt: 0
+  port: 30001
+  seeds: 3.20.109.241:21000,18.223.165.134:21000,35.184.232.41:21000,35.230.172.8:21000,34.83.204.5:21000
+  minNumPeers: 24
+  maxNumPeers: 96
+  natMapping: true
 rpc:
+  port: 16888
   enabled: true
+  address: 127.0.0.1
 log:
-  levels: "*:info"
+  levels: "*:info,guardian:debug"
