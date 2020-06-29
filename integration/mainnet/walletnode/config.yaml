@@ -1,6 +1,6 @@
 # Theta mainnet wallet node configuration
 storage:
-  statePruningRetainedBlocks: 1024
+  statePruningRetainedBlocks: 2048
 p2p:
   opt: 0
   port: 30001

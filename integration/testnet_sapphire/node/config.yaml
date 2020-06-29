@@ -2,7 +2,7 @@
 genesis:
   hash: "0x2789f210f63d15e864ee41a16c87350ffbe02d1f6f9cb723afa3ad956d7a8d25"
 storage:
-  statePruningRetainedBlocks: 1024
+  statePruningRetainedBlocks: 2048
 p2p:
   opt: 1
   portL: 60001
