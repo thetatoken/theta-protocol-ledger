@@ -138,7 +138,7 @@ func init() {
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
-	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 512)
+	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
