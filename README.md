@@ -6,7 +6,6 @@ Signature Gossip](https://arxiv.org/pdf/1911.04698.pdf).
 ## Table of Contents
 - [Setup](#setup)
     - [On Mac OS X](#on-mac-os-x)
-    - [On Windows](#on-windows)
 - [Build and Install](#build-and-install)
 - [Run Unit Tests](#run-unit-tests)
 - [Launch a Local Private Net](#launch-a-local-private-net)
@@ -16,9 +15,9 @@ Signature Gossip](https://arxiv.org/pdf/1911.04698.pdf).
 
 ## Setup
 
-### On Mac OS X
+### On macOS
 
-Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.12.1**. On Mac OS X, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.12.1**. On macOS, install Go with the following command
 
 ```
 brew install go@1.12.1
@@ -33,43 +32,17 @@ export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 cd $THETA_HOME
 ```
 
-### On Windows
-
-On Windows, first install [Chocolatey](https://chocolatey.org/) with with the following command (need to run cmd as administrator)
-
-```bash
-@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -InputFormat None -ExecutionPolicy Bypass -Command "iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))" && SET "PATH=%PATH%;%ALLUSERSPROFILE%\chocolatey\bin"
-```
-
-Then, install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. Install [Go](https://golang.org/) with the following command
-
-```
-choco install golang --version 1.12.1 --force
-```
-
-Install [Cygwin terminal](https://www.cygwin.com/) and `Makefile` with the following command
-
-```
-choco install make --source=cygwin
-```
-To set the the Cygwin terminal home director to the `%UserProfile%` location, open the `nsswitch.conf` in the `C:\cygwin64\etc` folder.
-And set the db_home location to windows as below.
-
-```
-db_home:  windows
-```
-
-Then, use the installed [Cygwin terminal](https://www.cygwin.com/) to run the following commands. Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
-
-```bash
-git clone git@github.com:thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
-```
-
 ## Build and Install
 This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `theta` and `thetacli` are generated. `theta` can be regarded as the launcher of the Theta Ledger node, and `thetacli` is a wallet with command line tools to interact with the ledger. 
 ```
 export GO111MODULE=on
 make install
+```
+
+The build and install process on **Linux** is similar, but note that Ubuntu 18.04.4 LTS / Centos 8 or higher version is required for the compilation. To compile a **Windows** binary, you can cross-compile on macOS with the following command:
+
+```
+GO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -o theta.exe ./cmd/theta/
 ```
 
 ## Run Unit Tests
