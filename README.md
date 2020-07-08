@@ -39,10 +39,10 @@ export GO111MODULE=on
 make install
 ```
 
-The build and install process on **Linux** is similar, but note that Ubuntu 18.04.4 LTS / Centos 8 or higher version is required for the compilation. To compile a **Windows** binary, you can cross-compile on macOS with the following command:
+The build and install process on **Linux** is similar, but note that Ubuntu 18.04.4 LTS / Centos 8 or higher version is required for the compilation. To cross-compile a **Windows** binary on macOS, first make sure `mingw64` is installed (`brew install mingw-w64`). Then you can cross-compile the Windows binary with the following command:
 
 ```
-GO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -o theta.exe ./cmd/theta/
+make exe
 ```
 
 ## Run Unit Tests
