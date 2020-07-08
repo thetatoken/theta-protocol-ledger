@@ -39,11 +39,18 @@ export GO111MODULE=on
 make install
 ```
 
-The build and install process on **Linux** is similar, but note that Ubuntu 18.04.4 LTS / Centos 8 or higher version is required for the compilation. To cross-compile a **Windows** binary on macOS, first make sure `mingw64` is installed (`brew install mingw-w64`). Then you can cross-compile the Windows binary with the following command:
+#### Notes for Linux binary compilation
+The build and install process on **Linux** is similar, but note that Ubuntu 18.04.4 LTS / Centos 8 or higher version is required for the compilation. 
+
+#### Notes for Windows binary compilation
+The Windows binary can be cross-compiled from macOS. To cross-compile a **Windows** binary, first make sure `mingw64` is installed (`brew install mingw-w64`) on your macOS. Then you can cross-compile the Windows binary with the following command:
 
 ```
 make exe
 ```
+
+You'll also need to place three `.dll` files `libgcc_s_seh-1.dll`, `libstdc++-6.dll`, `libwinpthread-1.dll` under the same folder as `theta.exe` and `thetacli.exe`.
+
 
 ## Run Unit Tests
 Run unit tests with the command below
