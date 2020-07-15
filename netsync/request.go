@@ -406,10 +406,10 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 		if pendingBlock.status == RequestToSendBodyReq ||
 			(pendingBlock.status == RequestWaitingBodyResp && pendingBlock.HasTimedOut()) {
 
-			maxRandPeerSampleAttempt := 2 * len(pendingBlock.peers)
+			peersWithBlock := util.Shuffle(pendingBlock.peers)
 			var randomPeerID string
-			for i := 0; i < maxRandPeerSampleAttempt; i++ {
-				randomPeerID = pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
+			for i := 0; i < len(peersWithBlock); i++ {
+				randomPeerID = peersWithBlock[i]
 				if !rm.dispatcher.PeerExists(randomPeerID) { // the peer may have been purged
 					rm.logger.WithFields(log.Fields{
 						"pendingBlock": pendingBlock.hash.String(),
