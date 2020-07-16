@@ -34,6 +34,11 @@ var blockCmd = &cobra.Command{
 			res, err = client.Call("theta.GetBlock", rpc.GetBlockArgs{
 				Hash: common.HexToHash(hashFlag),
 			})
+		} else if endFlag != 0 {
+			res, err = client.Call("theta.GetBlocksByRange", rpc.GetBlocksByRangeArgs{
+				Start: common.JSONUint64(startFlag),
+				End: common.JSONUint64(endFlag),
+			})
 		} else {
 			res, err = client.Call("theta.GetBlockByHeight", rpc.GetBlockByHeightArgs{
 				Height: common.JSONUint64(heightFlag),
@@ -41,10 +46,10 @@ var blockCmd = &cobra.Command{
 		}
 
 		if err != nil {
-			utils.Error("Failed to get block details: %v\n", err)
+			utils.Error("Failed to get block(s) details: %v\n", err)
 		}
 		if res.Error != nil {
-			utils.Error("Failed to retrieve block details: %v\n", res.Error)
+			utils.Error("Failed to retrieve block(s) details: %v\n", res.Error)
 		}
 		json, err := json.MarshalIndent(res.Result, "", "    ")
 		if err != nil {
@@ -57,4 +62,6 @@ var blockCmd = &cobra.Command{
 func init() {
 	blockCmd.Flags().StringVar(&hashFlag, "hash", "", "Block hash")
 	blockCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
+	blockCmd.Flags().Uint64Var(&startFlag, "start", uint64(0), "starting height of the blocks")
+	blockCmd.Flags().Uint64Var(&endFlag, "end", uint64(0), "ending height of the blocks")
 }
