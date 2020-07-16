@@ -146,6 +146,17 @@ func (dp *Dispatcher) Peers() []string {
 	return []string{}
 }
 
+// PeerExists indicates if the given peerID is a neighboring peer
+func (dp *Dispatcher) PeerExists(peerID string) bool {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.PeerExists(peerID)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.PeerExists(peerID)
+	}
+	return false
+}
+
 // send delivers message directly to a list of peers.
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	messageOld := p2ptypes.Message{
