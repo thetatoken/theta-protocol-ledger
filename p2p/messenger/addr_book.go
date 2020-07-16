@@ -555,7 +555,7 @@ func (a *AddrBook) addAddress(addr, src *nu.NetAddress) {
 			return
 		}
 		// Already in max new buckets.
-		if len(ka.Buckets) == maxNewBucketsPerAddress {
+		if len(ka.Buckets) >= maxNewBucketsPerAddress {
 			return
 		}
 		// The more entries we have, the less likely we are to add more.

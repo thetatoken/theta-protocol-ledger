@@ -25,6 +25,8 @@ const (
 	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
+	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
+	CfgConsensusPassThroughGuardianVote = "consensus.passThroughGuardianVote"
 
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
 	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
@@ -128,6 +130,7 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
+	viper.SetDefault(CfgConsensusPassThroughGuardianVote, false)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 	viper.SetDefault(CfgSyncDownloadByHash, false)
@@ -135,7 +138,7 @@ func init() {
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
-	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 512)
+	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
