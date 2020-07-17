@@ -355,6 +355,10 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 		return errors.New("Starting block must be less than ending block")
 	}
 
+	if args.End - args.Start > 100  {
+		return errors.New("Can't retrieve more than 100 blocks at a time")
+	}
+
 	blocks := t.chain.FindBlocksByHeight(uint64(args.End))
 
 	var block *core.ExtendedBlock
