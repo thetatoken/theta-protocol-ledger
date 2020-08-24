@@ -268,7 +268,7 @@ type SlashTx struct {
 type SlashTxJSON struct {
 	Proposer        TxInput           `json:"proposer"`
 	SlashedAddress  common.Address    `json:"slashed_address"`
-	ReserveSequence common.JSONUint64 `json:"reserved_sequence"`
+	ReserveSequence common.JSONUint64 `json:"reserve_sequence"`
 	SlashProof      common.Bytes      `json:"slash_proof"`
 }
 

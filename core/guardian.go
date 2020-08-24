@@ -92,6 +92,28 @@ func (a *AggregatedVotes) Merge(b *AggregatedVotes) (*AggregatedVotes, error) {
 	}, nil
 }
 
+// Abs returns the number of voted guardians in the vote
+func (a *AggregatedVotes) Abs() int {
+	ret := 0
+	for i := 0; i < len(a.Multiplies); i++ {
+		if a.Multiplies[i] != 0 {
+			ret += 1
+		}
+	}
+	return ret
+}
+
+// Pick selects better vote from two votes.
+func (a *AggregatedVotes) Pick(b *AggregatedVotes) (*AggregatedVotes, error) {
+	if a.Block != b.Block || a.Gcp != b.Gcp {
+		return nil, errors.New("Cannot compare incompatible votes")
+	}
+	if b.Abs() > a.Abs() {
+		return b, nil
+	}
+	return a, nil
+}
+
 // Validate verifies the voteset.
 func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 	if gcp.Hash() != a.Gcp {

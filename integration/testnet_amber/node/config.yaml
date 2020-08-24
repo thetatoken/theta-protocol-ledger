@@ -2,7 +2,7 @@
 genesis:
   hash: "0x1e58bb5dc3be6d2889c76661173abe1dea5be639a655ea2e3f7b1eddda6f3206"
 storage:
-  statePruningRetainedBlocks: 1024
+  statePruningRetainedBlocks: 2048
 p2p:
   port_l: PORT
   libp2p_rendezvous: theta_testnet_amber
