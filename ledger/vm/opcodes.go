@@ -203,6 +203,11 @@ const (
 	SWAP
 )
 
+// Theta related opcodes
+const (
+	THETABALANCE OpCode = 0xc0 + iota
+)
+
 // 0xf0 range - closures.
 const (
 	CREATE OpCode = 0xf0 + iota
@@ -367,6 +372,9 @@ var opCodeToString = map[OpCode]string{
 	LOG3:   "LOG3",
 	LOG4:   "LOG4",
 
+	// 0xc0 range.
+	THETABALANCE: "THETABALANCE",
+
 	// 0xf0 range.
 	CREATE:       "CREATE",
 	CALL:         "CALL",
@@ -525,6 +533,7 @@ var stringToOp = map[string]OpCode{
 	"LOG2":           LOG2,
 	"LOG3":           LOG3,
 	"LOG4":           LOG4,
+	"THETABALANCE":   THETABALANCE,
 	"CREATE":         CREATE,
 	"CREATE2":        CREATE2,
 	"CALL":           CALL,

@@ -387,6 +387,10 @@ func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
 	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
 }
 
+func (sv *StoreView) GetThetaBalance(addr common.Address) *big.Int {
+	return sv.GetOrCreateAccount(addr).Balance.ThetaWei
+}
+
 func (sv *StoreView) GetNonce(addr common.Address) uint64 {
 	return sv.GetOrCreateAccount(addr).Sequence
 }

@@ -921,6 +921,12 @@ func newFrontierInstructionSet() [256]operation {
 			valid:         true,
 			writes:        true,
 		},
+		THETABALANCE: {
+			execute:       opThetaBalance,
+			gasCost:       gasThetaBalance,
+			validateStack: makeStackFunc(1, 1),
+			valid:         true,
+		},
 		CREATE: {
 			execute:       opCreate,
 			gasCost:       gasCreate,

@@ -392,6 +392,12 @@ func opBalance(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memo
 	return nil, nil
 }
 
+func opThetaBalance(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	slot := stack.peek()
+	slot.Set(interpreter.evm.StateDB.GetThetaBalance(common.BigToAddress(slot)))
+	return nil, nil
+}
+
 func opOrigin(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	stack.push(interpreter.evm.Origin.Big())
 	return nil, nil
