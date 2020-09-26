@@ -87,6 +87,53 @@ func TestMissingRoot(t *testing.T) {
 	}
 }
 
+func TestTryDeleteDisk(t *testing.T)    { testTryDelete(t, false) }
+func TestTryDeleteMemonly(t *testing.T) { testTryDelete(t, true) }
+
+func testTryDelete(t *testing.T, memonly bool) {
+	diskdb := dbbackend.NewMemDatabase()
+	triedb := NewDatabase(diskdb)
+
+	trie, _ := New(common.Hash{}, triedb)
+
+	val := "asdfasdfasdfasdfasdfasdfasdfasdf"
+	updateString(trie, "123456", "asdfasdfasdfasdfasdfasdfasdfasdf")
+	root, _ := trie.Commit(nil)
+	if !memonly {
+		triedb.Commit(root, true)
+	}
+
+	trie, _ = New(root, triedb)
+	val1, err := trie.TryGet([]byte("123456"))
+	t.Logf("Retrived val: %v", string(val1))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if string(val1) != val {
+		t.Errorf("Retrieved valued not the same as the original value, val: %v, val1: %v", val, val1)
+	}
+
+	err = trie.TryDelete([]byte("123456"))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	root, _ = trie.Commit(nil)
+	if !memonly {
+		triedb.Commit(root, true)
+	}
+
+	trie, _ = New(root, triedb)
+	val2, err := trie.TryGet([]byte("123456"))
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+
+	if val2 != nil {
+		t.Errorf("key/val pair has not been deleted")
+	}
+}
+
 func TestMissingNodeDisk(t *testing.T)    { testMissingNode(t, false) }
 func TestMissingNodeMemonly(t *testing.T) { testMissingNode(t, true) }
 

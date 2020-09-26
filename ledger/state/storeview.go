@@ -487,6 +487,12 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	tree := sv.getAccountStorage(account)
 	if (val == common.Hash{}) {
 		tree.TryDelete(key[:])
+		root, err := tree.Commit()
+		if err != nil {
+			log.Panic(err)
+		}
+		account.Root = root
+		sv.SetAccount(addr, account)
 		return
 	}
 	// Encoding []byte cannot fail, ok to ignore the error.
