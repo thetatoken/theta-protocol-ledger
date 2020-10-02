@@ -140,7 +140,8 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 	// Set ledger state pointer to initial state.
 	lastCC := e.autoRewind(e.state.GetHighestCCBlock())
-	e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+	//e.ledger.ResetState(lastCC.Height, lastCC.StateHash)
+	e.ledger.ResetState(lastCC.Block)
 
 	e.resetGuardianTimer()
 	e.guardian.Start(e.ctx)
@@ -553,7 +554,8 @@ func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
 		}).Fatal("Failed to find parent block")
 	}
 
-	result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	//result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	result := e.ledger.ResetState(parent.Block)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":            result.Message,
@@ -617,7 +619,8 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		e.checkCC(block.HCC.BlockHash)
 	}
 
-	result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	//result := e.ledger.ResetState(parent.Height, parent.StateHash)
+	result := e.ledger.ResetState(parent.Block)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":            result.Message,
@@ -1031,7 +1034,8 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 
 func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	tip := e.GetTipToExtend()
-	result := e.ledger.ResetState(tip.Height, tip.StateHash)
+	//result := e.ledger.ResetState(tip.Height, tip.StateHash)
+	result := e.ledger.ResetState(tip.Block)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"error":         result.Message,

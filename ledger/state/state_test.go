@@ -5,8 +5,10 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database/backend"
@@ -21,7 +23,14 @@ func TestLedgerStateBasics(t *testing.T) {
 
 	initHeight := uint64(127)
 	initRootHash := common.Hash{}
-	ls.ResetState(initHeight, initRootHash)
+	initBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    initHeight,
+			StateHash: initRootHash,
+		},
+	}
+	//ls.ResetState(initHeight, initRootHash)
+	ls.ResetState(initBlock)
 
 	// ChainID
 	assert.Equal(chainID, ls.GetChainID())
@@ -61,7 +70,14 @@ func TestLedgerStateAccountCommit(t *testing.T) {
 
 	initHeight := uint64(127)
 	initRootHash := common.Hash{}
-	ls.ResetState(initHeight, initRootHash)
+	initBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    initHeight,
+			StateHash: initRootHash,
+		},
+	}
+	//ls.ResetState(initHeight, initRootHash)
+	ls.ResetState(initBlock)
 
 	// Account and Commit
 	_, acc1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
@@ -118,7 +134,14 @@ func TestLedgerStateSplitRuleCommit(t *testing.T) {
 
 	initHeight := uint64(127)
 	initRootHash := common.Hash{}
-	ls.ResetState(initHeight, initRootHash)
+	initBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    initHeight,
+			StateHash: initRootHash,
+		},
+	}
+	//ls.ResetState(initHeight, initRootHash)
+	ls.ResetState(initBlock)
 
 	_, acc1PubKey, err := crypto.TEST_GenerateKeyPairWithSeed("account1")
 	assert.Nil(err)

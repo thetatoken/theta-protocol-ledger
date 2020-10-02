@@ -336,7 +336,8 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			blockStack = blockStack[:num-1]
 			parent, _ := chain.FindBlock(block.Parent)
 
-			result := ledger.ResetState(parent.Height, parent.StateHash)
+			//result := ledger.ResetState(parent.Height, parent.StateHash)
+			result := ledger.ResetState(parent.Block)
 			if result.IsError() {
 				return nil, nil, fmt.Errorf("%v", result.String())
 			}

@@ -282,14 +282,20 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 
 	view := ledger.state.Delivered()
 
-	currHeight := view.Height()
-	currStateRoot := view.Hash()
+	// currHeight := view.Height()
+	// currStateRoot := view.Hash()
+	extParentBlock, err := ledger.chain.FindBlock(block.Parent)
+	if extParentBlock == nil || err != nil {
+		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.Parent.Hex(), err))
+	}
+	parentBlock := extParentBlock.Block
 
 	hasValidatorUpdate := false
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
-			ledger.resetState(currHeight, currStateRoot)
+			//ledger.resetState(currHeight, currStateRoot)
+			ledger.resetState(parentBlock)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
 		if _, ok := tx.(*types.DepositStakeTx); ok {
@@ -299,7 +305,8 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
-			ledger.resetState(currHeight, currStateRoot)
+			//ledger.resetState(currHeight, currStateRoot)
+			ledger.resetState(parentBlock)
 			return res
 		}
 	}
@@ -308,7 +315,8 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 
 	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
-		ledger.resetState(currHeight, currStateRoot)
+		//ledger.resetState(currHeight, currStateRoot)
+		ledger.resetState(parentBlock)
 		return result.Error("State root mismatch! root: %v, exptected: %v",
 			hex.EncodeToString(newStateRoot[:]),
 			hex.EncodeToString(expectedStateRoot[:]))
@@ -336,14 +344,20 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 
 	view := ledger.state.Delivered()
 
-	currHeight := view.Height()
-	currStateRoot := view.Hash()
+	//currHeight := view.Height()
+	//currStateRoot := view.Hash()
+	extParentBlock, err := ledger.chain.FindBlock(block.Parent)
+	if extParentBlock == nil || err != nil {
+		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.Parent.Hex(), err))
+	}
+	parentBlock := extParentBlock.Block
 
 	hasValidatorUpdate := false
 	for _, rawTx := range blockRawTxs {
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
-			ledger.resetState(currHeight, currStateRoot)
+			//ledger.resetState(currHeight, currStateRoot)
+			ledger.resetState(parentBlock)
 			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
 		if _, ok := tx.(*types.DepositStakeTx); ok {
@@ -353,7 +367,8 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
 		if res.IsError() {
-			ledger.resetState(currHeight, currStateRoot)
+			//ledger.resetState(currHeight, currStateRoot)
+			ledger.resetState(parentBlock)
 			return common.Hash{}, res
 		}
 	}
@@ -482,11 +497,13 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 }
 
 // ResetState sets the ledger state with the designated root
-func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
+//func (ledger *Ledger) ResetState(height uint64, rootHash common.Hash) result.Result {
+func (ledger *Ledger) ResetState(block *core.Block) result.Result {
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
-	return ledger.resetState(height, rootHash)
+	//return ledger.resetState(height, rootHash)
+	return ledger.resetState(block)
 }
 
 // FinalizeState sets the ledger state with the finalized root
@@ -502,10 +519,14 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 }
 
 // resetState sets the ledger state with the designated root
-func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result {
+//func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result
+func (ledger *Ledger) resetState(block *core.Block) result.Result {
+	height := block.Height
+	rootHash := block.StateHash
 	logger.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
 
-	res := ledger.state.ResetState(height, rootHash)
+	//res := ledger.state.ResetState(height, rootHash)
+	res := ledger.state.ResetState(block)
 	if res.IsError() {
 		return result.Error("Failed to set state root: %v", hex.EncodeToString(rootHash[:]))
 	}

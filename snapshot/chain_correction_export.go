@@ -103,7 +103,8 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		block.HCC.BlockHash = snapshot.Hash()
 		block.Children = []common.Hash{}
 
-		result := ledger.ResetState(parent.Height, parent.StateHash)
+		//result := ledger.ResetState(parent.Height, parent.StateHash)
+		result := ledger.ResetState(parent.Block)
 		if result.IsError() {
 			return "", nil, fmt.Errorf("%v", result.String())
 		}

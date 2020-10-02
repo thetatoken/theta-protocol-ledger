@@ -44,7 +44,8 @@ func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result 
 	if err != nil {
 		return err
 	}
-	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(sctx, ledgerState)
+	parentBlock := t.ledger.State().ParentBlock()
+	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(parentBlock, sctx, ledgerState)
 	ledgerState.Save()
 
 	result.VmReturn = hex.EncodeToString(vmRet)

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -270,9 +271,15 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
 
 	// Dry run to get the smart contract address when it is actually deployed
+	parentBlock := &core.Block {
+		BlockHeader: &core.BlockHeader {
+			Height: 1,
+			Timestamp: 1601599331,
+		},
+	}
 	stateCopy, err := et.state().Delivered().Copy()
 	assert.Nil(err)
-	_, contractAddr, gasUsed, vmErr := vm.Execute(deploySCTx, stateCopy)
+	_, contractAddr, gasUsed, vmErr := vm.Execute(parentBlock, deploySCTx, stateCopy)
 	assert.Nil(vmErr)
 	log.Infof("[Deployment] gas used: %v", gasUsed)
 
@@ -329,6 +336,13 @@ func callSmartContract(et *execTest, contractAddr common.Address, callerPrivAcc 
 	// Dry run to call the contract
 	stateCopy, err := et.state().Delivered().Copy()
 	assert.Nil(err)
+
+	parentBlock := &core.Block {
+		BlockHeader: &core.BlockHeader {
+			Height: 1,
+			Timestamp: 1601599331,
+		},
+	}
 	vmRet, execContractAddr, gasUsed, vmErr := vm.Execute(callSCTX, stateCopy)
 	assert.Equal(contractAddr, execContractAddr)
 	log.Infof("[Call      ] gas used: %v", gasUsed)

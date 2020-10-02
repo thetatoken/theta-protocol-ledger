@@ -3,22 +3,25 @@ package vm
 import (
 	"math"
 	"math/big"
-	"time"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 // Execute executes the given smart contract
-func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
+func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+		Origin:      tx.From.Address,
 		GasPrice:    tx.GasPrice,
 		GasLimit:    tx.GasLimit,
-		BlockNumber: new(big.Int).SetUint64(storeView.Height()),
-		Time:        new(big.Int).SetInt64(time.Now().Unix()),
+		BlockNumber: new(big.Int).SetUint64(parentBlock.Height + 1),
+		Time:        parentBlock.Timestamp,
 		Difficulty:  new(big.Int).SetInt64(0),
 	}
 	chainConfig := &params.ChainConfig{}
