@@ -127,9 +127,11 @@ type rawShortNode struct {
 	Val node
 }
 
-func (n rawShortNode) canUnload(uint16, uint16) bool { panic("this should never end up in a live trie") }
-func (n rawShortNode) cache() (hashNode, bool)       { panic("this should never end up in a live trie") }
-func (n rawShortNode) fstring(ind string) string     { panic("this should never end up in a live trie") }
+func (n rawShortNode) canUnload(uint16, uint16) bool {
+	panic("this should never end up in a live trie")
+}
+func (n rawShortNode) cache() (hashNode, bool)   { panic("this should never end up in a live trie") }
+func (n rawShortNode) fstring(ind string) string { panic("this should never end up in a live trie") }
 
 // cachedNode is all the information we know about a single cached node in the
 // memory database write layer.
@@ -667,6 +669,9 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 
 // commit is the private locked version of Commit.
 func (db *Database) commit(hash common.Hash, batch database.Batch) error {
+	ref, _ := db.diskdb.CountReference(hash[:])
+	logger.Debugf("Database.commit, ref: %v, hash: %v", ref, hash.Hex())
+
 	// update reference count
 	batch.Reference(hash[:])
 

@@ -154,14 +154,56 @@ func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	return acc
 }
 
+// // SetAccount sets an account.
+// func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
+// 	accBytes, err := types.ToBytes(acc)
+// 	if err != nil {
+// 		log.Panicf("Error writing account %v error: %v",
+// 			acc, err.Error())
+// 	}
+// 	sv.Set(AccountKey(addr), accBytes)
+// }
+
 // SetAccount sets an account.
 func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
+	sv.setAccount(addr, acc, true)
+}
+
+func (sv *StoreView) setAccountWithoutStateTreeRefCountUpdate(addr common.Address, acc *types.Account) {
+	sv.setAccount(addr, acc, false)
+}
+
+func (sv *StoreView) setAccount(addr common.Address, acc *types.Account, updateRefCountForAccountStateTree bool) {
 	accBytes, err := types.ToBytes(acc)
 	if err != nil {
 		log.Panicf("Error writing account %v error: %v",
 			acc, err.Error())
 	}
 	sv.Set(AccountKey(addr), accBytes)
+
+	if !updateRefCountForAccountStateTree {
+		return
+	}
+
+	if (acc.Root == common.Hash{}) || (acc.Root == core.EmptyRootHash) {
+		return
+	}
+
+	rootRefCount, _ := sv.GetDB().CountReference(acc.Root[:])
+
+	currAccRoot := acc.Root
+	tree := sv.getAccountStorage(acc)
+	root, err := tree.Commit() // should only update the reference count
+	if err != nil {
+		log.Panic(err)
+	}
+	if currAccRoot != root {
+		log.Panicf("Account state tree root changed, %v vs %v", currAccRoot.Hex(), root.Hex())
+	}
+
+	rootRefCount2, _ := sv.GetDB().CountReference(acc.Root[:])
+	logger.Debugf("StoreView.setAccount, addr: %v, account.root: %v, rootRef before commit: %v, rootRef after commit: %v",
+		addr, acc.Root.Hex(), rootRefCount, rootRefCount2)
 }
 
 // DeleteAccount deletes an account.
@@ -465,6 +507,8 @@ func (sv *StoreView) GetState(addr common.Address, key common.Hash) common.Hash 
 	if account == nil {
 		return common.Hash{}
 	}
+	logger.Debugf("StoreView.GetState, address: %v, account.root: %v, key: %v", addr, account.Root.Hex(), key.Hex())
+
 	enc, err := sv.getAccountStorage(account).TryGet(key[:])
 	if err != nil {
 		log.Panic(err)
@@ -492,7 +536,8 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 			log.Panic(err)
 		}
 		account.Root = root
-		sv.SetAccount(addr, account)
+		sv.setAccountWithoutStateTreeRefCountUpdate(addr, account) // The ref counts of the state tree already got updated above
+		logger.Debugf("StoreView.SetState, address: %v, account.root: %v, key: %v, val: %v", addr.Hex(), root.Hex(), key.Hex(), val.Hex())
 		return
 	}
 	// Encoding []byte cannot fail, ok to ignore the error.
@@ -504,7 +549,9 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	}
 
 	account.Root = root
-	sv.SetAccount(addr, account)
+	sv.setAccountWithoutStateTreeRefCountUpdate(addr, account) // The ref counts of the state tree already got updated above
+
+	logger.Debugf("StoreView.SetState, address: %v, account.root: %v, key: %v, val: %v", addr.Hex(), root.Hex(), key.Hex(), val.Hex())
 }
 
 func (sv *StoreView) Suicide(addr common.Address) bool {
@@ -559,10 +606,12 @@ func (sv *StoreView) Prune() error {
 		if err != nil {
 			return false
 		}
-		if account.Root == (common.Hash{}) {
+		if (account.Root == (common.Hash{})) || (account.Root == core.EmptyRootHash) {
 			return false
 		}
 		storage := sv.getAccountStorage(account)
+		logger.Debugf("StoreView.Prune, address: %v, account.root: %v", account.Address, account.Root.Hex())
+
 		err = storage.Prune(nil)
 		if err != nil {
 			logger.Errorf("Failed to prune storage for account %v", account)
