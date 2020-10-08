@@ -442,13 +442,16 @@ func (sv *StoreView) GetCode(addr common.Address) []byte {
 	if account == nil {
 		return nil
 	}
-	if account.CodeHash == types.EmptyCodeHash {
+	if (account.CodeHash == types.EmptyCodeHash) || (account.CodeHash == core.SuicidedCodeHash) {
 		return nil
 	}
 	return sv.GetCodeByHash(account.CodeHash)
 }
 
 func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
+	if codeHash == core.SuicidedCodeHash {
+		return nil
+	}
 	codeKey := CodeKey(codeHash[:])
 	return sv.Get(codeKey)
 }
@@ -550,6 +553,7 @@ func (sv *StoreView) Suicide(addr common.Address) bool {
 		return false
 	}
 	account.CodeHash = core.SuicidedCodeHash
+	sv.SetAccount(addr, account)
 	return true
 }
 
