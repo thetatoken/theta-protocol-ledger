@@ -545,16 +545,21 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 }
 
 func (sv *StoreView) Suicide(addr common.Address) bool {
-	if sv.GetAccount(addr) == nil {
+	account := sv.GetAccount(addr)
+	if account == nil {
 		return false
 	}
-	sv.DeleteAccount(addr)
+	account.CodeHash = core.SuicidedCodeHash
 	return true
 }
 
 func (sv *StoreView) HasSuicided(addr common.Address) bool {
 	account := sv.GetAccount(addr)
-	return account == nil
+	if account == nil {
+		return true
+	}
+	hasSuicided := (account.CodeHash == core.SuicidedCodeHash)
+	return hasSuicided
 }
 
 // Exist reports whether the given account exists in state.
