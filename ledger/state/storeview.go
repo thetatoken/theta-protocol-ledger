@@ -185,25 +185,15 @@ func (sv *StoreView) setAccount(addr common.Address, acc *types.Account, updateR
 		return
 	}
 
-	if (acc.Root == common.Hash{}) || (acc.Root == core.EmptyRootHash) {
+	if (acc == nil || acc.Root == common.Hash{}) || (acc.Root == core.EmptyRootHash) {
 		return
 	}
 
-	rootRefCount, _ := sv.GetDB().CountReference(acc.Root[:])
-
-	currAccRoot := acc.Root
 	tree := sv.getAccountStorage(acc)
-	root, err := tree.Commit() // should only update the reference count
+	_, err = tree.Commit() // update the reference count of the account state trie root
 	if err != nil {
 		log.Panic(err)
 	}
-	if currAccRoot != root {
-		log.Panicf("Account state tree root changed, %v vs %v", currAccRoot.Hex(), root.Hex())
-	}
-
-	rootRefCount2, _ := sv.GetDB().CountReference(acc.Root[:])
-	logger.Debugf("StoreView.setAccount, addr: %v, account.root: %v, rootRef before commit: %v, rootRef after commit: %v",
-		addr, acc.Root.Hex(), rootRefCount, rootRefCount2)
 }
 
 // DeleteAccount deletes an account.
