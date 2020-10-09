@@ -669,8 +669,8 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 
 // commit is the private locked version of Commit.
 func (db *Database) commit(hash common.Hash, batch database.Batch) error {
-	ref, _ := db.diskdb.CountReference(hash[:])
-	logger.Debugf("Database.commit, ref: %v, hash: %v", ref, hash.Hex())
+	//ref, _ := db.diskdb.CountReference(hash[:])
+	//logger.Debugf("Database.commit, ref: %v, hash: %v", ref, hash.Hex())
 
 	// update reference count
 	batch.Reference(hash[:])

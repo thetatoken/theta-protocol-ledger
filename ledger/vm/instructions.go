@@ -580,6 +580,20 @@ func opGasLimit(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 	return nil, nil
 }
 
+// opChainID implements CHAINID opcode
+func opChainID(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	chainID := interpreter.evm.chainConfig.ChainID
+	stack.push(chainID)
+	return nil, nil
+}
+
+// opSelfBalance implements OPSELFBALANCE opcode
+func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	balance := interpreter.evm.StateDB.GetBalance(contract.Address())
+	stack.push(balance)
+	return nil, nil
+}
+
 func opPop(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	interpreter.intPool.put(stack.pop())
 	return nil, nil
