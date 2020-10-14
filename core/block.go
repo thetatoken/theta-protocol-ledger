@@ -22,7 +22,7 @@ const (
 
 var (
 	EmptyRootHash    = CalculateRootHash([]common.Bytes{})
-	SuicidedCodeHash = common.HexToHash("4444444444444444444444444444444444444444444444444444444444444444")
+	SuicidedCodeHash = common.HexToHash("deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead")
 )
 
 // Block represents a block in chain.
