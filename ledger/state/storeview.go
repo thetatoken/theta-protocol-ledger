@@ -400,6 +400,9 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 		return
 	}
 	account := sv.GetAccount(addr)
+	if account == nil {
+		panic(fmt.Sprintf("Account for %v does not exist!", addr))
+	}
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Sub(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
@@ -409,7 +412,7 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	account := sv.GetAccount(addr)
+	account := sv.GetOrCreateAccount(addr)
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Add(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
@@ -553,6 +556,7 @@ func (sv *StoreView) Suicide(addr common.Address) bool {
 		return false
 	}
 	account.CodeHash = core.SuicidedCodeHash
+	account.Balance.TFuelWei = big.NewInt(0)
 	sv.SetAccount(addr, account)
 	return true
 }
