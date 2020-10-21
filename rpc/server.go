@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/http"
 	"sync"
@@ -71,6 +72,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatch
 	t.handler = s
 
 	t.router = mux.NewRouter()
+	t.router.Handle("/", &defaultHTTPHandler{})
 	t.router.Handle("/rpc", jsonrpc2.HTTPHandler(s))
 	t.router.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
 		s.ServeCodec(jsonrpc2.NewServerCodec(ws, s))
@@ -133,4 +135,11 @@ func (t *ThetaRPCServer) Stop() {
 // Wait blocks until all goroutines stop.
 func (t *ThetaRPCServer) Wait() {
 	t.wg.Wait()
+}
+
+type defaultHTTPHandler struct {
+}
+
+func (dh *defaultHTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintf(w, "Theta Node is up and running!")
 }
