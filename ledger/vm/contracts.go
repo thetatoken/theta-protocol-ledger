@@ -33,6 +33,7 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
+	SetEVM(evm *EVM)
 	RequiredGas(input []byte) uint64  // RequiredPrice calculates the contract gas use
 	Run(input []byte) ([]byte, error) // Run runs the precompiled contract
 }
@@ -57,10 +58,14 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{6}): &bn256Add{},
 	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
 	common.BytesToAddress([]byte{8}): &bn256Pairing{},
+
+	common.BytesToAddress([]byte{101}): &thetaBalance{},
+	common.BytesToAddress([]byte{102}): &thetaStake{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
-func RunPrecompiledContract(p PrecompiledContract, input []byte, contract *Contract) (ret []byte, err error) {
+func RunPrecompiledContract(evm *EVM, p PrecompiledContract, input []byte, contract *Contract) (ret []byte, err error) {
+	p.SetEVM(evm)
 	gas := p.RequiredGas(input)
 	if contract.UseGas(gas) {
 		return p.Run(input)
@@ -70,6 +75,8 @@ func RunPrecompiledContract(p PrecompiledContract, input []byte, contract *Contr
 
 // ECRECOVER implemented as a native contract.
 type ecrecover struct{}
+
+func (c *ecrecover) SetEVM(evm *EVM) {}
 
 func (c *ecrecover) RequiredGas(input []byte) uint64 {
 	return params.EcrecoverGas
@@ -104,6 +111,8 @@ func (c *ecrecover) Run(input []byte) ([]byte, error) {
 // SHA256 implemented as a native contract.
 type sha256hash struct{}
 
+func (c *sha256hash) SetEVM(evm *EVM) {}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
 // This method does not require any overflow checking as the input size gas costs
@@ -118,6 +127,8 @@ func (c *sha256hash) Run(input []byte) ([]byte, error) {
 
 // RIPEMD160 implemented as a native contract.
 type ripemd160hash struct{}
+
+func (c *ripemd160hash) SetEVM(evm *EVM) {}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
@@ -134,6 +145,8 @@ func (c *ripemd160hash) Run(input []byte) ([]byte, error) {
 
 // data copy implemented as a native contract.
 type dataCopy struct{}
+
+func (c *dataCopy) SetEVM(evm *EVM) {}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 //
@@ -162,6 +175,8 @@ var (
 	big3072   = big.NewInt(3072)
 	big199680 = big.NewInt(199680)
 )
+
+func (c *bigModExp) SetEVM(evm *EVM) {}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bigModExp) RequiredGas(input []byte) uint64 {
@@ -274,6 +289,8 @@ func newTwistPoint(blob []byte) (*bn256.G2, error) {
 // bn256Add implements a native elliptic curve point addition.
 type bn256Add struct{}
 
+func (c *bn256Add) SetEVM(evm *EVM) {}
+
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256Add) RequiredGas(input []byte) uint64 {
 	return params.Bn256AddGas
@@ -295,6 +312,8 @@ func (c *bn256Add) Run(input []byte) ([]byte, error) {
 
 // bn256ScalarMul implements a native elliptic curve scalar multiplication.
 type bn256ScalarMul struct{}
+
+func (c *bn256ScalarMul) SetEVM(evm *EVM) {}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256ScalarMul) RequiredGas(input []byte) uint64 {
@@ -324,6 +343,8 @@ var (
 
 // bn256Pairing implements a pairing pre-compile for the bn256 curve
 type bn256Pairing struct{}
+
+func (c *bn256Pairing) SetEVM(evm *EVM) {}
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
 func (c *bn256Pairing) RequiredGas(input []byte) uint64 {
@@ -357,4 +378,46 @@ func (c *bn256Pairing) Run(input []byte) ([]byte, error) {
 		return true32Byte, nil
 	}
 	return false32Byte, nil
+}
+
+// thetaBalance retrieves the ThetaWei balance of the given address
+type thetaBalance struct {
+	evm *EVM
+}
+
+func (c *thetaBalance) SetEVM(evm *EVM) {
+	c.evm = evm
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *thetaBalance) RequiredGas(input []byte) uint64 {
+	return params.ThetaBalanceGas
+}
+
+func (c *thetaBalance) Run(input []byte) ([]byte, error) {
+	address := common.BytesToAddress(input)
+	thetaBalance := c.evm.StateDB.GetThetaBalance(address)
+	thetaBalanceBytes := thetaBalance.Bytes()
+	return thetaBalanceBytes, nil
+}
+
+// thetaStake retrieves the total amount of ThetaWei the address staked to validators and/or guardians
+type thetaStake struct {
+	evm *EVM
+}
+
+func (c *thetaStake) SetEVM(evm *EVM) {
+	c.evm = evm
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *thetaStake) RequiredGas(input []byte) uint64 {
+	return params.ThetaStakeGas
+}
+
+func (c *thetaStake) Run(input []byte) ([]byte, error) {
+	address := common.BytesToAddress(input)
+	thetaStake := c.evm.StateDB.GetThetaStake(address)
+	thetaStakeBytes := thetaStake.Bytes()
+	return thetaStakeBytes, nil
 }

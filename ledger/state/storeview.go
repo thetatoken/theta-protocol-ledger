@@ -422,6 +422,42 @@ func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
 	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
 }
 
+// GetThetaBalance returns the ThetaWei balance of the given address
+func (sv *StoreView) GetThetaBalance(addr common.Address) *big.Int {
+	return sv.GetOrCreateAccount(addr).Balance.ThetaWei
+}
+
+// GetThetaStake returns the total amount of ThetaWei the address staked to validators and/or guardians
+func (sv *StoreView) GetThetaStake(addr common.Address) *big.Int {
+	totalStake := big.NewInt(0)
+
+	vcp := sv.GetValidatorCandidatePool()
+	for _, v := range vcp.SortedCandidates {
+		for _, stake := range v.Stakes {
+			if stake.Source == addr {
+				if stake.Withdrawn {
+					continue // withdrawn stake does not count
+				}
+				totalStake = new(big.Int).Add(stake.Amount, totalStake)
+			}
+		}
+	}
+
+	gcp := sv.GetGuardianCandidatePool()
+	for _, g := range gcp.SortedGuardians {
+		for _, stake := range g.Stakes {
+			if stake.Source == addr {
+				if stake.Withdrawn {
+					continue // withdrawn stake does not count
+				}
+				totalStake = new(big.Int).Add(stake.Amount, totalStake)
+			}
+		}
+	}
+
+	return totalStake
+}
+
 func (sv *StoreView) GetNonce(addr common.Address) uint64 {
 	return sv.GetOrCreateAccount(addr).Sequence
 }
