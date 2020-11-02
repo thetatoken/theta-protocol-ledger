@@ -364,7 +364,6 @@ func (c *bn256Pairing) Run(evm *EVM, input []byte) ([]byte, error) {
 
 // thetaBalance retrieves the ThetaWei balance of the given address
 type thetaBalance struct {
-	evm *EVM
 }
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
@@ -381,7 +380,6 @@ func (c *thetaBalance) Run(evm *EVM, input []byte) ([]byte, error) {
 
 // thetaStake retrieves the total amount of ThetaWei the address staked to validators and/or guardians
 type thetaStake struct {
-	evm *EVM
 }
 
 // RequiredGas returns the gas required to execute the pre-compiled contract.
