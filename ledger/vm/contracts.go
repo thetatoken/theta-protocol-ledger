@@ -375,7 +375,8 @@ func (c *thetaBalance) Run(evm *EVM, input []byte) ([]byte, error) {
 	address := common.BytesToAddress(input)
 	thetaBalance := evm.StateDB.GetThetaBalance(address)
 	thetaBalanceBytes := thetaBalance.Bytes()
-	return thetaBalanceBytes, nil
+	thetaBalanceBytes32 := common.LeftPadBytes(thetaBalanceBytes[:], 32) // easier to convert bytes32 into uint256 in smart contracts
+	return thetaBalanceBytes32, nil
 }
 
 // thetaStake retrieves the total amount of ThetaWei the address staked to validators and/or guardians
@@ -391,5 +392,6 @@ func (c *thetaStake) Run(evm *EVM, input []byte) ([]byte, error) {
 	address := common.BytesToAddress(input)
 	thetaStake := evm.StateDB.GetThetaStake(address)
 	thetaStakeBytes := thetaStake.Bytes()
-	return thetaStakeBytes, nil
+	thetaStakeBytes32 := common.LeftPadBytes(thetaStakeBytes[:], 32) // easier to convert bytes32 into uint256 in smart contracts
+	return thetaStakeBytes32, nil
 }
