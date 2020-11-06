@@ -26,7 +26,7 @@ func NewDepositStakeExecutor() *DepositStakeExecutor {
 
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
 	// Feature block height check
-	blockHeight := view.Height() + 1
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	if _, ok := transaction.(*types.DepositStakeTxV2); ok && blockHeight < common.HeightEnableTheta2 {
 		return result.Error("Feature guardian is not active yet")
 	}
@@ -77,9 +77,15 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 			WithErrorCode(result.CodeInsufficientStake)
 	}
 
-	if tx.Purpose == core.StakeForGuardian && stake.ThetaWei.Cmp(core.MinGuardianStakeDeposit) < 0 {
-		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each guardian deposit", core.MinGuardianStakeDeposit).
-			WithErrorCode(result.CodeInsufficientStake)
+	if tx.Purpose == core.StakeForGuardian {
+		minGuardianStake := core.MinGuardianStakeDeposit
+		if blockHeight >= common.HeightLowerGNStakeThresholdTo1000 {
+			minGuardianStake = core.MinGuardianStakeDeposit1000
+		}
+		if stake.ThetaWei.Cmp(minGuardianStake) < 0 {
+			return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each guardian deposit", minGuardianStake).
+				WithErrorCode(result.CodeInsufficientStake)
+		}
 	}
 
 	minimalBalance := stake.Plus(tx.Fee)
@@ -93,6 +99,8 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 }
 
 func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+
 	tx := exec.castTx(transaction)
 
 	sourceAccount, success := getInput(view, tx.Source)
@@ -146,7 +154,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 			}
 		}
 
-		err := gcp.DepositStake(sourceAddress, holderAddress, stakeAmount, tx.BlsPubkey)
+		err := gcp.DepositStake(sourceAddress, holderAddress, stakeAmount, tx.BlsPubkey, blockHeight)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
