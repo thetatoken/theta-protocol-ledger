@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm"
 )
@@ -26,6 +27,17 @@ type CallSmartContractResult struct {
 // the globally consensus state. It can be used for dry run, or for retrieving info from smart contracts
 // without actually spending gas.
 func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result *CallSmartContractResult) (err error) {
+	var ledgerState *state.StoreView
+	ledgerState, err = t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	blockHeight := ledgerState.Height() + 1 // the view points to the parent of the current block
+	if blockHeight < common.HeightEnableSmartContract {
+		return fmt.Errorf("Smart contract feature not enabled until block height %v.", common.HeightEnableSmartContract)
+	}
+
 	sctxBytes, err := hex.DecodeString(args.SctxBytes)
 	if err != nil {
 		return err
@@ -40,10 +52,6 @@ func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result 
 		return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
 	}
 
-	ledgerState, err := t.ledger.GetDeliveredSnapshot()
-	if err != nil {
-		return err
-	}
 	parentBlock := t.ledger.State().ParentBlock()
 	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(parentBlock, sctx, ledgerState)
 	ledgerState.Save()
