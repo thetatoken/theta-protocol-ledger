@@ -990,7 +990,9 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 
 	select {
 	case e.finalizedBlocks <- block.Block:
+		e.logger.Infof("Notified finalized block, height=%v", block.Height)
 	default:
+		e.logger.Warnf("Failed to notify finalized block, height=%v", block.Height)
 	}
 	return nil
 }
