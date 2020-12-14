@@ -77,7 +77,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatch
 
 	t.router = mux.NewRouter()
 	t.router.Handle("/", &defaultHTTPHandler{})
-	t.router.Handle("/rpc", TimeoutHandler(jsonrpc2.HTTPHandler(s), viper.GetDuration(common.CfgRPCTimeoutSecs)*time.Second, ""))
+	t.router.Handle("/rpc", corsMiddleware(TimeoutHandler(jsonrpc2.HTTPHandler(s), viper.GetDuration(common.CfgRPCTimeoutSecs)*time.Second, "")))
 	t.router.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
 		s.ServeCodec(jsonrpc2.NewServerCodec(ws, s))
 	}))
@@ -129,6 +129,21 @@ func (t *ThetaRPCServer) serve() {
 	t.listener = ll
 
 	logger.Info(t.server.Serve(ll))
+}
+
+func corsMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//Allow CORS here By * or specific origin
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Headers", "*")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // Stop notifies all goroutines to stop without blocking.
