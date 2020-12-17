@@ -509,8 +509,13 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 
 	err := t.pruneNode(t.root, cb)
 	if err != nil {
+		logger.Debugf("Trie.Prune error: %v", err)
+
 		return err
 	}
+
+	logger.Debugf("Trie.Prune done")
+
 	return nil
 }
 
@@ -520,7 +525,7 @@ func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {
 		return nil
 	}
 	ref, err := t.db.diskdb.CountReference(hash[:])
-	logger.Debugf("Trie.pruneNode, ref: %v, hash: %v", ref, hash)
+	//logger.Debugf("Trie.pruneNode, ref: %v, hash: %v", ref, hash)
 	if err != nil {
 		if err == store.ErrKeyNotFound {
 			return nil
@@ -528,7 +533,7 @@ func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {
 		return err
 	}
 	if ref > 1 {
-		logger.Debugf("Trie.pruneNode, deference node, ref: %v, hash: %v", ref, hash)
+		//logger.Debugf("Trie.pruneNode, deference node, ref: %v, hash: %v", ref, hash)
 		return t.db.diskdb.Dereference(hash[:])
 	}
 
@@ -540,7 +545,7 @@ func (t *Trie) pruneNode(n node, cb func(n []byte) bool) error {
 	if err != nil && err != store.ErrKeyNotFound {
 		return err
 	}
-	logger.Debugf("Trie.pruneNode, delete node, hash: %v", hash)
+	//logger.Debugf("Trie.pruneNode, delete node, hash: %v", hash)
 	return nil
 }
 
