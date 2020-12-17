@@ -34,6 +34,12 @@ const (
 	CfgStorageStatePruningInterval = "storage.statePruningInterval"
 	// CfgStorageStatePruningRetainedBlocks indicates the number of blocks prior to the latest finalized block to be retained
 	CfgStorageStatePruningRetainedBlocks = "storage.statePruningRetainedBlocks"
+	// CfgStorageStatePruningSkipCheckpoints indicates if the checkpoint state trie should be retained
+	CfgStorageStatePruningSkipCheckpoints = "storage.statePruningSkipCheckpoints"
+	// CfgStorageLevelDBCacheSize indicates Level DB cache size
+	CfgStorageLevelDBCacheSize = "storage.levelDBCacheSize"
+	// CfgStorageLevelDBHandles indicates Level DB handle count
+	CfgStorageLevelDBHandles = "storage.levelDBHandles"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -141,6 +147,9 @@ func init() {
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
 	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
+	viper.SetDefault(CfgStorageStatePruningSkipCheckpoints, true)
+	viper.SetDefault(CfgStorageLevelDBCacheSize, 2048)
+	viper.SetDefault(CfgStorageLevelDBHandles, 256)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)

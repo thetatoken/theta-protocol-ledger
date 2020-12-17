@@ -464,7 +464,7 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 	}
 
 	for height := endHeight; height >= startHeight && height > 0; height-- {
-		if common.IsCheckPointHeight(height + 1) {
+		if common.IsCheckPointHeight(height+1) && viper.GetBool(common.CfgStorageStatePruningSkipCheckpoints) {
 			logger.Infof("Skip pruning checkpoint blocks")
 			continue // preserve checkpoint states
 		}
