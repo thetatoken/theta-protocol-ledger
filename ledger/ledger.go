@@ -464,6 +464,10 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 	}
 
 	for height := endHeight; height >= startHeight && height > 0; height-- {
+		if common.IsCheckPointHeight(height + 1) {
+			logger.Infof("Skip pruning checkpoint blocks")
+			continue // preserve checkpoint states
+		}
 		blocks := chain.FindBlocksByHeight(height)
 		for idx, block := range blocks {
 			if _, ok := stateHashMap[block.StateHash.String()]; !ok {

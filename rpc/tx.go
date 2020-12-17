@@ -109,11 +109,11 @@ func (t *ThetaRPCService) txCallback() {
 
 			logger.Infof("Done processing finalized block, height=%v", block.Height)
 		case <-timer.C:
-			logger.Infof("txCallbackManager.Trim()")
+			logger.Debugf("txCallbackManager.Trim()")
 
 			txCallbackManager.Trim()
 
-			logger.Infof("Done txCallbackManager.Trim()")
+			logger.Debugf("Done txCallbackManager.Trim()")
 		}
 	}
 }
