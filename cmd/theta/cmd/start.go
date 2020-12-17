@@ -89,7 +89,7 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	mainDBPath := path.Join(dbPath, "db", "main")
 	refDBPath := path.Join(dbPath, "db", "ref")
-	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
+	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath, 2048, 256)
 	if err != nil {
 		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
 			mainDBPath, refDBPath, err)
