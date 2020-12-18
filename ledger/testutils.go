@@ -60,7 +60,8 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 	mempool := mp.CreateMempool(dispatcher)
 
 	ledgerState := st.NewLedgerState(chainID, db)
-	ledgerState.ResetState(initHeight, snapshot.block.StateHash)
+	//ledgerState.ResetState(initHeight, snapshot.block.StateHash)
+	ledgerState.ResetState(snapshot.block)
 
 	executor := exec.NewExecutor(db, chain, ledgerState, consensus, valMgr)
 
@@ -207,7 +208,16 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 
 	initHeight := uint64(1)
 	initRootHash := common.Hash{}
-	ledger.ResetState(initHeight, initRootHash)
+
+	initBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			ChainID:   chainID,
+			Height:    initHeight,
+			StateHash: initRootHash,
+		},
+	}
+	//ledger.ResetState(initHeight, initRootHash)
+	ledger.ResetState(initBlock)
 
 	return chainID, ledger, mempool
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
@@ -19,12 +20,14 @@ var _ TxExecutor = (*SmartContractTxExecutor)(nil)
 // SmartContractTxExecutor implements the TxExecutor interface
 type SmartContractTxExecutor struct {
 	state *st.LedgerState
+	chain *blockchain.Chain
 }
 
 // NewSmartContractTxExecutor creates a new instance of SmartContractTxExecutor
-func NewSmartContractTxExecutor(state *st.LedgerState) *SmartContractTxExecutor {
+func NewSmartContractTxExecutor(chain *blockchain.Chain, state *st.LedgerState) *SmartContractTxExecutor {
 	return &SmartContractTxExecutor{
 		state: state,
+		chain: chain,
 	}
 }
 
@@ -40,7 +43,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	// Get input account
 	fromAccount, success := getInput(view, tx.From)
 	if success.IsError() {
-		return result.Error("Failed to get the from account")
+		return result.Error("Failed to get the account (the address has no Theta nor TFuel)")
 	}
 
 	// Validate input, advanced
@@ -60,6 +63,11 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	if !sanityCheckForGasPrice(tx.GasPrice) {
 		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", types.MinimumGasPrice).
 			WithErrorCode(result.CodeInvalidGasPrice)
+	}
+
+	if tx.GasLimit > types.MaximumTxGasLimit {
+		return result.Error("Invalid gas limit. Gas limit needs to be at most %v", types.MaximumTxGasLimit).
+			WithErrorCode(result.CodeInvalidGasLimit)
 	}
 
 	zero := big.NewInt(0)
@@ -88,10 +96,12 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SmartContractTx)
 
+	view.ResetLogs()
+
 	// Note: for contract deployment, vm.Execute() might transfer coins from the fromAccount to the
 	//       deployed smart contract. Thus, we should call vm.Execute() before calling getInput().
 	//       Otherwise, the fromAccount returned by getInput() will have incorrect balance.
-	_, _, gasUsed, _ := vm.Execute(tx, view)
+	evmRet, contractAddr, gasUsed, evmErr := vm.Execute(exec.state.ParentBlock(), tx, view)
 
 	fromAddress := tx.From.Address
 	fromAccount, success := getInput(view, tx.From)
@@ -115,6 +125,15 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	view.SetAccount(fromAddress, fromAccount)
 
 	txHash := types.TxID(chainID, tx)
+
+	// TODO: Add tx receipt: status and events
+	logs := view.PopLogs()
+	if evmErr != nil {
+		// Do not record events if transaction is reverted
+		logs = nil
+	}
+	exec.chain.AddTxReceipt(tx, logs, evmRet, contractAddr, gasUsed, evmErr)
+
 	return txHash, result.OK
 }
 

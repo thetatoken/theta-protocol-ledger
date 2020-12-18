@@ -40,9 +40,9 @@ type Executor struct {
 	releaseFundTxExec    *ReleaseFundTxExecutor
 	servicePaymentTxExec *ServicePaymentTxExecutor
 	splitRuleTxExec      *SplitRuleTxExecutor
-	// smartContractTxExec *SmartContractTxExecutor
-	depositStakeTxExec  *DepositStakeExecutor
-	withdrawStakeTxExec *WithdrawStakeExecutor
+	smartContractTxExec  *SmartContractTxExecutor
+	depositStakeTxExec   *DepositStakeExecutor
+	withdrawStakeTxExec  *WithdrawStakeExecutor
 
 	skipSanityCheck bool
 }
@@ -62,10 +62,10 @@ func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.Ledger
 		releaseFundTxExec:    NewReleaseFundTxExecutor(state),
 		servicePaymentTxExec: NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:      NewSplitRuleTxExecutor(state),
-		//smartContractTxExec:  NewSmartContractTxExecutor(state),
-		depositStakeTxExec:  NewDepositStakeExecutor(),
-		withdrawStakeTxExec: NewWithdrawStakeExecutor(state),
-		skipSanityCheck:     false,
+		smartContractTxExec:  NewSmartContractTxExecutor(chain, state),
+		depositStakeTxExec:   NewDepositStakeExecutor(),
+		withdrawStakeTxExec:  NewWithdrawStakeExecutor(state),
+		skipSanityCheck:      false,
 	}
 
 	return executor
@@ -130,6 +130,10 @@ func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.T
 		return result.OK
 	}
 
+	if !exec.isTxTypeSupported(view, tx) {
+		return result.Error("tx type not supported yet")
+	}
+
 	var sanityCheckResult result.Result
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
@@ -144,6 +148,11 @@ func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.T
 func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (common.Hash, result.Result) {
 	var processResult result.Result
 	var txHash common.Hash
+
+	if !exec.isTxTypeSupported(view, tx) {
+		return txHash, result.Error("tx type not supported yet")
+	}
+
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
 		txHash, processResult = txExecutor.process(chainID, view, tx)
@@ -155,6 +164,21 @@ func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (
 	}
 
 	return txHash, processResult
+}
+
+func (exec *Executor) isTxTypeSupported(view *st.StoreView, tx types.Tx) bool {
+	blockHeight := view.Height() + 1
+
+	switch tx.(type) {
+	case *types.SmartContractTx:
+		if blockHeight < common.HeightEnableSmartContract {
+			return false
+		}
+	default:
+		return true
+	}
+
+	return true
 }
 
 func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
@@ -174,8 +198,8 @@ func (exec *Executor) getTxExecutor(tx types.Tx) TxExecutor {
 		txExecutor = exec.servicePaymentTxExec
 	case *types.SplitRuleTx:
 		txExecutor = exec.splitRuleTxExec
-	// case *types.SmartContractTx:
-	// 	txExecutor = exec.smartContractTxExec
+	case *types.SmartContractTx:
+		txExecutor = exec.smartContractTxExec
 	case *types.DepositStakeTx:
 		txExecutor = exec.depositStakeTxExec
 	case *types.WithdrawStakeTx:

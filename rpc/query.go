@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
@@ -107,12 +108,13 @@ type GetTransactionArgs struct {
 }
 
 type GetTransactionResult struct {
-	BlockHash   common.Hash       `json:"block_hash"`
-	BlockHeight common.JSONUint64 `json:"block_height"`
-	Status      TxStatus          `json:"status"`
-	TxHash      common.Hash       `json:"hash"`
-	Type        byte              `json:"type"`
-	Tx          types.Tx          `json:"transaction"`
+	BlockHash   common.Hash                `json:"block_hash"`
+	BlockHeight common.JSONUint64          `json:"block_height"`
+	Status      TxStatus                   `json:"status"`
+	TxHash      common.Hash                `json:"hash"`
+	Type        byte                       `json:"type"`
+	Tx          types.Tx                   `json:"transaction"`
+	Receipt     *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type TxStatus string
@@ -161,6 +163,12 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.Tx = tx
 	result.Type = getTxType(tx)
 
+	// Add receipt
+	receipt, found := t.chain.FindTxReceiptByHash(hash)
+	if found {
+		result.Receipt = receipt
+	}
+
 	return nil
 }
 
@@ -187,8 +195,9 @@ type GetBlockArgs struct {
 
 type Tx struct {
 	types.Tx `json:"raw"`
-	Type     byte        `json:"type"`
-	Hash     common.Hash `json:"hash"`
+	Type     byte                       `json:"type"`
+	Hash     common.Hash                `json:"hash"`
+	Receipt  *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type GetBlockResult struct {
@@ -267,12 +276,18 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
 	}
 	return
@@ -328,12 +343,18 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
 	}
 	return

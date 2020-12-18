@@ -21,7 +21,8 @@ const (
 )
 
 var (
-	EmptyRootHash = CalculateRootHash([]common.Bytes{})
+	EmptyRootHash    = CalculateRootHash([]common.Bytes{})
+	SuicidedCodeHash = common.HexToHash("deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead")
 )
 
 // Block represents a block in chain.
@@ -521,6 +522,6 @@ func (eb *ExtendedBlock) MarshalJSON() ([]byte, error) {
 		Hash common.Hash
 	}{
 		ExtendedBlockInnerJSON: ExtendedBlockInnerJSON(*eb),
-		Hash: eb.Hash(),
+		Hash:                   eb.Hash(),
 	})
 }

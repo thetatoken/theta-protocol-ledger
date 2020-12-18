@@ -8,8 +8,11 @@ const HeightEnableValidatorReward uint64 = 3050 // for Sapphire testnet
 //const HeightEnableTheta2 uint64 = 10000000000
 const HeightEnableTheta2 uint64 = 4050 // for Sapphire testnet
 
-// HeightLowerGNStakeThreshold specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
+// HeightLowerGNStakeThresholdTo1000 specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
 const HeightLowerGNStakeThresholdTo1000 uint64 = 2477710 // for Sapphire testnet
+
+// HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
+const HeightEnableSmartContract uint64 = 2577710 // for Sapphire testnet
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)

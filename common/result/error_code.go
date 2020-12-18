@@ -33,6 +33,7 @@ const (
 	CodeInvalidValueToTransfer ErrorCode = 105002
 	CodeInvalidGasPrice        ErrorCode = 105003
 	CodeFeeLimitTooHigh        ErrorCode = 105004
+	CodeInvalidGasLimit        ErrorCode = 105005
 
 	// Stake Deposit/Withdrawal Errors
 	CodeInvalidStakePurpose     ErrorCode = 106001
