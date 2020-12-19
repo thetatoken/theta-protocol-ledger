@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/crypto/bls"
 
 	"github.com/thetatoken/theta/common"
@@ -107,12 +108,13 @@ type GetTransactionArgs struct {
 }
 
 type GetTransactionResult struct {
-	BlockHash   common.Hash       `json:"block_hash"`
-	BlockHeight common.JSONUint64 `json:"block_height"`
-	Status      TxStatus          `json:"status"`
-	TxHash      common.Hash       `json:"hash"`
-	Type        byte              `json:"type"`
-	Tx          types.Tx          `json:"transaction"`
+	BlockHash   common.Hash                `json:"block_hash"`
+	BlockHeight common.JSONUint64          `json:"block_height"`
+	Status      TxStatus                   `json:"status"`
+	TxHash      common.Hash                `json:"hash"`
+	Type        byte                       `json:"type"`
+	Tx          types.Tx                   `json:"transaction"`
+	Receipt     *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type TxStatus string
@@ -161,6 +163,12 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.Tx = tx
 	result.Type = getTxType(tx)
 
+	// Add receipt
+	receipt, found := t.chain.FindTxReceiptByHash(hash)
+	if found {
+		result.Receipt = receipt
+	}
+
 	return nil
 }
 
@@ -187,13 +195,16 @@ type GetBlockArgs struct {
 
 type Tx struct {
 	types.Tx `json:"raw"`
-	Type     byte        `json:"type"`
-	Hash     common.Hash `json:"hash"`
+	Type     byte                       `json:"type"`
+	Hash     common.Hash                `json:"hash"`
+	Receipt  *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type GetBlockResult struct {
 	*GetBlockResultInner
 }
+
+type GetBlocksResult []*GetBlockResultInner
 
 type GetBlockResultInner struct {
 	ChainID       string                 `json:"chain_id"`
@@ -265,12 +276,18 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
 	}
 	return
@@ -326,13 +343,98 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 		}
 		hash := crypto.Keccak256Hash(txBytes)
 
-		t := getTxType(tx)
+		tp := getTxType(tx)
 		txw := Tx{
 			Tx:   tx,
 			Hash: hash,
-			Type: t,
+			Type: tp,
 		}
+
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if found {
+			txw.Receipt = receipt
+		}
+
 		result.Txs = append(result.Txs, txw)
+	}
+	return
+}
+
+// ------------------------------ GetBlocksByRange -----------------------------------
+
+type GetBlocksByRangeArgs struct {
+	Start common.JSONUint64 `json:"start"`
+	End common.JSONUint64 `json:"end"`
+}
+
+func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
+	if args.Start == 0 && args.End == 0 {
+		return errors.New("Starting block and ending block must be specified")
+	}
+
+	if args.Start > args.End {
+		return errors.New("Starting block must be less than ending block")
+	}
+
+	if args.End - args.Start > 100  {
+		return errors.New("Can't retrieve more than 100 blocks at a time")
+	}
+
+	blocks := t.chain.FindBlocksByHeight(uint64(args.End))
+
+	var block *core.ExtendedBlock
+	for _, b := range blocks {
+		if b.Status.IsFinalized() {
+			block = b
+			break
+		}
+	}
+
+	if block == nil {
+		return
+	}
+
+	for common.JSONUint64(block.Height) >= args.Start {
+		blkInner := &GetBlockResultInner{}
+		blkInner.ChainID = block.ChainID
+		blkInner.Epoch = common.JSONUint64(block.Epoch)
+		blkInner.Height = common.JSONUint64(block.Height)
+		blkInner.Parent = block.Parent
+		blkInner.TxHash = block.TxHash
+		blkInner.StateHash = block.StateHash
+		blkInner.Timestamp = (*common.JSONBig)(block.Timestamp)
+		blkInner.Proposer = block.Proposer
+		blkInner.Children = block.Children
+		blkInner.Status = block.Status
+		blkInner.HCC = block.HCC
+		blkInner.GuardianVotes = block.GuardianVotes
+
+		blkInner.Hash = block.Hash()
+
+		// Parse and fulfill Txs.
+		var tx types.Tx
+		for _, txBytes := range block.Txs {
+			tx, err = types.TxFromBytes(txBytes)
+			if err != nil {
+				return
+			}
+			hash := crypto.Keccak256Hash(txBytes)
+
+			t := getTxType(tx)
+			txw := Tx{
+				Tx:   tx,
+				Hash: hash,
+				Type: t,
+			}
+			blkInner.Txs = append(blkInner.Txs, txw)
+		}
+
+		*result = append([]*GetBlockResultInner{blkInner}, *result...)
+
+		block, err = t.chain.FindBlock(block.Parent)
+		if err != nil {
+			return err
+		}
 	}
 	return
 }

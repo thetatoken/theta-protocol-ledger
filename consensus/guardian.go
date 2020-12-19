@@ -142,46 +142,74 @@ func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
 		return
 	}
 
-	mergedVote, err := g.nextVote.Merge(vote)
-	if err != nil {
-		g.logger.WithFields(log.Fields{
-			"g.block":               g.block.Hex(),
-			"g.round":               g.round,
-			"vote.block":            vote.Block.Hex(),
-			"vote.Mutiplies":        vote.Multiplies,
-			"vote.GCP":              vote.Gcp.Hex(),
-			"g.nextVote.Multiplies": g.nextVote.Multiplies,
-			"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
-			"g.nextVote.Block":      g.nextVote.Block.Hex(),
-			"error":                 err.Error(),
-		}).Info("Failed to merge guardian vote")
+	var candidate *core.AggregatedVotes
+	var err error
+	if !g.isGuardian() && viper.GetBool(common.CfgConsensusPassThroughGuardianVote) {
+		candidate, err = g.nextVote.Pick(vote)
+		if err != nil {
+			g.logger.WithFields(log.Fields{
+				"g.block":               g.block.Hex(),
+				"g.round":               g.round,
+				"vote.block":            vote.Block.Hex(),
+				"vote.Mutiplies":        vote.Multiplies,
+				"vote.GCP":              vote.Gcp.Hex(),
+				"g.nextVote.Multiplies": g.nextVote.Multiplies,
+				"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
+				"g.nextVote.Block":      g.nextVote.Block.Hex(),
+				"error":                 err.Error(),
+			}).Info("Failed to pick guardian vote")
+		}
+		if candidate == g.nextVote {
+			// Incoming vote is not better than the current nextVote.
+			g.logger.WithFields(log.Fields{
+				"vote.block":     vote.Block.Hex(),
+				"vote.Mutiplies": vote.Multiplies,
+			}).Debug("Skipping vote: not better")
+			return
+		}
+	} else {
+		candidate, err = g.nextVote.Merge(vote)
+		if err != nil {
+			g.logger.WithFields(log.Fields{
+				"g.block":               g.block.Hex(),
+				"g.round":               g.round,
+				"vote.block":            vote.Block.Hex(),
+				"vote.Mutiplies":        vote.Multiplies,
+				"vote.GCP":              vote.Gcp.Hex(),
+				"g.nextVote.Multiplies": g.nextVote.Multiplies,
+				"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
+				"g.nextVote.Block":      g.nextVote.Block.Hex(),
+				"error":                 err.Error(),
+			}).Info("Failed to merge guardian vote")
+		}
+		if candidate == nil {
+			// Incoming vote is subset of the current nextVote.
+			g.logger.WithFields(log.Fields{
+				"vote.block":     vote.Block.Hex(),
+				"vote.Mutiplies": vote.Multiplies,
+			}).Debug("Skipping vote: no new index")
+			return
+		}
 	}
-	if mergedVote == nil {
-		// Incoming vote is subset of the current nextVote.
-		g.logger.WithFields(log.Fields{
-			"vote.block":     vote.Block.Hex(),
-			"vote.Mutiplies": vote.Multiplies,
-		}).Debug("Skipping vote: no new index")
-		return
-	}
-	if !g.checkMultipliesForRound(mergedVote, g.round+1) {
+
+	if !g.checkMultipliesForRound(candidate, g.round+1) {
 		g.logger.WithFields(log.Fields{
 			"local.block":           g.block.Hex(),
 			"local.round":           g.round,
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
 			"local.vote.Multiplies": g.nextVote.Multiplies,
-		}).Info("Skipping vote: merged vote overflows")
+		}).Info("Skipping vote: candidate vote overflows")
 		return
 	}
 
-	g.nextVote = mergedVote
+	g.nextVote = candidate
 
 	g.logger.WithFields(log.Fields{
 		"local.block":           g.block.Hex(),
 		"local.round":           g.round,
 		"local.vote.Multiplies": g.nextVote.Multiplies,
-	}).Info("Merged guardian vote")
+	}).Info("New guardian vote")
 }
 
 func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {

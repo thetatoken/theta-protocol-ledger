@@ -92,6 +92,28 @@ func (a *AggregatedVotes) Merge(b *AggregatedVotes) (*AggregatedVotes, error) {
 	}, nil
 }
 
+// Abs returns the number of voted guardians in the vote
+func (a *AggregatedVotes) Abs() int {
+	ret := 0
+	for i := 0; i < len(a.Multiplies); i++ {
+		if a.Multiplies[i] != 0 {
+			ret += 1
+		}
+	}
+	return ret
+}
+
+// Pick selects better vote from two votes.
+func (a *AggregatedVotes) Pick(b *AggregatedVotes) (*AggregatedVotes, error) {
+	if a.Block != b.Block || a.Gcp != b.Gcp {
+		return nil, errors.New("Cannot compare incompatible votes")
+	}
+	if b.Abs() > a.Abs() {
+		return b, nil
+	}
+	return a, nil
+}
+
 // Validate verifies the voteset.
 func (a *AggregatedVotes) Validate(gcp *GuardianCandidatePool) result.Result {
 	if gcp.Hash() != a.Gcp {
@@ -134,11 +156,17 @@ func (a *AggregatedVotes) Copy() *AggregatedVotes {
 
 var (
 	MinGuardianStakeDeposit *big.Int
+
+	MinGuardianStakeDeposit1000 *big.Int
 )
 
 func init() {
 	// Each stake deposit needs to be at least 10,000 Theta
 	MinGuardianStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(10000), new(big.Int).SetUint64(1e18))
+
+	// Lowering the guardian stake threshold to 1,000 Theta
+	MinGuardianStakeDeposit1000 = new(big.Int).Mul(new(big.Int).SetUint64(1000), new(big.Int).SetUint64(1e18))
+
 }
 
 type GuardianCandidatePool struct {
@@ -259,8 +287,12 @@ func (gcp *GuardianCandidatePool) Hash() common.Hash {
 	return crypto.Keccak256Hash(raw)
 }
 
-func (gcp *GuardianCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey) (err error) {
-	if amount.Cmp(MinGuardianStakeDeposit) < 0 {
+func (gcp *GuardianCandidatePool) DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey, blockHeight uint64) (err error) {
+	minGuardianStake := MinGuardianStakeDeposit
+	if blockHeight >= common.HeightLowerGNStakeThresholdTo1000 {
+		minGuardianStake = MinGuardianStakeDeposit1000
+	}
+	if amount.Cmp(minGuardianStake) < 0 {
 		return fmt.Errorf("Insufficient stake: %v", amount)
 	}
 

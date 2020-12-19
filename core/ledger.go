@@ -34,7 +34,8 @@ type Ledger interface {
 	ProposeBlockTxs(block *Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result)
 	ApplyBlockTxs(block *Block) result.Result
 	ApplyBlockTxsForChainCorrection(block *Block) (common.Hash, result.Result)
-	ResetState(height uint64, rootHash common.Hash) result.Result
+	//ResetState(height uint64, rootHash common.Hash) result.Result
+	ResetState(block *Block) result.Result
 	FinalizeState(height uint64, rootHash common.Hash) result.Result
 	GetFinalizedValidatorCandidatePool(blockHash common.Hash, isNext bool) (*ValidatorCandidatePool, error)
 	GetGuardianCandidatePool(blockHash common.Hash) (*GuardianCandidatePool, error)

@@ -1,10 +1,18 @@
 package common
 
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
-const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020 PST
+//const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020 PST
+const HeightEnableValidatorReward uint64 = 3050 // for Sapphire testnet
 
 // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
-const HeightEnableTheta2 uint64 = 5877350 // approximate time: 12pm May 27th, 2020 PDT
+//const HeightEnableTheta2 uint64 = 10000000000
+const HeightEnableTheta2 uint64 = 4050 // for Sapphire testnet
+
+// HeightLowerGNStakeThresholdTo1000 specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
+const HeightLowerGNStakeThresholdTo1000 uint64 = 2477710 // for Sapphire testnet
+
+// HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
+const HeightEnableSmartContract uint64 = 2577710 // for Sapphire testnet
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)

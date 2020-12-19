@@ -652,6 +652,15 @@ func (msgr *Messenger) Peers() []string {
 	return peerIDs
 }
 
+// PeerExists indicates if the given peerID is a neighboring peer
+func (msgr *Messenger) PeerExists(peerID string) bool {
+	prID, err := pr.IDB58Decode(peerID)
+	if err != nil {
+		return false
+	}
+	return msgr.peerTable.PeerExists(prID)
+}
+
 func (msgr *Messenger) recordReceivedBytes(cid common.ChannelIDEnum, size int) {
 	if !msgr.statsEnabled {
 		return

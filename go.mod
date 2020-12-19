@@ -31,7 +31,7 @@ require (
 	github.com/libp2p/go-libp2p-transport v0.1.0
 	github.com/libp2p/go-nat v0.0.3
 	github.com/libp2p/go-stream-muxer v0.1.0
-	github.com/mattn/go-isatty v0.0.5
+	github.com/mattn/go-isatty v0.0.12
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mongodb/mongo-go-driver v0.0.17
 	github.com/multiformats/go-multiaddr v0.0.4
@@ -61,7 +61,7 @@ require (
 	go.opencensus.io v0.21.0
 	golang.org/x/crypto v0.0.0-20191001170739-f9e2070545dc
 	golang.org/x/net v0.0.0-20191021144547-ec77196f6094
-	golang.org/x/sys v0.0.0-20191023151326-f89234f9a2c2
+	golang.org/x/sys v0.0.0-20200223170610-d5e6a3e2c0ae
 	golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898 // indirect
 	gopkg.in/karalabe/cookiejar.v2 v2.0.0-20150724131613-8dcd6a7f4951
 	gopkg.in/mgo.v2 v2.0.0-20180705113604-9856a29383ce

@@ -531,22 +531,30 @@ func opGasprice(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 }
 
 func opBlockhash(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	num := stack.pop()
-
-	n := interpreter.intPool.get().Sub(interpreter.evm.BlockNumber, common.Big257)
-	if num.Cmp(n) > 0 && num.Cmp(interpreter.evm.BlockNumber) < 0 {
-		stack.push(interpreter.evm.GetHash(num.Uint64()).Big())
-	} else {
-		stack.push(interpreter.intPool.getZero())
-	}
-	interpreter.intPool.put(num, n)
-	return nil, nil
+	return nil, fmt.Errorf("opBlockhash not supported")
 }
 
 func opCoinbase(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(interpreter.evm.Coinbase.Big())
-	return nil, nil
+	return nil, fmt.Errorf("opCoinbase not supported")
 }
+
+// func opBlockhash(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+// 	num := stack.pop()
+
+// 	n := interpreter.intPool.get().Sub(interpreter.evm.BlockNumber, common.Big257)
+// 	if num.Cmp(n) > 0 && num.Cmp(interpreter.evm.BlockNumber) < 0 {
+// 		stack.push(interpreter.evm.GetHash(num.Uint64()).Big())
+// 	} else {
+// 		stack.push(interpreter.intPool.getZero())
+// 	}
+// 	interpreter.intPool.put(num, n)
+// 	return nil, nil
+// }
+
+// func opCoinbase(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+// 	stack.push(interpreter.evm.Coinbase.Big())
+// 	return nil, nil
+// }
 
 func opTimestamp(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	stack.push(math.U256(interpreter.intPool.get().Set(interpreter.evm.Time)))
@@ -558,13 +566,31 @@ func opNumber(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memor
 	return nil, nil
 }
 
+// func opDifficulty(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+// 	stack.push(math.U256(interpreter.intPool.get().Set(interpreter.evm.Difficulty)))
+// 	return nil, nil
+// }
+
 func opDifficulty(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	stack.push(math.U256(interpreter.intPool.get().Set(interpreter.evm.Difficulty)))
-	return nil, nil
+	return nil, fmt.Errorf("opDifficulty not supported")
 }
 
 func opGasLimit(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
 	stack.push(math.U256(interpreter.intPool.get().SetUint64(interpreter.evm.GasLimit)))
+	return nil, nil
+}
+
+// opChainID implements CHAINID opcode
+func opChainID(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	chainID := interpreter.evm.chainConfig.ChainID
+	stack.push(chainID)
+	return nil, nil
+}
+
+// opSelfBalance implements OPSELFBALANCE opcode
+func opSelfBalance(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
+	balance := interpreter.evm.StateDB.GetBalance(contract.Address())
+	stack.push(balance)
 	return nil, nil
 }
 
@@ -872,9 +898,6 @@ func makeLog(size int) executionFunc {
 			Address: contract.Address(),
 			Topics:  topics,
 			Data:    d,
-			// This is a non-consensus field, but assigned here because
-			// core/state doesn't know the current block number.
-			BlockNumber: interpreter.evm.BlockNumber.Uint64(),
 		})
 
 		interpreter.intPool.put(mStart, mSize)

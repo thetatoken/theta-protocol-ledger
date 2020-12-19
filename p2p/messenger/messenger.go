@@ -236,6 +236,11 @@ func (msgr *Messenger) Peers() []string {
 	return peerIDs
 }
 
+// PeerExists indicates if the given peerID is a neighboring peer
+func (msgr *Messenger) PeerExists(peerID string) bool {
+	return msgr.peerTable.PeerExists(peerID)
+}
+
 // RegisterMessageHandler registers the message handler
 func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	channelIDs := msgHandler.GetChannelIDs()

@@ -375,3 +375,8 @@ type cryptoJSON struct {
 type cipherparamsJSON struct {
 	IV string `json:"iv"`
 }
+
+var (
+	EncryptKey = encryptKey
+	DecryptKey = decryptKey
+)

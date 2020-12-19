@@ -27,4 +27,5 @@ var (
 	ErrInsufficientBalance      = errors.New("insufficient balance for transfer")
 	ErrContractAddressCollision = errors.New("contract address collision")
 	ErrNoCompatibleInterpreter  = errors.New("no compatible interpreter")
+	ErrInvalidGasLimit          = errors.New("invalid gas limit")
 )

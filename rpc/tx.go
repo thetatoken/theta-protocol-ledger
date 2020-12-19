@@ -44,6 +44,10 @@ func (m *TxCallbackManager) AddCallback(txHash common.Hash, cb func(*core.Block)
 		created:  time.Now(),
 		Callback: cb,
 	}
+	_, exists := m.txHashToCallback[txHashStr]
+	if exists {
+		logger.Infof("Overwriting tx callback, txHash=%v", txHashStr)
+	}
 	m.txHashToCallback[txHashStr] = callback
 	m.callbacks = append(m.callbacks, callback)
 }
@@ -72,6 +76,7 @@ func (m *TxCallbackManager) Trim() {
 		}
 		cb2, ok := m.txHashToCallback[cb.txHash]
 		if ok && cb2.created == cb.created {
+			logger.Infof("Removing timedout tx callback, txHash=%v", cb.txHash)
 			delete(m.txHashToCallback, cb.txHash)
 		}
 	}
@@ -89,17 +94,26 @@ func (t *ThetaRPCService) txCallback() {
 	for {
 		select {
 		case <-t.ctx.Done():
+			logger.Infof("ctx.Done()")
 			return
 		case block := <-t.consensus.FinalizedBlocks():
+			logger.Infof("Processing finalized block, height=%v", block.Height)
+
 			for _, tx := range block.Txs {
 				txHash := crypto.Keccak256Hash(tx)
 				cb, ok := txCallbackManager.RemoveCallback(txHash)
 				if ok {
-					cb.Callback(block)
+					go cb.Callback(block)
 				}
 			}
+
+			logger.Infof("Done processing finalized block, height=%v", block.Height)
 		case <-timer.C:
+			logger.Debugf("txCallbackManager.Trim()")
+
 			txCallbackManager.Trim()
+
+			logger.Debugf("Done txCallbackManager.Trim()")
 		}
 	}
 }
@@ -139,11 +153,18 @@ func (t *ThetaRPCService) BroadcastRawTransaction(
 	defer timeout.Stop()
 
 	txCallbackManager.AddCallback(hash, func(block *core.Block) {
-		finalized <- block
+		select {
+		case finalized <- block:
+		default:
+		}
 	})
 
 	select {
 	case block := <-finalized:
+		if block == nil {
+			logger.Infof("Tx callback returns nil, txHash=%v", result.TxHash)
+			return errors.New("Internal server error")
+		}
 		result.Block = block.BlockHeader
 		return nil
 	case <-timeout.C:

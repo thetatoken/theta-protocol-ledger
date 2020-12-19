@@ -27,7 +27,8 @@ type StoreView struct {
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
-	refund                      uint64 // Gas refund during smart contract execution
+	refund                      uint64       // Gas refund during smart contract execution
+	logs                        []*types.Log // Temporary store of events during smart contract execution
 }
 
 // NewStoreView creates an instance of the StoreView
@@ -153,14 +154,46 @@ func (sv *StoreView) GetAccount(addr common.Address) *types.Account {
 	return acc
 }
 
+// // SetAccount sets an account.
+// func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
+// 	accBytes, err := types.ToBytes(acc)
+// 	if err != nil {
+// 		log.Panicf("Error writing account %v error: %v",
+// 			acc, err.Error())
+// 	}
+// 	sv.Set(AccountKey(addr), accBytes)
+// }
+
 // SetAccount sets an account.
 func (sv *StoreView) SetAccount(addr common.Address, acc *types.Account) {
+	sv.setAccount(addr, acc, true)
+}
+
+func (sv *StoreView) setAccountWithoutStateTreeRefCountUpdate(addr common.Address, acc *types.Account) {
+	sv.setAccount(addr, acc, false)
+}
+
+func (sv *StoreView) setAccount(addr common.Address, acc *types.Account, updateRefCountForAccountStateTree bool) {
 	accBytes, err := types.ToBytes(acc)
 	if err != nil {
 		log.Panicf("Error writing account %v error: %v",
 			acc, err.Error())
 	}
 	sv.Set(AccountKey(addr), accBytes)
+
+	if !updateRefCountForAccountStateTree {
+		return
+	}
+
+	if (acc == nil || acc.Root == common.Hash{}) || (acc.Root == core.EmptyRootHash) {
+		return
+	}
+
+	tree := sv.getAccountStorage(acc)
+	_, err = tree.Commit() // update the reference count of the account state trie root
+	if err != nil {
+		log.Panic(err)
+	}
 }
 
 // DeleteAccount deletes an account.
@@ -335,6 +368,16 @@ func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }
 
+func (sv *StoreView) ResetLogs() {
+	sv.logs = []*types.Log{}
+}
+
+func (sv *StoreView) PopLogs() []*types.Log {
+	ret := sv.logs
+	sv.ResetLogs()
+	return ret
+}
+
 //
 // ---------- Implement vm.StateDB interface -----------
 //
@@ -357,6 +400,9 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 		return
 	}
 	account := sv.GetAccount(addr)
+	if account == nil {
+		panic(fmt.Sprintf("Account for %v does not exist!", addr))
+	}
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Sub(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
@@ -366,7 +412,7 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
 	}
-	account := sv.GetAccount(addr)
+	account := sv.GetOrCreateAccount(addr)
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Add(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
@@ -374,6 +420,42 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 
 func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
 	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
+}
+
+// GetThetaBalance returns the ThetaWei balance of the given address
+func (sv *StoreView) GetThetaBalance(addr common.Address) *big.Int {
+	return sv.GetOrCreateAccount(addr).Balance.ThetaWei
+}
+
+// GetThetaStake returns the total amount of ThetaWei the address staked to validators and/or guardians
+func (sv *StoreView) GetThetaStake(addr common.Address) *big.Int {
+	totalStake := big.NewInt(0)
+
+	vcp := sv.GetValidatorCandidatePool()
+	for _, v := range vcp.SortedCandidates {
+		for _, stake := range v.Stakes {
+			if stake.Source == addr {
+				if stake.Withdrawn {
+					continue // withdrawn stake does not count
+				}
+				totalStake = new(big.Int).Add(stake.Amount, totalStake)
+			}
+		}
+	}
+
+	gcp := sv.GetGuardianCandidatePool()
+	for _, g := range gcp.SortedGuardians {
+		for _, stake := range g.Stakes {
+			if stake.Source == addr {
+				if stake.Withdrawn {
+					continue // withdrawn stake does not count
+				}
+				totalStake = new(big.Int).Add(stake.Amount, totalStake)
+			}
+		}
+	}
+
+	return totalStake
 }
 
 func (sv *StoreView) GetNonce(addr common.Address) uint64 {
@@ -399,13 +481,16 @@ func (sv *StoreView) GetCode(addr common.Address) []byte {
 	if account == nil {
 		return nil
 	}
-	if account.CodeHash == types.EmptyCodeHash {
+	if (account.CodeHash == types.EmptyCodeHash) || (account.CodeHash == core.SuicidedCodeHash) {
 		return nil
 	}
 	return sv.GetCodeByHash(account.CodeHash)
 }
 
 func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
+	if codeHash == core.SuicidedCodeHash {
+		return nil
+	}
 	codeKey := CodeKey(codeHash[:])
 	return sv.Get(codeKey)
 }
@@ -454,6 +539,8 @@ func (sv *StoreView) GetState(addr common.Address, key common.Hash) common.Hash 
 	if account == nil {
 		return common.Hash{}
 	}
+	logger.Debugf("StoreView.GetState, address: %v, account.root: %v, key: %v", addr, account.Root.Hex(), key.Hex())
+
 	enc, err := sv.getAccountStorage(account).TryGet(key[:])
 	if err != nil {
 		log.Panic(err)
@@ -476,6 +563,13 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	tree := sv.getAccountStorage(account)
 	if (val == common.Hash{}) {
 		tree.TryDelete(key[:])
+		root, err := tree.Commit()
+		if err != nil {
+			log.Panic(err)
+		}
+		account.Root = root
+		sv.setAccountWithoutStateTreeRefCountUpdate(addr, account) // The ref counts of the state tree already got updated above
+		logger.Debugf("StoreView.SetState, address: %v, account.root: %v, key: %v, val: %v", addr.Hex(), root.Hex(), key.Hex(), val.Hex())
 		return
 	}
 	// Encoding []byte cannot fail, ok to ignore the error.
@@ -487,20 +581,29 @@ func (sv *StoreView) SetState(addr common.Address, key, val common.Hash) {
 	}
 
 	account.Root = root
-	sv.SetAccount(addr, account)
+	sv.setAccountWithoutStateTreeRefCountUpdate(addr, account) // The ref counts of the state tree already got updated above
+
+	logger.Debugf("StoreView.SetState, address: %v, account.root: %v, key: %v, val: %v", addr.Hex(), root.Hex(), key.Hex(), val.Hex())
 }
 
 func (sv *StoreView) Suicide(addr common.Address) bool {
-	if sv.GetAccount(addr) == nil {
+	account := sv.GetAccount(addr)
+	if account == nil {
 		return false
 	}
-	sv.DeleteAccount(addr)
+	account.CodeHash = core.SuicidedCodeHash
+	account.Balance.TFuelWei = big.NewInt(0)
+	sv.SetAccount(addr, account)
 	return true
 }
 
 func (sv *StoreView) HasSuicided(addr common.Address) bool {
 	account := sv.GetAccount(addr)
-	return account == nil
+	if account == nil {
+		return true
+	}
+	hasSuicided := (account.CodeHash == core.SuicidedCodeHash)
+	return hasSuicided
 }
 
 // Exist reports whether the given account exists in state.
@@ -542,10 +645,12 @@ func (sv *StoreView) Prune() error {
 		if err != nil {
 			return false
 		}
-		if account.Root == (common.Hash{}) {
+		if (account.Root == (common.Hash{})) || (account.Root == core.EmptyRootHash) {
 			return false
 		}
 		storage := sv.getAccountStorage(account)
+		logger.Debugf("StoreView.Prune, address: %v, account.root: %v", account.Address, account.Root.Hex())
+
 		err = storage.Prune(nil)
 		if err != nil {
 			logger.Errorf("Failed to prune storage for account %v", account)
@@ -559,6 +664,6 @@ func (sv *StoreView) Prune() error {
 	return nil
 }
 
-func (sv *StoreView) AddLog(*types.Log) {
-	// TODO
+func (sv *StoreView) AddLog(l *types.Log) {
+	sv.logs = append(sv.logs, l)
 }

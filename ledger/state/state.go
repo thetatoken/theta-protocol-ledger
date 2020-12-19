@@ -6,6 +6,7 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/store/database"
 )
 
@@ -16,6 +17,8 @@ import (
 type LedgerState struct {
 	chainID string
 	db      database.Database
+
+	parentBlock *core.Block
 
 	finalized *StoreView // for checking the latest finalized state
 	delivered *StoreView // for actually applying the transactions
@@ -31,13 +34,24 @@ func NewLedgerState(chainID string, db database.Database) *LedgerState {
 		chainID: chainID,
 		db:      db,
 	}
-	s.ResetState(uint64(0), common.Hash{})
+	//s.ResetState(uint64(0), common.Hash{})
+	s.ResetState(&core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    uint64(0),
+			StateHash: common.Hash{},
+		},
+	})
 	s.Finalize(uint64(0), common.Hash{})
 	return s
 }
 
 // ResetState resets the height and state root of its storeviews, and clear the in-memory states
-func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) result.Result {
+//func (s *LedgerState) ResetState(height uint64, stateRootHash common.Hash) result.Result
+func (s *LedgerState) ResetState(block *core.Block) result.Result {
+	s.parentBlock = block
+
+	height := block.Height
+	stateRootHash := block.StateHash
 	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
 		return result.Error(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))
@@ -79,6 +93,11 @@ func (s *LedgerState) GetChainID() string {
 // DB returns the database instance of the ledger state
 func (s *LedgerState) DB() database.Database {
 	return s.db
+}
+
+// ParentBlock returns the pointer to the parent block for the current view
+func (s *LedgerState) ParentBlock() *core.Block {
+	return s.parentBlock
 }
 
 // Height returns the block height corresponding to the ledger state

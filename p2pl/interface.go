@@ -54,6 +54,9 @@ type Network interface {
 	// Peers return the IDs of all peers
 	Peers() []string
 
+	// PeerExists indicates if the given peerID is a neighboring peer
+	PeerExists(peerID string) bool
+
 	// RegisterMessageHandler registers message handler
 	RegisterMessageHandler(messageHandler MessageHandler)
 

@@ -10,6 +10,10 @@ const (
 	// MinimumGasPrice is the minimum gas price for a smart contract transaction
 	MinimumGasPrice uint64 = 1e8
 
+	// MaximumTxGasLimit is the maximum gas limit for a smart contract transaction
+	//MaximumTxGasLimit uint64 = 2e6
+	MaximumTxGasLimit uint64 = 10e6
+
 	// MinimumTransactionFeeTFuelWei specifies the minimum fee for a regular transaction
 	MinimumTransactionFeeTFuelWei uint64 = 1e12
 

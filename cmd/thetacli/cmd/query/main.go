@@ -10,6 +10,8 @@ var (
 	previewFlag    bool
 	resourceIDFlag string
 	hashFlag       string
+	startFlag      uint64
+	endFlag        uint64
 )
 
 // QueryCmd represents the query command

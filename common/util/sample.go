@@ -19,3 +19,9 @@ func Sample(entries []string, sampleSize int) []string {
 	}
 	return entries[0:sampleSize]
 }
+
+// Shuffle shuffles the given entries
+func Shuffle(entries []string) []string {
+	numEntries := len(entries)
+	return Sample(entries, numEntries)
+}

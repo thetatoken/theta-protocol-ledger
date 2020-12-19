@@ -405,7 +405,26 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 		}
 		if pendingBlock.status == RequestToSendBodyReq ||
 			(pendingBlock.status == RequestWaitingBodyResp && pendingBlock.HasTimedOut()) {
-			randomPeerID := pendingBlock.peers[rand.Intn(len(pendingBlock.peers))]
+
+			peersWithBlock := util.Shuffle(pendingBlock.peers)
+			var randomPeerID string
+			for i := 0; i < len(peersWithBlock); i++ {
+				randomPeerID = peersWithBlock[i]
+				if !rm.dispatcher.PeerExists(randomPeerID) { // the peer may have been purged
+					rm.logger.WithFields(log.Fields{
+						"pendingBlock": pendingBlock.hash.String(),
+						"peer":         randomPeerID,
+					}).Debug("Sending data request attempt skipped, peer may have been purged")
+					continue
+				}
+			}
+			if len(randomPeerID) == 0 {
+				rm.logger.WithFields(log.Fields{
+					"pendingBlock": pendingBlock.hash.String(),
+				}).Debug("Sending data request attempts all skipped")
+				continue
+			}
+
 			if blockBuffer, ok = peerMap[randomPeerID]; !ok {
 				blockBuffer = []string{}
 			}
@@ -684,11 +703,13 @@ func (rm *RequestManager) resumePendingBlocks() {
 	for len(queue) > 0 {
 		block := queue[0]
 		queue = queue[1:]
+
+		// In rare cases a block is saved but index is not yet saved before the process is
+		// killed.
+		rm.chain.FixBlockIndex(block)
+		rm.chain.FixMissingChildren(block)
+
 		if block.Status.IsPending() {
-			// In rare cases a block is saved but index is not yet saved before the process is
-			// killed.
-			rm.chain.FixBlockIndex(block)
-			rm.chain.FixMissingChildren(block)
 			rm.addBlock(block.Block)
 		}
 		for _, hash := range block.Children {

@@ -25,6 +25,8 @@ const (
 	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
+	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
+	CfgConsensusPassThroughGuardianVote = "consensus.passThroughGuardianVote"
 
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
 	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
@@ -32,6 +34,12 @@ const (
 	CfgStorageStatePruningInterval = "storage.statePruningInterval"
 	// CfgStorageStatePruningRetainedBlocks indicates the number of blocks prior to the latest finalized block to be retained
 	CfgStorageStatePruningRetainedBlocks = "storage.statePruningRetainedBlocks"
+	// CfgStorageStatePruningSkipCheckpoints indicates if the checkpoint state trie should be retained
+	CfgStorageStatePruningSkipCheckpoints = "storage.statePruningSkipCheckpoints"
+	// CfgStorageLevelDBCacheSize indicates Level DB cache size
+	CfgStorageLevelDBCacheSize = "storage.levelDBCacheSize"
+	// CfgStorageLevelDBHandles indicates Level DB handle count
+	CfgStorageLevelDBHandles = "storage.levelDBHandles"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -92,6 +100,8 @@ const (
 	CfgRPCPort = "rpc.port"
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
 	CfgRPCMaxConnections = "rpc.maxConnections"
+	// CfgRPCTimeoutSecs set a timeout for RPC.
+	CfgRPCTimeoutSecs = "rpc.timeoutSecs"
 
 	// CfgLogLevels sets the log level.
 	CfgLogLevels = "log.levels"
@@ -128,6 +138,7 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
+	viper.SetDefault(CfgConsensusPassThroughGuardianVote, false)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 	viper.SetDefault(CfgSyncDownloadByHash, false)
@@ -135,7 +146,10 @@ func init() {
 
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
-	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 512)
+	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
+	viper.SetDefault(CfgStorageStatePruningSkipCheckpoints, true)
+	viper.SetDefault(CfgStorageLevelDBCacheSize, 256)
+	viper.SetDefault(CfgStorageLevelDBHandles, 16)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
@@ -159,6 +173,7 @@ func init() {
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
+	viper.SetDefault(CfgRPCTimeoutSecs, 60)
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)

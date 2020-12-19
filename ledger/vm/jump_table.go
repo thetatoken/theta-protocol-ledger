@@ -418,6 +418,18 @@ func newFrontierInstructionSet() [256]operation {
 			validateStack: makeStackFunc(0, 1),
 			valid:         true,
 		},
+		CHAINID: {
+			execute:       opChainID,
+			gasCost:       constGasFunc(GasQuickStep),
+			validateStack: makeStackFunc(0, 1),
+			valid:         true,
+		},
+		SELFBALANCE: {
+			execute:       opSelfBalance,
+			gasCost:       constGasFunc(GasFastStep),
+			validateStack: makeStackFunc(0, 1),
+			valid:         true,
+		},
 		POP: {
 			execute:       opPop,
 			gasCost:       constGasFunc(GasQuickStep),

@@ -21,7 +21,7 @@ import (
 type PeerDiscoveryManager struct {
 	messenger *Messenger
 
-	addrBook  *AddrBook
+	//addrBook  *AddrBook
 	peerTable *pr.PeerTable
 	nodeInfo  *p2ptypes.NodeInfo
 	seedPeers map[string]*pr.Peer
@@ -66,7 +66,7 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 		wg:           &sync.WaitGroup{},
 	}
 
-	discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
+	//discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
 
 	var err error
 	discMgr.seedPeerConnector, err = createSeedPeerConnector(discMgr, localNetworkAddr, seedPeerNetAddresses)
@@ -261,8 +261,8 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 		return errors.New(errMsg)
 	}
 
-	discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
-	discMgr.addrBook.Save()
+	//discMgr.addrBook.AddAddress(peer.NetAddress(), peer.NetAddress())
+	//discMgr.addrBook.Save()
 
 	if peer.IsSeed() {
 		discMgr.mutex.Lock()

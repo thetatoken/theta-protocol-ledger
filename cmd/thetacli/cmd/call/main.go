@@ -14,6 +14,7 @@ var (
 	gasPriceFlag string
 	gasLimitFlag uint64
 	dataFlag     string
+	verboseFlag  bool
 )
 
 // CallCmd represents the call command

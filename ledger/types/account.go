@@ -38,8 +38,8 @@ func NewAccountJSON(acc Account) AccountJSON {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: common.JSONUint64(acc.LastUpdatedBlockHeight),
-		Root:     acc.Root,
-		CodeHash: acc.CodeHash,
+		Root:                   acc.Root,
+		CodeHash:               acc.CodeHash,
 	}
 }
 
@@ -49,8 +49,8 @@ func (acc AccountJSON) Account() Account {
 		Balance:                acc.Balance,
 		ReservedFunds:          acc.ReservedFunds,
 		LastUpdatedBlockHeight: uint64(acc.LastUpdatedBlockHeight),
-		Root:     acc.Root,
-		CodeHash: acc.CodeHash,
+		Root:                   acc.Root,
+		CodeHash:               acc.CodeHash,
 	}
 }
 
@@ -90,6 +90,13 @@ func (acc *Account) String() string {
 	}
 	return fmt.Sprintf("Account{%v %v %v %v}",
 		acc.Address, acc.Sequence, acc.Balance, acc.ReservedFunds)
+}
+
+// IsASmartContract indicates if the account is a smart contract account
+func (acc *Account) IsASmartContract() bool {
+	// Note: a suicided smart contract (i.e. account.CodeHash == core.SuicidedCodeHash)
+	//       is still considered as a smart contract account
+	return acc.CodeHash != EmptyCodeHash
 }
 
 // CheckReserveFund verifies inputs for ReserveFund.

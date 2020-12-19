@@ -3,25 +3,32 @@ package vm
 import (
 	"math"
 	"math/big"
-	"time"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
 // Execute executes the given smart contract
-func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
+func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{
+		CanTransfer: CanTransfer,
+		Transfer:    Transfer,
+		Origin:      tx.From.Address,
 		GasPrice:    tx.GasPrice,
 		GasLimit:    tx.GasLimit,
-		BlockNumber: new(big.Int).SetUint64(storeView.Height()),
-		Time:        new(big.Int).SetInt64(time.Now().Unix()),
+		BlockNumber: new(big.Int).SetUint64(parentBlock.Height + 1),
+		Time:        parentBlock.Timestamp,
 		Difficulty:  new(big.Int).SetInt64(0),
 	}
-	chainConfig := &params.ChainConfig{}
+	chainIDBigInt := mapChainID(parentBlock.ChainID)
+	chainConfig := &params.ChainConfig{
+		ChainID: chainIDBigInt,
+	}
 	config := Config{}
 	evm := NewEVM(context, storeView, chainConfig, config)
 
@@ -33,6 +40,10 @@ func Execute(tx *types.SmartContractTx, storeView *state.StoreView) (evmRet comm
 	fromAddr := tx.From.Address
 	contractAddr = tx.To.Address
 	createContract := (contractAddr == common.Address{})
+
+	if gasLimit > types.MaximumTxGasLimit {
+		return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
+	}
 
 	intrinsicGas, err := calculateIntrinsicGas(tx.Data, createContract)
 	if err != nil {
@@ -92,4 +103,23 @@ func calculateIntrinsicGas(data []byte, createContract bool) (uint64, error) {
 		gas += z * params.TxDataZeroGas
 	}
 	return gas, nil
+}
+
+// To be compatible with Ethereum, mapChainID() returns 1 for "mainnet", 3 for "testnet_sapphire", and 4 for "testnet_amber"
+// Reference: https://github.com/ethereum/go-ethereum/blob/43cd31ea9f57e26f8f67aa8bd03bbb0a50814465/params/config.go#L55
+func mapChainID(chainIDStr string) *big.Int {
+	if chainIDStr == "mainnet" { // correspond to the Ethereum mainnet
+		return big.NewInt(1)
+	} else if chainIDStr == "testnet_sapphire" { // correspond to Ropsten
+		return big.NewInt(3)
+	} else if chainIDStr == "testnet_amber" { // correspond to Rinkeby
+		return big.NewInt(4)
+	} else if chainIDStr == "testnet" {
+		return big.NewInt(5)
+	} else if chainIDStr == "privatenet" {
+		return big.NewInt(6)
+	}
+
+	chainIDBigInt := new(big.Int).Abs(crypto.Keccak256Hash(common.Bytes(chainIDStr)).Big()) // all other chainIDs
+	return chainIDBigInt
 }

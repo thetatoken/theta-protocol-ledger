@@ -209,6 +209,11 @@ func (se *SimnetEndpoint) Peers() []string {
 	return []string{}
 }
 
+// PeerExists indicates if the given peerID is a neighboring peer
+func (se *SimnetEndpoint) PeerExists(peerID string) bool {
+	return false
+}
+
 // RegisterMessageHandler implements the Network interface.
 func (se *SimnetEndpoint) RegisterMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)

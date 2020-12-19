@@ -101,9 +101,17 @@ func (et *execTest) reset() {
 	chainID := "test_chain_id"
 	initHeight := uint64(1)
 	initRootHash := common.Hash{}
+	initBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			ChainID:   chainID,
+			Height:    initHeight,
+			StateHash: initRootHash,
+		},
+	}
 	db := backend.NewMemDatabase()
 	ledgerState := st.NewLedgerState(chainID, db)
-	ledgerState.ResetState(initHeight, initRootHash)
+	//ledgerState.ResetState(initHeight, initRootHash)
+	ledgerState.ResetState(initBlock)
 
 	consensus := NewTestConsensusEngine("localseed")
 
@@ -123,8 +131,16 @@ func (et *execTest) reset() {
 
 func (et *execTest) fastforwardBy(heightIncrement uint64) bool {
 	height := et.executor.state.Height()
+	incrementedHeight := height + heightIncrement - 1
 	rootHash := et.executor.state.Commit()
-	et.executor.state.ResetState(height+heightIncrement-1, rootHash)
+	block := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    incrementedHeight,
+			StateHash: rootHash,
+		},
+	}
+	//et.executor.state.ResetState(height+heightIncrement-1, rootHash)
+	et.executor.state.ResetState(block)
 	return true
 }
 
@@ -134,7 +150,14 @@ func (et *execTest) fastforwardTo(targetHeight uint64) bool {
 	if targetHeight < height+1 {
 		return false
 	}
-	et.executor.state.ResetState(targetHeight, rootHash)
+	block := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    targetHeight,
+			StateHash: rootHash,
+		},
+	}
+	//et.executor.state.ResetState(targetHeight, rootHash)
+	et.executor.state.ResetState(block)
 	return true
 }
 

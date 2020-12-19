@@ -31,6 +31,9 @@ type StateDB interface {
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
 
+	GetThetaBalance(common.Address) *big.Int // GetThetaBalance returns the ThetaWei balance of the given address
+	GetThetaStake(common.Address) *big.Int   // GetThetaStake returns the total amount of ThetaWei the address staked to validators and/or guardians
+
 	GetNonce(common.Address) uint64
 	SetNonce(common.Address, uint64)
 
