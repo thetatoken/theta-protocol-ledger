@@ -268,6 +268,8 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
+	logger.Debugf("ApplyBlockTxs: Apply block transactions, block.height = %v", block.Height)
+
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
@@ -289,6 +291,7 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.Parent.Hex(), err))
 	}
 	parentBlock := extParentBlock.Block
+	logger.Debugf("ApplyBlockTxs: Start applying block transactions, block.height = %v", block.Height)
 
 	hasValidatorUpdate := false
 	for _, rawTx := range blockRawTxs {
@@ -311,6 +314,7 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		}
 	}
 
+	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height = %v", block.Height)
 	ledger.handleDelayedStateUpdates(view)
 
 	newStateRoot := view.Hash()
@@ -324,7 +328,11 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 
 	ledger.state.Commit() // commit to persistent storage
 
+	logger.Debugf("ApplyBlockTxs: Committed state change, block.height = %v", block.Height)
+
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
+
+	logger.Debugf("ApplyBlockTxs: Cleared mempool transactions, block.height = %v", block.Height)
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
