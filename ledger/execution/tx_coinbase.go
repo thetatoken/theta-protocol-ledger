@@ -176,15 +176,6 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 		guardianPool = guardianPool.WithStake()
 	}
 
-	if guardianPool != nil {
-		for i, g := range guardianPool.SortedGuardians {
-			if guardianVotes.Multiplies[i] == 0 {
-				continue
-			}
-			totalStake.Add(totalStake, g.TotalStake())
-		}
-	}
-
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
 
 		stakeSourceMap := map[common.Address]*big.Int{}
@@ -226,6 +217,15 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 					}
 					stakeAmount := stake.Amount
 					stakeSource := stake.Source
+
+					if blockHeight >= common.HeightSampleStakingReward {
+						if stakeSource[0] == guardianVotes.Block[0] && stakeSource[1]&0x60 == guardianVotes.Block[1]&0x60 {
+							continue
+						}
+					}
+
+					totalStake.Add(totalStake, stakeAmount)
+
 					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
 						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
 					} else {
