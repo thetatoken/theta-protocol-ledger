@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -152,9 +153,15 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 
 	// Forward compatibility.
 	localChainID := viper.GetString(common.CfgGenesisChainID)
+	nodeType := viper.GetInt(common.CfgNodeType)
+	var peerType int
 	cmn.Parallel(
 		func() {
 			sendError = rlp.Encode(peer.connection.GetBufNetconn(), localChainID)
+			if sendError != nil {
+				return
+			}
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), strconv.Itoa(nodeType))
 			if sendError != nil {
 				return
 			}
@@ -171,9 +178,22 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 			}
 			if msg != localChainID {
 				recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
-				return
+				//return
 			}
 			logger.Infof("Peer ChainID: %v", msg)
+
+			recvError = s.Decode(&msg)
+			if recvError != nil {
+				return
+			}
+			var convErr error
+			peerType, convErr = strconv.Atoi(msg)
+			if convErr != nil {
+				recvError = fmt.Errorf("Cannot parse the peer type: %v", msg)
+				return
+			}
+			logger.Infof("Peer Type: %v", peerType)
+
 			for {
 				recvError = s.Decode(&msg)
 				if recvError != nil {

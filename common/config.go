@@ -14,6 +14,9 @@ const (
 	// CfgKeyPath defines custom key path
 	CfgKeyPath = "key.path"
 
+	// CfgNodeType indicates the type of the node, e.g. blockchain node/edge node
+	CfgNodeType = "node.type"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
@@ -135,6 +138,8 @@ p2p:
 `
 
 func init() {
+	viper.SetDefault(CfgNodeType, 1) // 1: blockchain node, 2: edge node
+
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
