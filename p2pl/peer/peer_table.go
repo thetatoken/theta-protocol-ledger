@@ -241,7 +241,8 @@ func (pt *PeerTable) GetSelection() (peerIDAddrs []pr.ID) {
 }
 
 // GetTotalNumPeers returns the total number of peers in the PeerTable
-func (pt *PeerTable) GetTotalNumPeers() uint {
+func (pt *PeerTable) GetTotalNumPeers(skipEdgeNode bool) uint {
+	// TODO: support skipEdgeNode
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 

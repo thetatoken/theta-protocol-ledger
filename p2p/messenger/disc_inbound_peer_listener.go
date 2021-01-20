@@ -133,7 +133,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
 			}
 		} else {
-			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers())
+			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers(true)) // only account for blockchain nodes
 			if numPeers >= maxNumPeers {
 				if viper.GetBool(common.CfgP2PConnectionFIFO) {
 					purgedPeer := ipl.discMgr.peerTable.PurgeOldestPeer()

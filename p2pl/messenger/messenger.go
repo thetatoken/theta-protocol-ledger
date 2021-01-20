@@ -296,7 +296,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 				}
 			}
 
-			if int(msgr.peerTable.GetTotalNumPeers()) >= viper.GetInt(common.CfgP2PMaxNumPeers) {
+			if int(msgr.peerTable.GetTotalNumPeers(true)) >= viper.GetInt(common.CfgP2PMaxNumPeers) { // only account for blockchain nodes
 				msgr.host.Network().ClosePeer(pid)
 				continue
 			}
@@ -402,7 +402,7 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 }
 
 func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
-	diff := viper.GetInt(common.CfgP2PMinNumPeers) - int(msgr.peerTable.GetTotalNumPeers())
+	diff := viper.GetInt(common.CfgP2PMinNumPeers) - int(msgr.peerTable.GetTotalNumPeers(true)) // only account for blockchain nodes
 	if diff > 0 {
 		var connections []*pr.AddrInfo
 		for _, seed := range msgr.seedPeers {

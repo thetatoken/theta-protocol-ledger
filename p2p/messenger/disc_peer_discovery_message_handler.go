@@ -162,7 +162,7 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection()
+	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection(true) // discovery should skip edge nodes
 	pdmh.sendAddresses(peer, peerIDAddrs)
 }
 
@@ -202,7 +202,7 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
-	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers())
+	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers(true)) // only account for blockchain nodes
 	sufficientNumPeers := int(GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers)
 	numNeeded := sufficientNumPeers - numPeers
 	if numNeeded > 0 {
@@ -253,7 +253,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 // of connections by dialing peers when the number of connected peers are lower than the
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
-	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers(true) // only account for blockchain nodes
 	sufficientNumPeers := GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers
 	if numPeers > 0 {
 		if numPeers < sufficientNumPeers {

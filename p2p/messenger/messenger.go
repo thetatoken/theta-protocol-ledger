@@ -158,9 +158,6 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (s
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
 		//logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
-		if skipEdgeNode && peer.NodeType() == common.NodeTypeEdgeNode {
-			continue
-		}
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success

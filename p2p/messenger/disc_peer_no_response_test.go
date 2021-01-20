@@ -107,5 +107,5 @@ func TestPeerFailureHandling(t *testing.T) {
 
 	time.Sleep(time.Second * 10)
 
-	assert.Equal(uint(0), discMgr.peerTable.GetTotalNumPeers())
+	assert.Equal(uint(0), discMgr.peerTable.GetTotalNumPeers(true))
 }
