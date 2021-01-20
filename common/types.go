@@ -419,3 +419,18 @@ const (
 	// P2POptBoth indicates using both networks at the same time
 	P2POptBoth
 )
+
+// NodeType defines different types of nodes in the network
+type NodeType int
+
+const (
+
+	// NodeTypeInvalid indicates an invalid type of node
+	NodeTypeInvalid NodeType = iota
+
+	// NodeTypeBlockchainNode indicates the node/peer is a blockchain node (i.e. validator/guardian/wallet node)
+	NodeTypeBlockchainNode
+
+	// NodeTypeEdgeNode indicates the node/peer is an edge node
+	NodeTypeEdgeNode
+)

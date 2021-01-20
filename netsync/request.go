@@ -486,7 +486,7 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 	rm.aplock.Unlock()
 
 	if len(peersToRequest) == 0 { // resample
-		allPeers := rm.syncMgr.dispatcher.Peers()
+		allPeers := rm.syncMgr.dispatcher.Peers(true) // skip edge nodes
 		peersToRequest = util.Sample(allPeers, MaxNumPeersToSendRequests)
 
 		rm.logger.Debugf("Resampled peers to send requests: %v", peersToRequest)

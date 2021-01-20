@@ -196,12 +196,15 @@ func (pt *PeerTable) PeerAddrExists(addr *nu.NetAddress) bool {
 }
 
 // GetAllPeers returns all the peers
-func (pt *PeerTable) GetAllPeers() *([]*Peer) {
+func (pt *PeerTable) GetAllPeers(skipEdgeNode bool) *([]*Peer) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
 	ret := make([]*Peer, len(pt.peers))
 	for i, p := range pt.peers {
+		if skipEdgeNode && p.NodeType() == common.NodeTypeEdgeNode {
+			continue
+		}
 		ret[i] = p
 	}
 	return &ret

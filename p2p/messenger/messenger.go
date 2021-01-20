@@ -152,12 +152,15 @@ func (msgr *Messenger) Wait() {
 }
 
 // Broadcast broadcasts the given message to all the connected peers
-func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
+func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (successes chan bool) {
 	logger.Debugf("Broadcasting messages...")
-	allPeers := msgr.peerTable.GetAllPeers()
+	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
 	successes = make(chan bool, len(*allPeers))
 	for _, peer := range *allPeers {
 		//logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
+		if skipEdgeNode && peer.NodeType() == common.NodeTypeEdgeNode {
+			continue
+		}
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success
@@ -167,8 +170,8 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool)
 }
 
 // BroadcastToNeighbors broadcasts the given message to neighbors
-func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int) (successes chan bool) {
-	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast)
+func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int, skipEdgeNode bool) (successes chan bool) {
+	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast, skipEdgeNode)
 	for _, pid := range sampledPIDs {
 		go func(pid string) {
 			msgr.Send(pid, message)
@@ -178,7 +181,7 @@ func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeer
 }
 
 // samplePeers randomly sample a subset of peers
-func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
+func (msgr *Messenger) samplePeers(maxNumSampledPeers int, skipEdgeNode bool) []string {
 	// Prioritize seed peers
 	sampledPIDs, idx := []string{}, 0
 	for seedPID := range msgr.discMgr.seedPeers {
@@ -191,7 +194,7 @@ func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
 	}
 
 	// Randomly sample the remaining peers
-	neighbors := *msgr.peerTable.GetAllPeers()
+	neighbors := *msgr.peerTable.GetAllPeers(skipEdgeNode)
 	neighborPIDs := []string{}
 	for _, peer := range neighbors {
 		pid := peer.ID()
@@ -227,8 +230,8 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 }
 
 // Peers returns the IDs of all peers
-func (msgr *Messenger) Peers() []string {
-	allPeers := msgr.peerTable.GetAllPeers()
+func (msgr *Messenger) Peers(skipEdgeNode bool) []string {
+	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
 	peerIDs := []string{}
 	for _, peer := range *allPeers {
 		peerIDs = append(peerIDs, peer.ID())

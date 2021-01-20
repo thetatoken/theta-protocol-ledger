@@ -274,7 +274,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 
 			// discovery
-			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
+			peers := *(pdmh.discMgr.peerTable.GetAllPeers(true)) // skip edge nodes, only query the blockchain nodes
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1

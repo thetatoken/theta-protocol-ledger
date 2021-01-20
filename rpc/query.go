@@ -364,7 +364,7 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 
 type GetBlocksByRangeArgs struct {
 	Start common.JSONUint64 `json:"start"`
-	End common.JSONUint64 `json:"end"`
+	End   common.JSONUint64 `json:"end"`
 }
 
 func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
@@ -376,7 +376,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 		return errors.New("Starting block must be less than ending block")
 	}
 
-	if args.End - args.Start > 100  {
+	if args.End-args.Start > 100 {
 		return errors.New("Can't retrieve more than 100 blocks at a time")
 	}
 
@@ -496,14 +496,16 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 
 // ------------------------------ GetPeers -----------------------------------
 
-type GetPeersArgs struct{}
+type GetPeersArgs struct {
+	SkipEdgeNode bool `json:"skip_edge_node"`
+}
 
 type GetPeersResult struct {
 	Peers []string `json:"peers"`
 }
 
 func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
-	peers := t.dispatcher.Peers()
+	peers := t.dispatcher.Peers(args.SkipEdgeNode)
 	result.Peers = peers
 
 	return

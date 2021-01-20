@@ -103,7 +103,7 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	assert.True(pt.AddPeer(peer5))
 	assert.True(pt.AddPeer(peer6))
 
-	allPeers := pt.GetAllPeers()
+	allPeers := pt.GetAllPeers(true)
 	assert.Equal((*allPeers)[0], peer1)
 	assert.Equal((*allPeers)[1], peer2)
 	assert.Equal((*allPeers)[2], peer3)
@@ -116,7 +116,7 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	pt.DeletePeer(peer3.ID())
 	pt.DeletePeer(peer5.ID())
 
-	allPeers = pt.GetAllPeers()
+	allPeers = pt.GetAllPeers(true)
 	assert.Equal((*allPeers)[0], peer1)
 	assert.Equal((*allPeers)[1], peer2)
 	assert.Equal((*allPeers)[2], peer4)
@@ -127,7 +127,7 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 	assert.True(pt.AddPeer(peer5))
 	assert.True(pt.AddPeer(peer3))
 
-	allPeers = pt.GetAllPeers()
+	allPeers = pt.GetAllPeers(true)
 	assert.Equal((*allPeers)[0], peer1)
 	assert.Equal((*allPeers)[1], peer2)
 	assert.Equal((*allPeers)[2], peer4)

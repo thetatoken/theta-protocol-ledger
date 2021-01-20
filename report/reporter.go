@@ -146,7 +146,7 @@ func (rp *Reporter) handlePeers() {
 }
 
 func (rp *Reporter) peersToString() string {
-	p := rp.disp.Peers()
+	p := rp.disp.Peers(true) // skip edge nodes
 	var sb strings.Builder
 	for i, peer := range p {
 		if i > 0 {
