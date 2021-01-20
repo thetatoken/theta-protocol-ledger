@@ -189,7 +189,8 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 			var convErr error
 			peerType, convErr = strconv.Atoi(msg)
 			if convErr != nil {
-				recvError = fmt.Errorf("Cannot parse the peer type: %v", msg)
+				//recvError = fmt.Errorf("Cannot parse the peer type: %v", msg)
+				logger.Warnf("Cannot parse the peer type: %v", msg)
 				return
 			}
 			logger.Infof("Peer Type: %v", peerType)
