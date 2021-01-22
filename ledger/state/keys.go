@@ -42,6 +42,11 @@ func GuardianCandidatePoolKey() common.Bytes {
 	return common.Bytes("ls/gcp")
 }
 
+// EliteEdgeNodePoolKey returns the state key for the elite edge node TFuel stake holder set
+func EliteEdgeNodePoolKey() common.Bytes {
+	return common.Bytes("ls/eenp")
+}
+
 // StakeTransactionHeightListKey returns the state key the heights of blocks
 // that contain stake related transactions (i.e. StakeDeposit, StakeWithdraw, etc)
 func StakeTransactionHeightListKey() common.Bytes {

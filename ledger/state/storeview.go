@@ -313,7 +313,7 @@ func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePo
 	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
 }
 
-// GetGuradianCandidatePool gets the guardian candidate pool.
+// GetGuardianCandidatePool gets the guardian candidate pool.
 func (sv *StoreView) GetGuardianCandidatePool() *core.GuardianCandidatePool {
 	data := sv.Get(GuardianCandidatePoolKey())
 	if data == nil || len(data) == 0 {
@@ -322,7 +322,7 @@ func (sv *StoreView) GetGuardianCandidatePool() *core.GuardianCandidatePool {
 	gcp := &core.GuardianCandidatePool{}
 	err := types.FromBytes(data, gcp)
 	if err != nil {
-		log.Panicf("Error reading validator candidate pool %X, error: %v",
+		log.Panicf("Error reading guardian candidate pool %X, error: %v",
 			data, err.Error())
 	}
 	return gcp
@@ -336,6 +336,31 @@ func (sv *StoreView) UpdateGuardianCandidatePool(gcp *core.GuardianCandidatePool
 			gcp, err.Error())
 	}
 	sv.Set(GuardianCandidatePoolKey(), gcpBytes)
+}
+
+// GetEliteEdgeNodePool gets the elite edge node pool.
+func (sv *StoreView) GetEliteEdgeNodePool() *core.EliteEdgeNodePool {
+	data := sv.Get(EliteEdgeNodePoolKey())
+	if data == nil || len(data) == 0 {
+		return core.NewEliteEdgeNodePool()
+	}
+	eenp := &core.EliteEdgeNodePool{}
+	err := types.FromBytes(data, eenp)
+	if err != nil {
+		log.Panicf("Error reading elite edge node pool %X, error: %v",
+			data, err.Error())
+	}
+	return eenp
+}
+
+// UpdateEliteEdgeNodePool updates the elite edge node pool.
+func (sv *StoreView) UpdateEliteEdgeNodePool(eenp *core.EliteEdgeNodePool) {
+	eenpBytes, err := types.ToBytes(eenp)
+	if err != nil {
+		log.Panicf("Error writing elite edge node pool %v, error: %v",
+			eenp, err.Error())
+	}
+	sv.Set(EliteEdgeNodePoolKey(), eenpBytes)
 }
 
 // GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions
