@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/store"
@@ -161,7 +162,7 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 			gcp := storeView.GetGuardianCandidatePool()
 			return gcp, nil
 		}
-		blockHash = block.Hash()
+		blockHash = block.Parent
 	}
 }
 
@@ -294,7 +295,9 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	logger.Debugf("ApplyBlockTxs: Start applying block transactions, block.height = %v", block.Height)
 
 	hasValidatorUpdate := false
+	txProcessTime := []time.Duration{}
 	for _, rawTx := range blockRawTxs {
+		start := time.Now()
 		tx, err := types.TxFromBytes(rawTx)
 		if err != nil {
 			//ledger.resetState(currHeight, currStateRoot)
@@ -312,10 +315,14 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 			ledger.resetState(parentBlock)
 			return res
 		}
+		txProcessTime = append(txProcessTime, time.Since(start))
 	}
 
-	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height = %v", block.Height)
+	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height = %v", block.Height, txProcessTime)
+
+	start := time.Now()
 	ledger.handleDelayedStateUpdates(view)
+	handleDelayedUpdateTime := time.Since(start)
 
 	newStateRoot := view.Hash()
 	if newStateRoot != expectedStateRoot {
@@ -326,13 +333,20 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 			hex.EncodeToString(expectedStateRoot[:]))
 	}
 
+	start = time.Now()
 	ledger.state.Commit() // commit to persistent storage
+	commitTime := time.Since(start)
 
 	logger.Debugf("ApplyBlockTxs: Committed state change, block.height = %v", block.Height)
 
+	start = time.Now()
 	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
+	updateMempoolTime := time.Since(start)
 
 	logger.Debugf("ApplyBlockTxs: Cleared mempool transactions, block.height = %v", block.Height)
+
+	logger.Debugf("ApplyBlockTxs: Done, block.height = %v, txProcessTime = %v, handleDelayedUpdateTime = %v, commitTime = %v, updateMempoolTime = %v",
+		block.Height, txProcessTime, handleDelayedUpdateTime, commitTime, updateMempoolTime)
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
