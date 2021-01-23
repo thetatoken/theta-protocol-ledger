@@ -281,15 +281,21 @@ func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common
 	minEliteEdgeNodeStake := MinEliteEdgeNodeStakeDeposit
 	maxEliteEdgeNodeStake := MaxEliteEdgeNodeStakeDeposit
 	if amount.Cmp(minEliteEdgeNodeStake) < 0 {
-		return fmt.Errorf("Elite edge node stake below the lower limit: %v", amount)
+		return fmt.Errorf("Elite edge node staking amount below the lower limit: %v", amount)
 	}
 	if amount.Cmp(maxEliteEdgeNodeStake) > 0 {
-		return fmt.Errorf("Elite edge node stake above the upper limit: %v", amount)
+		return fmt.Errorf("Elite edge node staking amount above the upper limit: %v", amount)
 	}
 
 	matchedHolderFound := false
 	for _, een := range eenp.SortedEliteEdgeNodes {
 		if een.Holder == holder {
+			currentStake := een.TotalStake()
+			expectedStake := big.NewInt(0).Add(currentStake, amount)
+			if expectedStake.Cmp(maxEliteEdgeNodeStake) > 0 {
+				return fmt.Errorf("Elite edge node stake would exceed the cap: %v", expectedStake)
+			}
+
 			matchedHolderFound = true
 			err = een.depositStake(source, amount)
 			if err != nil {

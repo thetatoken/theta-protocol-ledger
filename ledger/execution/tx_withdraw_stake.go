@@ -52,7 +52,7 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
 	}
 
-	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
+	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode) {
 		return result.Error("Invalid stake purpose!").
 			WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -101,6 +101,13 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
 		view.UpdateGuardianCandidatePool(gcp)
+	} else if tx.Purpose == core.StakeForEliteEdgeNode {
+		eenp := view.GetEliteEdgeNodePool()
+		currentHeight := exec.state.Height()
+		err := eenp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
+		if err != nil {
+			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
+		}
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}

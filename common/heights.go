@@ -12,6 +12,9 @@ const HeightLowerGNStakeThresholdTo1000 uint64 = 8411427 // approximate time: 12
 // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
 const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
 
+// HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
+const HeightEnableTheta3 uint64 = 1000000000
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 

@@ -837,7 +837,7 @@ type DepositStakeTxV2 struct {
 	Fee     Coins    `json:"fee"`     // Fee
 	Source  TxInput  `json:"source"`  // source staker account
 	Holder  TxOutput `json:"holder"`  // stake holder account
-	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian/elit edge node
 
 	BlsPubkey *bls.PublicKey    `rlp:"nil"`
 	BlsPop    *bls.Signature    `rlp:"nil"`
@@ -859,6 +859,8 @@ func (tx *DepositStakeTxV2) SignBytes(chainID string) []byte {
 		}
 		txBytes, _ = TxToBytes(tmp)
 	} else if tx.Purpose == core.StakeForGuardian {
+		txBytes, _ = TxToBytes(tx)
+	} else if tx.Purpose == core.StakeForEliteEdgeNode {
 		txBytes, _ = TxToBytes(tx)
 	}
 
@@ -889,7 +891,7 @@ type WithdrawStakeTx struct {
 	Fee     Coins    `json:"fee"`     // Fee
 	Source  TxInput  `json:"source"`  // source staker account
 	Holder  TxOutput `json:"holder"`  // stake holder account
-	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian/elite edge node
 }
 
 func (_ *WithdrawStakeTx) AssertIsTx() {}
