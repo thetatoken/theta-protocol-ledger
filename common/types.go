@@ -403,6 +403,9 @@ const (
 
 	// ChannelIDNATMapping indicates the channel for NAT Mapping messages between peers
 	ChannelIDNATMapping
+
+	// ChannelIDEliteEdgeNode indicates the channel for Elite Edge Node messages between peers
+	ChannelIDEliteEdgeNode
 )
 
 // P2POptEnum defines the p2p network

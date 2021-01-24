@@ -39,6 +39,7 @@ type ConsensusEngine struct {
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
 	guardian         *GuardianEngine
+	eliteEdgeNode    *EliteEdgeNodeEngine
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
@@ -84,6 +85,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		e.logger.Panic(err)
 	}
 	e.guardian = NewGuardianEngine(e, blsKey)
+	e.eliteEdgeNode = NewEliteEdgeNodeEngine(e, blsKey)
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
 
@@ -145,6 +147,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 	e.resetGuardianTimer()
 	e.guardian.Start(e.ctx)
+	e.eliteEdgeNode.Start(e.ctx)
 
 	e.wg.Add(1)
 	go e.mainLoop()
@@ -274,6 +277,14 @@ func (e *ConsensusEngine) mainLoop() {
 					e.broadcastGuardianVote(v)
 				}
 				e.guardian.StartNewRound()
+
+				eenv := e.eliteEdgeNode.GetVoteToBroadcast()
+
+				if eenv != nil {
+					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting elite edge node vote")
+					e.broadcastEliteEdgeNodeVote(eenv)
+				}
+				e.eliteEdgeNode.StartNewRound()
 			}
 		}
 	}
@@ -320,6 +331,9 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	case *core.AggregatedVotes:
 		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
+	case *core.AggregatedEENVotes:
+		e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
+		e.handleEliteEdgeNodeVote(m)
 	default:
 		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
@@ -919,6 +933,23 @@ func (e *ConsensusEngine) broadcastGuardianVote(vote *core.AggregatedVotes) {
 	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
+func (e *ConsensusEngine) handleEliteEdgeNodeVote(v *core.AggregatedEENVotes) {
+	e.eliteEdgeNode.HandleVote(v)
+}
+
+func (e *ConsensusEngine) broadcastEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"elite edge node vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	voteMsg := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDEliteEdgeNode,
+		Payload:   payload,
+	}
+	e.dispatcher.SendData([]string{}, voteMsg)
+}
+
 // GetSummary returns a summary of consensus state.
 func (e *ConsensusEngine) GetSummary() *StateStub {
 	return e.state.GetSummary()
@@ -982,9 +1013,10 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// duplicate TX in fork.
 	e.chain.AddTxsToIndex(block, true)
 
-	// Guardians to vote for checkpoint blocks.
+	// Guardians and Elite Edge Nodes to vote for checkpoint blocks.
 	if common.IsCheckPointHeight(block.Height) {
 		e.guardian.StartNewBlock(block.Hash())
+		e.eliteEdgeNode.StartNewBlock(block.Hash())
 		e.resetGuardianTimer()
 	}
 

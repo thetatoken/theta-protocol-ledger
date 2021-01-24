@@ -165,6 +165,32 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 	}
 }
 
+// GetEliteEdgeNodePool returns the elite edge node pool of the given block.
+func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEdgeNodePool, error) {
+	db := ledger.state.DB()
+	store := kvstore.NewKVStore(db)
+
+	// Find last checkpoint and retrieve EENP.
+	block, err := findBlock(store, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	blockHash = block.Hash()
+	for {
+		block, err := findBlock(store, blockHash)
+		if err != nil {
+			return nil, err
+		}
+		if common.IsCheckPointHeight(block.Height) {
+			stateRoot := block.BlockHeader.StateHash
+			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			eenp := storeView.GetEliteEdgeNodePool()
+			return eenp, nil
+		}
+		blockHash = block.Hash()
+	}
+}
+
 func findBlock(store store.Store, blockHash common.Hash) (*core.ExtendedBlock, error) {
 	var block core.ExtendedBlock
 	err := store.Get(blockHash[:], &block)
