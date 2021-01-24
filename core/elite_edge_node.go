@@ -113,7 +113,7 @@ func (a *AggregatedEENVotes) Pick(b *AggregatedEENVotes) (*AggregatedEENVotes, e
 // Validate verifies the voteset.
 func (a *AggregatedEENVotes) Validate(eenp *EliteEdgeNodePool) result.Result {
 	if len(a.Multiplies) != eenp.WithStake().Len() {
-		return result.Error("multiplies size %d is not equal to gcp size %d", len(a.Multiplies), eenp.WithStake().Len())
+		return result.Error("multiplies size %d is not equal to eenp size %d", len(a.Multiplies), eenp.WithStake().Len())
 	}
 	if a.Signature == nil {
 		return result.Error("signature cannot be nil")
