@@ -102,7 +102,7 @@ func (dp *Dispatcher) GetData(peerIDs []string, datareq DataRequest) {
 // SendData sends out the DataResponse
 func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 	if len(peerIDs) == 0 {
-		if datarsp.ChannelID == common.ChannelIDGuardian || datarsp.ChannelID == common.ChannelIDProposal {
+		if datarsp.ChannelID == common.ChannelIDGuardian || datarsp.ChannelID == common.ChannelIDEliteEdgeNode || datarsp.ChannelID == common.ChannelIDProposal {
 			dp.broadcastToNeighbors(datarsp.ChannelID, datarsp, false /* should send to both blockchain and edge nodes */)
 		} else {
 			dp.broadcastToAll(datarsp.ChannelID, datarsp, false /* should send to both blockchain and edge nodes */)

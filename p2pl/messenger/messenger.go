@@ -687,7 +687,7 @@ func (msgr *Messenger) printStats() {
 	defer msgr.statsLock.Unlock()
 
 	ret := "Received bytes:"
-	for k := byte(0); k <= byte(common.ChannelIDGuardian); k++ {
+	for k := byte(0); k <= byte(common.ChannelIDEliteEdgeNode); k++ {
 		v, ok := msgr.statsCounter[common.ChannelIDEnum(k)]
 		if !ok {
 			continue

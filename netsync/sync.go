@@ -138,6 +138,7 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 		common.ChannelIDCC,
 		common.ChannelIDVote,
 		common.ChannelIDGuardian,
+		common.ChannelIDEliteEdgeNode,
 	}
 }
 
@@ -625,6 +626,24 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":            peerID,
 		}).Debug("Received guardian vote")
 		m.handleGuardianVote(vote)
+	case common.ChannelIDEliteEdgeNode:
+		vote := &core.AggregatedEENVotes{}
+		err := rlp.DecodeBytes(data.Payload, vote)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode DataResponse payload")
+			return
+		}
+		m.logger.WithFields(log.Fields{
+			"vote.Hash":       vote.Block.Hex(),
+			"vote.Multiplies": vote.Multiplies,
+			"peer":            peerID,
+		}).Debug("Received elite edge node vote")
+		m.handleEliteEdgeNodeVote(vote)
 	case common.ChannelIDHeader:
 		headers := &Headers{}
 		err := rlp.DecodeBytes(data.Payload, headers)
@@ -781,5 +800,9 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 }
 
 func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
+	sm.PassdownMessage(vote)
+}
+
+func (sm *SyncManager) handleEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
 	sm.PassdownMessage(vote)
 }
