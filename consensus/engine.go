@@ -524,6 +524,63 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}
 	}
 
+	// Validate Elite Edge Node Votes.
+	// We allow checkpoint blocks to have nil elite edge node votes.
+	if block.EliteEdgeNodeVotes != nil && block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		// Voted block must exist.
+		lastCheckpoint, err := e.chain.FindBlock(block.EliteEdgeNodeVotes.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    err.Error(),
+			}).Warn("Elite Edge Node votes refers to non-existing block")
+			return result.Error("Block in elite edge node votes cannot be found")
+		}
+		// Voted block must be ascendant.
+		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"lastCheckpoint":           lastCheckpoint.Hash().Hex(),
+			}).Warn("Block is not descendant of checkpoint")
+			return result.Error("Block is not descendant of checkpoint in elite edge node votes")
+		}
+		// Elite Edge node votes must be valid.
+		eenp, err := e.ledger.GetEliteEdgeNodePool(block.EliteEdgeNodeVotes.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    err.Error(),
+			}).Warn("Failed to load elite edge node pool")
+			return result.Error("Failed to load elite edge node pool")
+		}
+		if res := block.EliteEdgeNodeVotes.Validate(eenp); res.IsError() {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    res.String(),
+			}).Warn("Failed to load elite edge node pool")
+			return result.Error("Elite Edge Node votes are not valid")
+		}
+	} else {
+		if block.EliteEdgeNodeVotes != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Epoch":              block.Epoch,
+				"block.proposer":           block.Proposer.Hex(),
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+			}).Warn("Elite Edge Node votes in non-checkpoint block")
+			return result.Error("Non-checkpoint block should not have elite edge node votes")
+		}
+	}
+
 	return result.OK
 }
 
@@ -1093,6 +1150,11 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	// Add guardian votes.
 	if block.Height >= common.HeightEnableTheta2 && common.IsCheckPointHeight(block.Height) {
 		block.GuardianVotes = e.guardian.GetBestVote()
+	}
+
+	// Add elite edge node votes.
+	if block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		block.EliteEdgeNodeVotes = e.eliteEdgeNode.GetBestVote()
 	}
 
 	// Add Txs.
