@@ -247,8 +247,8 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-			"error":       result.Message,
-		}).Info("Ignoring aggregated elite edge node vote: invalid vote")
+			"reason":      result.Message,
+		}).Info("Ignoring aggregated elite edge node vote: ")
 		return
 	}
 	res = true

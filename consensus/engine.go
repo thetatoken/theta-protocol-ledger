@@ -281,8 +281,8 @@ func (e *ConsensusEngine) mainLoop() {
 				eenv := e.eliteEdgeNode.GetVoteToBroadcast()
 
 				if eenv != nil {
-					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting elite edge node vote")
-					e.broadcastAggregatedEliteEdgeNodeVote(eenv)
+					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting aggregated elite edge node vote")
+					e.broadcastAggregatedEliteEdgeNodeVotes(eenv)
 				}
 				e.eliteEdgeNode.StartNewRound()
 			}
@@ -1001,14 +1001,14 @@ func (e *ConsensusEngine) handleAggregatedEliteEdgeNodeVote(v *core.AggregatedEE
 	e.eliteEdgeNode.HandleAggregatedVote(v)
 }
 
-func (e *ConsensusEngine) broadcastAggregatedEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
+func (e *ConsensusEngine) broadcastAggregatedEliteEdgeNodeVotes(vote *core.AggregatedEENVotes) {
 	payload, err := rlp.EncodeToBytes(vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"elite edge node vote": vote}).Error("Failed to encode vote")
 		return
 	}
 	voteMsg := dispatcher.DataResponse{
-		ChannelID: common.ChannelIDEliteEdgeNode,
+		ChannelID: common.ChannelIDAggregatedEliteEdgeNodeVotes,
 		Payload:   payload,
 	}
 	e.dispatcher.SendData([]string{}, voteMsg)

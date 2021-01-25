@@ -110,7 +110,8 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	channelPing := createDefaultChannel(common.ChannelIDPing)
 	channelGuardian := createDefaultChannel(common.ChannelIDGuardian)
 	channelNATMapping := createDefaultChannel(common.ChannelIDNATMapping)
-	channelEliteEdgeNode := createDefaultChannel(common.ChannelIDEliteEdgeNode)
+	channelEliteEdgeNodeVote := createDefaultChannel(common.ChannelIDEliteEdgeNodeVote)
+	channelEliteAggregatedEdgeNodeVotes := createDefaultChannel(common.ChannelIDAggregatedEliteEdgeNodeVotes)
 	channels := []*Channel{
 		&channelCheckpoint,
 		&channelHeader,
@@ -122,7 +123,8 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		&channelPing,
 		&channelGuardian,
 		&channelNATMapping,
-		&channelEliteEdgeNode,
+		&channelEliteEdgeNodeVote,
+		&channelEliteAggregatedEdgeNodeVotes,
 	}
 
 	success, channelGroup := createChannelGroup(getDefaultChannelGroupConfig(), channels)

@@ -138,7 +138,8 @@ func (sm *SyncManager) GetChannelIDs() []common.ChannelIDEnum {
 		common.ChannelIDCC,
 		common.ChannelIDVote,
 		common.ChannelIDGuardian,
-		common.ChannelIDEliteEdgeNode,
+		common.ChannelIDEliteEdgeNodeVote,
+		common.ChannelIDAggregatedEliteEdgeNodeVotes,
 	}
 }
 
@@ -626,7 +627,24 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"peer":            peerID,
 		}).Debug("Received guardian vote")
 		m.handleGuardianVote(vote)
-	case common.ChannelIDEliteEdgeNode:
+	case common.ChannelIDEliteEdgeNodeVote:
+		vote := &core.EENVote{}
+		err := rlp.DecodeBytes(data.Payload, vote)
+		if err != nil {
+			m.logger.WithFields(log.Fields{
+				"channelID": data.ChannelID,
+				"payload":   data.Payload,
+				"error":     err,
+				"peerID":    peerID,
+			}).Warn("Failed to decode DataResponse payload")
+			return
+		}
+		m.logger.WithFields(log.Fields{
+			"vote.Block": vote.Block.Hex(),
+			"peer":       peerID,
+		}).Debug("Received elite edge node vote")
+		m.handleEliteEdgeNodeVote(vote)
+	case common.ChannelIDAggregatedEliteEdgeNodeVotes:
 		vote := &core.AggregatedEENVotes{}
 		err := rlp.DecodeBytes(data.Payload, vote)
 		if err != nil {
@@ -639,11 +657,11 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			return
 		}
 		m.logger.WithFields(log.Fields{
-			"vote.Hash":       vote.Block.Hex(),
+			"vote.Block":      vote.Block.Hex(),
 			"vote.Multiplies": vote.Multiplies,
 			"peer":            peerID,
 		}).Debug("Received elite edge node vote")
-		m.handleEliteEdgeNodeVote(vote)
+		m.handleAggregatedEliteEdgeNodeVotes(vote)
 	case common.ChannelIDHeader:
 		headers := &Headers{}
 		err := rlp.DecodeBytes(data.Payload, headers)
@@ -803,6 +821,10 @@ func (sm *SyncManager) handleGuardianVote(vote *core.AggregatedVotes) {
 	sm.PassdownMessage(vote)
 }
 
-func (sm *SyncManager) handleEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
+func (sm *SyncManager) handleEliteEdgeNodeVote(vote *core.EENVote) {
+	sm.PassdownMessage(vote)
+}
+
+func (sm *SyncManager) handleAggregatedEliteEdgeNodeVotes(vote *core.AggregatedEENVotes) {
 	sm.PassdownMessage(vote)
 }

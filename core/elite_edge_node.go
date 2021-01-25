@@ -45,13 +45,18 @@ func (e *EENVote) Validate(eenp *EliteEdgeNodePool) result.Result {
 	}
 	eenIdx := eenp.IndexWithHolderAddress(e.Address)
 	if eenIdx < 0 {
-		return result.Error("cannot find elite edge node %v", e.Address)
+		return result.Error("edge node %v not staked yet, safely ignore", e.Address)
 	}
 	eenBLSPubkey := eenp.SortedEliteEdgeNodes[eenIdx].Pubkey
 	if !e.Signature.Verify(e.signBytes(), eenBLSPubkey) {
 		return result.Error("signature verification failed")
 	}
 	return result.OK
+}
+
+func (e *EENVote) String() string {
+	return fmt.Sprintf("EENVote{Block: %s, Address: %v, Signature: %v}",
+		e.Block.Hex(), e.Address, e.signBytes())
 }
 
 //

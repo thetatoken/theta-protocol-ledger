@@ -404,8 +404,11 @@ const (
 	// ChannelIDNATMapping indicates the channel for NAT Mapping messages between peers
 	ChannelIDNATMapping
 
-	// ChannelIDEliteEdgeNode indicates the channel for Elite Edge Node messages between peers
-	ChannelIDEliteEdgeNode
+	// ChannelIDEliteEdgeNode indicates the channel for Elite Edge Node vote messages
+	ChannelIDEliteEdgeNodeVote
+
+	// ChannelIDAggregatedEliteEdgeNodeVotes indicates the channel for Elite Edge Node aggregated vote messages
+	ChannelIDAggregatedEliteEdgeNodeVotes
 )
 
 // P2POptEnum defines the p2p network
