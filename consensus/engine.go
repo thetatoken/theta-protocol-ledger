@@ -649,7 +649,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	applyBlockTime := time.Since(start1)
 
 	start1 = time.Now()
-	e.pruneState(block.Height)
+	go e.pruneState(block.Height)
 	pruneStateTime := time.Since(start1)
 
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
