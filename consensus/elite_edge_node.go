@@ -2,6 +2,7 @@ package consensus
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -30,8 +31,9 @@ type EliteEdgeNodeEngine struct {
 	nextVote *core.AggregatedEENVotes
 	eenp     *core.EliteEdgeNodePool
 
-	incoming chan *core.AggregatedEENVotes
-	mu       *sync.Mutex
+	evIncoming  chan *core.EENVote
+	aevIncoming chan *core.AggregatedEENVotes
+	mu          *sync.Mutex
 }
 
 func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *EliteEdgeNodeEngine {
@@ -40,8 +42,9 @@ func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *Elit
 		engine:  c,
 		privKey: privateKey,
 
-		incoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusMessageQueueSize)),
-		mu:       &sync.Mutex{},
+		evIncoming:  make(chan *core.EENVote, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		aevIncoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		mu:          &sync.Mutex{},
 	}
 }
 
@@ -101,19 +104,57 @@ func (e *EliteEdgeNodeEngine) mainLoop(ctx context.Context) {
 		select {
 		case <-ctx.Done():
 			return
-		case vote, ok := <-e.incoming:
+		case ev, ok := <-e.evIncoming:
 			if ok {
-				e.processVote(vote)
+				e.processVote(ev)
+			}
+		case aev, ok := <-e.aevIncoming:
+			if ok {
+				e.processAggregatedVote(aev)
 			}
 		}
 	}
 }
 
-func (e *EliteEdgeNodeEngine) processVote(vote *core.AggregatedEENVotes) {
+func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	if !e.validateVote(vote) {
+		return
+	}
+
+	aggregatedVote, err := e.convertVote(vote)
+	if err != nil {
+		logger.Warnf("Discard vote from edge node %v, reason: %v", vote.Address, err)
+	}
+
+	e.aevIncoming <- aggregatedVote
+}
+
+// convertVote converts an EENVote into an AggregatedEENVotes
+func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEENVotes, error) {
+	if e.eenp == nil {
+		return nil, fmt.Errorf("The elite edge node pool is nil, cannot convert vote")
+	}
+
+	signerIdx := e.eenp.IndexWithHolderAddress(ev.Address)
+	if signerIdx < 0 {
+		return nil, fmt.Errorf("Elite edge node %v not found in the Elite edge node pool", ev.Address)
+	}
+
+	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenp)
+	eenv.Multiplies[signerIdx] = 1
+	eenv.Signature = ev.Signature
+
+	return eenv, nil
+}
+
+func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVotes) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	if !e.validateAggregatedVote(vote) {
 		return
 	}
 
@@ -166,23 +207,62 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.AggregatedEENVotes) {
 	}).Info("New elite edge node vote")
 }
 
-func (e *EliteEdgeNodeEngine) HandleVote(vote *core.AggregatedEENVotes) {
+func (e *EliteEdgeNodeEngine) HandleVote(vote *core.EENVote) {
 	select {
-	case e.incoming <- vote:
+	case e.evIncoming <- vote:
 		return
 	default:
-		e.logger.Debug("EliteEdgeNodeEngine queue is full, discarding vote: %v", vote)
+		e.logger.Debug("EliteEdgeNodeEngine queue is full, discarding elite edge node vote: %v", vote)
 	}
 }
 
-func (e *EliteEdgeNodeEngine) validateVote(vote *core.AggregatedEENVotes) (res bool) {
+func (e *EliteEdgeNodeEngine) HandleAggregatedVote(vote *core.AggregatedEENVotes) {
+	select {
+	case e.aevIncoming <- vote:
+		return
+	default:
+		e.logger.Debug("EliteEdgeNodeEngine queue is full, discarding aggregated elite edge node vote: %v", vote)
+	}
+}
+
+func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
+	if e.block.IsEmpty() {
+		e.logger.WithFields(log.Fields{
+			"local.block": e.block.Hex(),
+			"local.round": e.round,
+			"vote.block":  vote.Block.Hex(),
+		}).Info("Ignoring elite edge node vote: local not ready")
+		return
+	}
+	if vote.Block != e.block {
+		e.logger.WithFields(log.Fields{
+			"local.block": e.block.Hex(),
+			"local.round": e.round,
+			"vote.block":  vote.Block.Hex(),
+		}).Info("Ignoring elite edge node vote: block hash does not match with local candidate")
+		return
+	}
+	if result := vote.Validate(e.eenp); result.IsError() {
+		e.logger.WithFields(log.Fields{
+			"local.block": e.block.Hex(),
+			"local.round": e.round,
+			"vote.block":  vote.Block.Hex(),
+			"error":       result.Message,
+		}).Info("Ignoring aggregated elite edge node vote: invalid vote")
+		return
+	}
+	res = true
+	return
+}
+
+func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVotes) (res bool) {
 	if e.block.IsEmpty() {
 		e.logger.WithFields(log.Fields{
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring elite edge node vote: local not ready")
+		}).Info("Ignoring aggregated elite edge node vote: local not ready")
 		return
 	}
 	if vote.Block != e.block {
@@ -191,7 +271,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.AggregatedEENVotes) (res b
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring elite edge node vote: block hash does not match with local candidate")
+		}).Info("Ignoring aggregated elite edge node vote: block hash does not match with local candidate")
 		return
 	}
 	if !e.checkMultipliesForRound(vote, e.round) {
@@ -200,7 +280,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.AggregatedEENVotes) (res b
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring elite edge node vote: mutiplies exceed limit for round")
+		}).Info("Ignoring  aggregatedelite edge node vote: mutiplies exceed limit for round")
 		return
 	}
 	if result := vote.Validate(e.eenp); result.IsError() {
@@ -210,7 +290,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.AggregatedEENVotes) (res b
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
 			"error":          result.Message,
-		}).Info("Ignoring elite edge node vote: invalid vote")
+		}).Info("Ignoring aggregated elite edge node vote: invalid vote")
 		return
 	}
 	res = true

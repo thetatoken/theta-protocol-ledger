@@ -282,7 +282,7 @@ func (e *ConsensusEngine) mainLoop() {
 
 				if eenv != nil {
 					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting elite edge node vote")
-					e.broadcastEliteEdgeNodeVote(eenv)
+					e.broadcastAggregatedEliteEdgeNodeVote(eenv)
 				}
 				e.eliteEdgeNode.StartNewRound()
 			}
@@ -331,9 +331,12 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	case *core.AggregatedVotes:
 		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
-	case *core.AggregatedEENVotes:
+	case *core.EENVote:
 		e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
 		e.handleEliteEdgeNodeVote(m)
+	case *core.AggregatedEENVotes:
+		e.logger.WithFields(log.Fields{"aggregated elite edge node vote": m}).Debug("Received agggregated elite edge node vote")
+		e.handleAggregatedEliteEdgeNodeVote(m)
 	default:
 		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
@@ -990,11 +993,15 @@ func (e *ConsensusEngine) broadcastGuardianVote(vote *core.AggregatedVotes) {
 	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
-func (e *ConsensusEngine) handleEliteEdgeNodeVote(v *core.AggregatedEENVotes) {
+func (e *ConsensusEngine) handleEliteEdgeNodeVote(v *core.EENVote) {
 	e.eliteEdgeNode.HandleVote(v)
 }
 
-func (e *ConsensusEngine) broadcastEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
+func (e *ConsensusEngine) handleAggregatedEliteEdgeNodeVote(v *core.AggregatedEENVotes) {
+	e.eliteEdgeNode.HandleAggregatedVote(v)
+}
+
+func (e *ConsensusEngine) broadcastAggregatedEliteEdgeNodeVote(vote *core.AggregatedEENVotes) {
 	payload, err := rlp.EncodeToBytes(vote)
 	if err != nil {
 		e.logger.WithFields(log.Fields{"elite edge node vote": vote}).Error("Failed to encode vote")

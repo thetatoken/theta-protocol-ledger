@@ -15,6 +15,46 @@ import (
 )
 
 //
+// ------- EENVote ------- //
+//
+
+// EENVote represents the vote for a block from an elite edge node.
+type EENVote struct {
+	Block     common.Hash    // Hash of the block.
+	Address   common.Address // Address of the edge node.
+	Signature *bls.Signature // Aggregated signiature.
+}
+
+type EENBlsSigMsg struct {
+	CheckpointHash common.Hash
+}
+
+// signBytes returns the bytes to be signed.
+func (e *EENVote) signBytes() common.Bytes {
+	tmp := &EENBlsSigMsg{
+		CheckpointHash: e.Block,
+	}
+	b, _ := rlp.EncodeToBytes(tmp)
+	return b
+}
+
+// Validate verifies the vote.
+func (e *EENVote) Validate(eenp *EliteEdgeNodePool) result.Result {
+	if e.Signature == nil {
+		return result.Error("signature cannot be nil")
+	}
+	eenIdx := eenp.IndexWithHolderAddress(e.Address)
+	if eenIdx < 0 {
+		return result.Error("cannot find elite edge node %v", e.Address)
+	}
+	eenBLSPubkey := eenp.SortedEliteEdgeNodes[eenIdx].Pubkey
+	if !e.Signature.Verify(e.signBytes(), eenBLSPubkey) {
+		return result.Error("signature verification failed")
+	}
+	return result.OK
+}
+
+//
 // ------- AggregatedEENVotes ------- //
 //
 
@@ -46,17 +86,17 @@ func (a *AggregatedEENVotes) signBytes() common.Bytes {
 	return b
 }
 
-// Sign adds signer's signature. Returns false if signer has already signed.
-func (a *AggregatedEENVotes) Sign(key *bls.SecretKey, signerIdx int) bool {
-	if a.Multiplies[signerIdx] > 0 {
-		// Already signed, do nothing.
-		return false
-	}
+// // Sign adds signer's signature. Returns false if signer has already signed.
+// func (a *AggregatedEENVotes) Sign(key *bls.SecretKey, signerIdx int) bool {
+// 	if a.Multiplies[signerIdx] > 0 {
+// 		// Already signed, do nothing.
+// 		return false
+// 	}
 
-	a.Multiplies[signerIdx] = 1
-	a.Signature.Aggregate(key.Sign(a.signBytes()))
-	return true
-}
+// 	a.Multiplies[signerIdx] = 1
+// 	a.Signature.Aggregate(key.Sign(a.signBytes()))
+// 	return true
+// }
 
 // Merge creates a new aggregation that combines two vote sets. Returns nil, nil if input vote
 // is a subset of current vote.
@@ -235,6 +275,16 @@ func (eenp *EliteEdgeNodePool) WithStake() *EliteEdgeNodePool {
 		ret.Add(een)
 	}
 	return ret
+}
+
+// IndexWithHolderAddress returns index of a stake holder address in the pool. Returns -1 if not found.
+func (eenp *EliteEdgeNodePool) IndexWithHolderAddress(addr common.Address) int {
+	for i, een := range eenp.SortedEliteEdgeNodes {
+		if een.Holder == addr {
+			return i
+		}
+	}
+	return -1
 }
 
 // Index returns index of a public key in the pool. Returns -1 if not found.
