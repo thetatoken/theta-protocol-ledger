@@ -151,6 +151,8 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 	}
 	blockHash = block.Hash()
 	for {
+		logger.Debugf("Ledger.GetGuardianCandidatePool, block.height = %v", block.Height)
+
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
@@ -161,7 +163,7 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 			gcp := storeView.GetGuardianCandidatePool()
 			return gcp, nil
 		}
-		blockHash = block.Hash()
+		blockHash = block.Parent
 	}
 }
 
@@ -177,6 +179,8 @@ func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEd
 	}
 	blockHash = block.Hash()
 	for {
+		logger.Debugf("Ledger.GetEliteEdgeNodePool, block.height = %v", block.Height)
+
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
@@ -187,7 +191,7 @@ func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEd
 			eenp := storeView.GetEliteEdgeNodePool()
 			return eenp, nil
 		}
-		blockHash = block.Hash()
+		blockHash = block.Parent
 	}
 }
 
