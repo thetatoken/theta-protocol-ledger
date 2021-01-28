@@ -12,6 +12,9 @@ const HeightLowerGNStakeThresholdTo1000 uint64 = 1005 // approximate time: 12pm 
 // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
 const HeightEnableSmartContract uint64 = 1005 // approximate time: 12pm Dec 10th, 2020 PST
 
+// HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
+const HeightSampleStakingReward = 9999999999999
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 
