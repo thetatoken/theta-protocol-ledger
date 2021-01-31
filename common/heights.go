@@ -28,7 +28,7 @@ const HeightLowerGNStakeThresholdTo1000 uint64 = 50 // approximate time: 12pm De
 const HeightEnableSmartContract uint64 = 50 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
-const HeightEnableTheta3 uint64 = 50
+const HeightEnableTheta3 uint64 = 110
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)

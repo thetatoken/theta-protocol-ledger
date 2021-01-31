@@ -15,7 +15,8 @@ import (
 )
 
 var weiMultiplier = big.NewInt(1e18)
-var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier) // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
+var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier)    // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
+var eenTfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(38), weiMultiplier) // 38 TFUEL per block, corresponds to about 4% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
 
 var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
@@ -87,18 +88,42 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	// check the reward amount
 	var expectedRewards map[string]types.Coins
-	guardianVotes := exec.consensus.GetLedger().GetCurrentBlock().GuardianVotes
+	currentBlock := exec.consensus.GetLedger().GetCurrentBlock()
+	guardianVotes := currentBlock.GuardianVotes
+	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
 
-	if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil {
-		expectedRewards = CalculateReward(view, validatorSet, nil, nil)
-	} else {
-		guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
-		if err != nil {
-			logger.Panic(err)
+	//if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil
+	if tx.BlockHeight < common.HeightEnableTheta2 {
+		expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
+	} else if tx.BlockHeight < common.HeightEnableTheta3 {
+		if guardianVotes != nil {
+			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			if err != nil {
+				logger.Panic(err)
+			}
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			guardianCandidatePool := storeView.GetGuardianCandidatePool()
+			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
 		}
-		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
-		guardianCandidatePool := storeView.GetGuardianCandidatePool()
-		expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+	} else { // tx.BlockHeight >= common.HeightEnableTheta3
+		if guardianVotes != nil {
+			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			if err != nil {
+				logger.Panic(err)
+			}
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			guardianCandidatePool := storeView.GetGuardianCandidatePool()
+
+			var eliteEdgeNodePool *core.EliteEdgeNodePool
+			if eliteEdgeNodeVotes != nil && eliteEdgeNodeVotes.Block == guardianVotes.Block {
+				eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+			} else {
+				eliteEdgeNodePool = nil
+				logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes")
+			}
+
+			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+		}
 	}
 
 	if len(expectedRewards) != len(tx.Outputs) {
@@ -142,15 +167,20 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 }
 
 // CalculateReward calculates the block reward for each account
-func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool) map[string]types.Coins {
+func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet,
+	guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool,
+	eliteEdgeNodeVotes *core.AggregatedEENVotes, eliteEdgeNodePool *core.EliteEdgeNodePool) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
 	blockHeight := view.Height() + 1 // view points to the parent block
 	if blockHeight < common.HeightEnableValidatorReward {
 		grantValidatorsWithZeroReward(validatorSet, &accountReward)
 	} else if blockHeight < common.HeightEnableTheta2 {
-		grantStakerReward(view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
-	} else {
-		grantStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantThetaStakerReward(view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
+	} else if blockHeight < common.HeightEnableTheta3 {
+		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+	} else { // blockHeight >= common.HeightEnableTheta3
+		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantTFuelStakerReward(view, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
 	}
 
 	return accountReward
@@ -164,9 +194,13 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 	}
 }
 
-func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
+func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
 	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
+		return
+	}
+
+	if guardianVotes == nil || guardianPool == nil {
 		return
 	}
 
@@ -248,6 +282,80 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 			(*accountReward)[string(stakeSourceAddr[:])] = reward
 
 			logger.Infof("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
+		}
+	}
+}
+
+// TODO: random sampling
+func grantTFuelStakerReward(view *st.StoreView, eliteEdgeNodeVotes *core.AggregatedEENVotes,
+	eliteEdgeNodePool *core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
+	if !common.IsCheckPointHeight(blockHeight) {
+		return
+	}
+
+	if eliteEdgeNodeVotes == nil || eliteEdgeNodePool == nil {
+		return
+	}
+
+	totalStake := big.NewInt(0)
+
+	if eliteEdgeNodePool != nil {
+		eliteEdgeNodePool = eliteEdgeNodePool.WithStake()
+	}
+
+	if eliteEdgeNodePool != nil {
+		for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+			if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+				continue
+			}
+			totalStake.Add(totalStake, e.TotalStake())
+		}
+	}
+
+	if totalStake.Cmp(big.NewInt(0)) != 0 {
+		stakeSourceMap := map[common.Address]*big.Int{}
+
+		if eliteEdgeNodePool != nil {
+			for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+				if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+					continue
+				}
+				stakes := e.Stakes
+				for _, stake := range stakes {
+					if stake.Withdrawn {
+						continue
+					}
+					stakeAmount := stake.Amount
+					stakeSource := stake.Source
+					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
+					} else {
+						stakeSourceMap[stakeSource] = stakeAmount
+					}
+				}
+			}
+		}
+
+		// the source of the stake divides the block reward proportional to their stake
+		totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
+		for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
+			tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
+			rewardAmount := tmp.Div(tmp, totalStake)
+
+			tfuelStakingReward := types.Coins{
+				ThetaWei: big.NewInt(0),
+				TFuelWei: rewardAmount,
+			}.NoNil()
+
+			logger.Infof("EEN reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), tfuelStakingReward)
+
+			staker := string(stakeSourceAddr[:])
+			if thetaStakingReward, exists := (*accountReward)[staker]; exists {
+				totalStakingReward := thetaStakingReward.NoNil().Plus(tfuelStakingReward)
+				(*accountReward)[staker] = totalStakingReward
+			} else {
+				(*accountReward)[staker] = tfuelStakingReward
+			}
 		}
 	}
 }
