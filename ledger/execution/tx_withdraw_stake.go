@@ -108,6 +108,7 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
+		view.UpdateEliteEdgeNodePool(eenp)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
