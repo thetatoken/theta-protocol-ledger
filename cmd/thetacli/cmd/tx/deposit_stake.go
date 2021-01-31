@@ -134,9 +134,16 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		if err != nil {
 			utils.Error("Failed to decode bls POP: %v\n", err)
 		}
-		holderSig, err := crypto.SignatureFromBytes(eenSummaryBytes[164:458])
+		holderSig, err := crypto.SignatureFromBytes(eenSummaryBytes[164:229])
 		if err != nil {
 			utils.Error("Failed to decode signature: %v\n", err)
+		}
+
+		expectedSummaryHash := crypto.Keccak256Hash([]byte("0x" + holderFlag[:458])).Hex()
+		summaryHash := hex.EncodeToString(eenSummaryBytes[229:])
+		if expectedSummaryHash[2:] != summaryHash {
+			utils.Error("Failed to verify elite edge node summary: unmatched summary hash - %v vs %v\n",
+				expectedSummaryHash, summaryHash)
 		}
 
 		depositStakeTx.BlsPubkey = blsPubkey
