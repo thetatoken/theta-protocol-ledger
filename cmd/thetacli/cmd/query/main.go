@@ -30,6 +30,7 @@ func init() {
 	QueryCmd.AddCommand(splitRuleCmd)
 	QueryCmd.AddCommand(vcpCmd)
 	QueryCmd.AddCommand(gcpCmd)
+	QueryCmd.AddCommand(eenpCmd)
 	QueryCmd.AddCommand(peersCmd)
 	QueryCmd.AddCommand(versionCmd)
 }

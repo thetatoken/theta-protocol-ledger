@@ -118,12 +118,12 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		if strings.HasPrefix(holderFlag, "0x") {
 			holderFlag = holderFlag[2:]
 		}
-		if len(holderFlag) != 524 {
+		if len(holderFlag) != 522 {
 			utils.Error("Holder must be a valid elite edge node summary")
 		}
 		eenSummaryBytes, err := hex.DecodeString(holderFlag)
 		if err != nil {
-			utils.Error("Failed to decode elite edge node address: %v\n", err)
+			utils.Error("Failed to decode elite edge node summary: %v\n", err)
 		}
 		holderAddress = common.BytesToAddress(eenSummaryBytes[:20])
 		blsPubkey, err := bls.PublicKeyFromBytes(eenSummaryBytes[20:68])

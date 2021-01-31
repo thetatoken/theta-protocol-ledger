@@ -636,6 +636,51 @@ func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *Get
 	return nil
 }
 
+// ------------------------------ GetEenp -----------------------------------
+
+type GetEenpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetEenpResult struct {
+	BlockHashEenpPairs []BlockHashEenpPair
+}
+
+type BlockHashEenpPair struct {
+	BlockHash common.Hash
+	Eenp      *core.EliteEdgeNodePool
+}
+
+func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *GetEenpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashEenpPairs := []BlockHashEenpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+		}
+		eenp := blockStoreView.GetEliteEdgeNodePool()
+		blockHashEenpPairs = append(blockHashEenpPairs, BlockHashEenpPair{
+			BlockHash: blockHash,
+			Eenp:      eenp,
+		})
+	}
+
+	result.BlockHashEenpPairs = blockHashEenpPairs
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {

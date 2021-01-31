@@ -66,8 +66,13 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 			WithErrorCode(result.CodeInvalidStake)
 	}
 
-	if stake.TFuelWei.Cmp(types.Zero) != 0 {
-		return result.Error("TFuel has to be zero for stake deposit!").
+	if (tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) && stake.TFuelWei.Cmp(types.Zero) != 0 {
+		return result.Error("TFuel has to be zero for validator or guardian stake deposit!").
+			WithErrorCode(result.CodeInvalidStake)
+	}
+
+	if tx.Purpose == core.StakeForEliteEdgeNode && stake.ThetaWei.Cmp(types.Zero) != 0 {
+		return result.Error("Theta has to be zero for elite edge node stake deposit!").
 			WithErrorCode(result.CodeInvalidStake)
 	}
 

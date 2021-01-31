@@ -182,6 +182,7 @@ func (h *BlockHeader) EncodeRLP(w io.Writer) error {
 		})
 	}
 
+	// Theta3.0 fork
 	return rlp.Encode(w, []interface{}{
 		h.ChainID,
 		h.Epoch,
