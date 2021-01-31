@@ -145,7 +145,9 @@ func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEEN
 
 	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenp)
 	eenv.Multiplies[signerIdx] = 1
-	eenv.Signature = ev.Signature
+	eenv.Signature.Aggregate(ev.Signature)
+
+	logger.Infof("converted edge node vote for block %v from edge node %v to an aggregated vote", ev.Block.Hex(), ev.Address)
 
 	return eenv, nil
 }
@@ -280,7 +282,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring  aggregatedelite edge node vote: mutiplies exceed limit for round")
+		}).Info("Ignoring aggregated elite edge node vote: mutiplies exceed limit for round")
 		return
 	}
 	if result := vote.Validate(e.eenp); result.IsError() {

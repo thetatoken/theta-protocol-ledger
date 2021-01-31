@@ -125,7 +125,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
 				}
 			} else {
-				logger.Warnf("Elite edge nodes hae no vote for block %v", guardianVotes.Block.Hex())
+				logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
 			}
 
 			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)

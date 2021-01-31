@@ -751,7 +751,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 							eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
 					}
 				} else {
-					logger.Warnf("Elite edge nodes hae no vote for block %v", guardianVotes.Block.Hex())
+					logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
 				}
 
 				accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)

@@ -26,13 +26,13 @@ type EENVote struct {
 }
 
 type EENBlsSigMsg struct {
-	CheckpointHash common.Hash
+	Block common.Hash
 }
 
 // signBytes returns the bytes to be signed.
 func (e *EENVote) signBytes() common.Bytes {
 	tmp := &EENBlsSigMsg{
-		CheckpointHash: e.Block,
+		Block: e.Block,
 	}
 	b, _ := rlp.EncodeToBytes(tmp)
 	return b
@@ -49,7 +49,7 @@ func (e *EENVote) Validate(eenp *EliteEdgeNodePool) result.Result {
 	}
 	eenBLSPubkey := eenp.SortedEliteEdgeNodes[eenIdx].Pubkey
 	if !e.Signature.Verify(e.signBytes(), eenBLSPubkey) {
-		return result.Error("signature verification failed")
+		return result.Error("elite edge node vote signature validation failed")
 	}
 	return result.OK
 }
@@ -67,7 +67,7 @@ func (e *EENVote) String() string {
 type AggregatedEENVotes struct {
 	Block      common.Hash    // Hash of the block.
 	Multiplies []uint32       // Multiplies of each signer.
-	Signature  *bls.Signature // Aggregated signiature.
+	Signature  *bls.Signature // Aggregated signature.
 }
 
 func NewAggregatedEENVotes(block common.Hash, eenp *EliteEdgeNodePool) *AggregatedEENVotes {
@@ -84,7 +84,10 @@ func (a *AggregatedEENVotes) String() string {
 
 // signBytes returns the bytes to be signed.
 func (a *AggregatedEENVotes) signBytes() common.Bytes {
-	tmp := &AggregatedEENVotes{
+	// tmp := &AggregatedEENVotes{
+	// 	Block: a.Block,
+	// }
+	tmp := &EENBlsSigMsg{
 		Block: a.Block,
 	}
 	b, _ := rlp.EncodeToBytes(tmp)
@@ -166,7 +169,7 @@ func (a *AggregatedEENVotes) Validate(eenp *EliteEdgeNodePool) result.Result {
 	pubKeys := eenp.WithStake().PubKeys()
 	aggPubkey := bls.AggregatePublicKeysVec(pubKeys, a.Multiplies)
 	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
-		return result.Error("signature verification failed")
+		return result.Error("aggregated elite edge node votes signature verification failed")
 	}
 	return result.OK
 }
