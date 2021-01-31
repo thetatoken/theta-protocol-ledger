@@ -104,6 +104,8 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
 			guardianCandidatePool := storeView.GetGuardianCandidatePool()
 			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
+		} else {
+			expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
 		}
 	} else { // tx.BlockHeight >= common.HeightEnableTheta3
 		if guardianVotes != nil {
@@ -115,14 +117,22 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 			guardianCandidatePool := storeView.GetGuardianCandidatePool()
 
 			var eliteEdgeNodePool *core.EliteEdgeNodePool
-			if eliteEdgeNodeVotes != nil && eliteEdgeNodeVotes.Block == guardianVotes.Block {
-				eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+			if eliteEdgeNodeVotes != nil {
+				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
+					eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+				} else {
+					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
+						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
+				}
 			} else {
-				eliteEdgeNodePool = nil
-				logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes")
+				logger.Warnf("Elite edge nodes hae no vote for block %v", guardianVotes.Block.Hex())
 			}
 
 			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+		} else {
+			// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
+			// the edge nodes vote for the correct checkpoint
+			expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
 		}
 	}
 
@@ -197,10 +207,6 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
 	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
-		return
-	}
-
-	if guardianVotes == nil || guardianPool == nil {
 		return
 	}
 

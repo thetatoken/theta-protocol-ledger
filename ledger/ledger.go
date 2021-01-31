@@ -730,6 +730,8 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 				storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
 				guardianCandidatePool := storeView.GetGuardianCandidatePool()
 				accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
+			} else {
+				accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
 			}
 		} else { // tx.BlockHeight >= common.HeightEnableTheta3
 			if guardianVotes != nil {
@@ -741,14 +743,22 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 				guardianCandidatePool := storeView.GetGuardianCandidatePool()
 
 				var eliteEdgeNodePool *core.EliteEdgeNodePool
-				if eliteEdgeNodeVotes != nil && eliteEdgeNodeVotes.Block == guardianVotes.Block {
-					eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+				if eliteEdgeNodeVotes != nil {
+					if eliteEdgeNodeVotes.Block == guardianVotes.Block {
+						eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+					} else {
+						logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
+							eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
+					}
 				} else {
-					eliteEdgeNodePool = nil
-					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes")
+					logger.Warnf("Elite edge nodes hae no vote for block %v", guardianVotes.Block.Hex())
 				}
 
 				accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+			} else {
+				// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
+				// the edge nodes vote for the correct checkpoint
+				accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
 			}
 		}
 	} else {
