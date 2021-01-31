@@ -50,11 +50,22 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Invalid input: stake must be positive\n")
 	}
 
+	var thetaStake *big.Int
+	var tfuelStake *big.Int
+
+	if purposeFlag == core.StakeForValidator || purposeFlag == core.StakeForGuardian {
+		thetaStake = stake
+		tfuelStake = new(big.Int).SetUint64(0)
+	} else { // purposeFlag == core.StakeForEliteEdgeNode
+		thetaStake = new(big.Int).SetUint64(0)
+		tfuelStake = stake
+	}
+
 	source := types.TxInput{
 		Address: sourceAddress,
 		Coins: types.Coins{
-			ThetaWei: stake,
-			TFuelWei: new(big.Int).SetUint64(0),
+			ThetaWei: thetaStake,
+			TFuelWei: tfuelStake,
 		},
 		Sequence: uint64(seqFlag),
 	}
@@ -75,12 +86,12 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 			utils.Error("holder must be a valid address")
 		}
 		holderAddress = common.HexToAddress(holderFlag)
-	} else {
+	} else if purposeFlag == core.StakeForGuardian {
 		if strings.HasPrefix(holderFlag, "0x") {
 			holderFlag = holderFlag[2:]
 		}
 		if len(holderFlag) != 458 {
-			utils.Error("Holder must be a valid guardian address")
+			utils.Error("Holder must be a valid guardian summary")
 		}
 		guardianKeyBytes, err := hex.DecodeString(holderFlag)
 		if err != nil {
@@ -96,6 +107,34 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 			utils.Error("Failed to decode bls POP: %v\n", err)
 		}
 		holderSig, err := crypto.SignatureFromBytes(guardianKeyBytes[164:])
+		if err != nil {
+			utils.Error("Failed to decode signature: %v\n", err)
+		}
+
+		depositStakeTx.BlsPubkey = blsPubkey
+		depositStakeTx.BlsPop = blsPop
+		depositStakeTx.HolderSig = holderSig
+	} else { // purposeFlag == core.StakeForEliteEdgeNode
+		if strings.HasPrefix(holderFlag, "0x") {
+			holderFlag = holderFlag[2:]
+		}
+		if len(holderFlag) != 524 {
+			utils.Error("Holder must be a valid elite edge node summary")
+		}
+		eenSummaryBytes, err := hex.DecodeString(holderFlag)
+		if err != nil {
+			utils.Error("Failed to decode elite edge node address: %v\n", err)
+		}
+		holderAddress = common.BytesToAddress(eenSummaryBytes[:20])
+		blsPubkey, err := bls.PublicKeyFromBytes(eenSummaryBytes[20:68])
+		if err != nil {
+			utils.Error("Failed to decode bls Pubkey: %v\n", err)
+		}
+		blsPop, err := bls.SignatureFromBytes(eenSummaryBytes[68:164])
+		if err != nil {
+			utils.Error("Failed to decode bls POP: %v\n", err)
+		}
+		holderSig, err := crypto.SignatureFromBytes(eenSummaryBytes[164:458])
 		if err != nil {
 			utils.Error("Failed to decode signature: %v\n", err)
 		}
