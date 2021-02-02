@@ -140,6 +140,36 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 	return snapshotBlockHeader, nil
 }
 
+func LoadSnapshotCheckpointHeader(snapshotFilePath string) *core.BlockHeader {
+	var err error
+
+	snapshotFile, err := os.Open(snapshotFilePath)
+	if err != nil {
+		return nil
+	}
+	defer snapshotFile.Close()
+
+	snapshotHeader := &core.SnapshotHeader{}
+	_, err = core.ReadRecord(snapshotFile, snapshotHeader)
+	if err != nil {
+		return nil
+	}
+
+	lastCheckpoint := core.LastCheckpoint{}
+	_, err = core.ReadRecord(snapshotFile, &lastCheckpoint)
+	if err != nil {
+		return nil
+	}
+
+	metadata := core.SnapshotMetadata{}
+	_, err = core.ReadRecord(snapshotFile, &metadata)
+	if err != nil {
+		return nil
+	}
+
+	return metadata.TailTrio.Second.Header
+}
+
 func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (*core.BlockHeader, *core.SnapshotMetadata, error) {
 	snapshotFile, err := os.Open(snapshotFilePath)
 	if err != nil {

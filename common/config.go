@@ -14,6 +14,9 @@ const (
 	// CfgKeyPath defines custom key path
 	CfgKeyPath = "key.path"
 
+	// CfgForceValidateSnapshot defines wether validation of snapshot can be skipped
+	CfgForceValidateSnapshot = "snapshot.force_validate"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
@@ -135,6 +138,8 @@ p2p:
 `
 
 func init() {
+	viper.SetDefault(CfgForceValidateSnapshot, false)
+
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
