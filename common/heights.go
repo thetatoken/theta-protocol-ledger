@@ -30,6 +30,9 @@ const HeightEnableSmartContract uint64 = 250 // approximate time: 12pm Dec 10th,
 // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
 const HeightEnableTheta3 uint64 = 1020
 
+// HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
+const HeightSampleStakingReward uint64 = 9999999999999
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 

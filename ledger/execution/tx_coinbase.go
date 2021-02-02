@@ -1,14 +1,18 @@
 package execution
 
 import (
+	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"sort"
 
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database"
@@ -17,6 +21,7 @@ import (
 var weiMultiplier = big.NewInt(1e18)
 var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier)    // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
 var eenTfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(38), weiMultiplier) // 38 TFUEL per block, corresponds to about 4% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
+var tfuelRewardN = 400                                                        // Reward receiver sampling params
 
 var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
@@ -190,7 +195,7 @@ func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
 	} else { // blockHeight >= common.HeightEnableTheta3
 		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
-		grantTFuelStakerReward(view, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
+		grantTFuelStakerReward(view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
 	}
 
 	return accountReward
@@ -216,18 +221,10 @@ func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 		guardianPool = guardianPool.WithStake()
 	}
 
-	if guardianPool != nil {
-		for i, g := range guardianPool.SortedGuardians {
-			if guardianVotes.Multiplies[i] == 0 {
-				continue
-			}
-			totalStake.Add(totalStake, g.TotalStake())
-		}
-	}
-
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
 
 		stakeSourceMap := map[common.Address]*big.Int{}
+		stakeSourceList := []common.Address{}
 
 		// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
 		vcp := view.GetValidatorCandidatePool()
@@ -250,6 +247,7 @@ func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 					stakeSourceMap[stakeSource] = stakeAmountSum
 				} else {
 					stakeSourceMap[stakeSource] = stakeAmount
+					stakeSourceList = append(stakeSourceList, stakeSource)
 				}
 			}
 		}
@@ -266,34 +264,34 @@ func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 					}
 					stakeAmount := stake.Amount
 					stakeSource := stake.Source
+
+					totalStake.Add(totalStake, stakeAmount)
+
 					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
 						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
 					} else {
 						stakeSourceMap[stakeSource] = stakeAmount
+						stakeSourceList = append(stakeSourceList, stakeSource)
 					}
 				}
 			}
 		}
 
-		// the source of the stake divides the block reward proportional to their stake
 		totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
-		for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
-			tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
-			rewardAmount := tmp.Div(tmp, totalStake)
 
-			reward := types.Coins{
-				ThetaWei: big.NewInt(0),
-				TFuelWei: rewardAmount,
-			}.NoNil()
-			(*accountReward)[string(stakeSourceAddr[:])] = reward
-
-			logger.Infof("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
+		if blockHeight < common.HeightSampleStakingReward {
+			// the source of the stake divides the block reward proportional to their stake
+			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "Block")
+		} else {
+			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
+			grantRandomizedReward(guardianVotes.Block, view, stakeSourceList, stakeSourceMap,
+				totalStake, accountReward, totalReward, "Block")
 		}
 	}
 }
 
 // TODO: random sampling
-func grantTFuelStakerReward(view *st.StoreView, eliteEdgeNodeVotes *core.AggregatedEENVotes,
+func grantTFuelStakerReward(view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
 	eliteEdgeNodePool *core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
@@ -320,6 +318,7 @@ func grantTFuelStakerReward(view *st.StoreView, eliteEdgeNodeVotes *core.Aggrega
 
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
 		stakeSourceMap := map[common.Address]*big.Int{}
+		stakeSourceList := []common.Address{}
 
 		if eliteEdgeNodePool != nil {
 			for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
@@ -337,6 +336,7 @@ func grantTFuelStakerReward(view *st.StoreView, eliteEdgeNodeVotes *core.Aggrega
 						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
 					} else {
 						stakeSourceMap[stakeSource] = stakeAmount
+						stakeSourceList = append(stakeSourceList, stakeSource)
 					}
 				}
 			}
@@ -344,24 +344,97 @@ func grantTFuelStakerReward(view *st.StoreView, eliteEdgeNodeVotes *core.Aggrega
 
 		// the source of the stake divides the block reward proportional to their stake
 		totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
-		for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
-			tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
-			rewardAmount := tmp.Div(tmp, totalStake)
+		if blockHeight < common.HeightSampleStakingReward {
+			// the source of the stake divides the block reward proportional to their stake
+			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN")
+		} else {
+			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
+			grantRandomizedReward(guardianVotes.Block, view, stakeSourceList, stakeSourceMap,
+				totalStake, accountReward, totalReward, "EEN")
+		}
+	}
+}
 
-			tfuelStakingReward := types.Coins{
+func grantFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+	for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
+		tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
+		rewardAmount := tmp.Div(tmp, totalStake)
+
+		stakingReward := types.Coins{
+			ThetaWei: big.NewInt(0),
+			TFuelWei: rewardAmount,
+		}.NoNil()
+
+		staker := string(stakeSourceAddr[:])
+		if existingReward, exists := (*accountReward)[staker]; exists {
+			totalStakingReward := existingReward.NoNil().Plus(stakingReward)
+			(*accountReward)[staker] = totalStakingReward
+		} else {
+			(*accountReward)[staker] = stakingReward
+		}
+
+		logger.Infof("%v reward for staker %v : %v", rewardType, hex.EncodeToString(stakeSourceAddr[:]), stakingReward)
+	}
+}
+
+func grantRandomizedReward(blockHash common.Hash, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
+	totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+	samples := make([]*big.Int, tfuelRewardN)
+	for i := 0; i < tfuelRewardN; i++ {
+		// Set random seed to (block_height||sampling_index||checkpoint_hash)
+		seed := make([]byte, 2*binary.MaxVarintLen64+common.HashLength)
+		binary.PutUvarint(seed[:], view.Height())
+		binary.PutUvarint(seed[binary.MaxVarintLen64:], uint64(i))
+		copy(seed[2*binary.MaxVarintLen64:], blockHash[:])
+
+		var err error
+		samples[i], err = rand.Int(NewHashRand(seed), totalStake)
+		if err != nil {
+			// Should not reach here
+			logger.Panic(err)
+		}
+	}
+
+	sort.Sort(BigIntSort(samples))
+
+	curr := 0
+	currSum := big.NewInt(0)
+
+	for i := 0; i < len(stakeSourceList); i++ {
+		stakeSourceAddr := stakeSourceList[i]
+		stakeAmountSum := stakeSourceMap[stakeSourceAddr]
+
+		if curr >= tfuelRewardN {
+			break
+		}
+
+		count := 0
+		lower := currSum
+		upper := new(big.Int).Add(currSum, stakeAmountSum)
+		for curr < tfuelRewardN && samples[curr].Cmp(lower) >= 0 && samples[curr].Cmp(upper) < 0 {
+			count++
+			curr++
+		}
+		currSum = upper
+
+		if count > 0 {
+			tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
+			rewardAmount := tmp.Div(tmp, big.NewInt(int64(tfuelRewardN)))
+
+			reward := types.Coins{
 				ThetaWei: big.NewInt(0),
 				TFuelWei: rewardAmount,
 			}.NoNil()
 
-			logger.Infof("EEN reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), tfuelStakingReward)
-
 			staker := string(stakeSourceAddr[:])
 			if thetaStakingReward, exists := (*accountReward)[staker]; exists {
-				totalStakingReward := thetaStakingReward.NoNil().Plus(tfuelStakingReward)
+				totalStakingReward := thetaStakingReward.NoNil().Plus(reward)
 				(*accountReward)[staker] = totalStakingReward
 			} else {
-				(*accountReward)[staker] = tfuelStakingReward
+				(*accountReward)[staker] = reward
 			}
+
+			logger.Infof("%v reward for staker %v : %v", rewardType, hex.EncodeToString(stakeSourceAddr[:]), reward)
 		}
 	}
 }
@@ -374,4 +447,35 @@ func (exec *CoinbaseTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 
 func (exec *CoinbaseTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	return new(big.Int).SetUint64(0)
+}
+
+type BigIntSort []*big.Int
+
+func (s BigIntSort) Len() int           { return len(s) }
+func (s BigIntSort) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
+func (s BigIntSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+// HashRand generate infinite number of random bytes by repeatedly hashing the seed
+type HashRand struct {
+	remaining []byte
+	curr      common.Hash
+}
+
+func NewHashRand(seed []byte) *HashRand {
+	return &HashRand{
+		remaining: []byte{},
+		curr:      crypto.Keccak256Hash(seed),
+	}
+}
+
+func (r *HashRand) Read(buf []byte) (int, error) {
+	if len(r.remaining) != 0 {
+		n := copy(buf, r.remaining)
+		r.remaining = r.remaining[n:]
+		return n, nil
+	}
+	r.curr = crypto.Keccak256Hash(r.curr[:])
+	n := copy(buf, r.curr[:])
+	r.remaining = r.curr[n:]
+	return n, nil
 }
