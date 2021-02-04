@@ -15,6 +15,8 @@ import (
 
 	"github.com/gorilla/mux"
 
+	cnetutil "github.com/thetatoken/theta/common/util/netutil"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
@@ -25,7 +27,6 @@ import (
 	"github.com/thetatoken/theta/ledger"
 	"github.com/thetatoken/theta/mempool"
 	"github.com/thetatoken/theta/rpc/lib/rpc-codec/jsonrpc2"
-	"golang.org/x/net/netutil"
 	"golang.org/x/net/websocket"
 )
 
@@ -125,7 +126,7 @@ func (t *ThetaRPCServer) serve() {
 	}
 	defer l.Close()
 
-	ll := netutil.LimitListener(l, viper.GetInt(common.CfgRPCMaxConnections))
+	ll := cnetutil.LimitListener(l, viper.GetInt(common.CfgRPCMaxConnections))
 	t.listener = ll
 
 	logger.Info(t.server.Serve(ll))
