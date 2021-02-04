@@ -200,13 +200,13 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 		} else if i < tryListenSeconds-1 {
 			time.Sleep(time.Second)
 		}
-
-		ll := gonetutil.LimitListener(netListener, viper.GetInt(common.CfgP2PMaxConnections))
-		netListener = ll
 	}
 	if err != nil {
 		logger.Fatalf("Failed to initiate net listener: %v", err)
 	}
+
+	ll := gonetutil.LimitListener(netListener, viper.GetInt(common.CfgP2PMaxConnections))
+	netListener = ll
 
 	return netListener
 }
