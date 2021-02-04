@@ -10,9 +10,10 @@ import (
 
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
-	cnetutil "github.com/thetatoken/theta/common/util/netutil"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
+
+	gonetutil "golang.org/x/net/netutil"
 )
 
 const (
@@ -200,7 +201,7 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 			time.Sleep(time.Second)
 		}
 
-		ll := cnetutil.LimitListener(netListener, viper.GetInt(common.CfgP2PMaxConnections))
+		ll := gonetutil.LimitListener(netListener, viper.GetInt(common.CfgP2PMaxConnections))
 		netListener = ll
 	}
 	if err != nil {
