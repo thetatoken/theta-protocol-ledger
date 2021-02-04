@@ -346,11 +346,11 @@ func grantTFuelStakerReward(view *st.StoreView, guardianVotes *core.AggregatedVo
 		totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
 		if blockHeight < common.HeightSampleStakingReward {
 			// the source of the stake divides the block reward proportional to their stake
-			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN")
+			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
 		} else {
 			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
 			grantRandomizedReward(guardianVotes.Block, view, stakeSourceList, stakeSourceMap,
-				totalStake, accountReward, totalReward, "EEN")
+				totalStake, accountReward, totalReward, "EEN  ")
 		}
 	}
 }
