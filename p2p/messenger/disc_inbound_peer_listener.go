@@ -12,6 +12,8 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/p2p/netutil"
 	pr "github.com/thetatoken/theta/p2p/peer"
+
+	gonetutil "golang.org/x/net/netutil"
 )
 
 const (
@@ -202,6 +204,9 @@ func initiateNetListener(protocol string, localAddr string) (netListener net.Lis
 	if err != nil {
 		logger.Fatalf("Failed to initiate net listener: %v", err)
 	}
+
+	ll := gonetutil.LimitListener(netListener, viper.GetInt(common.CfgP2PMaxConnections))
+	netListener = ll
 
 	return netListener
 }
