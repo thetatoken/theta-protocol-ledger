@@ -14,6 +14,9 @@ const (
 	// CfgKeyPath defines custom key path
 	CfgKeyPath = "key.path"
 
+	// CfgForceValidateSnapshot defines wether validation of snapshot can be skipped
+	CfgForceValidateSnapshot = "snapshot.force_validate"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
@@ -88,6 +91,8 @@ const (
 	CfgP2PConnectionFIFO = "p2p.connectionFIFO"
 	// CfgP2PNatMapping sets whether to perform NAT mapping
 	CfgP2PNatMapping = "p2p.natMapping"
+	// CfgP2PMaxConnections specifies the number of max connections a node can accept
+	CfgP2PMaxConnections = "p2p.maxConnections"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -135,6 +140,8 @@ p2p:
 `
 
 func init() {
+	viper.SetDefault(CfgForceValidateSnapshot, false)
+
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
@@ -169,6 +176,7 @@ func init() {
 	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
+	viper.SetDefault(CfgP2PMaxConnections, 96)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
