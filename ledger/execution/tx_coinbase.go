@@ -96,50 +96,8 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	currentBlock := exec.consensus.GetLedger().GetCurrentBlock()
 	guardianVotes := currentBlock.GuardianVotes
 	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
-
-	//if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil
-	if tx.BlockHeight < common.HeightEnableTheta2 {
-		expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
-	} else if tx.BlockHeight < common.HeightEnableTheta3 {
-		if guardianVotes != nil {
-			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
-			if err != nil {
-				logger.Panic(err)
-			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
-			guardianCandidatePool := storeView.GetGuardianCandidatePool()
-			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
-		} else {
-			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
-		}
-	} else { // tx.BlockHeight >= common.HeightEnableTheta3
-		if guardianVotes != nil {
-			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
-			if err != nil {
-				logger.Panic(err)
-			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
-			guardianCandidatePool := storeView.GetGuardianCandidatePool()
-
-			var eliteEdgeNodePool *core.EliteEdgeNodePool
-			if eliteEdgeNodeVotes != nil {
-				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
-					eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
-				} else {
-					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
-						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
-				}
-			} else {
-				logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
-			}
-
-			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
-		} else {
-			// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
-			// the edge nodes vote for the correct checkpoint
-			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
-		}
-	}
+	guardianPool, eliteEdgeNodePool := exec.retrievePools(tx, guardianVotes, eliteEdgeNodeVotes)
+	expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 
 	if len(expectedRewards) != len(tx.Outputs) {
 		return result.Error("Number of rewarded account is incorrect")
@@ -181,6 +139,50 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 	return txHash, result.OK
 }
 
+func (exec *CoinbaseTxExecutor) retrievePools(tx *types.CoinbaseTx, guardianVotes *core.AggregatedVotes,
+	eliteEdgeNodeVotes *core.AggregatedEENVotes) (guardianPool *core.GuardianCandidatePool, eliteEdgeNodePool *core.EliteEdgeNodePool) {
+	guardianPool = nil
+	eliteEdgeNodePool = nil
+
+	if tx.BlockHeight < common.HeightEnableTheta2 {
+		guardianPool = nil
+		eliteEdgeNodePool = nil
+	} else if tx.BlockHeight < common.HeightEnableTheta3 {
+		if guardianVotes != nil {
+			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			if err != nil {
+				logger.Panic(err)
+			}
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			guardianPool = storeView.GetGuardianCandidatePool()
+		}
+	} else { // tx.BlockHeight >= common.HeightEnableTheta3
+		// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
+		// the edge nodes vote for the correct checkpoint
+		if guardianVotes != nil {
+			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			if err != nil {
+				logger.Panic(err)
+			}
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			guardianPool = storeView.GetGuardianCandidatePool()
+
+			if eliteEdgeNodeVotes != nil {
+				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
+					eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+				} else {
+					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
+						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
+				}
+			} else {
+				logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
+			}
+		}
+	}
+
+	return guardianPool, eliteEdgeNodePool
+}
+
 // CalculateReward calculates the block reward for each account
 func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet,
 	guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool,
@@ -189,13 +191,13 @@ func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.
 	blockHeight := view.Height() + 1 // view points to the parent block
 	if blockHeight < common.HeightEnableValidatorReward {
 		grantValidatorsWithZeroReward(validatorSet, &accountReward)
-	} else if blockHeight < common.HeightEnableTheta2 {
-		grantThetaStakerReward(ledger, view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
+	} else if blockHeight < common.HeightEnableTheta2 || guardianVotes == nil || guardianPool == nil {
+		grantValidatorReward(ledger, view, validatorSet, &accountReward, blockHeight)
 	} else if blockHeight < common.HeightEnableTheta3 {
-		grantThetaStakerReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantValidatorAndGuardianReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
 	} else { // blockHeight >= common.HeightEnableTheta3
-		grantThetaStakerReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
-		grantTFuelStakerReward(ledger, view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
+		grantValidatorAndGuardianReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantEliteEdgeNodeReward(ledger, view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
 	}
 
 	return accountReward
@@ -209,7 +211,66 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 	}
 }
 
-func grantThetaStakerReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
+func grantValidatorReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, accountReward *map[string]types.Coins, blockHeight uint64) {
+	if !common.IsCheckPointHeight(blockHeight) {
+		return
+	}
+
+	totalStake := validatorSet.TotalStake()
+
+	if totalStake.Cmp(big.NewInt(0)) == 0 {
+		// Should never happen
+		return
+	}
+
+	stakeSourceMap := map[common.Address]*big.Int{}
+	stakeSourceList := []common.Address{}
+
+	// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
+	vcp := view.GetValidatorCandidatePool()
+	for _, v := range validatorSet.Validators() {
+		validatorAddr := v.Address
+		stakeDelegate := vcp.FindStakeDelegate(validatorAddr)
+		if stakeDelegate == nil { // should not happen
+			panic(fmt.Sprintf("Failed to find stake delegate in the VCP: %v", hex.EncodeToString(validatorAddr[:])))
+		}
+
+		stakes := stakeDelegate.Stakes
+		for _, stake := range stakes {
+			if stake.Withdrawn {
+				continue
+			}
+			stakeAmount := stake.Amount
+			stakeSource := stake.Source
+			if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+				stakeAmountSum := big.NewInt(0).Add(stakeAmountSum, stakeAmount)
+				stakeSourceMap[stakeSource] = stakeAmountSum
+			} else {
+				stakeSourceMap[stakeSource] = stakeAmount
+				stakeSourceList = append(stakeSourceList, stakeSource)
+			}
+		}
+	}
+
+	totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
+
+	// the source of the stake divides the block reward proportional to their stake
+	for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
+		tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
+		rewardAmount := tmp.Div(tmp, totalStake)
+
+		reward := types.Coins{
+			ThetaWei: big.NewInt(0),
+			TFuelWei: rewardAmount,
+		}.NoNil()
+		(*accountReward)[string(stakeSourceAddr[:])] = reward
+
+		logger.Infof("Block reward for staker %v : %v", hex.EncodeToString(stakeSourceAddr[:]), reward)
+	}
+}
+
+// grant block rewards to both the validators and active guardians (they are both theta stakers)
+func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
 	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
@@ -217,83 +278,91 @@ func grantThetaStakerReward(ledger core.Ledger, view *st.StoreView, validatorSet
 
 	totalStake := validatorSet.TotalStake()
 
-	if guardianPool != nil {
-		guardianPool = guardianPool.WithStake()
+	if guardianPool == nil || guardianVotes == nil {
+		// Should never reach here
+		panic("guardianPool == nil || guardianVotes == nil")
+	}
+	guardianPool = guardianPool.WithStake()
+
+	if totalStake.Cmp(big.NewInt(0)) == 0 {
+		// Should never happen
+		return
 	}
 
-	if totalStake.Cmp(big.NewInt(0)) != 0 {
+	stakeSourceMap := map[common.Address]*big.Int{}
+	stakeSourceList := []common.Address{}
 
-		stakeSourceMap := map[common.Address]*big.Int{}
-		stakeSourceList := []common.Address{}
-
-		// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
-		vcp := view.GetValidatorCandidatePool()
-		for _, v := range validatorSet.Validators() {
-			validatorAddr := v.Address
-			stakeDelegate := vcp.FindStakeDelegate(validatorAddr)
-			if stakeDelegate == nil { // should not happen
-				panic(fmt.Sprintf("Failed to find stake delegate in the VCP: %v", hex.EncodeToString(validatorAddr[:])))
-			}
-
-			stakes := stakeDelegate.Stakes
-			for _, stake := range stakes {
-				if stake.Withdrawn {
-					continue
-				}
-				stakeAmount := stake.Amount
-				stakeSource := stake.Source
-				if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-					stakeAmountSum := big.NewInt(0).Add(stakeAmountSum, stakeAmount)
-					stakeSourceMap[stakeSource] = stakeAmountSum
-				} else {
-					stakeSourceMap[stakeSource] = stakeAmount
-					stakeSourceList = append(stakeSourceList, stakeSource)
-				}
-			}
+	// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
+	vcp := view.GetValidatorCandidatePool()
+	for _, v := range validatorSet.Validators() {
+		validatorAddr := v.Address
+		stakeDelegate := vcp.FindStakeDelegate(validatorAddr)
+		if stakeDelegate == nil { // should not happen
+			panic(fmt.Sprintf("Failed to find stake delegate in the VCP: %v", hex.EncodeToString(validatorAddr[:])))
 		}
 
-		if guardianPool != nil && guardianVotes != nil {
-			for i, g := range guardianPool.SortedGuardians {
-				if guardianVotes.Multiplies[i] == 0 {
-					continue
-				}
-				stakes := g.Stakes
-				for _, stake := range stakes {
-					if stake.Withdrawn {
-						continue
-					}
-					stakeAmount := stake.Amount
-					stakeSource := stake.Source
-
-					totalStake.Add(totalStake, stakeAmount)
-
-					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
-					} else {
-						stakeSourceMap[stakeSource] = stakeAmount
-						stakeSourceList = append(stakeSourceList, stakeSource)
-					}
-				}
+		stakes := stakeDelegate.Stakes
+		for _, stake := range stakes {
+			if stake.Withdrawn {
+				continue
+			}
+			stakeAmount := stake.Amount
+			stakeSource := stake.Source
+			if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+				stakeAmountSum := big.NewInt(0).Add(stakeAmountSum, stakeAmount)
+				stakeSourceMap[stakeSource] = stakeAmountSum
+			} else {
+				stakeSourceMap[stakeSource] = stakeAmount
+				stakeSourceList = append(stakeSourceList, stakeSource)
 			}
 		}
+	}
 
-		totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
-
-		if blockHeight < common.HeightSampleStakingReward {
-			// the source of the stake divides the block reward proportional to their stake
-			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "Block")
-		} else {
-			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-			grantRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
-				totalStake, accountReward, totalReward, "Block")
+	for i, g := range guardianPool.SortedGuardians {
+		if guardianVotes.Multiplies[i] == 0 {
+			continue
 		}
+		stakes := g.Stakes
+		for _, stake := range stakes {
+			if stake.Withdrawn {
+				continue
+			}
+			stakeAmount := stake.Amount
+			stakeSource := stake.Source
+
+			totalStake.Add(totalStake, stakeAmount)
+
+			if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+				stakeAmountSum.Add(stakeAmountSum, stakeAmount)
+			} else {
+				stakeSourceMap[stakeSource] = stakeAmount
+				stakeSourceList = append(stakeSourceList, stakeSource)
+			}
+		}
+	}
+
+	totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
+
+	if blockHeight < common.HeightSampleStakingReward {
+		// the source of the stake divides the block reward proportional to their stake
+		issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "Block")
+	} else {
+		// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
+		issueRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
+			totalStake, accountReward, totalReward, "Block")
 	}
 }
 
-func grantTFuelStakerReward(ledger core.Ledger, view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
+// grant uptime mining rewards to active elite edge nodes (they are the tfuel stakers)
+func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
 	eliteEdgeNodePool *core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
+	}
+
+	if guardianVotes == nil {
+		// Should never reach here
+		panic("guardianVotes == nil")
 	}
 
 	if eliteEdgeNodeVotes == nil || eliteEdgeNodePool == nil {
@@ -301,42 +370,34 @@ func grantTFuelStakerReward(ledger core.Ledger, view *st.StoreView, guardianVote
 	}
 
 	totalStake := big.NewInt(0)
-
-	if eliteEdgeNodePool != nil {
-		eliteEdgeNodePool = eliteEdgeNodePool.WithStake()
-	}
-
-	if eliteEdgeNodePool != nil {
-		for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
-			if eliteEdgeNodeVotes.Multiplies[i] == 0 {
-				continue
-			}
-			totalStake.Add(totalStake, e.TotalStake())
+	eliteEdgeNodePool = eliteEdgeNodePool.WithStake()
+	for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+		if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+			continue
 		}
+		totalStake.Add(totalStake, e.TotalStake())
 	}
 
 	if totalStake.Cmp(big.NewInt(0)) != 0 {
 		stakeSourceMap := map[common.Address]*big.Int{}
 		stakeSourceList := []common.Address{}
 
-		if eliteEdgeNodePool != nil {
-			for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
-				if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+		for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+			if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+				continue
+			}
+			stakes := e.Stakes
+			for _, stake := range stakes {
+				if stake.Withdrawn {
 					continue
 				}
-				stakes := e.Stakes
-				for _, stake := range stakes {
-					if stake.Withdrawn {
-						continue
-					}
-					stakeAmount := stake.Amount
-					stakeSource := stake.Source
-					if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-						stakeAmountSum.Add(stakeAmountSum, stakeAmount)
-					} else {
-						stakeSourceMap[stakeSource] = stakeAmount
-						stakeSourceList = append(stakeSourceList, stakeSource)
-					}
+				stakeAmount := stake.Amount
+				stakeSource := stake.Source
+				if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
+					stakeAmountSum.Add(stakeAmountSum, stakeAmount)
+				} else {
+					stakeSourceMap[stakeSource] = stakeAmount
+					stakeSourceList = append(stakeSourceList, stakeSource)
 				}
 			}
 		}
@@ -345,16 +406,16 @@ func grantTFuelStakerReward(ledger core.Ledger, view *st.StoreView, guardianVote
 		totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
 		if blockHeight < common.HeightSampleStakingReward {
 			// the source of the stake divides the block reward proportional to their stake
-			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
+			issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
 		} else {
 			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-			grantRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
+			issueRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
 				totalStake, accountReward, totalReward, "EEN  ")
 		}
 	}
 }
 
-func grantFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+func issueFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
 	for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
 		tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
 		rewardAmount := tmp.Div(tmp, totalStake)
@@ -376,20 +437,21 @@ func grantFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *bi
 	}
 }
 
-func grantRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVotes, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
+func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVotes, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
 	totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+
+	if guardianVotes == nil {
+		// Should never reach here
+		panic("guardianVotes == nil")
+	}
+
 	samples := make([]*big.Int, tfuelRewardN)
 	for i := 0; i < tfuelRewardN; i++ {
 		// Set random seed to (block_height||sampling_index||checkpoint_hash)
 		seed := make([]byte, 2*binary.MaxVarintLen64+common.HashLength)
 		binary.PutUvarint(seed[:], view.Height())
 		binary.PutUvarint(seed[binary.MaxVarintLen64:], uint64(i))
-		if guardianVotes != nil && !guardianVotes.Block.IsEmpty() {
-			copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
-		} else {
-			blockhash := ledger.GetCurrentBlock().Hash()
-			copy(seed[2*binary.MaxVarintLen64:], blockhash[:])
-		}
+		copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
 
 		var err error
 		samples[i], err = rand.Int(NewHashRand(seed), totalStake)
