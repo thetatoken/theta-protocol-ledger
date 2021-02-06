@@ -720,7 +720,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 
 	if common.IsCheckPointHeight(ch) {
 		if ch < common.HeightEnableTheta2 {
-			accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
+			accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 		} else if ch < common.HeightEnableTheta3 {
 			if guardianVotes != nil {
 				guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
@@ -729,9 +729,9 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 				}
 				storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
 				guardianCandidatePool := storeView.GetGuardianCandidatePool()
-				accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
+				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
 			} else {
-				accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
+				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 			}
 		} else { // tx.BlockHeight >= common.HeightEnableTheta3
 			if guardianVotes != nil {
@@ -754,15 +754,15 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 					logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
 				}
 
-				accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 			} else {
 				// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
 				// the edge nodes vote for the correct checkpoint
-				accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
+				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 			}
 		}
 	} else {
-		accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil, nil, nil)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 	}
 
 	// guardianVotes := ledger.GetCurrentBlock().GuardianVotes

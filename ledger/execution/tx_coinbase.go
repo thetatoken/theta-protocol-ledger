@@ -99,7 +99,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 
 	//if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil
 	if tx.BlockHeight < common.HeightEnableTheta2 {
-		expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
+		expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
 	} else if tx.BlockHeight < common.HeightEnableTheta3 {
 		if guardianVotes != nil {
 			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
@@ -108,9 +108,9 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 			}
 			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
 			guardianCandidatePool := storeView.GetGuardianCandidatePool()
-			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
+			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
 		} else {
-			expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
+			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
 		}
 	} else { // tx.BlockHeight >= common.HeightEnableTheta3
 		if guardianVotes != nil {
@@ -133,11 +133,11 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 				logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
 			}
 
-			expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 		} else {
 			// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
 			// the edge nodes vote for the correct checkpoint
-			expectedRewards = CalculateReward(view, validatorSet, nil, nil, nil, nil)
+			expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil, nil, nil)
 		}
 	}
 
@@ -182,7 +182,7 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 }
 
 // CalculateReward calculates the block reward for each account
-func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet,
+func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet,
 	guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool,
 	eliteEdgeNodeVotes *core.AggregatedEENVotes, eliteEdgeNodePool *core.EliteEdgeNodePool) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
@@ -190,12 +190,12 @@ func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 	if blockHeight < common.HeightEnableValidatorReward {
 		grantValidatorsWithZeroReward(validatorSet, &accountReward)
 	} else if blockHeight < common.HeightEnableTheta2 {
-		grantThetaStakerReward(view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
+		grantThetaStakerReward(ledger, view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
 	} else if blockHeight < common.HeightEnableTheta3 {
-		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantThetaStakerReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
 	} else { // blockHeight >= common.HeightEnableTheta3
-		grantThetaStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
-		grantTFuelStakerReward(view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
+		grantThetaStakerReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantTFuelStakerReward(ledger, view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
 	}
 
 	return accountReward
@@ -209,7 +209,7 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 	}
 }
 
-func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
+func grantThetaStakerReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
 	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
@@ -252,7 +252,7 @@ func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 			}
 		}
 
-		if guardianPool != nil {
+		if guardianPool != nil && guardianVotes != nil {
 			for i, g := range guardianPool.SortedGuardians {
 				if guardianVotes.Multiplies[i] == 0 {
 					continue
@@ -284,14 +284,13 @@ func grantThetaStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet,
 			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "Block")
 		} else {
 			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-			grantRandomizedReward(guardianVotes.Block, view, stakeSourceList, stakeSourceMap,
+			grantRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
 				totalStake, accountReward, totalReward, "Block")
 		}
 	}
 }
 
-// TODO: random sampling
-func grantTFuelStakerReward(view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
+func grantTFuelStakerReward(ledger core.Ledger, view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
 	eliteEdgeNodePool *core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
@@ -349,7 +348,7 @@ func grantTFuelStakerReward(view *st.StoreView, guardianVotes *core.AggregatedVo
 			grantFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
 		} else {
 			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-			grantRandomizedReward(guardianVotes.Block, view, stakeSourceList, stakeSourceMap,
+			grantRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
 				totalStake, accountReward, totalReward, "EEN  ")
 		}
 	}
@@ -377,7 +376,7 @@ func grantFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *bi
 	}
 }
 
-func grantRandomizedReward(blockHash common.Hash, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
+func grantRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVotes, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
 	totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
 	samples := make([]*big.Int, tfuelRewardN)
 	for i := 0; i < tfuelRewardN; i++ {
@@ -385,7 +384,12 @@ func grantRandomizedReward(blockHash common.Hash, view *st.StoreView, stakeSourc
 		seed := make([]byte, 2*binary.MaxVarintLen64+common.HashLength)
 		binary.PutUvarint(seed[:], view.Height())
 		binary.PutUvarint(seed[binary.MaxVarintLen64:], uint64(i))
-		copy(seed[2*binary.MaxVarintLen64:], blockHash[:])
+		if guardianVotes != nil && !guardianVotes.Block.IsEmpty() {
+			copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
+		} else {
+			blockhash := ledger.GetCurrentBlock().Hash()
+			copy(seed[2*binary.MaxVarintLen64:], blockhash[:])
+		}
 
 		var err error
 		samples[i], err = rand.Int(NewHashRand(seed), totalStake)
