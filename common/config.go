@@ -91,6 +91,8 @@ const (
 	CfgP2PConnectionFIFO = "p2p.connectionFIFO"
 	// CfgP2PNatMapping sets whether to perform NAT mapping
 	CfgP2PNatMapping = "p2p.natMapping"
+	// CfgP2PMaxConnections specifies the number of max connections a node can accept
+	CfgP2PMaxConnections = "p2p.maxConnections"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -174,6 +176,7 @@ func init() {
 	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
+	viper.SetDefault(CfgP2PMaxConnections, 96)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
