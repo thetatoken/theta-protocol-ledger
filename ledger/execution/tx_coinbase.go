@@ -20,7 +20,7 @@ import (
 
 var weiMultiplier = big.NewInt(1e18)
 var tfuelRewardPerBlock = big.NewInt(1).Mul(big.NewInt(48), weiMultiplier) // 48 TFUEL per block, corresponds to about 5% *initial* annual inflation rate. The inflation rate naturally approaches 0 as the chain grows.
-var tfuelRewardN = 50                                                      // Reward receiver sampling params
+var tfuelRewardN = 400                                                     // Reward receiver sampling params
 
 var _ TxExecutor = (*CoinbaseTxExecutor)(nil)
 
@@ -95,7 +95,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	guardianVotes := exec.consensus.GetLedger().GetCurrentBlock().GuardianVotes
 
 	if tx.BlockHeight < common.HeightEnableTheta2 || guardianVotes == nil {
-		expectedRewards = CalculateReward(view, validatorSet, nil, nil)
+		expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, nil, nil)
 	} else {
 		guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
 		if err != nil {
@@ -103,7 +103,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 		}
 		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
 		guardianCandidatePool := storeView.GetGuardianCandidatePool()
-		expectedRewards = CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+		expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianCandidatePool)
 	}
 
 	if len(expectedRewards) != len(tx.Outputs) {
@@ -147,15 +147,15 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 }
 
 // CalculateReward calculates the block reward for each account
-func CalculateReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool) map[string]types.Coins {
+func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
 	blockHeight := view.Height() + 1 // view points to the parent block
 	if blockHeight < common.HeightEnableValidatorReward {
 		grantValidatorsWithZeroReward(validatorSet, &accountReward)
 	} else if blockHeight < common.HeightEnableTheta2 {
-		grantStakerReward(view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
+		grantStakerReward(ledger, view, validatorSet, nil, core.NewGuardianCandidatePool(), &accountReward, blockHeight)
 	} else {
-		grantStakerReward(view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
+		grantStakerReward(ledger, view, validatorSet, guardianVotes, guardianPool, &accountReward, blockHeight)
 	}
 
 	return accountReward
@@ -169,7 +169,7 @@ func grantValidatorsWithZeroReward(validatorSet *core.ValidatorSet, accountRewar
 	}
 }
 
-func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
+func grantStakerReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet, guardianVotes *core.AggregatedVotes,
 	guardianPool *core.GuardianCandidatePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
@@ -212,7 +212,7 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 			}
 		}
 
-		if guardianPool != nil {
+		if guardianPool != nil && guardianVotes != nil {
 			for i, g := range guardianPool.SortedGuardians {
 				if guardianVotes.Multiplies[i] == 0 {
 					continue
@@ -260,7 +260,12 @@ func grantStakerReward(view *st.StoreView, validatorSet *core.ValidatorSet, guar
 				seed := make([]byte, 2*binary.MaxVarintLen64+common.HashLength)
 				binary.PutUvarint(seed[:], view.Height())
 				binary.PutUvarint(seed[binary.MaxVarintLen64:], uint64(i))
-				copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
+				if guardianVotes != nil && !guardianVotes.Block.IsEmpty() {
+					copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
+				} else {
+					blockhash := ledger.GetCurrentBlock().Hash()
+					copy(seed[2*binary.MaxVarintLen64:], blockhash[:])
+				}
 
 				var err error
 				samples[i], err = rand.Int(NewHashRand(seed), totalStake)

@@ -664,9 +664,9 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
 		guardianCandidatePool := storeView.GetGuardianCandidatePool()
 
-		accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool)
 	} else {
-		accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil)
 	}
 
 	coinbaseTxOutputs := []types.TxOutput{}
