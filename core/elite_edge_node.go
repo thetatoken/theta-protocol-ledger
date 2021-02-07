@@ -364,10 +364,10 @@ func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common
 	}
 
 	if !matchedHolderFound {
-		newEliteEdgeNode := &EliteEdgeNode{
-			StakeHolder: newStakeHolder(holder, []*Stake{newStake(source, amount)}),
-			Pubkey:      pubkey,
-		}
+		newEliteEdgeNode := newEliteEdgeNode(
+			newStakeHolder(holder, []*Stake{newStake(source, amount)}),
+			newRewardBeneficiary(common.Address{}, 0),
+			pubkey)
 		eenp.Add(newEliteEdgeNode)
 	}
 	return nil
@@ -422,14 +422,39 @@ func (eenp *EliteEdgeNodePool) ReturnStakes(currentHeight uint64) []*Stake {
 }
 
 //
+// ------- RewardBeneficiary ------- //
+//
+
+type RewardBeneficiary struct {
+	Beneficiary     common.Address
+	SplitBasisPoint uint // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
+}
+
+func newRewardBeneficiary(beneficiary common.Address, splitBasisPoint uint) RewardBeneficiary {
+	return RewardBeneficiary{
+		Beneficiary:     beneficiary,
+		SplitBasisPoint: splitBasisPoint,
+	}
+}
+
+//
 // ------- EliteEdgeNode ------- //
 //
 
 type EliteEdgeNode struct {
 	*StakeHolder
+	RewardBeneficiary
 	Pubkey *bls.PublicKey `json:"-"`
 }
 
+func newEliteEdgeNode(stakeHolder *StakeHolder, rewardBeneficiary RewardBeneficiary, pubkey *bls.PublicKey) *EliteEdgeNode {
+	return &EliteEdgeNode{
+		StakeHolder:       stakeHolder,
+		RewardBeneficiary: rewardBeneficiary,
+		Pubkey:            pubkey,
+	}
+}
+
 func (een *EliteEdgeNode) String() string {
-	return fmt.Sprintf("{holder: %v, pubkey: %v, stakes :%v}", een.Holder, een.Pubkey.String(), een.Stakes)
+	return fmt.Sprintf("{holder: %v, beneficiary: %v, pubkey: %v, stakes :%v}", een.Holder, een.RewardBeneficiary, een.Pubkey.String(), een.Stakes)
 }

@@ -412,6 +412,8 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 			issueRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
 				totalStake, accountReward, totalReward, "EEN  ")
 		}
+
+		handleEliteEdgeNodeRewardSplit(accountReward, &stakeSourceMap, eliteEdgeNodePool)
 	}
 }
 
@@ -433,7 +435,7 @@ func issueFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *bi
 			(*accountReward)[staker] = stakingReward
 		}
 
-		logger.Infof("%v reward for staker %v : %v", rewardType, hex.EncodeToString(stakeSourceAddr[:]), stakingReward)
+		logger.Infof("%v reward for staker %v : %v  (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), stakingReward)
 	}
 }
 
@@ -500,7 +502,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 				(*accountReward)[staker] = reward
 			}
 
-			logger.Infof("%v reward for staker %v : %v", rewardType, hex.EncodeToString(stakeSourceAddr[:]), reward)
+			logger.Infof("%v reward for staker %v : %v (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), reward)
 		}
 	}
 }
@@ -544,4 +546,124 @@ func (r *HashRand) Read(buf []byte) (int, error) {
 	n := copy(buf, r.curr[:])
 	r.remaining = r.curr[n:]
 	return n, nil
+}
+
+type StakeDelegate struct {
+	StakeAmount     *big.Int       // total amount of stake staked to the Holder
+	Holder          common.Address // delegated address
+	Beneficiary     common.Address // beneficiary for the reward split
+	SplitBasisPoint uint           // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
+}
+
+type SplitMetadata struct {
+	StakeAmountSum *big.Int
+	StakeDelegates []StakeDelegate
+}
+
+func handleEliteEdgeNodeRewardSplit(accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int, eliteEdgeNodePool *core.EliteEdgeNodePool) {
+	splitMap := map[string](*SplitMetadata){}
+
+	for _, een := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+		if (een.Beneficiary == common.Address{}) {
+			continue
+		}
+		for _, stake := range een.Stakes {
+			var exists bool
+			var stakeAmountSum *big.Int
+
+			src := stake.Source
+			if stakeAmountSum, exists = (*stakeAmountSumMap)[src]; !exists {
+				continue
+			}
+
+			if _, exists = (*accountRewardMap)[string(src[:])]; !exists {
+				continue
+			}
+
+			var splitMetadata *SplitMetadata
+			if splitMetadata, exists = splitMap[string(src[:])]; !exists {
+				splitMetadata = &SplitMetadata{
+					StakeAmountSum: stakeAmountSum,
+				}
+			}
+
+			stakeDelegate := StakeDelegate{
+				StakeAmount:     stake.Amount,
+				Holder:          een.Holder,
+				Beneficiary:     een.Beneficiary,
+				SplitBasisPoint: een.SplitBasisPoint,
+			}
+
+			splitMetadata.StakeDelegates = append(splitMetadata.StakeDelegates, stakeDelegate)
+		}
+	}
+
+	handleRewardSplit(accountRewardMap, &splitMap)
+
+	for addr, reward := range *accountRewardMap {
+		logger.Infof("Final reward for staker %v : %v (after split)", hex.EncodeToString([]byte(addr)), reward)
+	}
+}
+
+func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[string](*SplitMetadata)) {
+	srcAddrs := []string{}
+	for srcAddr := range *accountRewardMap {
+		srcAddrs = append(srcAddrs, srcAddr)
+	}
+
+	beneficiaryRewardMap := map[string]types.Coins{}
+	for _, srcAddr := range srcAddrs {
+		splitMetadata, exists := (*splitMap)[srcAddr]
+		if !exists {
+			continue
+		}
+
+		if splitMetadata.StakeAmountSum.Cmp(big.NewInt(0)) == 0 {
+			continue
+		}
+
+		delegatedAmount := big.NewInt(0)
+		for _, stakeDelegate := range splitMetadata.StakeDelegates {
+			delegatedAmount = new(big.Int).Add(delegatedAmount, stakeDelegate.StakeAmount)
+		}
+		if delegatedAmount.Cmp(splitMetadata.StakeAmountSum) > 0 { // should never happen
+			logger.Panicf("Invalid split metadata: %v", splitMetadata)
+		}
+
+		reward := (*accountRewardMap)[srcAddr]
+		for _, stakeDelegate := range splitMetadata.StakeDelegates {
+			// beneficiarySplit = reward.TFuelWei * (stakeDelegate.StakeAmount / StakeAmountSum) * (stakeDelegate.SplitBasisPoint / 10000)
+			tmp := big.NewInt(1).Mul(reward.TFuelWei, stakeDelegate.StakeAmount)
+			tmp = big.NewInt(1).Mul(tmp, big.NewInt(int64(stakeDelegate.SplitBasisPoint)))
+			tmp = tmp.Div(tmp, splitMetadata.StakeAmountSum)
+			beneficiarySplitAmount := tmp.Div(tmp, big.NewInt(10000))
+
+			if beneficiarySplitAmount.Cmp(reward.TFuelWei) > 0 {
+				logger.Panicf("Invalid split metadata: %v", splitMetadata)
+			}
+
+			reward.TFuelWei = new(big.Int).Sub(reward.TFuelWei, beneficiarySplitAmount)
+
+			beneficiarySplitCoins := types.Coins{
+				ThetaWei: big.NewInt(0),
+				TFuelWei: beneficiarySplitAmount,
+			}
+			bAddr := string(stakeDelegate.Beneficiary[:])
+			if br, ok := beneficiaryRewardMap[bAddr]; ok {
+				beneficiaryRewardMap[bAddr] = br.Plus(beneficiarySplitCoins)
+			} else {
+				beneficiaryRewardMap[bAddr] = beneficiarySplitCoins
+			}
+		}
+
+		(*accountRewardMap)[srcAddr] = reward
+	}
+
+	for bAddr, bReward := range beneficiaryRewardMap {
+		if accReward, exists := (*accountRewardMap)[bAddr]; exists {
+			(*accountRewardMap)[bAddr] = accReward.Plus(bReward)
+		} else {
+			(*accountRewardMap)[bAddr] = bReward
+		}
+	}
 }
