@@ -718,67 +718,12 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 	guardianVotes := currentBlock.GuardianVotes
 	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
 
-	if common.IsCheckPointHeight(ch) {
-		if ch < common.HeightEnableTheta2 {
-			accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
-		} else if ch < common.HeightEnableTheta3 {
-			if guardianVotes != nil {
-				guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
-				if err != nil {
-					logger.Panic(err)
-				}
-				storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
-				guardianCandidatePool := storeView.GetGuardianCandidatePool()
-				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool, nil, nil)
-			} else {
-				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
-			}
-		} else { // tx.BlockHeight >= common.HeightEnableTheta3
-			if guardianVotes != nil {
-				guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
-				if err != nil {
-					logger.Panic(err)
-				}
-				storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
-				guardianCandidatePool := storeView.GetGuardianCandidatePool()
-
-				var eliteEdgeNodePool *core.EliteEdgeNodePool
-				if eliteEdgeNodeVotes != nil {
-					if eliteEdgeNodeVotes.Block == guardianVotes.Block {
-						eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
-					} else {
-						logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
-							eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
-					}
-				} else {
-					logger.Warnf("Elite edge nodes have no vote for block %v", guardianVotes.Block.Hex())
-				}
-
-				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool, eliteEdgeNodeVotes, eliteEdgeNodePool)
-			} else {
-				// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
-				// the edge nodes vote for the correct checkpoint
-				accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
-			}
-		}
-	} else {
+	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
+		guardianPool, eliteEdgeNodePool := exec.RetrievePools(ledger.chain, ledger.db, ch, guardianVotes, eliteEdgeNodeVotes)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+	} else { // for compatibility with lower versions (e.g. blockHeight < common.HeightEnableValidatorReward)
 		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 	}
-
-	// guardianVotes := ledger.GetCurrentBlock().GuardianVotes
-
-	// if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
-	// 	guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
-	// 	if err != nil {
-	// 		logger.Panic(err)
-	// 	}
-	// 	storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
-	// 	guardianCandidatePool := storeView.GetGuardianCandidatePool()
-
-	// 	accountRewardMap = exec.CalculateReward(view, validatorSet, guardianVotes, guardianCandidatePool)
-	// } else {
-	// 	accountRewardMap = exec.CalculateReward(view, validatorSet, nil, nil)
-	// }
 
 	coinbaseTxOutputs := []types.TxOutput{}
 	for accountAddressStr, accountReward := range accountRewardMap {

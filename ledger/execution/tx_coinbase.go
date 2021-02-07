@@ -96,7 +96,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	currentBlock := exec.consensus.GetLedger().GetCurrentBlock()
 	guardianVotes := currentBlock.GuardianVotes
 	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
-	guardianPool, eliteEdgeNodePool := exec.retrievePools(tx, guardianVotes, eliteEdgeNodeVotes)
+	guardianPool, eliteEdgeNodePool := RetrievePools(exec.chain, exec.db, tx.BlockHeight, guardianVotes, eliteEdgeNodeVotes)
 	expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 
 	if len(expectedRewards) != len(tx.Outputs) {
@@ -139,32 +139,32 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 	return txHash, result.OK
 }
 
-func (exec *CoinbaseTxExecutor) retrievePools(tx *types.CoinbaseTx, guardianVotes *core.AggregatedVotes,
+func RetrievePools(chain *blockchain.Chain, db database.Database, blockHeight uint64, guardianVotes *core.AggregatedVotes,
 	eliteEdgeNodeVotes *core.AggregatedEENVotes) (guardianPool *core.GuardianCandidatePool, eliteEdgeNodePool *core.EliteEdgeNodePool) {
 	guardianPool = nil
 	eliteEdgeNodePool = nil
 
-	if tx.BlockHeight < common.HeightEnableTheta2 {
+	if blockHeight < common.HeightEnableTheta2 {
 		guardianPool = nil
 		eliteEdgeNodePool = nil
-	} else if tx.BlockHeight < common.HeightEnableTheta3 {
+	} else if blockHeight < common.HeightEnableTheta3 {
 		if guardianVotes != nil {
-			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			guradianVoteBlock, err := chain.FindBlock(guardianVotes.Block)
 			if err != nil {
 				logger.Panic(err)
 			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, db)
 			guardianPool = storeView.GetGuardianCandidatePool()
 		}
-	} else { // tx.BlockHeight >= common.HeightEnableTheta3
+	} else { // blockHeight >= common.HeightEnableTheta3
 		// won't reward the elite edge nodes without the guardian votes, since we need to guardian votes to confirm that
 		// the edge nodes vote for the correct checkpoint
 		if guardianVotes != nil {
-			guradianVoteBlock, err := exec.chain.FindBlock(guardianVotes.Block)
+			guradianVoteBlock, err := chain.FindBlock(guardianVotes.Block)
 			if err != nil {
 				logger.Panic(err)
 			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, exec.db)
+			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, db)
 			guardianPool = storeView.GetGuardianCandidatePool()
 
 			if eliteEdgeNodeVotes != nil {
