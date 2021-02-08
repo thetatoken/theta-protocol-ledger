@@ -54,7 +54,7 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 	}
 
 	if tx.SplitBasisPoint > 1000 { // initially we only allow up to 10.00% reward split
-		return result.Error("Only allow at most 10.00% reward split for the beneficiary for now (SplitBasisPoint <= 1000)")
+		return result.Error("Only allow at most 10.00%% reward split for the beneficiary for now (i.e., SplitBasisPoint <= 1000)")
 	}
 
 	stakeHolderAddress := tx.Holder.Address

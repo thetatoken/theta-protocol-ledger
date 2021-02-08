@@ -473,6 +473,12 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 			// Should not reach here
 			logger.Panic(err)
 		}
+
+		// // ---------- Just for testing ---------- //
+		// totalStakeFloat := new(big.Float).SetInt(totalStake)
+		// sampleFloat := new(big.Float).SetInt(samples[i])
+		// logger.Infof("RandSample -- r: %v, height: %v, totalStake: %v, sample[%v]: %v",
+		// 	new(big.Float).Quo(sampleFloat, totalStakeFloat).Text('f', 6), view.Height()+1, totalStake, i, samples[i])
 	}
 
 	sort.Sort(BigIntSort(samples))
@@ -496,6 +502,8 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 			curr++
 		}
 		currSum = upper
+
+		logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
 
 		if count > 0 {
 			tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
@@ -609,10 +617,6 @@ func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accou
 	if rewardDistr.StakeHolder != stakeHolder {
 		logger.Panicf("Invalid reward distribution: rewardDistr.StakeHolder = %v, stakeHolder = %v",
 			rewardDistr.StakeHolder, stakeHolder)
-	}
-
-	if (rewardDistr.Beneficiary == common.Address{}) {
-		return
 	}
 
 	for _, stake := range holderStakes {
