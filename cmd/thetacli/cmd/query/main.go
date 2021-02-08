@@ -31,6 +31,7 @@ func init() {
 	QueryCmd.AddCommand(vcpCmd)
 	QueryCmd.AddCommand(gcpCmd)
 	QueryCmd.AddCommand(eenpCmd)
+	QueryCmd.AddCommand(srdrsCmd)
 	QueryCmd.AddCommand(peersCmd)
 	QueryCmd.AddCommand(versionCmd)
 }

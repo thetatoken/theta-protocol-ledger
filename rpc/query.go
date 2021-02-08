@@ -684,6 +684,52 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 	return nil
 }
 
+// ------------------------------ GetStakeRewardDistributionRuleSetByHeight -----------------------------------
+
+type GetStakeRewardDistributionRuleSetByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetStakeRewardDistributionRuleSetResult struct {
+	BlockHashStakeRewardDistributionRuleSetPairs []BlockHashStakeRewardDistributionRuleSetPair
+}
+
+type BlockHashStakeRewardDistributionRuleSetPair struct {
+	BlockHash                      common.Hash
+	StakeRewardDistributionRuleSet *core.StakeRewardDistributionRuleSet
+}
+
+func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
+	args *GetStakeRewardDistributionRuleSetByHeightArgs, result *GetStakeRewardDistributionRuleSetResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashSrdrsPairs := []BlockHashStakeRewardDistributionRuleSetPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+		}
+		srdrs := blockStoreView.GetStakeRewardDistributionRuleSet()
+		blockHashSrdrsPairs = append(blockHashSrdrsPairs, BlockHashStakeRewardDistributionRuleSetPair{
+			BlockHash:                      blockHash,
+			StakeRewardDistributionRuleSet: srdrs,
+		})
+	}
+
+	result.BlockHashStakeRewardDistributionRuleSetPairs = blockHashSrdrsPairs
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {
