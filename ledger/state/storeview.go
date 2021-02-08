@@ -353,6 +353,21 @@ func (sv *StoreView) GetEliteEdgeNodePool() *core.EliteEdgeNodePool {
 	return eenp
 }
 
+// GetStakeRewardDistributionRuleSet gets stake reward distribution rule set
+func (sv *StoreView) GetStakeRewardDistributionRuleSet() *core.StakeRewardDistributionRuleSet {
+	data := sv.Get(StakeRewardDistributionRuleSetKey())
+	if data == nil || len(data) == 0 {
+		return core.NewStakeRewardDistributionRuleSet()
+	}
+	srdr := &core.StakeRewardDistributionRuleSet{}
+	err := types.FromBytes(data, srdr)
+	if err != nil {
+		log.Panicf("Error reading stake reward distribution rule set %X, error: %v",
+			data, err.Error())
+	}
+	return srdr
+}
+
 // UpdateEliteEdgeNodePool updates the elite edge node pool.
 func (sv *StoreView) UpdateEliteEdgeNodePool(eenp *core.EliteEdgeNodePool) {
 	eenpBytes, err := types.ToBytes(eenp)

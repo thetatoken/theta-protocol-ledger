@@ -16,22 +16,22 @@ package common
 // const HeightEnableTheta3 uint64 = 1000000000
 
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
-const HeightEnableValidatorReward uint64 = 250 // approximate time: 2pm January 14th, 2020 PST
+const HeightEnableValidatorReward uint64 = 50 // approximate time: 2pm January 14th, 2020 PST
 
 // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
-const HeightEnableTheta2 uint64 = 250 // approximate time: 12pm May 27th, 2020 PDT
+const HeightEnableTheta2 uint64 = 50 // approximate time: 12pm May 27th, 2020 PDT
 
 // HeightLowerGNStakeThresholdTo1000 specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
-const HeightLowerGNStakeThresholdTo1000 uint64 = 250 // approximate time: 12pm Dec 10th, 2020 PST
+const HeightLowerGNStakeThresholdTo1000 uint64 = 50 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
-const HeightEnableSmartContract uint64 = 250 // approximate time: 12pm Dec 10th, 2020 PST
+const HeightEnableSmartContract uint64 = 50 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
-const HeightEnableTheta3 uint64 = 1020
+const HeightEnableTheta3 uint64 = 50
 
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
-const HeightSampleStakingReward uint64 = 2040
+const HeightSampleStakingReward uint64 = 550
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)

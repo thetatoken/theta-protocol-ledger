@@ -57,3 +57,8 @@ func StakeTransactionHeightListKey() common.Bytes {
 func StatePruningProgressKey() common.Bytes {
 	return common.Bytes("ls/spp")
 }
+
+// StakeRewardDistributionRuleSetKey returns the state key for the stake reward distribution rule set
+func StakeRewardDistributionRuleSetKey() common.Bytes {
+	return common.Bytes("ls/srdrs")
+}
