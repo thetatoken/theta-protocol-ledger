@@ -285,6 +285,16 @@ func (eenp *EliteEdgeNodePool) WithStake() *EliteEdgeNodePool {
 	return ret
 }
 
+// GetWithHolderAddress returns the elite edge node correspond to the stake holder in the pool. Returns nil if not found.
+func (eenp *EliteEdgeNodePool) GetWithHolderAddress(addr common.Address) *EliteEdgeNode {
+	for _, een := range eenp.SortedEliteEdgeNodes {
+		if een.Holder == addr {
+			return een
+		}
+	}
+	return nil
+}
+
 // IndexWithHolderAddress returns index of a stake holder address in the pool. Returns -1 if not found.
 func (eenp *EliteEdgeNodePool) IndexWithHolderAddress(addr common.Address) int {
 	for i, een := range eenp.SortedEliteEdgeNodes {

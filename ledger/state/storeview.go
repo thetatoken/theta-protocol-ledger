@@ -353,6 +353,16 @@ func (sv *StoreView) GetEliteEdgeNodePool() *core.EliteEdgeNodePool {
 	return eenp
 }
 
+// UpdateEliteEdgeNodePool updates the elite edge node pool.
+func (sv *StoreView) UpdateEliteEdgeNodePool(eenp *core.EliteEdgeNodePool) {
+	eenpBytes, err := types.ToBytes(eenp)
+	if err != nil {
+		log.Panicf("Error writing elite edge node pool %v, error: %v",
+			eenp, err.Error())
+	}
+	sv.Set(EliteEdgeNodePoolKey(), eenpBytes)
+}
+
 // GetStakeRewardDistributionRuleSet gets stake reward distribution rule set
 func (sv *StoreView) GetStakeRewardDistributionRuleSet() *core.StakeRewardDistributionRuleSet {
 	data := sv.Get(StakeRewardDistributionRuleSetKey())
@@ -368,14 +378,14 @@ func (sv *StoreView) GetStakeRewardDistributionRuleSet() *core.StakeRewardDistri
 	return srdr
 }
 
-// UpdateEliteEdgeNodePool updates the elite edge node pool.
-func (sv *StoreView) UpdateEliteEdgeNodePool(eenp *core.EliteEdgeNodePool) {
-	eenpBytes, err := types.ToBytes(eenp)
+// UpdateStakeRewardDistributionRuleSet udpates the stake reward distribution rule set
+func (sv *StoreView) UpdateStakeRewardDistributionRuleSet(srdrs *core.StakeRewardDistributionRuleSet) {
+	srdrsBytes, err := types.ToBytes(srdrs)
 	if err != nil {
-		log.Panicf("Error writing elite edge node pool %v, error: %v",
-			eenp, err.Error())
+		log.Panicf("Error writing stake reward distribution rule set %v, error: %v",
+			srdrs, err.Error())
 	}
-	sv.Set(EliteEdgeNodePoolKey(), eenpBytes)
+	sv.Set(StakeRewardDistributionRuleSetKey(), srdrsBytes)
 }
 
 // GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions

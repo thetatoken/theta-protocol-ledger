@@ -19,28 +19,30 @@ import (
 Tx (Transaction) is an atomic operation on the ledger state.
 
 Transaction Types:
- - CoinbaseTx           Coinbase transaction for block rewards
- - SlashTx     			Transaction for slashing dishonest user
- - SendTx               Send coins to address
- - ReserveFundTx        Reserve fund for subsequence service payments
- - ReleaseFundTx        Release fund reserved for service payments
- - ServicePaymentTx     Payments for service
- - SplitRuleTx          Payment split rule
- - DepositStakeTx       Deposit stake to a target address (e.g. a validator)
- - WithdrawStakeTx      Withdraw stake from a target address (e.g. a validator)
- - SmartContractTx      Execute smart contract
+ - CoinbaseTx              Coinbase transaction for block rewards
+ - SlashTx     			   Transaction for slashing dishonest user
+ - SendTx                  Send coins to address
+ - ReserveFundTx           Reserve fund for subsequence service payments
+ - ReleaseFundTx           Release fund reserved for service payments
+ - ServicePaymentTx        Payments for service
+ - SplitRuleTx             Payment split rule
+ - DepositStakeTx          Deposit stake to a target address (e.g. a validator)
+ - WithdrawStakeTx         Withdraw stake from a target address (e.g. a validator)
+ - SmartContractTx         Execute smart contract
+ - StakeRewardDistribution Defines how stake reward is distributed
 */
 
 // Gas of regular transactions
 const (
-	GasSendTxPerAccount   uint64 = 5000
-	GasReserveFundTx      uint64 = 10000
-	GasReleaseFundTx      uint64 = 10000
-	GasServicePaymentTx   uint64 = 10000
-	GasSplitRuleTx        uint64 = 10000
-	GasUpdateValidatorsTx uint64 = 10000
-	GasDepositStakeTx     uint64 = 10000
-	GasWidthdrawStakeTx   uint64 = 10000
+	GasSendTxPerAccount          uint64 = 5000
+	GasReserveFundTx             uint64 = 10000
+	GasReleaseFundTx             uint64 = 10000
+	GasServicePaymentTx          uint64 = 10000
+	GasSplitRuleTx               uint64 = 10000
+	GasUpdateValidatorsTx        uint64 = 10000
+	GasDepositStakeTx            uint64 = 10000
+	GasWidthdrawStakeTx          uint64 = 10000
+	GasStakeRewardDistributionTx uint64 = 10000
 )
 
 type Tx interface {
@@ -917,8 +919,56 @@ func (tx *WithdrawStakeTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *WithdrawStakeTx) String() string {
-	return fmt.Sprintf("DepositStakeTx{%v <- %v, stake: %v, purpose: %v}",
+	return fmt.Sprintf("WithdrawStakeTx{%v <- %v, stake: %v, purpose: %v}",
 		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
+}
+
+//-----------------------------------------------------------------------------
+
+//
+// StakeRewardDistributionTx needs to be signed and submitted by the "stake holders", i.e. a guardian or an elite edge node.
+// It allows the stake holder to specify a "beneficiary" to receive a fraction of the Theta/TFuel staking reward. The split fraction
+// is defined by SplitBasisPoint/10000. The remainder of the staking reward goes back to the staker wallet.
+//
+// The purpose of this transaction is to allow guardian/elite edge node operators to charge a fee for the hosting service.
+// The service fee (i.e. split fraction) can be specified by the guardian/elite edge node operators via the SplitBasisPoint parameter.
+// The stakers can choose whether to stake to a node based on the fee it charges. Note that an operator can change the fee anytime, and
+// as a response, a staker might choose to deposit/withdraw stake depending if he/she thinks the fee is fair. This thus creates
+// a free market for guardian/elite edge node hosting service.
+//
+type StakeRewardDistributionTx struct {
+	Fee             Coins    `json:"fee"`               // transction fee, NOT the hosting service fee
+	Holder          TxInput  `json:"holder"`            // stake holder account, i.e., a guardian or an elite edge node
+	Beneficiary     TxOutput `json:"beneficiary"`       // the beneficiary to split the reward as the hosting service fee
+	SplitBasisPoint uint     `json:"split_basis_point"` // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
+	Purpose         uint8    `json:"purpose"`           // purpose e.g. stake for guardian/elite edge node
+}
+
+func (_ *StakeRewardDistributionTx) AssertIsTx() {}
+
+func (tx *StakeRewardDistributionTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	sig := tx.Holder.Signature
+	tx.Holder.Signature = nil
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
+	tx.Holder.Signature = sig
+	return signBytes
+}
+
+func (tx *StakeRewardDistributionTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.Holder.Address == addr {
+		tx.Holder.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *StakeRewardDistributionTx) String() string {
+	return fmt.Sprintf("StakeRewardDistributionTx{holder: %v, beneficiary: %v, split_basis_point: %v, purpose: %v}",
+		tx.Holder.Address, tx.Beneficiary.Address, tx.SplitBasisPoint, tx.Purpose)
 }
 
 // --------------- Utils --------------- //

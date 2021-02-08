@@ -20,7 +20,7 @@ type RewardDistribution struct {
 	SplitBasisPoint uint           // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
 }
 
-func newRewardDistribution(stakeHolder common.Address, beneficiary common.Address, splitBasisPoint uint) (*RewardDistribution, error) {
+func NewRewardDistribution(stakeHolder common.Address, beneficiary common.Address, splitBasisPoint uint) (*RewardDistribution, error) {
 	if splitBasisPoint > 10000 {
 		return nil, fmt.Errorf("split basis point cannot exceed 10000")
 	}

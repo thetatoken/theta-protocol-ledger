@@ -33,6 +33,8 @@ var (
 	sourceFlag                   string
 	holderFlag                   string
 	asyncFlag                    bool
+	beneficiaryFlag              string
+	splitBasisPointFlag          uint64
 )
 
 // TxCmd represents the Tx command
@@ -50,4 +52,5 @@ func init() {
 	TxCmd.AddCommand(smartContractCmd)
 	TxCmd.AddCommand(depositStakeCmd)
 	TxCmd.AddCommand(withdrawStakeCmd)
+	TxCmd.AddCommand(stakeRewardDistributionCmd)
 }
