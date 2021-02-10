@@ -570,13 +570,13 @@ func (r *HashRand) Read(buf []byte) (int, error) {
 
 type BeneficiaryData struct {
 	StakeAmount     *big.Int       // total amount of stake staked to the Holder
-	Holder          common.Address // delegated address
+	Holder          common.Address // delegate address, i.e. the address of a gardian/elite edge node
 	Beneficiary     common.Address // beneficiary for the reward split
 	SplitBasisPoint uint           // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
 }
 
 type SplitMetadata struct {
-	StakeAmountSum      *big.Int
+	StakeAmountSum      *big.Int // the total amount of stake from a staker, i.e. the "source" wallet
 	BeneficiaryDataList []BeneficiaryData
 }
 
@@ -606,6 +606,7 @@ func handleEliteEdgeNodeRewardSplit(accountRewardMap *map[string]types.Coins, st
 	handleRewardSplit(accountRewardMap, &splitMap)
 }
 
+// splitMap: staker => staker's split metadata {staker's total stake, list of beneficiaries}
 func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accountRewardMap *map[string]types.Coins,
 	stakeAmountSumMap *map[common.Address]*big.Int, srdrs *core.StakeRewardDistributionRuleSet,
 	splitMap *(map[string](*SplitMetadata))) {
@@ -622,6 +623,10 @@ func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accou
 	for _, stake := range holderStakes {
 		var exists bool
 		var stakeAmountSum *big.Int
+
+		if stake.Withdrawn {
+			continue
+		}
 
 		src := stake.Source
 		if stakeAmountSum, exists = (*stakeAmountSumMap)[src]; !exists {

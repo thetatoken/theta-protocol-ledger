@@ -15,7 +15,7 @@ import (
 //
 
 type RewardDistribution struct {
-	StakeHolder     common.Address // the stake delegator, i.e. a guardian node or an elite edge node address
+	StakeHolder     common.Address // the stake delegate, i.e. a guardian node or an elite edge node address
 	Beneficiary     common.Address // the beneficiary to split the reward
 	SplitBasisPoint uint           // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
 }
