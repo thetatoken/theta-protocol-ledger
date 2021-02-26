@@ -505,7 +505,7 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 
-	logger.Infof("Trie.Prune, t.originalRoot: %v, t.root: %v", t.originalRoot.Hex(), t.root)
+	logger.Debugf("Trie.Prune, t.originalRoot: %v, t.root: %v", t.originalRoot.Hex(), t.root)
 
 	err := t.pruneNode(t.root, cb)
 	if err != nil {
@@ -514,7 +514,7 @@ func (t *Trie) Prune(cb func(n []byte) bool) error {
 		return err
 	}
 
-	logger.Infof("Trie.Prune done")
+	logger.Debugf("Trie.Prune done")
 
 	return nil
 }

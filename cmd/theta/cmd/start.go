@@ -23,6 +23,7 @@ import (
 	"github.com/thetatoken/theta/node"
 	msg "github.com/thetatoken/theta/p2p/messenger"
 	msgl "github.com/thetatoken/theta/p2pl/messenger"
+	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
 	"github.com/thetatoken/theta/version"
@@ -43,10 +44,28 @@ func init() {
 func runStart(cmd *cobra.Command, args []string) {
 	var networkOld *msg.Messenger
 	var network *msgl.Messenger
+	var err error
 
 	privKey, err := loadOrCreateKey()
 	if err != nil {
 		log.Fatalf("Failed to load or create key: %v", err)
+	}
+
+	// Open database
+	dbPath := viper.GetString(common.CfgDataPath)
+	if dbPath == "" {
+		dbPath = cfgPath
+	}
+
+	mainDBPath := path.Join(dbPath, "db", "main")
+	refDBPath := path.Join(dbPath, "db", "ref")
+	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath,
+		viper.GetInt(common.CfgStorageLevelDBCacheSize),
+		viper.GetInt(common.CfgStorageLevelDBHandles))
+
+	if err != nil {
+		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
+			mainDBPath, refDBPath, err)
 	}
 
 	// load snapshot
@@ -54,11 +73,42 @@ func runStart(cmd *cobra.Command, args []string) {
 		snapshotPath = path.Join(cfgPath, "snapshot")
 	}
 
-	snapshotBlockHeader, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
-	if err != nil {
-		log.Fatalf("Snapshot validation failed, err: %v", err)
+	var root *core.Block
+	var snapshotBlockHeader *core.BlockHeader
+	dbSnapshotHeader := &core.BlockHeader{}
+	skipLoadSnapshot := false
+
+	// Read last verified snapshot header from db and compare with current snapshot
+	raw, err := db.Get([]byte("/snapshot_blockheader"))
+	if err == nil {
+		err = rlp.DecodeBytes(raw, dbSnapshotHeader)
+		if err == nil {
+			snapshotBlockHeader = snapshot.LoadSnapshotCheckpointHeader(snapshotPath)
+			if snapshotBlockHeader.Hash() == dbSnapshotHeader.Hash() {
+				// snapshot has already been loaded into db
+				skipLoadSnapshot = true
+			}
+		}
 	}
-	root := &core.Block{BlockHeader: snapshotBlockHeader}
+	if skipLoadSnapshot && !viper.GetBool(common.CfgForceValidateSnapshot) {
+		log.Println("Skip validating snapshot")
+	} else {
+		snapshotBlockHeader, err = snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, chainCorrectionPath)
+		if err != nil {
+			log.Fatalf("Snapshot validation failed, err: %v", err)
+		}
+
+		raw, err := rlp.EncodeToBytes(snapshotBlockHeader)
+		if err == nil {
+			err = db.Put([]byte("/snapshot_blockheader"), raw)
+			if err != nil {
+				log.Errorf("Failed to save snapshot validation result: %v", err)
+			}
+		}
+	}
+
+	root = &core.Block{BlockHeader: snapshotBlockHeader}
+
 	viper.Set(common.CfgGenesisChainID, root.ChainID)
 
 	// Parse seeds and filter out empty item.
@@ -80,22 +130,6 @@ func runStart(cmd *cobra.Command, args []string) {
 		portOld := viper.GetInt(common.CfgP2PPort)
 		peerSeedsOld := strings.FieldsFunc(viper.GetString(common.CfgP2PSeeds), f)
 		networkOld = newMessengerOld(privKey, peerSeedsOld, portOld, ctx)
-	}
-
-	dbPath := viper.GetString(common.CfgDataPath)
-	if dbPath == "" {
-		dbPath = cfgPath
-	}
-
-	mainDBPath := path.Join(dbPath, "db", "main")
-	refDBPath := path.Join(dbPath, "db", "ref")
-	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath,
-		viper.GetInt(common.CfgStorageLevelDBCacheSize),
-		viper.GetInt(common.CfgStorageLevelDBHandles))
-
-	if err != nil {
-		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
-			mainDBPath, refDBPath, err)
 	}
 
 	params := &node.Params{

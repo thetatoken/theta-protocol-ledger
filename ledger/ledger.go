@@ -519,6 +519,8 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 		}
 	}
 
+	logger.Infof("Prune state from height %v to %v completed", startHeight, endHeight)
+
 	return nil
 }
 
