@@ -13,7 +13,7 @@ const HeightLowerGNStakeThresholdTo1000 uint64 = 8411427 // approximate time: 12
 const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
-const HeightSampleStakingReward uint64 = 999999999
+const HeightSampleStakingReward uint64 = 9497418 // approximate time: 7pm Mar 10th, 2021 PST
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
