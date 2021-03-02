@@ -162,7 +162,8 @@ func (pdmh *PeerDiscoveryMessageHandler) HandleMessage(msg types.Message) error 
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) handlePeerAddressRequest(peer *pr.Peer, message PeerDiscoveryMessage) {
-	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection(true) // discovery should skip edge nodes
+	skipEdgeNode := (peer.NodeType() == common.NodeTypeBlockchainNode)
+	peerIDAddrs := pdmh.discMgr.peerTable.GetSelection(skipEdgeNode)
 	pdmh.sendAddresses(peer, peerIDAddrs)
 }
 
@@ -253,7 +254,9 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 // of connections by dialing peers when the number of connected peers are lower than the
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
-	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers(true) // only account for blockchain nodes
+	selfNodeType := viper.GetInt(common.CfgNodeType)
+	skipEdgeNode := (selfNodeType == int(common.NodeTypeBlockchainNode)) // a blockchain node only asks other blockchain nodes for peers
+	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers(skipEdgeNode)
 	sufficientNumPeers := GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers
 	if numPeers > 0 {
 		if numPeers < sufficientNumPeers {
@@ -274,7 +277,7 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 
 			// discovery
-			peers := *(pdmh.discMgr.peerTable.GetAllPeers(true)) // skip edge nodes, only query the blockchain nodes
+			peers := *(pdmh.discMgr.peerTable.GetAllPeers(skipEdgeNode))
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
