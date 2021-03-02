@@ -467,16 +467,16 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	result.PeerID = t.dispatcher.LibP2PID() // TODO: use ID() instead after 1.3.0 upgrade
 	result.ChainID = t.consensus.Chain().ChainID
 	latestFinalizedHash := s.LastFinalizedBlock
+	var latestFinalizedBlock *core.ExtendedBlock
 	if !latestFinalizedHash.IsEmpty() {
 		result.LatestFinalizedBlockHash = latestFinalizedHash
-		block, err := t.chain.FindBlock(latestFinalizedHash)
+		latestFinalizedBlock, err = t.chain.FindBlock(latestFinalizedHash)
 		if err != nil {
 			return err
 		}
-		result.LatestFinalizedBlockEpoch = common.JSONUint64(block.Epoch)
-		result.LatestFinalizedBlockHeight = common.JSONUint64(block.Height)
-		result.LatestFinalizedBlockTime = (*common.JSONBig)(block.Timestamp)
-		result.Syncing = isSyncing(block)
+		result.LatestFinalizedBlockEpoch = common.JSONUint64(latestFinalizedBlock.Epoch)
+		result.LatestFinalizedBlockHeight = common.JSONUint64(latestFinalizedBlock.Height)
+		result.LatestFinalizedBlockTime = (*common.JSONBig)(latestFinalizedBlock.Timestamp)
 	}
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
@@ -494,6 +494,9 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		}
 		result.CurrentHeight = common.JSONUint64(maxVoteHeight - 1) // current finalized height is at most maxVoteHeight-1
 	}
+
+	result.Syncing = isSyncing(latestFinalizedBlock, uint64(result.CurrentHeight))
+
 	return
 }
 
@@ -764,10 +767,18 @@ func getTxType(tx types.Tx) byte {
 	return t
 }
 
-func isSyncing(block *core.ExtendedBlock) bool {
+func isSyncing(lastestFinalizedBlock *core.ExtendedBlock, currentHeight uint64) bool {
+	if lastestFinalizedBlock == nil {
+		return true
+	}
 	currentTime := big.NewInt(time.Now().Unix())
 	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
 	threshold := new(big.Int).Sub(currentTime, maxDiff)
-	isSyncing := block.Timestamp.Cmp(threshold) < 0
+	isSyncing := lastestFinalizedBlock.Timestamp.Cmp(threshold) < 0
+
+	if isSyncing { // sometimes the validator node clock is off, so here we also compare the block heights
+		isSyncing = (currentHeight - lastestFinalizedBlock.Height) > 5
+	}
+
 	return isSyncing
 }

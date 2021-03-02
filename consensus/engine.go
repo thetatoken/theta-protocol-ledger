@@ -654,6 +654,8 @@ func (e *ConsensusEngine) handleHardcodeBlock(hash common.Hash) {
 }
 
 func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
+	start := time.Now()
+
 	block := eb.Block
 	if !eb.Status.IsPending() {
 		// Before consensus engine can process the first one, sync layer might send duplicate blocks.
@@ -674,6 +676,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		}).Fatal("Failed to find parent block")
 	}
 
+	start1 := time.Now()
 	if e.validateBlock(block, parent).IsError() {
 		e.logger.WithFields(log.Fields{
 			"block.Hash": block.Hash().Hex(),
@@ -681,6 +684,7 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
+	validateBlockTime := time.Since(start1)
 
 	for _, vote := range block.HCC.Votes.Votes() {
 		e.handleVote(vote)
@@ -703,6 +707,8 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
+
+	start1 = time.Now()
 	result = e.ledger.ApplyBlockTxs(block)
 	if result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -714,8 +720,11 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 		e.chain.MarkBlockInvalid(block.Hash())
 		return
 	}
+	applyBlockTime := time.Since(start1)
 
-	e.pruneState(block.Height)
+	start1 = time.Now()
+	go e.pruneState(block.Height)
+	pruneStateTime := time.Since(start1)
 
 	if hasValidatorUpdate, ok := result.Info["hasValidatorUpdate"]; ok {
 		hasValidatorUpdateBool := hasValidatorUpdate.(bool)
@@ -741,6 +750,15 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 
 	// Check and process CC.
 	e.checkCC(block.Hash())
+
+	e.logger.WithFields(log.Fields{
+		"block.Epoch":       block.Epoch,
+		"block.Hash":        block.Hash().Hex(),
+		"duration":          time.Since(start),
+		"validateBlockTime": validateBlockTime,
+		"applyBlockTime":    applyBlockTime,
+		"pruneStateTime":    pruneStateTime,
+	}).Debug("Finish processing block")
 }
 
 func (e *ConsensusEngine) shouldVote(block common.Hash) bool {
