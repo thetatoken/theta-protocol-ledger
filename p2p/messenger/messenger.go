@@ -153,11 +153,12 @@ func (msgr *Messenger) Wait() {
 
 // Broadcast broadcasts the given message to all the connected peers
 func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (successes chan bool) {
-	logger.Debugf("Broadcasting messages...")
 	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
 	successes = make(chan bool, len(*allPeers))
+	logger.Debugf("Broadcasting message to %v peers...", len(*allPeers))
+
 	for _, peer := range *allPeers {
-		//logger.Debugf("Broadcasting \"%v\" to %v", message.Content, peer.ID())
+		//logger.Debugf("Broadcasting message with hash %v to %v, channelID: %v", hex.EncodeToString(crypto.Keccak256([]byte(fmt.Sprintf("%v", message.Content)))), peer.ID(), message.ChannelID)
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
 			successes <- success
@@ -169,7 +170,10 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (s
 // BroadcastToNeighbors broadcasts the given message to neighbors
 func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int, skipEdgeNode bool) (successes chan bool) {
 	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast, skipEdgeNode)
+	logger.Debugf("Broadcasting message to %v neighbors...", len(sampledPIDs))
+
 	for _, pid := range sampledPIDs {
+		//logger.Debugf("Broadcasting message with hash %v to neighbor %v, channelID: %v", hex.EncodeToString(crypto.Keccak256([]byte(fmt.Sprintf("%v", message.Content)))), pid, message.ChannelID)
 		go func(pid string) {
 			msgr.Send(pid, message)
 		}(pid)
