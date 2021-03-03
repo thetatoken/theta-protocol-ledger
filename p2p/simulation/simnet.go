@@ -209,6 +209,11 @@ func (se *SimnetEndpoint) Peers(skipEdgeNode bool) []string {
 	return []string{}
 }
 
+// PeerURLs returns the URLs of all peers
+func (se *SimnetEndpoint) PeerURLs(skipEdgeNode bool) []string {
+	return []string{}
+}
+
 // PeerExists indicates if the given peerID is a neighboring peer
 func (se *SimnetEndpoint) PeerExists(peerID string) bool {
 	return false

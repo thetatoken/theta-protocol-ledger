@@ -152,6 +152,17 @@ func (dp *Dispatcher) Peers(skipEdgeNode bool) []string {
 	return []string{}
 }
 
+// Peers returns the IDs of all peers
+func (dp *Dispatcher) PeerURLs(skipEdgeNode bool) []string {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.PeerURLs(skipEdgeNode)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.PeerURLs(skipEdgeNode)
+	}
+	return []string{}
+}
+
 // PeerExists indicates if the given peerID is a neighboring peer
 func (dp *Dispatcher) PeerExists(peerID string) bool {
 	if !reflect.ValueOf(dp.p2pnet).IsNil() {

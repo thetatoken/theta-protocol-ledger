@@ -500,6 +500,23 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	return
 }
 
+// ------------------------------ GetPeerURLs -----------------------------------
+
+type GetPeerURLsArgs struct {
+	SkipEdgeNode bool `json:"skip_edge_node"`
+}
+
+type GetPeerURLsResult struct {
+	PeerURLs []string `json:"peers"`
+}
+
+func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeersResult) (err error) {
+	peers := t.dispatcher.PeerURLs(args.SkipEdgeNode)
+	result.Peers = peers
+
+	return
+}
+
 // ------------------------------ GetPeers -----------------------------------
 
 type GetPeersArgs struct {

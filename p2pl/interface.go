@@ -54,6 +54,9 @@ type Network interface {
 	// Peers return the IDs of all peers
 	Peers(skipEdgeNode bool) []string
 
+	// PeerURLs return the URLs of all peers
+	PeerURLs(skipEdgeNode bool) []string
+
 	// PeerExists indicates if the given peerID is a neighboring peer
 	PeerExists(peerID string) bool
 

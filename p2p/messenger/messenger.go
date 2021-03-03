@@ -240,6 +240,16 @@ func (msgr *Messenger) Peers(skipEdgeNode bool) []string {
 	return peerIDs
 }
 
+// PeerURLs returns the URLs of all peers
+func (msgr *Messenger) PeerURLs(skipEdgeNode bool) []string {
+	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
+	peerURLs := []string{}
+	for _, peer := range *allPeers {
+		peerURLs = append(peerURLs, peer.NetAddress().String())
+	}
+	return peerURLs
+}
+
 // PeerExists indicates if the given peerID is a neighboring peer
 func (msgr *Messenger) PeerExists(peerID string) bool {
 	return msgr.peerTable.PeerExists(peerID)
