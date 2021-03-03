@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -512,6 +513,11 @@ type GetPeerURLsResult struct {
 
 func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeerURLsResult) (err error) {
 	peerURLs := t.dispatcher.PeerURLs(args.SkipEdgeNode)
+
+	numPeers := len(peerURLs)
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(numPeers, func(i, j int) { peerURLs[i], peerURLs[j] = peerURLs[j], peerURLs[i] })
+
 	maxNumOfPeers := 128
 	if len(peerURLs) < maxNumOfPeers {
 		maxNumOfPeers = len(peerURLs)
