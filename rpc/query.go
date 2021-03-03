@@ -507,12 +507,16 @@ type GetPeerURLsArgs struct {
 }
 
 type GetPeerURLsResult struct {
-	PeerURLs []string `json:"peers"`
+	PeerURLs []string `json:"peer_urls"`
 }
 
-func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeersResult) (err error) {
-	peers := t.dispatcher.PeerURLs(args.SkipEdgeNode)
-	result.Peers = peers
+func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeerURLsResult) (err error) {
+	peerURLs := t.dispatcher.PeerURLs(args.SkipEdgeNode)
+	maxNumOfPeers := 128
+	if len(peerURLs) < maxNumOfPeers {
+		maxNumOfPeers = len(peerURLs)
+	}
+	result.PeerURLs = peerURLs[0:maxNumOfPeers]
 
 	return
 }
