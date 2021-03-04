@@ -17,6 +17,9 @@ const (
 	// CfgForceValidateSnapshot defines wether validation of snapshot can be skipped
 	CfgForceValidateSnapshot = "snapshot.force_validate"
 
+	// CfgSnapshotExportWorker defines number of concurrent workers used to export a snapshot
+	CfgSnapshotExportWorker = "snapshot.export_num_workers"
+
 	// CfgGenesisHash defines the hash of the genesis block
 	CfgGenesisHash = "genesis.hash"
 	// CfgGenesisChainID defines the chainID.
@@ -141,6 +144,7 @@ p2p:
 
 func init() {
 	viper.SetDefault(CfgForceValidateSnapshot, false)
+	viper.SetDefault(CfgSnapshotExportWorker, 16)
 
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)

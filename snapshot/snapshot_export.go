@@ -7,8 +7,10 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"sync"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	cns "github.com/thetatoken/theta/consensus"
@@ -272,45 +274,102 @@ func getAtLeastCommittedChild(block *core.ExtendedBlock, chain *blockchain.Chain
 	return nil, nil
 }
 
+type kvPair struct {
+	k []byte
+	v []byte
+}
+
 func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
 	height := core.Itobytes(sv.Height())
 	err := core.WriteRecord(writer, []byte{core.SVStart}, height)
 	if err != nil {
 		panic(err)
 	}
-	sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
-		err = core.WriteRecord(writer, k, v)
-		if err != nil {
-			panic(err)
+
+	kvs := make(chan *kvPair, 4096)
+	prefixes := make(chan []byte)
+
+	wg := &sync.WaitGroup{}
+
+	wg.Add(1)
+	wg.Add(256) // # of prefixes
+	go func() {
+		defer wg.Done()
+
+		for prefix := 0; prefix <= 255; prefix++ {
+			prefixes <- []byte{byte(prefix)}
 		}
-		if needAccountStorage && bytes.HasPrefix(k, []byte("ls/a")) {
-			account := &types.Account{}
-			err := types.FromBytes([]byte(v), account)
+	}()
+
+	// Spawn workers
+	for i := 0; i < viper.GetInt(common.CfgSnapshotExportWorker); i++ {
+		go func() {
+			for {
+				prefix, ok := <-prefixes
+				if !ok {
+					return
+				}
+				sv.GetStore().Traverse(prefix, func(k, v common.Bytes) bool {
+					kvs <- &kvPair{k: k, v: v}
+					return true
+				})
+				wg.Done()
+			}
+		}()
+	}
+
+	wg2 := &sync.WaitGroup{}
+	wg2.Add(1)
+	go func() {
+		defer wg2.Done()
+
+		for {
+			kv, ok := <-kvs
+			if !ok {
+				return
+			}
+
+			k := kv.k
+			v := kv.v
+
+			err = core.WriteRecord(writer, k, v)
 			if err != nil {
-				logger.Errorf("Failed to parse account for %v", []byte(v))
 				panic(err)
 			}
-			if account.Root != (common.Hash{}) {
-				err = core.WriteRecord(writer, []byte{core.SVStart}, height)
+			if needAccountStorage && bytes.HasPrefix(k, []byte("ls/a")) {
+				account := &types.Account{}
+				err := types.FromBytes([]byte(v), account)
 				if err != nil {
+					logger.Errorf("Failed to parse account for %v", []byte(v))
 					panic(err)
 				}
-				storage := treestore.NewTreeStore(account.Root, db)
-				storage.Traverse(nil, func(ak, av common.Bytes) bool {
-					err = core.WriteRecord(writer, ak, av)
+				if account.Root != (common.Hash{}) {
+					err = core.WriteRecord(writer, []byte{core.SVStart}, height)
 					if err != nil {
 						panic(err)
 					}
-					return true
-				})
-				err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
-				if err != nil {
-					panic(err)
+					storage := treestore.NewTreeStore(account.Root, db)
+					storage.Traverse(nil, func(ak, av common.Bytes) bool {
+						err = core.WriteRecord(writer, ak, av)
+						if err != nil {
+							panic(err)
+						}
+						return true
+					})
+					err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
+					if err != nil {
+						panic(err)
+					}
 				}
 			}
 		}
-		return true
-	})
+	}()
+
+	wg.Wait()
+	close(prefixes)
+	close(kvs)
+	wg2.Wait()
+
 	err = core.WriteRecord(writer, []byte{core.SVEnd}, height)
 	if err != nil {
 		panic(err)
