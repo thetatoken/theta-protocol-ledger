@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
@@ -62,7 +63,8 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 	if blockHeight >= common.HeightEnableSmartContract {
 		for _, outAcc := range accounts {
 			if outAcc.IsASmartContract() {
-				return result.Error("Sending Theta/TFuel to a smart contract through a SendTx transaction is not allowed")
+				return result.Error(
+					fmt.Sprintf("Sending Theta/TFuel to a smart contract (%v) through a SendTx transaction is not allowed", outAcc.Address))
 			}
 		}
 	}
