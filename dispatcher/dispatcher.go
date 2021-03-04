@@ -106,6 +106,8 @@ func (dp *Dispatcher) SendData(peerIDs []string, datarsp DataResponse) {
 			dp.broadcastToNeighbors(datarsp.ChannelID, datarsp, false /* should send to both blockchain and edge nodes */)
 		} else if datarsp.ChannelID == common.ChannelIDGuardian {
 			dp.broadcastToNeighbors(datarsp.ChannelID, datarsp, true /* no need to send guardian votes to edge nodes */)
+		} else if datarsp.ChannelID == common.ChannelIDEliteEdgeNodeVote {
+			dp.broadcastToNeighbors(datarsp.ChannelID, datarsp, false /* should send to both blockchain and edge nodes */)
 		} else if datarsp.ChannelID == common.ChannelIDAggregatedEliteEdgeNodeVotes {
 			dp.broadcastToAll(datarsp.ChannelID, datarsp, true /* no need to send the aggregated edge node votes back to edge nodes */)
 		} else if datarsp.ChannelID == common.ChannelIDHeader {
