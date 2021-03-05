@@ -518,7 +518,7 @@ func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeerURLsRes
 	rand.Seed(time.Now().UnixNano())
 	rand.Shuffle(numPeers, func(i, j int) { peerURLs[i], peerURLs[j] = peerURLs[j], peerURLs[i] })
 
-	maxNumOfPeers := 128
+	maxNumOfPeers := 256
 	if len(peerURLs) < maxNumOfPeers {
 		maxNumOfPeers = len(peerURLs)
 	}
