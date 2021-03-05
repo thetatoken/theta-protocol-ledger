@@ -256,7 +256,9 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 	selfNodeType := viper.GetInt(common.CfgNodeType)
 	skipEdgeNode := (selfNodeType == int(common.NodeTypeBlockchainNode)) // a blockchain node only asks other blockchain nodes for peers
-	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers(skipEdgeNode)
+	peers := *(pdmh.discMgr.peerTable.GetAllPeers(skipEdgeNode))
+	numPeers := uint(len(peers))
+
 	sufficientNumPeers := GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers
 	if numPeers > 0 {
 		if numPeers < sufficientNumPeers {
