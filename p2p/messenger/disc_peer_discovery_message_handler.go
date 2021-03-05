@@ -203,7 +203,9 @@ func (pdmh *PeerDiscoveryMessageHandler) SetDiscoveryCallback(disccb InboundCall
 }
 
 func (pdmh *PeerDiscoveryMessageHandler) connectToOutboundPeers(addresses []*netutil.NetAddress) {
-	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers(true)) // only account for blockchain nodes
+	selfNodeType := viper.GetInt(common.CfgNodeType)
+	skipEdgeNode := (selfNodeType == int(common.NodeTypeBlockchainNode)) // a blockchain node only asks other blockchain nodes for peers
+	numPeers := int(pdmh.discMgr.peerTable.GetTotalNumPeers(skipEdgeNode))
 	sufficientNumPeers := int(GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers)
 	numNeeded := sufficientNumPeers - numPeers
 	if numNeeded > 0 {
