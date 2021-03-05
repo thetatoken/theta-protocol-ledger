@@ -67,6 +67,8 @@ const (
 	CfgP2PPort = "p2p.port"
 	// CfgP2PLPort sets the port used by P2P network.
 	CfgP2PLPort = "p2p.libp2pPort"
+	// CfgP2PIsBootstrapNode specifies whether the node acts as a boostrap node
+	CfgP2PIsBootstrapNode = "p2p.isBootstrapNode"
 	// CfgP2PBootstrapSeeds sets the boostrap peers.
 	CfgP2PBootstrapSeeds = "p2p.bootstrapSeeds"
 	// CfgP2PSeeds sets the seed peers.
@@ -173,6 +175,7 @@ func init() {
 	viper.SetDefault(CfgP2POpt, 0)
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
+	viper.SetDefault(CfgP2PIsBootstrapNode, false)
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
 	//viper.SetDefault(CfgP2PMaxNumPeers, 256)
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
