@@ -281,7 +281,6 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 
 			// discovery
-			peers := *(pdmh.discMgr.peerTable.GetAllPeers(skipEdgeNode))
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
