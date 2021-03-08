@@ -70,7 +70,7 @@ const (
 	// CfgP2PIsBootstrapNode specifies whether the node acts as a boostrap node
 	CfgP2PIsBootstrapNode = "p2p.isBootstrapNode"
 	// CfgP2PBootstrapNodePurgePeerInterval specifies the interval (in seconds) for a bootstrap node to purge all non-seed peers
-	CfgP2PBootstrapNodePurgePeerInterval = "p2p.bootstrapNodePurgePeerInterval"
+	//CfgP2PBootstrapNodePurgePeerInterval = "p2p.bootstrapNodePurgePeerInterval"
 	// CfgP2PBootstrapSeeds sets the boostrap peers.
 	CfgP2PBootstrapSeeds = "p2p.bootstrapSeeds"
 	// CfgP2PSeeds sets the seed peers.
@@ -178,7 +178,7 @@ func init() {
 	viper.SetDefault(CfgP2PReuseStream, true)
 	viper.SetDefault(CfgP2PSeedPeerOnly, false)
 	viper.SetDefault(CfgP2PIsBootstrapNode, false)
-	viper.SetDefault(CfgP2PBootstrapNodePurgePeerInterval, 1800) // 30 minutes
+	//viper.SetDefault(CfgP2PBootstrapNodePurgePeerInterval, 1800) // 30 minutes
 	viper.SetDefault(CfgP2PMinNumPeers, 32)
 	//viper.SetDefault(CfgP2PMaxNumPeers, 256)
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
@@ -187,7 +187,7 @@ func init() {
 	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
-	viper.SetDefault(CfgP2PMaxConnections, 96)
+	viper.SetDefault(CfgP2PMaxConnections, 2048)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")

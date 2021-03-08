@@ -122,16 +122,16 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	maxNumPeers := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers
 	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
-	purgeAllNonSeedPeersInterval := time.Duration(viper.GetInt(common.CfgP2PBootstrapNodePurgePeerInterval)) * time.Second
+	//purgeAllNonSeedPeersInterval := time.Duration(viper.GetInt(common.CfgP2PBootstrapNodePurgePeerInterval)) * time.Second
 	for {
 
-		if viper.GetBool(common.CfgP2PIsBootstrapNode) {
-			now := time.Now()
-			if now.Sub(ipl.bootstrapNodePurgePeerTimer) > purgeAllNonSeedPeersInterval {
-				ipl.bootstrapNodePurgePeerTimer = now
-				ipl.purgeAllNonSeedPeers()
-			}
-		}
+		// if viper.GetBool(common.CfgP2PIsBootstrapNode) {
+		// 	now := time.Now()
+		// 	if now.Sub(ipl.bootstrapNodePurgePeerTimer) > purgeAllNonSeedPeersInterval {
+		// 		ipl.bootstrapNodePurgePeerTimer = now
+		// 		ipl.purgeAllNonSeedPeers()
+		// 	}
+		// }
 
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {
@@ -149,7 +149,8 @@ func (ipl *InboundPeerListener) listenRoutine() {
 				logger.Infof("Accept inbound connection from seed peer %v", remoteAddr.String())
 			}
 		} else {
-			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers(true))
+			skipEdgeNode := !viper.GetBool(common.CfgP2PIsBootstrapNode)
+			numPeers := int(ipl.discMgr.peerTable.GetTotalNumPeers(skipEdgeNode))
 			if numPeers >= maxNumPeers {
 				if viper.GetBool(common.CfgP2PConnectionFIFO) {
 					purgedPeer := ipl.discMgr.peerTable.PurgeOldestPeer()
