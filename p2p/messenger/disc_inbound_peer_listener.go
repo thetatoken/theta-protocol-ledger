@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	defaultExternalPort           = 7650
-	tryListenSeconds              = 5
-	restartAllPeerConnectionCount = 16 * 600
+	defaultExternalPort          = 7650
+	tryListenSeconds             = 5
+	purgeAllNonSeedPeersInterval = 3 * 60 * time.Second
 )
 
 //
@@ -35,6 +35,8 @@ type InboundPeerListener struct {
 	inboundCallback InboundCallback
 
 	config InboundPeerListenerConfig
+
+	bootstrapNodePurgePeerTimer time.Time
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -71,7 +73,9 @@ func createInboundPeerListener(discMgr *PeerDiscoveryManager, protocol string, l
 		internalAddr: internalNetAddr,
 		externalAddr: externalNetAddr,
 		config:       config,
-		wg:           &sync.WaitGroup{},
+
+		bootstrapNodePurgePeerTimer: time.Now(),
+		wg:                          &sync.WaitGroup{},
 	}
 
 	return inboundPeerListener, nil
@@ -119,15 +123,15 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	maxNumPeers := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers
 	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
-	connectCount := uint64(0)
-
 	for {
 
-		if viper.GetBool(common.CfgP2PIsBootstrapNode) && connectCount >= restartAllPeerConnectionCount {
-			connectCount = 0
-			ipl.purgeAllNonSeedPeers()
+		if viper.GetBool(common.CfgP2PIsBootstrapNode) {
+			now := time.Now()
+			if now.Sub(ipl.bootstrapNodePurgePeerTimer) > purgeAllNonSeedPeersInterval {
+				ipl.bootstrapNodePurgePeerTimer = now
+				ipl.purgeAllNonSeedPeers()
+			}
 		}
-		connectCount++
 
 		netconn, err := ipl.netListener.Accept()
 		if err != nil {
@@ -173,9 +177,10 @@ func (ipl *InboundPeerListener) listenRoutine() {
 func (ipl *InboundPeerListener) purgeAllNonSeedPeers() {
 	logger.Infof("Purge all non-seed peers")
 
-	allPeers := ipl.discMgr.peerTable.GetAllPeers(true)
+	allPeers := ipl.discMgr.peerTable.GetAllPeers(false)
 	for _, peer := range *allPeers {
 		if !peer.IsSeed() {
+			ipl.discMgr.peerTable.DeletePeer(peer.ID())
 			peer.Stop()
 		}
 	}
