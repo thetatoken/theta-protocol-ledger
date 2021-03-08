@@ -17,9 +17,8 @@ import (
 )
 
 const (
-	defaultExternalPort          = 7650
-	tryListenSeconds             = 5
-	purgeAllNonSeedPeersInterval = 3 * 60 * time.Second
+	defaultExternalPort = 7650
+	tryListenSeconds    = 5
 )
 
 //
@@ -123,6 +122,7 @@ func (ipl *InboundPeerListener) listenRoutine() {
 	maxNumPeers := GetDefaultPeerDiscoveryManagerConfig().MaxNumPeers
 	logger.Infof("InboundPeerListener listen routine started, seedPeerOnly set to %v", seedPeerOnly)
 
+	purgeAllNonSeedPeersInterval := time.Duration(viper.GetInt(common.CfgP2PBootstrapNodePurgePeerInterval)) * time.Second
 	for {
 
 		if viper.GetBool(common.CfgP2PIsBootstrapNode) {
