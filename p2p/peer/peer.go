@@ -309,6 +309,7 @@ func createPeer(netconn net.Conn, isOutbound bool,
 	connection := cn.CreateConnection(netconn, connConfig)
 	if connection == nil {
 		logger.Errorf("Failed to create connection")
+		netconn.Close()
 		return nil
 	}
 	var netAddress *nu.NetAddress

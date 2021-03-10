@@ -153,6 +153,9 @@ func (ipl *InboundPeerListener) listenRoutine() {
 
 		go func(netconn net.Conn) {
 			peer, err := ipl.discMgr.connectWithInboundPeer(netconn, true)
+			if err != nil {
+				netconn.Close()
+			}
 			if ipl.inboundCallback != nil {
 				ipl.inboundCallback(peer, err)
 			}
