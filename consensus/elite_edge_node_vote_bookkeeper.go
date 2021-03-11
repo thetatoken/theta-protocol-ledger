@@ -11,9 +11,9 @@ import (
 	tcrypto "github.com/thetatoken/theta/crypto"
 )
 
-const DefaultMaxNumVotesCached = uint(200000)
+const DefaultMaxNumVotesCached = uint(500000)
 
-const maxVoteLife = 5 * time.Minute
+const maxVoteLife = 20 * time.Minute // more than one checkpoint interval
 
 //
 // EENVoteBookkeeper keeps tracks of recently seen elite edge node votes
