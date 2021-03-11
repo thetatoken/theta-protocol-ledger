@@ -176,7 +176,7 @@ func init() {
 	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
-	viper.SetDefault(CfgP2PMaxConnections, 96)
+	viper.SetDefault(CfgP2PMaxConnections, 2048)
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
