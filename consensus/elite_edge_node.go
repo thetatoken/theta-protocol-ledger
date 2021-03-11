@@ -24,6 +24,8 @@ type EliteEdgeNodeEngine struct {
 	engine  *ConsensusEngine
 	privKey *bls.SecretKey
 
+	voteBookkeeper *EENVoteBookkeeper
+
 	// State for current voting
 	block    common.Hash
 	round    uint32
@@ -41,6 +43,8 @@ func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *Elit
 		logger:  util.GetLoggerForModule("elite edge node"),
 		engine:  c,
 		privKey: privateKey,
+
+		voteBookkeeper: CreateEENVoteBookkeeper(DefaultMaxNumVotesCached),
 
 		evIncoming:  make(chan *core.EENVote, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 		aevIncoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusMessageQueueSize)),
@@ -119,6 +123,12 @@ func (e *EliteEdgeNodeEngine) mainLoop(ctx context.Context) {
 func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+
+	if e.voteBookkeeper.HasSeen(vote) {
+		logger.Debugf("Received edge node vote {%v : %v} earlier, safely ignore", vote.Address, vote.Block)
+		return
+	}
+	e.voteBookkeeper.Record(vote)
 
 	if !e.validateVote(vote) {
 		return
