@@ -188,14 +188,14 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 			"e.nextVote.Multiplies": e.nextVote.Multiplies,
 			"e.nextVote.Block":      e.nextVote.Block.Hex(),
 			"error":                 err.Error(),
-		}).Info("Failed to merge elite edge node vote")
+		}).Info("Failed to merge aggregated elite edge node vote")
 	}
 	if candidate == nil {
 		// Incoming vote is subset of the current nextVote.
 		e.logger.WithFields(log.Fields{
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Debug("Skipping vote: no new index")
+		}).Debug("Skipping aggregated elite edge node vote: no new index")
 		return
 	}
 
@@ -206,7 +206,7 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
 			"local.vote.Multiplies": e.nextVote.Multiplies,
-		}).Info("Skipping vote: candidate vote overflows")
+		}).Info("Skipping aggregated elite edge node vote: candidate vote overflows")
 		return
 	}
 
@@ -216,7 +216,7 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 		"local.block":           e.block.Hex(),
 		"local.round":           e.round,
 		"local.vote.Multiplies": e.nextVote.Multiplies,
-	}).Info("New elite edge node vote")
+	}).Info("New aggregated elite edge node vote")
 }
 
 func (e *EliteEdgeNodeEngine) HandleVote(vote *core.EENVote) {
@@ -260,7 +260,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
 			"reason":      result.Message,
-		}).Info("Ignoring aggregated elite edge node vote: ")
+		}).Info("Ignoring elite edge node vote: vote validation failed")
 		return
 	}
 	res = true
