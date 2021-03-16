@@ -299,6 +299,9 @@ func (conn *Connection) sendRoutine() {
 	defer conn.recover()
 	defer conn.flushTimer.Stop()
 	defer conn.pingTimer.Stop()
+	defer func() {
+		_ = conn.netconn.Close()
+	}()
 
 	for {
 		var err error
