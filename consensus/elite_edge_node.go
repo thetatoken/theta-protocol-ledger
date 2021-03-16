@@ -77,7 +77,7 @@ func (e *EliteEdgeNodeEngine) StartNewRound() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.round < maxRound {
+	if e.round < maxEENRound {
 		e.round++
 		if e.nextVote != nil {
 			e.currVote = e.nextVote.Copy()
