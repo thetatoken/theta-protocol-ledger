@@ -253,7 +253,9 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivityRoutine()
 // of connections by dialing peers when the number of connected peers are lower than the
 // required threshold
 func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
-	numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	//numPeers := pdmh.discMgr.peerTable.GetTotalNumPeers()
+	peers := *(pdmh.discMgr.peerTable.GetAllPeers())
+	numPeers := uint(len(peers))
 	sufficientNumPeers := GetDefaultPeerDiscoveryManagerConfig().SufficientNumPeers
 	if numPeers > 0 {
 		if numPeers < sufficientNumPeers {
@@ -274,7 +276,6 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 
 			// discovery
-			peers := *(pdmh.discMgr.peerTable.GetAllPeers())
 			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
