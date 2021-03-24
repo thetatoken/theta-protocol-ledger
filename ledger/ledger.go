@@ -301,9 +301,6 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	logger.Debugf("ApplyBlockTxs: Apply block transactions, block.height = %v", block.Height)
 
-	ledger.mempool.Lock()
-	defer ledger.mempool.Unlock()
-
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
 
@@ -369,14 +366,20 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 
 	logger.Debugf("ApplyBlockTxs: Committed state change, block.height = %v", block.Height)
 
-	start = time.Now()
-	ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
-	updateMempoolTime := time.Since(start)
+	go func() {
+		ledger.mempool.Lock()
+		defer ledger.mempool.Unlock()
+
+		ledger.mu.Lock()
+		defer ledger.mu.Unlock()
+
+		ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
+	}()
 
 	logger.Debugf("ApplyBlockTxs: Cleared mempool transactions, block.height = %v", block.Height)
 
-	logger.Debugf("ApplyBlockTxs: Done, block.height = %v, txProcessTime = %v, handleDelayedUpdateTime = %v, commitTime = %v, updateMempoolTime = %v",
-		block.Height, txProcessTime, handleDelayedUpdateTime, commitTime, updateMempoolTime)
+	logger.Debugf("ApplyBlockTxs: Done, block.height = %v, txProcessTime = %v, handleDelayedUpdateTime = %v, commitTime = %v",
+		block.Height, txProcessTime, handleDelayedUpdateTime, commitTime)
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"math/big"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 
@@ -312,15 +313,21 @@ func (mp *Mempool) Update(committedRawTxs []common.Bytes) {
 // UpdateUnsafe is the non-locking version of Update. Caller must call Mempool.Lock() before
 // calling this method.
 func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
+	start := time.Now()
 	mp.removeTxs(committedRawTxs)
+	removeCommittedTxTime := time.Since(start)
 
 	// Remove Txs that have become obsolete.
+	start = time.Now()
+	count := 0
 	invalidTxs := []common.Bytes{}
 	txGroups := mp.candidateTxs.ElementList()
 	for _, txGroupEl := range *txGroups {
 		txGroup := txGroupEl.(*mempoolTransactionGroup)
 		txs := txGroup.txs.ElementList()
 		for _, txEl := range *txs {
+			count++
+
 			mempoolTx := txEl.(*mempoolTransaction)
 
 			// Check for outdated txs
@@ -339,8 +346,13 @@ func (mp *Mempool) UpdateUnsafe(committedRawTxs []common.Bytes) {
 			}
 		}
 	}
-	logger.Debugf("Removing %d obsolete Txs: %v", len(invalidTxs), invalidTxs)
+	screenTxTime := time.Since(start)
+
+	start = time.Now()
 	mp.removeTxs(invalidTxs)
+	removeInvalidTxTime := time.Since(start)
+
+	logger.Debugf("UpdateUnsafe: %d tx screened in %v, removeCommittedTxTime = %v, removed %d obsolete Txs in %v: %v,", count, screenTxTime, removeCommittedTxTime, len(invalidTxs), removeInvalidTxTime, invalidTxs)
 }
 
 func (mp *Mempool) removeTxs(committedRawTxs []common.Bytes) {
