@@ -137,6 +137,7 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	aggregatedVote, err := e.convertVote(vote)
 	if err != nil {
 		logger.Warnf("Discard vote from edge node %v, reason: %v", vote.Address, err)
+		return
 	}
 
 	e.aevIncoming <- aggregatedVote
