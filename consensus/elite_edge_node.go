@@ -148,7 +148,7 @@ func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEEN
 		return nil, fmt.Errorf("The elite edge node pool is nil, cannot convert vote")
 	}
 
-	signerIdx := e.eenp.IndexWithHolderAddress(ev.Address)
+	signerIdx := e.eenp.WithStake().IndexWithHolderAddress(ev.Address)
 	if signerIdx < 0 {
 		return nil, fmt.Errorf("Elite edge node %v not found in the Elite edge node pool", ev.Address)
 	}
