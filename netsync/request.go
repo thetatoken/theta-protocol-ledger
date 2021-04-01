@@ -124,7 +124,6 @@ type RequestManager struct {
 	mu                      *sync.RWMutex
 	pendingBlocks           *list.List
 	pendingBlocksByHash     map[string]*list.Element
-	pendingBlocksByParent   map[string][]*core.Block
 	pendingBlocksWithHeader *HeaderHeap
 	gossipQuota             uint
 	fastsyncQuota           uint
@@ -163,7 +162,6 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 		mu:                      &sync.RWMutex{},
 		pendingBlocks:           list.New(),
 		pendingBlocksByHash:     make(map[string]*list.Element),
-		pendingBlocksByParent:   make(map[string][]*core.Block),
 		pendingBlocksWithHeader: &HeaderHeap{},
 		ifDownloadByHash:        viper.GetBool(common.CfgSyncDownloadByHash),
 		ifDownloadByHeader:      viper.GetBool(common.CfgSyncDownloadByHeader),
@@ -300,17 +298,18 @@ func (rm *RequestManager) tryToDownload() {
 	rm.gossipQuota = GossipRequestQuotaPerSecond
 	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
 
-	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || len(rm.pendingBlocksByParent) > 0 || rm.pendingBlocksWithHeader.Len() > 0
+	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 
 	minIntervalPassed := time.Since(rm.lastInventoryRequest) >= MinInventoryRequestInterval
 	maxIntervalPassed := time.Since(rm.lastInventoryRequest) >= MaxInventoryRequestInterval
 
 	if maxIntervalPassed || (hasUndownloadedBlocks && minIntervalPassed) {
 		if hasUndownloadedBlocks && rm.pendingBlocks.Len() > 1 {
+			fastSyncTip := rm.tip.Load().(*core.ExtendedBlock)
 			rm.logger.WithFields(log.Fields{
-				"pending block hashes": rm.pendingBlocks.Len() - len(rm.pendingBlocksByParent),
-				"orphan blocks":        len(rm.pendingBlocksByParent),
+				"pending block hashes": rm.pendingBlocks.Len(),
 				"current chain tip":    rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
+				"fast sync tip":        fastSyncTip.Height,
 			}).Info("Sync progress")
 		}
 
@@ -515,9 +514,6 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 
 	}
 	if rm.refreshCounter >= RefreshCounterLimit {
-		// for pid := range rm.activePeers {
-		// 	rm.activePeers[pid]--
-		// }
 		rm.refreshCounter = 0
 
 		rm.logger.Debugf("Reset refreshCounter")
@@ -594,25 +590,6 @@ func (rm *RequestManager) removeEl(el *list.Element) {
 
 	delete(rm.pendingBlocksByHash, hash)
 
-	if pendingBlock.block != nil {
-		parent := pendingBlock.block.Parent.Hex()
-		if blocks, ok := rm.pendingBlocksByParent[parent]; ok {
-			found := -1
-			for idx, block := range blocks {
-				if block.Hash() == pendingBlock.block.Hash() {
-					found = idx
-					break
-				}
-			}
-			if found != -1 {
-				blocks = append(blocks[:found], blocks[found+1:]...)
-				rm.pendingBlocksByParent[parent] = blocks
-			}
-			if len(rm.pendingBlocksByParent[parent]) == 0 {
-				delete(rm.pendingBlocksByParent, parent)
-			}
-		}
-	}
 	rm.pendingBlocks.Remove(el)
 }
 
@@ -654,23 +631,6 @@ func (rm *RequestManager) addHash(x common.Hash, peerIDs []string, fromGossip bo
 	}
 }
 
-// shouldDumpBlock checks if a block and its decendant is descendant of genesis
-func (rm *RequestManager) shouldDumpBlock(block *core.Block) bool {
-	currHash := block.Parent
-	for {
-		currBlock, err := rm.chain.FindBlock(currHash)
-		if err != nil {
-			return false
-		}
-		// If a block has status other than pending, it has been processed by consensus engine hence
-		// must be descendant of genesis.
-		if !currBlock.Status.IsPending() {
-			return true
-		}
-		currHash = currBlock.Parent
-	}
-}
-
 func (rm *RequestManager) IsGossipBlock(hash common.Hash) bool {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
@@ -705,20 +665,6 @@ func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) 
 			pendingBlock.status = RequestToSendBodyReq
 			heap.Push(rm.pendingBlocksWithHeader, pendingBlock)
 		}
-		// else {
-		// 	for _, idToAdd := range peerIDs {
-		// 		found := false
-		// 		for _, id := range pendingBlock.peers {
-		// 			if id == idToAdd {
-		// 				found = true
-		// 				break
-		// 			}
-		// 		}
-		// 		if !found {
-		// 			pendingBlock.peers = append(pendingBlock.peers, idToAdd)
-		// 		}
-		// 	}
-		// }
 	}
 }
 
@@ -734,10 +680,6 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	}
 
 	hash := block.Hash().String()
-	_, ok := rm.pendingBlocksByParent[hash]
-	if ok {
-		delete(rm.pendingBlocksByParent, hash)
-	}
 
 	if pendingBlockEl, ok := rm.pendingBlocksByHash[hash]; ok {
 		rm.pendingBlocks.Remove(pendingBlockEl)
@@ -785,28 +727,6 @@ func (rm *RequestManager) addBlock(block *core.Block) {
 		}
 		pendingBlock.block = block
 	}
-
-	if rm.shouldDumpBlock(block) {
-		rm.dumpReadyBlocks(block)
-		return
-	}
-
-	// TODO: remove this. We don't need in-memory index anymore.
-	// byParents, ok := rm.pendingBlocksByParent[parent.String()]
-	// if !ok {
-	// 	byParents = []*core.Block{}
-	// }
-	// found := false
-	// for _, child := range byParents {
-	// 	if child.Hash() == block.Hash() {
-	// 		found = true
-	// 		break
-	// 	}
-	// }
-	// if !found {
-	// 	byParents = append(byParents, block)
-	// }
-	// rm.pendingBlocksByParent[parent.String()] = byParents
 }
 
 func (rm *RequestManager) passReadyBlocks() {
@@ -847,7 +767,7 @@ func (rm *RequestManager) passReadyBlocks() {
 				rm.dumpBlockCache.Add(block.Hash(), struct{}{})
 				if block.Status.IsPending() {
 					rm.syncMgr.PassdownMessage(block.Block)
-					rm.tip.Store(block.Block)
+					rm.tip.Store(block)
 				}
 			}
 
@@ -863,95 +783,4 @@ func (rm *RequestManager) passReadyBlocks() {
 		}
 	}
 
-}
-
-// resumePendingBlocks is called during process start to resume blocks that are already downloaded
-// but are not yet processed by consensus engine.
-func (rm *RequestManager) resumePendingBlocks() {
-	lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
-	queue := []*core.ExtendedBlock{lfb}
-	for len(queue) > 0 {
-		block := queue[0]
-		queue = queue[1:]
-
-		// In rare cases a block is saved but index is not yet saved before the process is
-		// killed.
-		rm.chain.FixBlockIndex(block)
-		rm.chain.FixMissingChildren(block)
-
-		if block.Status.IsPending() {
-			rm.addBlock(block.Block)
-		}
-		for _, hash := range block.Children {
-			child, err := rm.chain.FindBlock(hash)
-			if err != nil {
-				logger.Panic(err)
-			}
-			queue = append(queue, child)
-		}
-	}
-}
-
-func (rm *RequestManager) dumpReadyBlocks(block *core.Block) {
-	log.Debugf("<<<<<<<< dumpReadyBlocks(), block=%v, height=%v", block.Hash().Hex(), block.Height)
-	origin := block
-
-	queue := []*core.Block{block}
-	for len(queue) > 0 {
-		block := queue[0]
-		hash := block.Hash().String()
-		queue = queue[1:]
-
-		if rm.dumpBlockCache.Contains(block.Hash()) {
-			log.Debugf("<<<<<<< skipping dump block from cache hit, block=%v, height=%v", block.Hash().Hex(), block.Height)
-			continue
-		}
-		rm.dumpBlockCache.Add(block.Hash(), struct{}{})
-
-		// Add child blocks stored in the memory
-		children, ok := rm.pendingBlocksByParent[hash]
-		if ok {
-			queue = append(queue, children...)
-			delete(rm.pendingBlocksByParent, hash)
-			log.Debugf("<<<<<< removed block from pendingBlocksByParent: origin=%v, block=%v", origin.Hash().Hex(), hash)
-		}
-
-		if pendingBlockEl, ok := rm.pendingBlocksByHash[hash]; ok {
-			rm.pendingBlocks.Remove(pendingBlockEl)
-			delete(rm.pendingBlocksByHash, hash)
-			log.Debugf("<<<<<< removed block from pendingBlocksByHash: origin=%v, block=%v", origin.Hash().Hex(), hash)
-		}
-
-		// Add child blocks stored in the disk
-		height := block.Height
-		for _, child := range rm.chain.FindBlocksByHeight(height + 1) {
-			if child.Parent.String() != hash {
-				continue
-			}
-
-			duplicated := false
-			for _, ch := range children {
-				if ch.Hash() == child.Hash() {
-					duplicated = true
-					break
-				}
-			}
-
-			if !duplicated {
-				queue = append(queue, child.Block)
-			}
-		}
-
-		log.Debugf("<<<<<<< dumping block to engine. origin=%v, block=%v", origin.Hash().Hex(), block.Hash().Hex())
-		rm.syncMgr.PassdownMessage(block)
-
-		p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
-		if p2pOpt != common.P2POptLibp2p {
-			// Need to manually gossip if not using Libp2p
-			rm.syncMgr.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
-				ChannelID: common.ChannelIDBlock,
-				Entries:   []string{block.Hash().Hex()},
-			})
-		}
-	}
 }
