@@ -11,6 +11,8 @@ import (
 	"github.com/thetatoken/theta/p2p"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/p2pl"
+
+	log "github.com/sirupsen/logrus"
 )
 
 //
@@ -171,7 +173,10 @@ func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, con
 	for _, peerID := range peerIDs {
 		go func(peerID string) {
 			if !reflect.ValueOf(dp.p2pnet).IsNil() {
-				dp.p2pnet.Send(peerID, messageOld)
+				ok := dp.p2pnet.Send(peerID, messageOld)
+				if !ok {
+					log.Errorf("Failed to send message to [%v]: %v, %v", peerID, channelID, content)
+				}
 			}
 			if !reflect.ValueOf(dp.p2plnet).IsNil() {
 				dp.p2plnet.Send(peerID, message)
