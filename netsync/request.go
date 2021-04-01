@@ -25,8 +25,8 @@ const MinInventoryRequestInterval = 3 * time.Second
 const MaxInventoryRequestInterval = 3 * time.Second
 const FastsyncRequestQuotaPerSecond = 50
 const GossipRequestQuotaPerSecond = 50
-const MaxNumPeersToSendRequests = 4
-const RefreshCounterLimit = 4
+const MaxNumPeersToSendRequests = 8
+const RefreshCounterLimit = 60
 const MaxBlocksPerRequest = 8
 
 type RequestState uint8
