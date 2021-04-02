@@ -305,11 +305,14 @@ func (rm *RequestManager) tryToDownload() {
 
 	if maxIntervalPassed || (hasUndownloadedBlocks && minIntervalPassed) {
 		if hasUndownloadedBlocks && rm.pendingBlocks.Len() > 1 {
-			fastSyncTip := rm.tip.Load().(*core.ExtendedBlock)
+			fastSyncHeight := uint64(0)
+			if fastSyncTip, ok := rm.tip.Load().(*core.ExtendedBlock); ok {
+				fastSyncHeight = fastSyncTip.Height
+			}
 			rm.logger.WithFields(log.Fields{
 				"pending block hashes": rm.pendingBlocks.Len(),
 				"current chain tip":    rm.syncMgr.consensus.GetTip(true).Hash().Hex(),
-				"fast sync tip":        fastSyncTip.Height,
+				"fast sync tip":        fastSyncHeight,
 			}).Info("Sync progress")
 		}
 
