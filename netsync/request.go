@@ -450,7 +450,7 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 				rm.logger.WithFields(log.Fields{
 					"pendingBlock": pendingBlock.hash.String(),
 					"peer":         peersWithBlock[i],
-				}).Debug("Akipped peer that may have been purged")
+				}).Debug("Skipped peer that may have been purged")
 
 			}
 			if len(randomPeerID) == 0 {
@@ -667,6 +667,19 @@ func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) 
 			pendingBlock.header = header
 			pendingBlock.status = RequestToSendBodyReq
 			heap.Push(rm.pendingBlocksWithHeader, pendingBlock)
+		} else {
+			for _, idToAdd := range peerIDs {
+				found := false
+				for _, id := range pendingBlock.peers {
+					if id == idToAdd {
+						found = true
+						break
+					}
+				}
+				if !found {
+					pendingBlock.peers = append(pendingBlock.peers, idToAdd)
+				}
+			}
 		}
 	}
 }
