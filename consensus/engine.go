@@ -326,7 +326,9 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		e.checkCC(m.Block)
 		return endEpoch
 	case *core.Block:
-		e.logger.WithFields(log.Fields{"block": m}).Debug("Received block")
+		e.logger.WithFields(log.Fields{
+			"block": m.BlockHeader,
+		}).Debug("Received block")
 		e.handleBlock(m)
 	case *core.AggregatedVotes:
 		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")

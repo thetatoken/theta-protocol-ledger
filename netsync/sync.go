@@ -402,6 +402,9 @@ func (m *SyncManager) handleInvResponse(peerID string, resp *dispatcher.Inventor
 			hash := common.HexToHash(hashStr)
 			m.requestMgr.AddHash(hash, []string{peerID}, fromGossip)
 		}
+		if !fromGossip {
+			m.requestMgr.AddActivePeer(peerID)
+		}
 	default:
 		m.logger.WithFields(log.Fields{
 			"channelID": resp.ChannelID,
@@ -565,12 +568,6 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Debug("Received block")
 			m.handleBlock(block)
 			maxReceivedHeight = block.Height
-		}
-
-		lfbHeight := m.consensus.GetLastFinalizedBlock().Height
-		tipHeight := m.consensus.GetTip(true).Height
-		if maxReceivedHeight > lfbHeight && maxReceivedHeight <= tipHeight+dispatcher.MaxInventorySize+1 {
-			m.requestMgr.AddActivePeer(peerID)
 		}
 	case common.ChannelIDVote:
 		vote := core.Vote{}

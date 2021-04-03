@@ -370,9 +370,6 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		ledger.mempool.Lock()
 		defer ledger.mempool.Unlock()
 
-		ledger.mu.Lock()
-		defer ledger.mu.Unlock()
-
 		ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 	}()
 
