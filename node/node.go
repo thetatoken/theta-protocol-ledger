@@ -68,7 +68,7 @@ func NewNode(params *Params) *Node {
 
 	// TODO: check if this is a guardian node
 	syncMgr := netsync.NewSyncManager(chain, consensus, params.NetworkOld, params.Network, dispatcher, consensus, reporter)
-	mempool := mp.CreateMempool(dispatcher)
+	mempool := mp.CreateMempool(dispatcher, consensus)
 	ledger := ld.NewLedger(params.ChainID, params.DB, chain, consensus, validatorManager, mempool)
 
 	validatorManager.SetConsensusEngine(consensus)
