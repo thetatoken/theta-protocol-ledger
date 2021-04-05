@@ -26,7 +26,8 @@ const RequestTimeout = 10 * time.Second
 const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 6 * time.Second
 const MaxInventoryRequestInterval = 6 * time.Second
-const FastsyncRequestQuotaPerSecond = 4
+
+const FastsyncRequestQuota = 8 // Max number of outstanding block requests
 const GossipRequestQuotaPerSecond = 10
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 4
@@ -296,7 +297,7 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	rm.gossipQuota = GossipRequestQuotaPerSecond
-	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
+	rm.fastsyncQuota = FastsyncRequestQuota
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 
@@ -449,6 +450,10 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 			rm.logger.WithFields(log.Fields{
 				"block": pendingBlock.hash.String(),
 			}).Debug("Skip block with no peer")
+			continue
+		}
+		if pendingBlock.status == RequestWaitingBodyResp && !pendingBlock.HasTimedOut() {
+			rm.fastsyncQuota--
 			continue
 		}
 		if pendingBlock.status == RequestToSendBodyReq ||
