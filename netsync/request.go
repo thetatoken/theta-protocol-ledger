@@ -26,10 +26,11 @@ const RequestTimeout = 10 * time.Second
 const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 6 * time.Second
 const MaxInventoryRequestInterval = 6 * time.Second
-const FastsyncRequestQuotaPerSecond = 4
+
+const FastsyncRequestQuota = 8 // Max number of outstanding block requests
 const GossipRequestQuotaPerSecond = 10
-const MaxNumPeersToSendRequests = 8
-const RefreshCounterLimit = 60
+const MaxNumPeersToSendRequests = 4
+const RefreshCounterLimit = 4
 const MaxBlocksPerRequest = 4
 const MaxPeerActiveScore = 16
 
@@ -296,7 +297,7 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	rm.gossipQuota = GossipRequestQuotaPerSecond
-	rm.fastsyncQuota = FastsyncRequestQuotaPerSecond
+	rm.fastsyncQuota = FastsyncRequestQuota
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 
@@ -398,8 +399,8 @@ func (rm *RequestManager) downloadBlockFromHash() {
 		pendingBlock := el.Value.(*PendingBlock)
 		hash := pendingBlock.hash.Hex()
 		height := uint64(0)
-		if pendingBlock.block != nil {
-			height = pendingBlock.block.Height
+		if pendingBlock.header != nil {
+			height = pendingBlock.header.Height
 		}
 		rm.logger.WithFields(log.Fields{
 			"block":        hash,
@@ -411,29 +412,48 @@ func (rm *RequestManager) downloadBlockFromHash() {
 
 //download block from header
 func (rm *RequestManager) downloadBlockFromHeader() {
-	backup := HeaderHeap{}
+	addBack := HeaderHeap{}
 	elToRemove := []*list.Element{}
 	peerMap := make(map[string][]string)
 	var blockBuffer []string
 	var ok bool
 	for rm.pendingBlocksWithHeader.Len() > 0 && rm.fastsyncQuota > 0 {
 		pendingBlock := heap.Pop(rm.pendingBlocksWithHeader).(*PendingBlock)
+
+		// Remove expired header from queue
 		if pendingBlock.HasExpired() {
 			if el, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; ok {
 				elToRemove = append(elToRemove, el)
 			}
 			continue
 		}
-		if _, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; !ok || pendingBlock.block != nil {
-			rm.logger.WithFields(log.Fields{
-				"block": pendingBlock.hash.String(),
-			}).Debug("Skip downloading pending block")
+		// Remove header for downloaded blocks from queue
+		isDownloaded := false
+		if rm.dumpBlockCache.Contains(pendingBlock.hash) {
+			isDownloaded = true
+		}
+		if !isDownloaded {
+			if _, err := rm.chain.FindBlock(pendingBlock.hash); err == nil {
+				isDownloaded = true
+			}
+		}
+		if isDownloaded {
+			if el, ok := rm.pendingBlocksByHash[pendingBlock.hash.String()]; ok {
+				elToRemove = append(elToRemove, el)
+			}
 			continue
 		}
+
+		// Otherwise the header should be added back to queue
+		addBack = append(addBack, pendingBlock)
 		if len(pendingBlock.peers) == 0 {
 			rm.logger.WithFields(log.Fields{
 				"block": pendingBlock.hash.String(),
 			}).Debug("Skip block with no peer")
+			continue
+		}
+		if pendingBlock.status == RequestWaitingBodyResp && !pendingBlock.HasTimedOut() {
+			rm.fastsyncQuota--
 			continue
 		}
 		if pendingBlock.status == RequestToSendBodyReq ||
@@ -473,7 +493,6 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 			pendingBlock.status = RequestWaitingBodyResp
 			rm.fastsyncQuota--
 		}
-		backup = append(backup, pendingBlock)
 	}
 	// send block requests for every peer in map
 	for k, v := range peerMap {
@@ -481,7 +500,7 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 			rm.sendBlocksRequest(k, v)
 		}
 	}
-	for _, header := range backup {
+	for _, header := range addBack {
 		heap.Push(rm.pendingBlocksWithHeader, header)
 	}
 	for _, el := range elToRemove {
@@ -667,18 +686,17 @@ func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) 
 			pendingBlock.header = header
 			pendingBlock.status = RequestToSendBodyReq
 			heap.Push(rm.pendingBlocksWithHeader, pendingBlock)
-		} else {
-			for _, idToAdd := range peerIDs {
-				found := false
-				for _, id := range pendingBlock.peers {
-					if id == idToAdd {
-						found = true
-						break
-					}
+		}
+		for _, idToAdd := range peerIDs {
+			found := false
+			for _, id := range pendingBlock.peers {
+				if id == idToAdd {
+					found = true
+					break
 				}
-				if !found {
-					pendingBlock.peers = append(pendingBlock.peers, idToAdd)
-				}
+			}
+			if !found {
+				pendingBlock.peers = append(pendingBlock.peers, idToAdd)
 			}
 		}
 	}
@@ -705,43 +723,6 @@ func (rm *RequestManager) AddBlock(block *core.Block) {
 	select {
 	case rm.blockNotify <- eb:
 	default:
-	}
-}
-
-// addBlock process an incoming block. The block is already on disk.
-func (rm *RequestManager) addBlock(block *core.Block) {
-	// TODO: should not need in-memory index anymore.
-	if _, ok := rm.pendingBlocksByHash[block.Hash().String()]; !ok {
-		rm.addHash(block.Hash(), []string{}, false)
-	}
-	if pendingBlockEl, ok := rm.pendingBlocksByHash[block.Hash().String()]; ok {
-		pendingBlock := pendingBlockEl.Value.(*PendingBlock)
-		//check txHash with header
-		if pendingBlock.header != nil {
-			if pendingBlock.header.Hash() != pendingBlock.hash {
-				rm.logger.WithFields(log.Fields{
-					"pending block hash":          pendingBlock.hash.String(),
-					"pending block header hash":   pendingBlock.header.Hash().String(),
-					"pending block header Height": pendingBlock.header.Height,
-				}).Info("pendingblock.hash doesn't match with pendingblock.header.hash")
-				rm.removeEl(pendingBlockEl)
-				return
-			}
-			downloadBlockTxHash := core.CalculateRootHash(block.Txs)
-			if downloadBlockTxHash != pendingBlock.header.TxHash {
-				rm.logger.WithFields(log.Fields{
-					"pending block hash":                 pendingBlock.hash.String(),
-					"pending block header txHash":        pendingBlock.header.TxHash.String(),
-					"pending block header Height":        pendingBlock.header.Height,
-					"download block hash":                block.Hash().String(),
-					"downloaded block Calculated txHash": downloadBlockTxHash.String(),
-					"downloaded block Height":            block.Height,
-				}).Info("TxHash doesn't match with header ")
-				rm.removeEl(pendingBlockEl)
-				return
-			}
-		}
-		pendingBlock.block = block
 	}
 }
 
