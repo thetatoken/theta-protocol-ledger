@@ -467,35 +467,40 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	// We allow checkpoint blocs to have nil guardian votes.
 	if block.GuardianVotes != nil && block.Height >= common.HeightEnableTheta2 && common.IsCheckPointHeight(block.Height) {
 		// Voted block must exist.
-		lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
-		if err != nil {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"error":               err.Error(),
-			}).Warn("Guardian votes refers to non-existing block")
-			return result.Error("Block in guardian votes cannot be found")
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"error":               err.Error(),
+				}).Warn("Guardian votes refers to non-existing block")
+				return result.Error("Block in guardian votes cannot be found")
+			}
+
+			// // Voted block must be at previous checkpoint height.
+			// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
+			// 	e.logger.WithFields(log.Fields{
+			// 		"block.Hash":          block.Hash().Hex(),
+			// 		"block.Height":        block.Height,
+			// 		"block.GuardianVotes": block.GuardianVotes.String(),
+			// 	}).Warn("Voted block must be at previous checkpoint height")
+			// 	return result.Error("Voted block must be at previous checkpoint height")
+			// }
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in guardian votes")
+			}
 		}
-		// // Voted block must be at previous checkpoint height.
-		// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
-		// 	e.logger.WithFields(log.Fields{
-		// 		"block.Hash":          block.Hash().Hex(),
-		// 		"block.Height":        block.Height,
-		// 		"block.GuardianVotes": block.GuardianVotes.String(),
-		// 	}).Warn("Voted block must be at previous checkpoint height")
-		// 	return result.Error("Voted block must be at previous checkpoint height")
-		// }
-		// Voted block must be ascendant.
-		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
-			}).Warn("Block is not descendant of checkpoint")
-			return result.Error("Block is not descendant of checkpoint in guardian votes")
-		}
+
 		// Guardian votes must be valid.
 		gcp, err := e.ledger.GetGuardianCandidatePool(block.GuardianVotes.Block)
 		if err != nil {
@@ -533,26 +538,31 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	// We allow checkpoint blocks to have nil elite edge node votes.
 	if block.EliteEdgeNodeVotes != nil && block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
 		// Voted block must exist.
-		lastCheckpoint, err := e.chain.FindBlock(block.EliteEdgeNodeVotes.Block)
-		if err != nil {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":               block.Hash().Hex(),
-				"block.Height":             block.Height,
-				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
-				"error":                    err.Error(),
-			}).Warn("Elite Edge Node votes refers to non-existing block")
-			return result.Error("Block in elite edge node votes cannot be found")
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.EliteEdgeNodeVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"error":                    err.Error(),
+				}).Warn("Elite Edge Node votes refers to non-existing block")
+				return result.Error("Block in elite edge node votes cannot be found")
+			}
+
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"lastCheckpoint":           lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in elite edge node votes")
+			}
 		}
-		// Voted block must be ascendant.
-		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":               block.Hash().Hex(),
-				"block.Height":             block.Height,
-				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
-				"lastCheckpoint":           lastCheckpoint.Hash().Hex(),
-			}).Warn("Block is not descendant of checkpoint")
-			return result.Error("Block is not descendant of checkpoint in elite edge node votes")
-		}
+
 		// Elite Edge node votes must be valid.
 		eenp, err := e.ledger.GetEliteEdgeNodePool(block.EliteEdgeNodeVotes.Block)
 		if err != nil {
