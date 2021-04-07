@@ -214,6 +214,9 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		mp.candidateTxs.Push(txGroup)
 		logger.Debugf("rawTx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
 	} else {
+		// Record tx during sync for gossiping purpose
+		mp.txBookeepper.record(rawTx)
+
 		logger.Debug("Skipping tx vefification during sync")
 	}
 
