@@ -315,7 +315,7 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		txProcessTime = append(txProcessTime, time.Since(start))
 	}
 
-	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height = %v", block.Height, txProcessTime)
+	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height=%v, txProcessTime=%v", block.Height, txProcessTime)
 
 	start := time.Now()
 	ledger.handleDelayedStateUpdates(view)

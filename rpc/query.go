@@ -492,7 +492,7 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		result.CurrentHeight = common.JSONUint64(maxVoteHeight - 1) // current finalized height is at most maxVoteHeight-1
 	}
 
-	result.Syncing = isSyncing(latestFinalizedBlock, uint64(result.CurrentHeight))
+	result.Syncing = !t.consensus.HasSynced()
 
 	return
 }
@@ -667,20 +667,4 @@ func getTxType(tx types.Tx) byte {
 	}
 
 	return t
-}
-
-func isSyncing(lastestFinalizedBlock *core.ExtendedBlock, currentHeight uint64) bool {
-	if lastestFinalizedBlock == nil {
-		return true
-	}
-	currentTime := big.NewInt(time.Now().Unix())
-	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
-	threshold := new(big.Int).Sub(currentTime, maxDiff)
-	isSyncing := lastestFinalizedBlock.Timestamp.Cmp(threshold) < 0
-
-	if isSyncing { // sometimes the validator node clock is off, so here we also compare the block heights
-		isSyncing = (currentHeight - lastestFinalizedBlock.Height) > 5
-	}
-
-	return isSyncing
 }

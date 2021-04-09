@@ -57,7 +57,7 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 	consensus := consensus.NewConsensusEngine(valPrivAcc.PrivKey, store, chain, dispatcher, valMgr)
 	valMgr.SetConsensusEngine(consensus)
 
-	mempool := mp.CreateMempool(dispatcher)
+	mempool := mp.CreateMempool(dispatcher, consensus)
 
 	ledgerState := st.NewLedgerState(chainID, db)
 	//ledgerState.ResetState(initHeight, snapshot.block.StateHash)
@@ -242,7 +242,7 @@ func newTesetValidatorManager(consensus core.ConsensusEngine) core.ValidatorMana
 
 func newTestMempool(peerID string, messenger p2p.Network, messengerL p2pl.Network) *mp.Mempool {
 	dispatcher := dp.NewDispatcher(messenger, nil)
-	mempool := mp.CreateMempool(dispatcher)
+	mempool := mp.CreateMempool(dispatcher, nil)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 	messenger.RegisterMessageHandler(txMsgHandler)
 	return mempool
