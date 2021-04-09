@@ -29,6 +29,7 @@ type EENVoteBookkeeper struct {
 
 type EENVoteRecord struct {
 	Hash      string
+	Count     uint
 	CreatedAt time.Time
 }
 
@@ -56,6 +57,22 @@ func (vb *EENVoteBookkeeper) reset() {
 	defer vb.mutex.Unlock()
 	vb.voteMap = make(map[string]*EENVoteRecord)
 	vb.voteList.Init()
+}
+
+func (vb *EENVoteBookkeeper) ReceiveCount(vote *tcore.EENVote) uint {
+	vb.mutex.Lock()
+	defer vb.mutex.Unlock()
+
+	// Remove outdated Tx records
+	vb.removeOutdatedVotesUnsafe()
+
+	voteHash := getVoteHash(vote)
+	voteRecord, exists := vb.voteMap[voteHash]
+	if !exists || voteRecord == nil {
+		return 0
+	}
+
+	return voteRecord.Count
 }
 
 func (vb *EENVoteBookkeeper) HasSeen(vote *tcore.EENVote) bool {
@@ -97,8 +114,9 @@ func (vb *EENVoteBookkeeper) Record(vote *tcore.EENVote) bool {
 	// Remove outdated vote records
 	vb.removeOutdatedVotesUnsafe()
 
-	if _, exists := vb.voteMap[voteHash]; exists {
-		return false
+	if existingVoteRecord, exists := vb.voteMap[voteHash]; exists {
+		existingVoteRecord.Count += 1
+		return true
 	}
 
 	if uint(vb.voteList.Len()) >= vb.maxNumVotes { // remove the oldest votes
@@ -110,6 +128,7 @@ func (vb *EENVoteBookkeeper) Record(vote *tcore.EENVote) bool {
 
 	record := &EENVoteRecord{
 		Hash:      voteHash,
+		Count:     0,
 		CreatedAt: time.Now(),
 	}
 	vb.voteMap[voteHash] = record
