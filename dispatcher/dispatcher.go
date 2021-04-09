@@ -15,6 +15,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "dispatcher"})
+
 //
 // Dispatcher dispatches messages to approporiate destinations
 //
@@ -194,7 +196,7 @@ func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, con
 			if !reflect.ValueOf(dp.p2pnet).IsNil() {
 				ok := dp.p2pnet.Send(peerID, messageOld)
 				if !ok {
-					log.Errorf("Failed to send message to [%v]: %v, %v", peerID, channelID, content)
+					logger.Debugf("Failed to send message to [%v]: %v, %v", peerID, channelID, content)
 				}
 			}
 			if !reflect.ValueOf(dp.p2plnet).IsNil() {
