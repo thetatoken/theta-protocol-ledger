@@ -50,7 +50,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(fromAccount, signBytes, tx.From)
 	if res.IsError() {
-		logger.Warnf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
+		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
 		return res
 	}
 
