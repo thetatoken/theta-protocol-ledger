@@ -43,6 +43,7 @@ type ConsensusEngine struct {
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
+	hasSynced       bool
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -148,6 +149,8 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.resetGuardianTimer()
 	e.guardian.Start(e.ctx)
 	e.eliteEdgeNode.Start(e.ctx)
+
+	e.checkSyncStatus()
 
 	e.wg.Add(1)
 	go e.mainLoop()
@@ -345,6 +348,31 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	}
 
 	return false
+}
+
+func (e *ConsensusEngine) checkSyncStatus() error {
+	maxVoteHeight := uint64(0)
+	epochVotes, err := e.State().GetEpochVotes()
+	if err != nil {
+		return err
+	}
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+			}
+		}
+	}
+	// current finalized height is at most maxVoteHeight-1
+	currentHeight := uint64(maxVoteHeight - 1)
+
+	e.hasSynced = !isSyncing(e.GetLastFinalizedBlock(), currentHeight)
+
+	return nil
+}
+
+func (e *ConsensusEngine) HasSynced() bool {
+	return e.hasSynced
 }
 
 func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.ExtendedBlock) result.Result {
@@ -915,6 +943,8 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 				"expectedProposer": expectedProposer.ID().Hex(),
 			}).Debug("Majority votes for current epoch. Moving to new epoch")
 			e.state.SetEpoch(nextEpoch)
+
+			e.checkSyncStatus()
 		}
 	}
 	return
@@ -1097,6 +1127,8 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 
 	e.state.SetLastFinalizedBlock(block)
 	e.ledger.FinalizeState(block.Height, block.StateHash)
+
+	e.checkSyncStatus()
 
 	// Mark block and its ancestors as finalized.
 	if err := e.chain.FinalizePreviousBlocks(block.Hash()); err != nil {
@@ -1303,4 +1335,20 @@ func (e *ConsensusEngine) resetGuardianTimer() {
 		e.guardianTimer.Stop()
 	}
 	e.guardianTimer = time.NewTicker(time.Duration(viper.GetInt(common.CfgGuardianRoundLength)) * time.Second)
+}
+
+func isSyncing(lastestFinalizedBlock *core.ExtendedBlock, currentHeight uint64) bool {
+	if lastestFinalizedBlock == nil {
+		return true
+	}
+	currentTime := big.NewInt(time.Now().Unix())
+	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
+	threshold := new(big.Int).Sub(currentTime, maxDiff)
+	isSyncing := lastestFinalizedBlock.Timestamp.Cmp(threshold) < 0
+
+	if isSyncing { // sometimes the validator node clock is off, so here we also compare the block heights
+		isSyncing = (currentHeight - lastestFinalizedBlock.Height) > 5
+	}
+
+	return isSyncing
 }

@@ -228,7 +228,7 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 			"local.round":    g.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring guardian vote: local not ready")
+		}).Debug("Ignoring guardian vote: local not ready")
 		return
 	}
 	if vote.Block != g.block {
@@ -237,7 +237,7 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 			"local.round":    g.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring guardian vote: block hash does not match with local candidate")
+		}).Debug("Ignoring guardian vote: block hash does not match with local candidate")
 		return
 	}
 	if vote.Gcp != g.gcpHash {
@@ -248,7 +248,7 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 			"vote.Mutiplies": vote.Multiplies,
 			"vote.gcp":       vote.Gcp.Hex(),
 			"local.gcp":      g.gcpHash.Hex(),
-		}).Info("Ignoring guardian vote: gcp hash does not match with local value")
+		}).Debug("Ignoring guardian vote: gcp hash does not match with local value")
 		return
 	}
 	if !g.checkMultipliesForRound(vote, g.round) {
@@ -259,7 +259,7 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 			"vote.Mutiplies": vote.Multiplies,
 			"vote.gcp":       vote.Gcp.Hex(),
 			"local.gcp":      g.gcpHash.Hex(),
-		}).Info("Ignoring guardian vote: mutiplies exceed limit for round")
+		}).Debug("Ignoring guardian vote: mutiplies exceed limit for round")
 		return
 	}
 	if result := vote.Validate(g.gcp); result.IsError() {
@@ -271,7 +271,7 @@ func (g *GuardianEngine) validateVote(vote *core.AggregatedVotes) (res bool) {
 			"vote.gcp":       vote.Gcp.Hex(),
 			"local.gcp":      g.gcpHash.Hex(),
 			"error":          result.Message,
-		}).Info("Ignoring guardian vote: invalid vote")
+		}).Debug("Ignoring guardian vote: invalid vote")
 		return
 	}
 	res = true

@@ -14,6 +14,8 @@ import (
 	"github.com/thetatoken/theta/common/clist"
 	"github.com/thetatoken/theta/common/math"
 	"github.com/thetatoken/theta/common/pqueue"
+	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/core"
 	dp "github.com/thetatoken/theta/dispatcher"
 )
@@ -135,6 +137,7 @@ func createMempoolTransactionGroup(rawTx common.Bytes, txInfo *core.TxInfo) *mem
 type Mempool struct {
 	mutex *sync.Mutex
 
+	consensus  *consensus.ConsensusEngine
 	ledger     core.Ledger
 	dispatcher *dp.Dispatcher
 
@@ -153,9 +156,10 @@ type Mempool struct {
 }
 
 // CreateMempool creates an instance of Mempool
-func CreateMempool(dispatcher *dp.Dispatcher) *Mempool {
+func CreateMempool(dispatcher *dp.Dispatcher, engine *consensus.ConsensusEngine) *Mempool {
 	return &Mempool{
 		mutex:            &sync.Mutex{},
+		consensus:        engine,
 		dispatcher:       dispatcher,
 		newTxs:           clist.New(),
 		candidateTxs:     pqueue.CreatePriorityQueue(),
@@ -181,31 +185,42 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		return DuplicateTxError
 	}
 
-	txInfo, checkTxRes := mp.ledger.ScreenTx(rawTx)
-	if !checkTxRes.IsOK() {
-		logger.Debugf("Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
-		return errors.New(checkTxRes.Message)
+	var txInfo *core.TxInfo
+	var checkTxRes result.Result
+
+	// Delay tx verification when in fast sync
+	if mp.consensus.HasSynced() {
+		txInfo, checkTxRes = mp.ledger.ScreenTx(rawTx)
+		if !checkTxRes.IsOK() {
+			logger.Debugf("Transaction screening failed, tx: %v, error: %v", hex.EncodeToString(rawTx), checkTxRes.Message)
+			return errors.New(checkTxRes.Message)
+		}
+
+		// only record the transactions that passed the screening. This is because that
+		// an invalid transaction could becoume valid later on. For example, assume expected
+		// sequence for an account is 6. The account accidentally submits txA (seq = 7), got rejected.
+		// He then submit txB(seq = 6), and then txA(seq = 7) again. For the second submission, txA
+		// should not be rejected even though it has been submitted earlier.
+		mp.txBookeepper.record(rawTx)
+
+		txGroup, ok := mp.addressToTxGroup[txInfo.Address]
+		if ok {
+			txGroup.AddTx(rawTx, txInfo)
+			mp.candidateTxs.Remove(txGroup.index) // Need to re-insert txGroup into queue since its priority could change.
+		} else {
+			txGroup = createMempoolTransactionGroup(rawTx, txInfo)
+			mp.addressToTxGroup[txInfo.Address] = txGroup
+		}
+		mp.candidateTxs.Push(txGroup)
+		logger.Debugf("rawTx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
+	} else {
+		// Record tx during sync for gossiping purpose
+		mp.txBookeepper.record(rawTx)
+
+		logger.Debug("Skipping tx vefification during sync")
 	}
 
 	logger.Infof("Insert tx, tx.hash: 0x%v", getTransactionHash(rawTx))
-	logger.Debugf("rawTx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
-
-	// only record the transactions that passed the screening. This is because that
-	// an invalid transaction could becoume valid later on. For example, assume expected
-	// sequence for an account is 6. The account accidentally submits txA (seq = 7), got rejected.
-	// He then submit txB(seq = 6), and then txA(seq = 7) again. For the second submission, txA
-	// should not be rejected even though it has been submitted earlier.
-	mp.txBookeepper.record(rawTx)
-
-	txGroup, ok := mp.addressToTxGroup[txInfo.Address]
-	if ok {
-		txGroup.AddTx(rawTx, txInfo)
-		mp.candidateTxs.Remove(txGroup.index) // Need to re-insert txGroup into queue since its priority could change.
-	} else {
-		txGroup = createMempoolTransactionGroup(rawTx, txInfo)
-		mp.addressToTxGroup[txInfo.Address] = txGroup
-	}
-	mp.candidateTxs.Push(txGroup)
 
 	mp.newTxs.PushBack(rawTx)
 	mp.size++
