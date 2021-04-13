@@ -171,6 +171,8 @@ func LoadSnapshotCheckpointHeader(snapshotFilePath string) *core.BlockHeader {
 }
 
 func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+	var err error
+
 	snapshotFile, err := os.Open(snapshotFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -246,9 +248,19 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 		fileSize = uint64(fileInfo.Size()) / 100
 	}
 
-	sv, _, err := loadState(snapshotFile, db, fileSize, logStr)
-	if err != nil {
-		return nil, nil, err
+	var sv *state.StoreView
+	if snapshotHeader.Version == 3 {
+		err = loadStateV3(snapshotFile, db, fileSize, logStr)
+		if err != nil {
+			return nil, nil, err
+		}
+		lfb := metadata.TailTrio.Second
+		sv = state.NewStoreView(lfb.Header.Height, lfb.Header.StateHash, db)
+	} else {
+		sv, _, err = loadStateV2(snapshotFile, db, fileSize, logStr)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// ----------------------------- Validity Checks -------------------------- //
@@ -587,7 +599,7 @@ func getChainBoundary(filename string) (start, end uint64) {
 	return
 }
 
-func loadState(file *os.File, db database.Database, fileSize uint64, logStr string) (*state.StoreView, common.Hash, error) {
+func loadStateV2(file *os.File, db database.Database, fileSize uint64, logStr string) (*state.StoreView, common.Hash, error) {
 	var hash common.Hash
 	var sv *state.StoreView
 	var account *types.Account
@@ -661,6 +673,49 @@ func loadState(file *os.File, db database.Database, fileSize uint64, logStr stri
 	logger.Infof("%s, 100%% done.", logStr)
 
 	return sv, hash, nil
+}
+
+func loadStateV3(file *os.File, db database.Database, fileSize uint64, logStr string) error {
+	var progress, curSize uint64
+	batch := db.NewBatch()
+	record := core.SnapshotTrieRecord{}
+	for {
+		recordSize, err := core.ReadRecord(file, &record)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("Failed to read snapshot record, %v", err)
+		}
+
+		if fileSize > 0 {
+			curSize += recordSize
+			percentage := curSize / fileSize
+			if percentage > progress && percentage <= 100 && percentage%5 == 0 {
+				logger.Infof("%s, %v%% done.", logStr, percentage)
+				progress = percentage
+			}
+		}
+
+		err = batch.Put(record.K, record.V)
+		if err != nil {
+			return fmt.Errorf("Failed to write snapshot record, %v", err)
+		}
+
+		if batch.ValueSize() > database.IdealBatchSize {
+			if err := batch.Write(); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+	}
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	logger.Infof("%s, 100%% done.", logStr)
+
+	return nil
 }
 
 func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
