@@ -11,7 +11,7 @@ import (
 	tcrypto "github.com/thetatoken/theta/crypto"
 )
 
-const DefaultMaxNumVotesCached = uint(500000)
+const DefaultMaxNumVotesCached = uint(5000000)
 
 const maxVoteLife = 20 * time.Minute // more than one checkpoint interval
 

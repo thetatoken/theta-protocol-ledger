@@ -124,6 +124,8 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	logger.Debugf("Process edge node vote {%v : %v}", vote.Address, vote.Block.Hex())
+
 	if !e.validateVote(vote) {
 		return
 	}
