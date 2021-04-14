@@ -124,14 +124,6 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	if e.voteBookkeeper.HasSeen(vote) {
-		logger.Debugf("Received edge node vote {%v : %v} earlier, safely ignore", vote.Address, vote.Block.Hex())
-		return
-	}
-	e.voteBookkeeper.Record(vote)
-
-	logger.Debugf("Received edge node vote {%v : %v} for the first time", vote.Address, vote.Block.Hex())
-
 	if !e.validateVote(vote) {
 		return
 	}
@@ -227,6 +219,14 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 }
 
 func (e *EliteEdgeNodeEngine) HandleVote(vote *core.EENVote) {
+	if e.voteBookkeeper.HasSeen(vote) {
+		logger.Debugf("Received edge node vote {%v : %v} earlier, safely ignore", vote.Address, vote.Block.Hex())
+		return
+	}
+	e.voteBookkeeper.Record(vote)
+
+	logger.Debugf("Received edge node vote {%v : %v} for the first time", vote.Address, vote.Block.Hex())
+
 	select {
 	case e.evIncoming <- vote:
 		return
