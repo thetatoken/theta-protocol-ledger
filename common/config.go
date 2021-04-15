@@ -30,6 +30,8 @@ const (
 	CfgConsensusMinProposalWait = "consensus.minProposalWait"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
+	// CfgConsensusEdgeNodeVoteQueueSize defines the capacity of edge node vote message queue.
+	CfgConsensusEdgeNodeVoteQueueSize = "consensus.edgeNodeVoteQueueSize"
 	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
 	CfgConsensusPassThroughGuardianVote = "consensus.passThroughGuardianVote"
 
@@ -154,6 +156,7 @@ func init() {
 	viper.SetDefault(CfgConsensusMaxEpochLength, 10)
 	viper.SetDefault(CfgConsensusMinProposalWait, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
+	viper.SetDefault(CfgConsensusEdgeNodeVoteQueueSize, 100000)
 	viper.SetDefault(CfgConsensusPassThroughGuardianVote, false)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)

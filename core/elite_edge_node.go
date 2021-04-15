@@ -43,7 +43,7 @@ func (e *EENVote) Validate(eenp *EliteEdgeNodePool) result.Result {
 	if e.Signature == nil {
 		return result.Error("signature cannot be nil")
 	}
-	eenIdx := eenp.IndexWithHolderAddress(e.Address)
+	eenIdx := eenp.WithStake().IndexWithHolderAddress(e.Address)
 	if eenIdx < 0 {
 		return result.Error("edge node %v not staked yet, safely ignore", e.Address)
 	}

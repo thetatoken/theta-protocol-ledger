@@ -26,6 +26,8 @@ type EliteEdgeNodeEngine struct {
 
 	voteBookkeeper *EENVoteBookkeeper
 
+	enAddrIdxTable map[common.Address]int
+
 	// State for current voting
 	block    common.Hash
 	round    uint32
@@ -45,9 +47,10 @@ func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *Elit
 		privKey: privateKey,
 
 		voteBookkeeper: CreateEENVoteBookkeeper(DefaultMaxNumVotesCached),
+		enAddrIdxTable: make(map[common.Address]int),
 
-		evIncoming:  make(chan *core.EENVote, viper.GetInt(common.CfgConsensusMessageQueueSize)),
-		aevIncoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		evIncoming:  make(chan *core.EENVote, viper.GetInt(common.CfgConsensusEdgeNodeVoteQueueSize)),
+		aevIncoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusEdgeNodeVoteQueueSize)),
 		mu:          &sync.Mutex{},
 	}
 }
