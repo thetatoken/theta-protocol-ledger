@@ -39,15 +39,10 @@ func (e *EENVote) signBytes() common.Bytes {
 }
 
 // Validate verifies the vote.
-func (e *EENVote) Validate(eenp *EliteEdgeNodePool) result.Result {
+func (e *EENVote) Validate(eenBLSPubkey *bls.PublicKey) result.Result {
 	if e.Signature == nil {
 		return result.Error("signature cannot be nil")
 	}
-	eenIdx := eenp.WithStake().IndexWithHolderAddress(e.Address)
-	if eenIdx < 0 {
-		return result.Error("edge node %v not staked yet, safely ignore", e.Address)
-	}
-	eenBLSPubkey := eenp.SortedEliteEdgeNodes[eenIdx].Pubkey
 	if !e.Signature.Verify(e.signBytes(), eenBLSPubkey) {
 		return result.Error("elite edge node vote signature validation failed")
 	}
@@ -70,10 +65,10 @@ type AggregatedEENVotes struct {
 	Signature  *bls.Signature // Aggregated signature.
 }
 
-func NewAggregatedEENVotes(block common.Hash, eenp *EliteEdgeNodePool) *AggregatedEENVotes {
+func NewAggregatedEENVotes(block common.Hash, eenpWithStake *EliteEdgeNodePool) *AggregatedEENVotes {
 	return &AggregatedEENVotes{
 		Block:      block,
-		Multiplies: make([]uint32, eenp.WithStake().Len()),
+		Multiplies: make([]uint32, eenpWithStake.Len()),
 		Signature:  bls.NewAggregateSignature(),
 	}
 }
@@ -159,14 +154,14 @@ func (a *AggregatedEENVotes) Pick(b *AggregatedEENVotes) (*AggregatedEENVotes, e
 }
 
 // Validate verifies the voteset.
-func (a *AggregatedEENVotes) Validate(eenp *EliteEdgeNodePool) result.Result {
-	if len(a.Multiplies) != eenp.WithStake().Len() {
-		return result.Error("multiplies size %d is not equal to eenp size %d", len(a.Multiplies), eenp.WithStake().Len())
+func (a *AggregatedEENVotes) Validate(eenpWithStake *EliteEdgeNodePool) result.Result {
+	if len(a.Multiplies) != eenpWithStake.Len() {
+		return result.Error("multiplies size %d is not equal to eenp size %d", len(a.Multiplies), eenpWithStake.Len())
 	}
 	if a.Signature == nil {
 		return result.Error("signature cannot be nil")
 	}
-	pubKeys := eenp.WithStake().PubKeys()
+	pubKeys := eenpWithStake.PubKeys()
 	aggPubkey := bls.AggregatePublicKeysVec(pubKeys, a.Multiplies)
 	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
 		return result.Error("aggregated elite edge node votes signature verification failed")
@@ -295,15 +290,15 @@ func (eenp *EliteEdgeNodePool) GetWithHolderAddress(addr common.Address) *EliteE
 	return nil
 }
 
-// IndexWithHolderAddress returns index of a stake holder address in the pool. Returns -1 if not found.
-func (eenp *EliteEdgeNodePool) IndexWithHolderAddress(addr common.Address) int {
-	for i, een := range eenp.SortedEliteEdgeNodes {
-		if een.Holder == addr {
-			return i
-		}
-	}
-	return -1
-}
+// // IndexWithHolderAddress returns index of a stake holder address in the pool. Returns -1 if not found.
+// func (eenp *EliteEdgeNodePool) IndexWithHolderAddress(addr common.Address) int {
+// 	for i, een := range eenp.SortedEliteEdgeNodes {
+// 		if een.Holder == addr {
+// 			return i
+// 		}
+// 	}
+// 	return -1
+// }
 
 // Index returns index of a public key in the pool. Returns -1 if not found.
 func (eenp *EliteEdgeNodePool) Index(pubkey *bls.PublicKey) int {

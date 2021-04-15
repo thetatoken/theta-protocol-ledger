@@ -26,14 +26,14 @@ type EliteEdgeNodeEngine struct {
 
 	voteBookkeeper *EENVoteBookkeeper
 
-	enAddrIdxTable map[common.Address]int
+	eenSignerIdxTable map[common.Address]int
 
 	// State for current voting
-	block    common.Hash
-	round    uint32
-	currVote *core.AggregatedEENVotes
-	nextVote *core.AggregatedEENVotes
-	eenp     *core.EliteEdgeNodePool
+	block         common.Hash
+	round         uint32
+	currVote      *core.AggregatedEENVotes
+	nextVote      *core.AggregatedEENVotes
+	eenpWithStake *core.EliteEdgeNodePool
 
 	evIncoming  chan *core.EENVote
 	aevIncoming chan *core.AggregatedEENVotes
@@ -46,8 +46,8 @@ func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *Elit
 		engine:  c,
 		privKey: privateKey,
 
-		voteBookkeeper: CreateEENVoteBookkeeper(DefaultMaxNumVotesCached),
-		enAddrIdxTable: make(map[common.Address]int),
+		voteBookkeeper:    CreateEENVoteBookkeeper(DefaultMaxNumVotesCached),
+		eenSignerIdxTable: make(map[common.Address]int),
 
 		evIncoming:  make(chan *core.EENVote, viper.GetInt(common.CfgConsensusEdgeNodeVoteQueueSize)),
 		aevIncoming: make(chan *core.AggregatedEENVotes, viper.GetInt(common.CfgConsensusEdgeNodeVoteQueueSize)),
@@ -69,11 +69,28 @@ func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
 		// Should not happen
 		e.logger.Panic(err)
 	}
-	e.eenp = eenp
+	e.eenpWithStake = eenp.WithStake()
+
+	e.eenSignerIdxTable = make(map[common.Address]int)
+	for i, een := range e.eenpWithStake.SortedEliteEdgeNodes {
+		e.eenSignerIdxTable[een.Holder] = i
+	}
 
 	e.logger.WithFields(log.Fields{
 		"block": block.Hex(),
 	}).Debug("Starting new block")
+}
+
+func (e *EliteEdgeNodeEngine) getEENSignerIndex(addr common.Address) int {
+	if e.eenSignerIdxTable == nil {
+		return -1
+	}
+
+	if idx, exists := e.eenSignerIdxTable[addr]; exists {
+		return idx
+	}
+
+	return -1
 }
 
 func (e *EliteEdgeNodeEngine) StartNewRound() {
@@ -148,16 +165,16 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 
 // convertVote converts an EENVote into an AggregatedEENVotes
 func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEENVotes, error) {
-	if e.eenp == nil {
+	if e.eenpWithStake == nil {
 		return nil, fmt.Errorf("The elite edge node pool is nil, cannot convert vote")
 	}
 
-	signerIdx := e.eenp.WithStake().IndexWithHolderAddress(ev.Address)
+	signerIdx := e.getEENSignerIndex(ev.Address)
 	if signerIdx < 0 {
 		return nil, fmt.Errorf("Elite edge node %v not found in the Elite edge node pool", ev.Address)
 	}
 
-	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenp)
+	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenpWithStake)
 	eenv.Multiplies[signerIdx] = 1
 	eenv.Signature.Aggregate(ev.Signature)
 
@@ -266,7 +283,24 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 		}).Info("Ignoring elite edge node vote: block hash does not match with local candidate")
 		return
 	}
-	if result := vote.Validate(e.eenp); result.IsError() {
+	singerIdx := e.getEENSignerIndex(vote.Address)
+	if singerIdx < 0 {
+		e.logger.WithFields(log.Fields{
+			"local.block":  e.block.Hex(),
+			"local.round":  e.round,
+			"vote.block":   vote.Block.Hex(),
+			"vote.address": vote.Address.Hex(),
+		}).Info("Ignoring elite edge node vote: edge node not staked yet")
+		return
+	}
+
+	if singerIdx >= len(e.eenpWithStake.SortedEliteEdgeNodes) {
+		e.logger.Panicf("Invalid elite edge node signer index: %v, staked elite edge node count: %v",
+			singerIdx, len(e.eenpWithStake.SortedEliteEdgeNodes))
+	}
+
+	eenBLSPubkey := e.eenpWithStake.SortedEliteEdgeNodes[singerIdx].Pubkey
+	if result := vote.Validate(eenBLSPubkey); result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
@@ -307,7 +341,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 		}).Info("Ignoring aggregated elite edge node vote: mutiplies exceed limit for round")
 		return
 	}
-	if result := vote.Validate(e.eenp); result.IsError() {
+	if result := vote.Validate(e.eenpWithStake); result.IsError() {
 		e.logger.WithFields(log.Fields{
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
