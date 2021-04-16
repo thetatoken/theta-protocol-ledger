@@ -1142,7 +1142,7 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// Guardians and Elite Edge Nodes to vote for checkpoint blocks.
 	if common.IsCheckPointHeight(block.Height) {
 		e.guardian.StartNewBlock(block.Hash())
-		e.eliteEdgeNode.StartNewBlock(block.Hash())
+		e.eliteEdgeNode.StartNewBlock(block)
 		e.resetGuardianTimer()
 	}
 
