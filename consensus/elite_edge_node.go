@@ -55,29 +55,34 @@ func NewEliteEdgeNodeEngine(c *ConsensusEngine, privateKey *bls.SecretKey) *Elit
 	}
 }
 
-func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
+func (e *EliteEdgeNodeEngine) StartNewBlock(block *core.ExtendedBlock) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	e.block = block
+	e.block = block.Hash()
 	e.nextVote = nil
 	e.currVote = nil
 	e.round = 1
 
-	eenp, err := e.engine.GetLedger().GetEliteEdgeNodePool(block)
+	eenp, err := e.engine.GetLedger().GetEliteEdgeNodePool(block.Hash())
 	if err != nil {
 		// Should not happen
 		e.logger.Panic(err)
 	}
-	e.eenpWithStake = eenp.WithStake()
+	e.eenSignerIdxTable = util.SampledEENVotesVector(eenp, block.Height, block.Hash())
 
-	e.eenSignerIdxTable = make(map[common.Address]int)
-	for i, een := range e.eenpWithStake.SortedEliteEdgeNodes {
-		e.eenSignerIdxTable[een.Holder] = i
+	// eenpWithStake contains only holders with sampled stakes
+	e.eenpWithStake = &core.EliteEdgeNodePool{
+		SortedEliteEdgeNodes: []*core.EliteEdgeNode{},
+	}
+	for _, en := range eenp.SortedEliteEdgeNodes {
+		if _, ok := e.eenSignerIdxTable[en.Holder]; ok {
+			e.eenpWithStake.SortedEliteEdgeNodes = append(e.eenpWithStake.SortedEliteEdgeNodes, en)
+		}
 	}
 
 	e.logger.WithFields(log.Fields{
-		"block": block.Hex(),
+		"block": block.Hash().Hex(),
 	}).Debug("Starting new block")
 }
 
@@ -171,7 +176,7 @@ func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEEN
 
 	signerIdx := e.getEENSignerIndex(ev.Address)
 	if signerIdx < 0 {
-		return nil, fmt.Errorf("Elite edge node %v not found in the Elite edge node pool", ev.Address)
+		return nil, fmt.Errorf("Elite edge node %v not found in the sampled Elite edge node pool", ev.Address)
 	}
 
 	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenpWithStake)
@@ -290,12 +295,12 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.round":  e.round,
 			"vote.block":   vote.Block.Hex(),
 			"vote.address": vote.Address.Hex(),
-		}).Info("Ignoring elite edge node vote: edge node not staked yet")
+		}).Info("Ignoring elite edge node vote: edge node either not staked yet or not sampled")
 		return
 	}
 
 	if singerIdx >= len(e.eenpWithStake.SortedEliteEdgeNodes) {
-		e.logger.Panicf("Invalid elite edge node signer index: %v, staked elite edge node count: %v",
+		e.logger.Panicf("Invalid elite edge node signer index: %v, sampled elite edge node count: %v",
 			singerIdx, len(e.eenpWithStake.SortedEliteEdgeNodes))
 	}
 
