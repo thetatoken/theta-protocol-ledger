@@ -176,7 +176,7 @@ func (e *EliteEdgeNodeEngine) convertVote(ev *core.EENVote) (*core.AggregatedEEN
 
 	signerIdx := e.getEENSignerIndex(ev.Address)
 	if signerIdx < 0 {
-		return nil, fmt.Errorf("Elite edge node %v not found in the Elite edge node pool", ev.Address)
+		return nil, fmt.Errorf("Elite edge node %v not found in the sampled Elite edge node pool", ev.Address)
 	}
 
 	eenv := core.NewAggregatedEENVotes(ev.Block, e.eenpWithStake)
@@ -295,12 +295,12 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.round":  e.round,
 			"vote.block":   vote.Block.Hex(),
 			"vote.address": vote.Address.Hex(),
-		}).Info("Ignoring elite edge node vote: edge node not staked yet")
+		}).Info("Ignoring elite edge node vote: edge node either not staked yet or not sampled")
 		return
 	}
 
 	if singerIdx >= len(e.eenpWithStake.SortedEliteEdgeNodes) {
-		e.logger.Panicf("Invalid elite edge node signer index: %v, staked elite edge node count: %v",
+		e.logger.Panicf("Invalid elite edge node signer index: %v, sampled elite edge node count: %v",
 			singerIdx, len(e.eenpWithStake.SortedEliteEdgeNodes))
 	}
 
