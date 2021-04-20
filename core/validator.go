@@ -230,7 +230,7 @@ func (vcp *ValidatorCandidatePool) WithdrawStake(source common.Address, holder c
 	for _, candidate := range vcp.SortedCandidates {
 		if candidate.Holder == holder {
 			matchedHolderFound = true
-			err := candidate.withdrawStake(source, currentHeight)
+			_, err := candidate.withdrawStake(source, currentHeight)
 			if err != nil {
 				return err
 			}

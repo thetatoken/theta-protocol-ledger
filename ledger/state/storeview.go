@@ -414,6 +414,37 @@ func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
 	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
 
+// GetEliteEdgeNodeStakeReturns gets the elite edge node stake returns
+func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []core.Stake {
+	data := sv.Get(EliteEdgeNodeStakeReturnsKey(height))
+	if data == nil || len(data) == 0 {
+		return []core.Stake{}
+	}
+
+	returnedStakes := []core.Stake{}
+	err := types.FromBytes(data, returnedStakes)
+	if err != nil {
+		log.Panicf("Error reading elite edge stake returns %v, error: %v",
+			data, err.Error())
+	}
+	return returnedStakes
+}
+
+// GetEliteEdgeNodeStakeReturns saves the elite edge node stake returns for the given height
+func (sv *StoreView) SetEliteEdgeNodeStakeReturns(height uint64, stakeReturns []core.Stake) {
+	returnedStakesBytes, err := types.ToBytes(stakeReturns)
+	if err != nil {
+		log.Panicf("Error writing elite edge stake returns %v, error: %v",
+			stakeReturns, err)
+	}
+	sv.Set(EliteEdgeNodeStakeReturnsKey(height), returnedStakesBytes)
+}
+
+// RemoveEliteEdgeNodeStakeReturns removes the elite edge node stake returns for the given height
+func (sv *StoreView) RemoveEliteEdgeNodeStakeReturns(height uint64) {
+	sv.Delete(EliteEdgeNodeStakeReturnsKey(height))
+}
+
 func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }

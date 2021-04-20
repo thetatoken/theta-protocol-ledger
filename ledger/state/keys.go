@@ -1,6 +1,10 @@
 package state
 
-import "github.com/thetatoken/theta/common"
+import (
+	"strconv"
+
+	"github.com/thetatoken/theta/common"
+)
 
 //
 // ------------------------- Ledger State Keys -------------------------
@@ -61,4 +65,10 @@ func StatePruningProgressKey() common.Bytes {
 // StakeRewardDistributionRuleSetKey returns the state key for the stake reward distribution rule set
 func StakeRewardDistributionRuleSetKey() common.Bytes {
 	return common.Bytes("ls/srdrs")
+}
+
+//EliteEdgeNodeStakeReturnsKey returns the EEN stake return key for the given height
+func EliteEdgeNodeStakeReturnsKey(height uint64) common.Bytes {
+	heightStr := strconv.FormatUint(height, 10)
+	return common.Bytes("ls/eensrk/" + heightStr)
 }

@@ -104,11 +104,12 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
 		eenp := view.GetEliteEdgeNodePool()
 		currentHeight := exec.state.Height()
-		err := eenp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
-		if err != nil {
+		withdrawnStake, err := eenp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
+		if err != nil || withdrawnStake == nil {
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
 		view.UpdateEliteEdgeNodePool(eenp)
+		updateEliteEdgeNodeStakeReturns(view, *withdrawnStake)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -146,4 +147,11 @@ func (exec *WithdrawStakeExecutor) calculateEffectiveGasPrice(transaction types.
 	gas := new(big.Int).SetUint64(types.GasWidthdrawStakeTx)
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
+}
+
+func updateEliteEdgeNodeStakeReturns(view *st.StoreView, withdrawnStake core.Stake) {
+	returnHeight := withdrawnStake.ReturnHeight
+	stakesToBeReturned := view.GetEliteEdgeNodeStakeReturns(returnHeight)
+	stakesToBeReturned = append(stakesToBeReturned, withdrawnStake)
+	view.SetEliteEdgeNodeStakeReturns(returnHeight, stakesToBeReturned)
 }

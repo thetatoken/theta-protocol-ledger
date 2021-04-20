@@ -610,7 +610,11 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 func (ledger *Ledger) handleDelayedStateUpdates(view *st.StoreView) {
 	ledger.handleValidatorStakeReturn(view)
 	ledger.handleGuardianStakeReturn(view)
-	ledger.handleEliteEdgeNodeStakeReturn(view)
+
+	blockHeight := view.Height() + 1
+	if blockHeight >= common.HeightEnableTheta3 {
+		ledger.handleEliteEdgeNodeStakeReturns(view)
+	}
 }
 
 func (ledger *Ledger) handleValidatorStakeReturn(view *st.StoreView) {
@@ -671,14 +675,12 @@ func (ledger *Ledger) handleGuardianStakeReturn(view *st.StoreView) {
 	view.UpdateGuardianCandidatePool(gcp)
 }
 
-func (ledger *Ledger) handleEliteEdgeNodeStakeReturn(view *st.StoreView) {
-	eenp := view.GetEliteEdgeNodePool()
-	if eenp == nil || eenp.Len() == 0 {
-		return
-	}
-
+func (ledger *Ledger) handleEliteEdgeNodeStakeReturns(view *st.StoreView) {
 	currentHeight := view.Height()
-	returnedStakes := eenp.ReturnStakes(currentHeight)
+	returnedStakes := view.GetEliteEdgeNodeStakeReturns(currentHeight)
+	if len(returnedStakes) == 0 {
+		return // no need to call view.RemoveEliteEdgeNodeStakeReturns()
+	}
 
 	for _, returnedStake := range returnedStakes {
 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
@@ -697,8 +699,38 @@ func (ledger *Ledger) handleEliteEdgeNodeStakeReturn(view *st.StoreView) {
 		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
 		view.SetAccount(sourceAddress, sourceAccount)
 	}
-	view.UpdateEliteEdgeNodePool(eenp)
+
+	view.RemoveEliteEdgeNodeStakeReturns(currentHeight)
 }
+
+// func (ledger *Ledger) handleEliteEdgeNodeStakeReturn(view *st.StoreView) {
+// 	eenp := view.GetEliteEdgeNodePool()
+// 	if eenp == nil || eenp.Len() == 0 {
+// 		return
+// 	}
+
+// 	currentHeight := view.Height()
+// 	returnedStakes := eenp.ReturnStakes(currentHeight)
+
+// 	for _, returnedStake := range returnedStakes {
+// 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
+// 			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+// 				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
+// 		}
+// 		sourceAddress := returnedStake.Source
+// 		sourceAccount := view.GetAccount(sourceAddress)
+// 		if sourceAccount == nil {
+// 			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
+// 		}
+// 		returnedCoins := types.Coins{ // Important: Elite edge nodes deposit/withdraw TFuel stake, NOT Theta
+// 			ThetaWei: types.Zero,
+// 			TFuelWei: returnedStake.Amount,
+// 		}
+// 		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
+// 		view.SetAccount(sourceAddress, sourceAccount)
+// 	}
+// 	view.UpdateEliteEdgeNodePool(eenp)
+// }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {

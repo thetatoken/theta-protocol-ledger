@@ -333,7 +333,7 @@ func (gcp *GuardianCandidatePool) WithdrawStake(source common.Address, holder co
 	for _, g := range gcp.SortedGuardians {
 		if g.Holder == holder {
 			matchedHolderFound = true
-			err := g.withdrawStake(source, currentHeight)
+			_, err := g.withdrawStake(source, currentHeight)
 			if err != nil {
 				return err
 			}

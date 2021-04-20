@@ -377,23 +377,25 @@ func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common
 	return nil
 }
 
-func (eenp *EliteEdgeNodePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) error {
+func (eenp *EliteEdgeNodePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) (*Stake, error) {
 	matchedHolderFound := false
+	var withdrawnStake *Stake
+	var err error
 	for _, een := range eenp.SortedEliteEdgeNodes {
 		if een.Holder == holder {
 			matchedHolderFound = true
-			err := een.withdrawStake(source, currentHeight)
+			withdrawnStake, err = een.withdrawStake(source, currentHeight)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			break
 		}
 	}
 
 	if !matchedHolderFound {
-		return fmt.Errorf("No matched stake holder address found: %v", holder)
+		return nil, fmt.Errorf("No matched stake holder address found: %v", holder)
 	}
-	return nil
+	return withdrawnStake, nil
 }
 
 func (eenp *EliteEdgeNodePool) ReturnStakes(currentHeight uint64) []*Stake {

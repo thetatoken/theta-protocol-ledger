@@ -137,19 +137,19 @@ func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) erro
 	return nil
 }
 
-func (sh *StakeHolder) withdrawStake(source common.Address, currentHeight uint64) error {
+func (sh *StakeHolder) withdrawStake(source common.Address, currentHeight uint64) (*Stake, error) {
 	for _, stake := range sh.Stakes {
 		if stake.Source == source {
 			if stake.Withdrawn {
-				return fmt.Errorf("Already withdrawn, cannot withdraw again for source: %v", source)
+				return nil, fmt.Errorf("Already withdrawn, cannot withdraw again for source: %v", source)
 			}
 			stake.Withdrawn = true
 			stake.ReturnHeight = currentHeight + ReturnLockingPeriod
-			return nil
+			return stake, nil
 		}
 	}
 
-	return fmt.Errorf("Cannot withdraw, no matched stake source address found: %v", source)
+	return nil, fmt.Errorf("Cannot withdraw, no matched stake source address found: %v", source)
 }
 
 func (sh *StakeHolder) returnStake(source common.Address, currentHeight uint64) (*Stake, error) {
