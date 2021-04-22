@@ -64,7 +64,6 @@ func (eenp *EliteEdgeNodePool) Upsert(een *core.EliteEdgeNode) {
 			data, err.Error())
 	}
 	eenp.sv.Set(eenKey, data)
-	eenp.sv.Save()
 }
 
 // Remove deletes the elite edge node from the pool
@@ -81,32 +80,30 @@ func (eenp *EliteEdgeNodePool) GetAll(withstake bool) []*core.EliteEdgeNode {
 	prefix := EliteEdgeNodeKeyPrefix()
 
 	eenList := []*core.EliteEdgeNode{}
-	cb := func() func(k, v common.Bytes) bool {
-		return func(k, v common.Bytes) bool {
-			een := &core.EliteEdgeNode{}
-			err := types.FromBytes(v, een)
-			if err != nil {
-				log.Panicf("EliteEdgeNodePool.GetAll: Error reading elite edge node %X, error: %v",
-					v, err.Error())
-			}
-			if withstake {
-				hasStake := false
-				for _, stake := range een.Stakes {
-					if !stake.Withdrawn {
-						hasStake = true
-						break
-					}
-				}
-				if !hasStake {
-					return true // Skip if een dons't have non-withdrawn stake
-				}
-			}
-			eenList = append(eenList, een)
-			return true
+	cb := func(k, v common.Bytes) bool {
+		een := &core.EliteEdgeNode{}
+		err := types.FromBytes(v, een)
+		if err != nil {
+			log.Panicf("EliteEdgeNodePool.GetAll: Error reading elite edge node %X, error: %v",
+				v, err.Error())
 		}
+		if withstake {
+			hasStake := false
+			for _, stake := range een.Stakes {
+				if !stake.Withdrawn {
+					hasStake = true
+					break
+				}
+			}
+			if !hasStake {
+				return true // Skip if een dons't have non-withdrawn stake
+			}
+		}
+		eenList = append(eenList, een)
+		return true
 	}
 
-	eenp.sv.Traverse(prefix, cb())
+	eenp.sv.Traverse(prefix, cb)
 
 	return eenList
 }
