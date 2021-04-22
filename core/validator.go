@@ -216,7 +216,7 @@ func (vcp *ValidatorCandidatePool) DepositStake(source common.Address, holder co
 	}
 
 	if !matchedHolderFound {
-		newCandidate := newStakeHolder(holder, []*Stake{newStake(source, amount)})
+		newCandidate := NewStakeHolder(holder, []*Stake{NewStake(source, amount)})
 		vcp.SortedCandidates = append(vcp.SortedCandidates, newCandidate)
 	}
 

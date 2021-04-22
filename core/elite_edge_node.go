@@ -1,15 +1,12 @@
 package core
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
-	"sort"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
-	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
 )
@@ -185,10 +182,6 @@ func (a *AggregatedEENVotes) Copy() *AggregatedEENVotes {
 	return clone
 }
 
-//
-// ------- EliteEdgeNodePool ------- //
-//
-
 var (
 	MinEliteEdgeNodeStakeDeposit *big.Int
 	MaxEliteEdgeNodeStakeDeposit *big.Int
@@ -202,231 +195,6 @@ func init() {
 	MaxEliteEdgeNodeStakeDeposit = new(big.Int).Mul(new(big.Int).SetUint64(500000), new(big.Int).SetUint64(1e18))
 }
 
-type EliteEdgeNodePool struct {
-	SortedEliteEdgeNodes []*EliteEdgeNode // Elite edge nodes sorted by holder address.
-}
-
-// NewEliteEdgeNodePool creates a new instance of EliteEdgeNodePool.
-func NewEliteEdgeNodePool() *EliteEdgeNodePool {
-	return &EliteEdgeNodePool{
-		SortedEliteEdgeNodes: []*EliteEdgeNode{},
-	}
-}
-
-// Add inserts elite edge node into the pool; returns false if guardian is already added.
-func (eenp *EliteEdgeNodePool) Add(een *EliteEdgeNode) bool {
-	k := sort.Search(eenp.Len(), func(i int) bool {
-		return bytes.Compare(eenp.SortedEliteEdgeNodes[i].Holder.Bytes(), een.Holder.Bytes()) >= 0
-	})
-
-	if k == eenp.Len() {
-		eenp.SortedEliteEdgeNodes = append(eenp.SortedEliteEdgeNodes, een)
-		return true
-	}
-
-	// Elite edge node is already added.
-	if eenp.SortedEliteEdgeNodes[k].Holder == een.Holder {
-		return false
-	}
-	eenp.SortedEliteEdgeNodes = append(eenp.SortedEliteEdgeNodes, nil)
-	copy(eenp.SortedEliteEdgeNodes[k+1:], eenp.SortedEliteEdgeNodes[k:])
-	eenp.SortedEliteEdgeNodes[k] = een
-	return true
-}
-
-// Remove removes an elite edge node from the pool; returns false if guardian is not found.
-func (eenp *EliteEdgeNodePool) Remove(een common.Address) bool {
-	k := sort.Search(eenp.Len(), func(i int) bool {
-		return bytes.Compare(eenp.SortedEliteEdgeNodes[i].Holder.Bytes(), een.Bytes()) >= 0
-	})
-
-	if k == eenp.Len() || bytes.Compare(eenp.SortedEliteEdgeNodes[k].Holder.Bytes(), een.Bytes()) != 0 {
-		return false
-	}
-	eenp.SortedEliteEdgeNodes = append(eenp.SortedEliteEdgeNodes[:k], eenp.SortedEliteEdgeNodes[k+1:]...)
-	return true
-}
-
-// Contains checks if given address is in the pool.
-func (eenp *EliteEdgeNodePool) Contains(een common.Address) bool {
-	k := sort.Search(eenp.Len(), func(i int) bool {
-		return bytes.Compare(eenp.SortedEliteEdgeNodes[i].Holder.Bytes(), een.Bytes()) >= 0
-	})
-
-	if k == eenp.Len() || eenp.SortedEliteEdgeNodes[k].Holder != een {
-		return false
-	}
-	return true
-}
-
-// WithStake returns a new pool with withdrawn elite edge nodes filtered out.
-func (eenp *EliteEdgeNodePool) WithStake() *EliteEdgeNodePool {
-	ret := NewEliteEdgeNodePool()
-	for _, een := range eenp.SortedEliteEdgeNodes {
-		// Skip if guardian dons't have non-withdrawn stake
-		hasStake := false
-		for _, stake := range een.Stakes {
-			if !stake.Withdrawn {
-				hasStake = true
-				break
-			}
-		}
-		if !hasStake {
-			continue
-		}
-
-		ret.Add(een)
-	}
-	return ret
-}
-
-// GetWithHolderAddress returns the elite edge node correspond to the stake holder in the pool. Returns nil if not found.
-func (eenp *EliteEdgeNodePool) GetWithHolderAddress(addr common.Address) *EliteEdgeNode {
-	for _, een := range eenp.SortedEliteEdgeNodes {
-		if een.Holder == addr {
-			return een
-		}
-	}
-	return nil
-}
-
-// // IndexWithHolderAddress returns index of a stake holder address in the pool. Returns -1 if not found.
-// func (eenp *EliteEdgeNodePool) IndexWithHolderAddress(addr common.Address) int {
-// 	for i, een := range eenp.SortedEliteEdgeNodes {
-// 		if een.Holder == addr {
-// 			return i
-// 		}
-// 	}
-// 	return -1
-// }
-
-// Index returns index of a public key in the pool. Returns -1 if not found.
-func (eenp *EliteEdgeNodePool) Index(pubkey *bls.PublicKey) int {
-	for i, een := range eenp.SortedEliteEdgeNodes {
-		if pubkey.Equals(een.Pubkey) {
-			return i
-		}
-	}
-	return -1
-}
-
-// PubKeys exports guardians' public keys.
-func (eenp *EliteEdgeNodePool) PubKeys() []*bls.PublicKey {
-	ret := make([]*bls.PublicKey, eenp.Len())
-	for i, een := range eenp.SortedEliteEdgeNodes {
-		ret[i] = een.Pubkey
-	}
-	return ret
-}
-
-// Implements sort.Interface for Guardians based on
-// the Address field.
-func (eenp *EliteEdgeNodePool) Len() int {
-	return len(eenp.SortedEliteEdgeNodes)
-}
-func (eenp *EliteEdgeNodePool) Swap(i, j int) {
-	eenp.SortedEliteEdgeNodes[i], eenp.SortedEliteEdgeNodes[j] = eenp.SortedEliteEdgeNodes[j], eenp.SortedEliteEdgeNodes[i]
-}
-func (eenp *EliteEdgeNodePool) Less(i, j int) bool {
-	return bytes.Compare(eenp.SortedEliteEdgeNodes[i].Holder.Bytes(), eenp.SortedEliteEdgeNodes[j].Holder.Bytes()) < 0
-}
-
-// Hash calculates the hash of elite edge node pool.
-func (eenp *EliteEdgeNodePool) Hash() common.Hash {
-	raw, err := rlp.EncodeToBytes(eenp)
-	if err != nil {
-		logger.Panic(err)
-	}
-	return crypto.Keccak256Hash(raw)
-}
-
-func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey, blockHeight uint64) (err error) {
-	minEliteEdgeNodeStake := MinEliteEdgeNodeStakeDeposit
-	maxEliteEdgeNodeStake := MaxEliteEdgeNodeStakeDeposit
-	if amount.Cmp(minEliteEdgeNodeStake) < 0 {
-		return fmt.Errorf("Elite edge node staking amount below the lower limit: %v", amount)
-	}
-	if amount.Cmp(maxEliteEdgeNodeStake) > 0 {
-		return fmt.Errorf("Elite edge node staking amount above the upper limit: %v", amount)
-	}
-
-	matchedHolderFound := false
-	for _, een := range eenp.SortedEliteEdgeNodes {
-		if een.Holder == holder {
-			currentStake := een.TotalStake()
-			expectedStake := big.NewInt(0).Add(currentStake, amount)
-			if expectedStake.Cmp(maxEliteEdgeNodeStake) > 0 {
-				return fmt.Errorf("Elite edge node stake would exceed the cap: %v", expectedStake)
-			}
-
-			matchedHolderFound = true
-			err = een.depositStake(source, amount)
-			if err != nil {
-				return err
-			}
-			break
-		}
-	}
-
-	if !matchedHolderFound {
-		newEliteEdgeNode := newEliteEdgeNode(
-			newStakeHolder(holder, []*Stake{newStake(source, amount)}),
-			pubkey)
-		eenp.Add(newEliteEdgeNode)
-	}
-	return nil
-}
-
-func (eenp *EliteEdgeNodePool) WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) (*Stake, error) {
-	matchedHolderFound := false
-	var withdrawnStake *Stake
-	var err error
-	for _, een := range eenp.SortedEliteEdgeNodes {
-		if een.Holder == holder {
-			matchedHolderFound = true
-			withdrawnStake, err = een.withdrawStake(source, currentHeight)
-			if err != nil {
-				return nil, err
-			}
-			break
-		}
-	}
-
-	if !matchedHolderFound {
-		return nil, fmt.Errorf("No matched stake holder address found: %v", holder)
-	}
-	return withdrawnStake, nil
-}
-
-func (eenp *EliteEdgeNodePool) ReturnStakes(currentHeight uint64) []*Stake {
-	returnedStakes := []*Stake{}
-
-	// need to iterate in the reverse order, since we may delete elemements
-	// from the slice while iterating through it
-	for cidx := eenp.Len() - 1; cidx >= 0; cidx-- {
-		een := eenp.SortedEliteEdgeNodes[cidx]
-		numStakeSources := len(een.Stakes)
-		for sidx := numStakeSources - 1; sidx >= 0; sidx-- { // similar to the outer loop, need to iterate in the reversed order
-			stake := een.Stakes[sidx]
-			if (stake.Withdrawn) && (currentHeight >= stake.ReturnHeight) {
-				logger.Printf("Stake to be returned: source = %v, amount = %v", stake.Source, stake.Amount)
-				source := stake.Source
-				returnedStake, err := een.returnStake(source, currentHeight)
-				if err != nil {
-					logger.Errorf("Failed to return stake: %v, error: %v", source, err)
-					continue
-				}
-				returnedStakes = append(returnedStakes, returnedStake)
-			}
-		}
-
-		if len(een.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candidate anymore
-			eenp.Remove(een.Holder)
-		}
-	}
-	return returnedStakes
-}
-
 //
 // ------- EliteEdgeNode ------- //
 //
@@ -436,7 +204,7 @@ type EliteEdgeNode struct {
 	Pubkey *bls.PublicKey `json:"-"`
 }
 
-func newEliteEdgeNode(stakeHolder *StakeHolder, pubkey *bls.PublicKey) *EliteEdgeNode {
+func NewEliteEdgeNode(stakeHolder *StakeHolder, pubkey *bls.PublicKey) *EliteEdgeNode {
 	return &EliteEdgeNode{
 		StakeHolder: stakeHolder,
 		Pubkey:      pubkey,
@@ -445,4 +213,29 @@ func newEliteEdgeNode(stakeHolder *StakeHolder, pubkey *bls.PublicKey) *EliteEdg
 
 func (een *EliteEdgeNode) String() string {
 	return fmt.Sprintf("{holder: %v, pubkey: %v, stakes :%v}", een.Holder, een.Pubkey.String(), een.Stakes)
+}
+
+func (een *EliteEdgeNode) DepositStake(source common.Address, amount *big.Int) error {
+	return een.StakeHolder.depositStake(source, amount)
+}
+
+func (een *EliteEdgeNode) WithdrawStake(source common.Address, currentHeight uint64) (*Stake, error) {
+	return een.StakeHolder.withdrawStake(source, currentHeight)
+}
+
+func (een *EliteEdgeNode) ReturnStake(source common.Address, currentHeight uint64) (*Stake, error) {
+	return een.StakeHolder.returnStake(source, currentHeight)
+}
+
+//
+// ------- EliteEdgeNodePool ------- //
+//
+
+type EliteEdgeNodePool interface {
+	Contains(eenAddr common.Address) bool
+	Get(eenAddr common.Address) *EliteEdgeNode
+	Upsert(een *EliteEdgeNode)
+	GetAll(withstake bool) []*EliteEdgeNode
+	DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey, blockHeight uint64) (err error)
+	WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) (*Stake, error)
 }

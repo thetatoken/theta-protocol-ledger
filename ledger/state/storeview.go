@@ -100,6 +100,12 @@ func (sv *StoreView) Get(key common.Bytes) common.Bytes {
 	return value
 }
 
+// Traverse traverses the trie and calls cb callback func on every key/value pair
+// with key having prefix
+func (sv *StoreView) Traverse(prefix common.Bytes, cb func(k, v common.Bytes) bool) bool {
+	return sv.store.Traverse(prefix, cb)
+}
+
 func (sv *StoreView) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
 	return sv.store.ProveVCP(vcpKey, vp)
 }
@@ -338,31 +344,6 @@ func (sv *StoreView) UpdateGuardianCandidatePool(gcp *core.GuardianCandidatePool
 	sv.Set(GuardianCandidatePoolKey(), gcpBytes)
 }
 
-// GetEliteEdgeNodePool gets the elite edge node pool.
-func (sv *StoreView) GetEliteEdgeNodePool() *core.EliteEdgeNodePool {
-	data := sv.Get(EliteEdgeNodePoolKey())
-	if data == nil || len(data) == 0 {
-		return core.NewEliteEdgeNodePool()
-	}
-	eenp := &core.EliteEdgeNodePool{}
-	err := types.FromBytes(data, eenp)
-	if err != nil {
-		log.Panicf("Error reading elite edge node pool %X, error: %v",
-			data, err.Error())
-	}
-	return eenp
-}
-
-// UpdateEliteEdgeNodePool updates the elite edge node pool.
-func (sv *StoreView) UpdateEliteEdgeNodePool(eenp *core.EliteEdgeNodePool) {
-	eenpBytes, err := types.ToBytes(eenp)
-	if err != nil {
-		log.Panicf("Error writing elite edge node pool %v, error: %v",
-			eenp, err.Error())
-	}
-	sv.Set(EliteEdgeNodePoolKey(), eenpBytes)
-}
-
 // GetStakeRewardDistributionRuleSet gets stake reward distribution rule set
 func (sv *StoreView) GetStakeRewardDistributionRuleSet() *core.StakeRewardDistributionRuleSet {
 	data := sv.Get(StakeRewardDistributionRuleSetKey())
@@ -414,14 +395,19 @@ func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
 	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
 
+type StakeWithHolder struct {
+	Holder common.Address
+	Stake  core.Stake
+}
+
 // GetEliteEdgeNodeStakeReturns gets the elite edge node stake returns
-func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []core.Stake {
+func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []StakeWithHolder {
 	data := sv.Get(EliteEdgeNodeStakeReturnsKey(height))
 	if data == nil || len(data) == 0 {
-		return []core.Stake{}
+		return []StakeWithHolder{}
 	}
 
-	returnedStakes := []core.Stake{}
+	returnedStakes := []StakeWithHolder{}
 	err := types.FromBytes(data, returnedStakes)
 	if err != nil {
 		log.Panicf("Error reading elite edge stake returns %v, error: %v",
@@ -431,7 +417,7 @@ func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []core.Stake {
 }
 
 // GetEliteEdgeNodeStakeReturns saves the elite edge node stake returns for the given height
-func (sv *StoreView) SetEliteEdgeNodeStakeReturns(height uint64, stakeReturns []core.Stake) {
+func (sv *StoreView) SetEliteEdgeNodeStakeReturns(height uint64, stakeReturns []StakeWithHolder) {
 	returnedStakesBytes, err := types.ToBytes(stakeReturns)
 	if err != nil {
 		log.Panicf("Error writing elite edge stake returns %v, error: %v",

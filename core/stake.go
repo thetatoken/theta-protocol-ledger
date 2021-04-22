@@ -36,7 +36,7 @@ type Stake struct {
 	ReturnHeight uint64
 }
 
-func newStake(source common.Address, amount *big.Int) *Stake {
+func NewStake(source common.Address, amount *big.Int) *Stake {
 	return &Stake{
 		Source:       source,
 		Amount:       amount,
@@ -98,7 +98,7 @@ type StakeHolder struct {
 	Stakes []*Stake
 }
 
-func newStakeHolder(holder common.Address, stakes []*Stake) *StakeHolder {
+func NewStakeHolder(holder common.Address, stakes []*Stake) *StakeHolder {
 	return &StakeHolder{
 		Holder: holder,
 		Stakes: stakes,
@@ -131,7 +131,7 @@ func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) erro
 		}
 	}
 
-	newStake := newStake(source, amount)
+	newStake := NewStake(source, amount)
 	sh.Stakes = append(sh.Stakes, newStake)
 
 	return nil

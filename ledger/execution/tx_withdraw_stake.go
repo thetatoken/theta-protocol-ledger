@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -102,14 +103,13 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 		}
 		view.UpdateGuardianCandidatePool(gcp)
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
-		eenp := view.GetEliteEdgeNodePool()
+		eenp := state.NewEliteEdgeNodePool(view, false)
 		currentHeight := exec.state.Height()
 		withdrawnStake, err := eenp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
 		if err != nil || withdrawnStake == nil {
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
-		view.UpdateEliteEdgeNodePool(eenp)
-		updateEliteEdgeNodeStakeReturns(view, *withdrawnStake)
+		updateEliteEdgeNodeStakeReturns(view, holderAddress, *withdrawnStake)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -149,9 +149,12 @@ func (exec *WithdrawStakeExecutor) calculateEffectiveGasPrice(transaction types.
 	return effectiveGasPrice
 }
 
-func updateEliteEdgeNodeStakeReturns(view *st.StoreView, withdrawnStake core.Stake) {
+func updateEliteEdgeNodeStakeReturns(view *st.StoreView, eenAddress common.Address, withdrawnStake core.Stake) {
 	returnHeight := withdrawnStake.ReturnHeight
 	stakesToBeReturned := view.GetEliteEdgeNodeStakeReturns(returnHeight)
-	stakesToBeReturned = append(stakesToBeReturned, withdrawnStake)
+	stakesToBeReturned = append(stakesToBeReturned, state.StakeWithHolder{
+		Holder: eenAddress,
+		Stake:  withdrawnStake,
+	})
 	view.SetEliteEdgeNodeStakeReturns(returnHeight, stakesToBeReturned)
 }

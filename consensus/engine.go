@@ -592,7 +592,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 		}
 
 		// Elite Edge node votes must be valid.
-		eenp, err := e.ledger.GetEliteEdgeNodePool(block.EliteEdgeNodeVotes.Block)
+		eenp, err := e.ledger.GetEliteEdgeNodePoolOfLastCheckpoint(block.EliteEdgeNodeVotes.Block)
 		if err != nil {
 			e.logger.WithFields(log.Fields{
 				"block.Hash":               block.Hash().Hex(),

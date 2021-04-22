@@ -169,7 +169,7 @@ func RetrievePools(chain *blockchain.Chain, db database.Database, blockHeight ui
 
 			if eliteEdgeNodeVotes != nil {
 				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
-					eliteEdgeNodePool = storeView.GetEliteEdgeNodePool()
+					eliteEdgeNodePool = storeView.GetEliteEdgeNodePoolOfLastCheckpoint()
 				} else {
 					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
 						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())

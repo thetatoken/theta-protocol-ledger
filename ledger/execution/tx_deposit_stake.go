@@ -181,7 +181,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.TFuelWei // elite edge node deposits TFuel
-		eenp := view.GetEliteEdgeNodePool()
+		eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint()
 
 		if !eenp.Contains(holderAddress) {
 			checkBLSRes := exec.checkBLSSummary(tx)
@@ -240,7 +240,7 @@ func (exec *DepositStakeExecutor) checkBLSSummary(tx *types.DepositStakeTxV2) re
 }
 
 func (exec *DepositStakeExecutor) getEliteEdgeNodeStake(view *st.StoreView, eenAddr common.Address) *big.Int {
-	eenp := view.GetEliteEdgeNodePool()
+	eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint()
 
 	for _, een := range eenp.SortedEliteEdgeNodes {
 		if een.Holder == eenAddr {

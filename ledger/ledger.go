@@ -168,8 +168,8 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 	}
 }
 
-// GetEliteEdgeNodePool returns the elite edge node pool of the given block.
-func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEdgeNodePool, error) {
+// GetEliteEdgeNodePoolOfLastCheckpoint returns the elite edge node pool of the given block.
+func (ledger *Ledger) GetEliteEdgeNodePoolOfLastCheckpoint(blockHash common.Hash) (*core.EliteEdgeNodePool, error) {
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
@@ -180,7 +180,7 @@ func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEd
 	}
 	blockHash = block.Hash()
 	for {
-		logger.Debugf("Ledger.GetEliteEdgeNodePool, block.height = %v", block.Height)
+		logger.Debugf("Ledger.GetEliteEdgeNodePoolOfLastCheckpoint, block.height = %v", block.Height)
 
 		block, err := findBlock(store, blockHash)
 		if err != nil {
@@ -189,7 +189,7 @@ func (ledger *Ledger) GetEliteEdgeNodePool(blockHash common.Hash) (*core.EliteEd
 		if common.IsCheckPointHeight(block.Height) {
 			stateRoot := block.BlockHeader.StateHash
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
-			eenp := storeView.GetEliteEdgeNodePool()
+			eenp := state.NewEliteEdgeNodePool(storeView, true)
 			return eenp, nil
 		}
 		blockHash = block.Parent
@@ -677,12 +677,15 @@ func (ledger *Ledger) handleGuardianStakeReturn(view *st.StoreView) {
 
 func (ledger *Ledger) handleEliteEdgeNodeStakeReturns(view *st.StoreView) {
 	currentHeight := view.Height()
-	returnedStakes := view.GetEliteEdgeNodeStakeReturns(currentHeight)
-	if len(returnedStakes) == 0 {
+	returnedStakesWithHolders := view.GetEliteEdgeNodeStakeReturns(currentHeight)
+	if len(returnedStakesWithHolders) == 0 {
 		return // no need to call view.RemoveEliteEdgeNodeStakeReturns()
 	}
 
-	for _, returnedStake := range returnedStakes {
+	eenp := state.NewEliteEdgeNodePool(view, false)
+	for _, returnedStakeWithHolder := range returnedStakesWithHolders {
+		returnedStake := returnedStakeWithHolder.Stake
+		eenAddress := returnedStakeWithHolder.Holder
 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
 			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
 				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
@@ -698,39 +701,20 @@ func (ledger *Ledger) handleEliteEdgeNodeStakeReturns(view *st.StoreView) {
 		}
 		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
 		view.SetAccount(sourceAddress, sourceAccount)
+
+		// TODO: potentially O(m*n) runtime complexity, but the number of stakes on an EEN is bounded
+		err := eenp.ReturnStake(currentHeight, eenAddress, returnedStake)
+		if err != nil {
+			log.Panicf("Failed to return stake: currentHeight = %v, eenAddress = %v, returnedStake = %v, err = %v",
+				currentHeight, eenAddress, returnedStake, err)
+		}
+
+		logger.Infof("Stake returned: eenAddress = %v, source = %v, amount = %v",
+			eenAddress, returnedStake.Source, returnedStake.Amount)
 	}
 
 	view.RemoveEliteEdgeNodeStakeReturns(currentHeight)
 }
-
-// func (ledger *Ledger) handleEliteEdgeNodeStakeReturn(view *st.StoreView) {
-// 	eenp := view.GetEliteEdgeNodePool()
-// 	if eenp == nil || eenp.Len() == 0 {
-// 		return
-// 	}
-
-// 	currentHeight := view.Height()
-// 	returnedStakes := eenp.ReturnStakes(currentHeight)
-
-// 	for _, returnedStake := range returnedStakes {
-// 		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
-// 			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
-// 				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
-// 		}
-// 		sourceAddress := returnedStake.Source
-// 		sourceAccount := view.GetAccount(sourceAddress)
-// 		if sourceAccount == nil {
-// 			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
-// 		}
-// 		returnedCoins := types.Coins{ // Important: Elite edge nodes deposit/withdraw TFuel stake, NOT Theta
-// 			ThetaWei: types.Zero,
-// 			TFuelWei: returnedStake.Amount,
-// 		}
-// 		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
-// 		view.SetAccount(sourceAddress, sourceAccount)
-// 	}
-// 	view.UpdateEliteEdgeNodePool(eenp)
-// }
 
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {

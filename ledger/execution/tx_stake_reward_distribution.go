@@ -80,7 +80,7 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 			}
 		}
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
-		eenp := view.GetEliteEdgeNodePool().WithStake()
+		eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint().WithStake()
 
 		var een *core.EliteEdgeNode
 		if een = eenp.GetWithHolderAddress(stakeHolderAddress); een == nil {

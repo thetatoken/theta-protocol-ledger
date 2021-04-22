@@ -702,7 +702,7 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
 		}
-		eenp := blockStoreView.GetEliteEdgeNodePool()
+		eenp := blockStoreView.GetEliteEdgeNodePoolOfLastCheckpoint()
 		blockHashEenpPairs = append(blockHashEenpPairs, BlockHashEenpPair{
 			BlockHash: blockHash,
 			Eenp:      eenp,

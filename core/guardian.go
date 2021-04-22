@@ -320,7 +320,7 @@ func (gcp *GuardianCandidatePool) DepositStake(source common.Address, holder com
 
 	if !matchedHolderFound {
 		newGuardian := &Guardian{
-			StakeHolder: newStakeHolder(holder, []*Stake{newStake(source, amount)}),
+			StakeHolder: NewStakeHolder(holder, []*Stake{NewStake(source, amount)}),
 			Pubkey:      pubkey,
 		}
 		gcp.Add(newGuardian)

@@ -64,7 +64,7 @@ func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
 	e.currVote = nil
 	e.round = 1
 
-	eenp, err := e.engine.GetLedger().GetEliteEdgeNodePool(block)
+	eenp, err := e.engine.GetLedger().GetEliteEdgeNodePoolOfLastCheckpoint(block)
 	if err != nil {
 		// Should not happen
 		e.logger.Panic(err)
