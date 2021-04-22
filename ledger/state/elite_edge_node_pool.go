@@ -33,6 +33,19 @@ func (eenp *EliteEdgeNodePool) Contains(eenAddr common.Address) bool {
 	return (eenp.Get(eenAddr) != nil)
 }
 
+// GetPubKeys returns BLS pubkeys of given addresses.
+func (eenp *EliteEdgeNodePool) GetPubKeys(eenAddrs []common.Address) []*bls.PublicKey {
+	ret := []*bls.PublicKey{}
+	for _, addr := range eenAddrs {
+		een := eenp.Get(addr)
+		if een == nil {
+			return nil
+		}
+		ret = append(ret, een.Pubkey)
+	}
+	return ret
+}
+
 // Get returns the EEN if exists, nil otherwise
 func (eenp *EliteEdgeNodePool) Get(eenAddr common.Address) *core.EliteEdgeNode {
 	eenKey := EliteEdgeNodeKey(eenAddr)

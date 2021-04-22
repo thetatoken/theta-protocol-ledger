@@ -179,8 +179,11 @@ func (a *AggregatedEENVotes) Pick(b *AggregatedEENVotes) (*AggregatedEENVotes, e
 	return a, nil
 }
 
-// Validate performs basic validation of the voteset. This does NOT verify the signature.
-func (a *AggregatedEENVotes) Validate() result.Result {
+// Validate performs basic validation of the voteset.
+func (a *AggregatedEENVotes) Validate(eenp EliteEdgeNodePool) result.Result {
+	if eenp == nil {
+		return result.Error("empty eenp")
+	}
 	if a.Signature == nil {
 		return result.Error("signature cannot be nil")
 	}
@@ -195,6 +198,12 @@ func (a *AggregatedEENVotes) Validate() result.Result {
 			return result.Error("aggregate vote addresses must be sorted")
 		}
 	}
+	pubkeys := eenp.GetPubKeys(a.Addresses)
+	aggPubkey := bls.AggregatePublicKeysVec(pubkeys, a.Multiplies)
+	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
+		return result.Error("signature verification failed")
+	}
+
 	return result.OK
 }
 
@@ -265,6 +274,7 @@ func (een *EliteEdgeNode) ReturnStake(source common.Address, currentHeight uint6
 
 type EliteEdgeNodePool interface {
 	Contains(eenAddr common.Address) bool
+	GetPubKeys(eenAddrs []common.Address) []*bls.PublicKey
 	Get(eenAddr common.Address) *EliteEdgeNode
 	Upsert(een *EliteEdgeNode)
 	GetAll(withstake bool) []*EliteEdgeNode
