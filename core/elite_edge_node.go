@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -57,16 +58,16 @@ func (e *EENVote) String() string {
 
 // AggregatedEENVotes represents the aggregated elite edge node votes on a block.
 type AggregatedEENVotes struct {
-	Block      common.Hash    // Hash of the block.
-	Multiplies []uint32       // Multiplies of each signer.
-	Signature  *bls.Signature // Aggregated signature.
+	Block      common.Hash      // Hash of the block.
+	Multiplies []uint32         // Multiplies of each signer.
+	Addresses  []common.Address // Addresses of each signer
+	Signature  *bls.Signature   // Aggregated signature.
 }
 
-func NewAggregatedEENVotes(block common.Hash, eenpWithStake *EliteEdgeNodePool) *AggregatedEENVotes {
+func NewAggregatedEENVotes(block common.Hash) *AggregatedEENVotes {
 	return &AggregatedEENVotes{
-		Block:      block,
-		Multiplies: make([]uint32, eenpWithStake.Len()),
-		Signature:  bls.NewAggregateSignature(),
+		Block:     block,
+		Signature: bls.NewAggregateSignature(),
 	}
 }
 
@@ -104,17 +105,44 @@ func (a *AggregatedEENVotes) Merge(b *AggregatedEENVotes) (*AggregatedEENVotes, 
 	if a.Block != b.Block {
 		return nil, errors.New("Cannot merge incompatible votes")
 	}
-	newMultiplies := make([]uint32, len(a.Multiplies))
+	newMultiplies := []uint32{}
+	newAddresses := []common.Address{}
+
 	isSubset := true
-	for i := 0; i < len(a.Multiplies); i++ {
-		newMultiplies[i] = a.Multiplies[i] + b.Multiplies[i]
-		if newMultiplies[i] < a.Multiplies[i] || newMultiplies[i] < b.Multiplies[i] {
-			return nil, errors.New("Signiature multipliers overflowed")
-		}
-		if a.Multiplies[i] == 0 && b.Multiplies[i] != 0 {
+	i := 0
+	j := 0
+	for i < len(a.Addresses) && j < len(b.Addresses) {
+		cmp := bytes.Compare(a.Addresses[i].Bytes(), b.Addresses[j].Bytes())
+		if cmp == 0 {
+			sum := a.Multiplies[i] + b.Multiplies[j]
+			if sum < a.Multiplies[i] || sum < b.Multiplies[i] {
+				return nil, errors.New("Signiature multipliers overflowed")
+			}
+			newMultiplies = append(newMultiplies, sum)
+			i++
+			j++
+		} else if cmp < 0 {
+			newMultiplies = append(newMultiplies, a.Multiplies[i])
+			newAddresses = append(newAddresses, a.Addresses[i])
+			i++
+			// Here we don't mark isSubset to false
+		} else {
+			newMultiplies = append(newMultiplies, b.Multiplies[j])
+			newAddresses = append(newAddresses, b.Addresses[j])
+			j++
 			isSubset = false
 		}
 	}
+	if i < len(a.Addresses) {
+		newMultiplies = append(newMultiplies, a.Multiplies[i:]...)
+		newAddresses = append(newAddresses, a.Addresses[i:]...)
+	}
+	if j < len(b.Addresses) {
+		newMultiplies = append(newMultiplies, b.Multiplies[j:]...)
+		newAddresses = append(newAddresses, b.Addresses[j:]...)
+		isSubset = false
+	}
+
 	if isSubset {
 		// The other vote is a subset of current vote
 		return nil, nil
@@ -124,6 +152,7 @@ func (a *AggregatedEENVotes) Merge(b *AggregatedEENVotes) (*AggregatedEENVotes, 
 	return &AggregatedEENVotes{
 		Block:      a.Block,
 		Multiplies: newMultiplies,
+		Addresses:  newAddresses,
 		Signature:  newSig,
 	}, nil
 }
@@ -150,18 +179,21 @@ func (a *AggregatedEENVotes) Pick(b *AggregatedEENVotes) (*AggregatedEENVotes, e
 	return a, nil
 }
 
-// Validate verifies the voteset.
-func (a *AggregatedEENVotes) Validate(eenpWithStake *EliteEdgeNodePool) result.Result {
-	if len(a.Multiplies) != eenpWithStake.Len() {
-		return result.Error("multiplies size %d is not equal to eenp size %d", len(a.Multiplies), eenpWithStake.Len())
-	}
+// Validate performs basic validation of the voteset. This does NOT verify the signature.
+func (a *AggregatedEENVotes) Validate() result.Result {
 	if a.Signature == nil {
 		return result.Error("signature cannot be nil")
 	}
-	pubKeys := eenpWithStake.PubKeys()
-	aggPubkey := bls.AggregatePublicKeysVec(pubKeys, a.Multiplies)
-	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
-		return result.Error("aggregated elite edge node votes signature verification failed")
+	if len(a.Addresses) == 0 {
+		return result.Error("aggregated vote is empty")
+	}
+	if len(a.Addresses) != a.Abs() || len(a.Addresses) != len(a.Multiplies) {
+		return result.Error("aggregate vote lengths are inconsisent")
+	}
+	for i := 0; i < len(a.Addresses)-1; i++ {
+		if bytes.Compare(a.Addresses[i].Bytes(), a.Addresses[i+1].Bytes()) >= 0 {
+			return result.Error("aggregate vote addresses must be sorted")
+		}
 	}
 	return result.OK
 }
