@@ -83,3 +83,7 @@ func EliteEdgeNodeStakeReturnsKey(height uint64) common.Bytes {
 	heightStr := strconv.FormatUint(height, 10)
 	return common.Bytes("ls/eensrk/" + heightStr)
 }
+
+func EliteEdgeNodesTotalActiveStakeKey() common.Bytes {
+	return common.Bytes("ls/eentas")
+}

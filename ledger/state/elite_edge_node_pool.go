@@ -39,7 +39,7 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 	if een == nil {
 		return 0
 	}
-	totalStake := eenp.sv.GetTotalEENStake(uint32(eenp.sv.Height()))
+	totalStake := eenp.sv.GetTotalEENStake()
 	stake := een.TotalStake()
 
 	return sampleEENWeight(util.NewHashRand(block.Bytes()), stake, totalStake)
@@ -199,6 +199,11 @@ func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common
 
 	eenp.Upsert(een)
 
+	// Update total eenp stake
+	totalStake := eenp.sv.GetTotalEENStake()
+	totalStake.Add(totalStake, amount)
+	eenp.sv.SetTotalEENStake(totalStake)
+
 	return nil
 }
 
@@ -226,6 +231,11 @@ func (eenp *EliteEdgeNodePool) WithdrawStake(source common.Address, holder commo
 	}
 
 	eenp.Upsert(een)
+
+	// Update total eenp stake
+	totalStake := eenp.sv.GetTotalEENStake()
+	totalStake.Sub(totalStake, withdrawnStake.Amount)
+	eenp.sv.SetTotalEENStake(totalStake)
 
 	return withdrawnStake, nil
 }

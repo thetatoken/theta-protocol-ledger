@@ -431,8 +431,15 @@ func (sv *StoreView) RemoveEliteEdgeNodeStakeReturns(height uint64) {
 	sv.Delete(EliteEdgeNodeStakeReturnsKey(height))
 }
 
-func (sv *StoreView) GetTotalEENStake(height uint32) *big.Int {
-	return nil
+// GetTotalEENStake retrives the total active EEN stakes
+func (sv *StoreView) GetTotalEENStake() *big.Int {
+	raw := sv.Get(EliteEdgeNodesTotalActiveStakeKey())
+	return new(big.Int).SetBytes(raw)
+}
+
+// SetTotalEENStake sets the total active EEN stakes
+func (sv *StoreView) SetTotalEENStake(amount *big.Int) {
+	sv.Set(EliteEdgeNodesTotalActiveStakeKey(), amount.Bytes())
 }
 
 func (sv *StoreView) GetStore() *treestore.TreeStore {
