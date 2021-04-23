@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -80,10 +81,10 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 			}
 		}
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
-		eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint().WithStake()
+		eenp := state.NewEliteEdgeNodePool(view, true)
 
 		var een *core.EliteEdgeNode
-		if een = eenp.GetWithHolderAddress(stakeHolderAddress); een == nil {
+		if een = eenp.Get(stakeHolderAddress); een == nil {
 			return result.Error("%v is not an staked elite edge node", stakeHolderAddress)
 		}
 

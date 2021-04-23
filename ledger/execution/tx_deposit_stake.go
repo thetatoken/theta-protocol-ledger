@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -181,7 +182,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 	} else if tx.Purpose == core.StakeForEliteEdgeNode {
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.TFuelWei // elite edge node deposits TFuel
-		eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint()
+		eenp := state.NewEliteEdgeNodePool(view, false)
 
 		if !eenp.Contains(holderAddress) {
 			checkBLSRes := exec.checkBLSSummary(tx)
@@ -194,7 +195,6 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
-		view.UpdateEliteEdgeNodePool(eenp)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -240,9 +240,9 @@ func (exec *DepositStakeExecutor) checkBLSSummary(tx *types.DepositStakeTxV2) re
 }
 
 func (exec *DepositStakeExecutor) getEliteEdgeNodeStake(view *st.StoreView, eenAddr common.Address) *big.Int {
-	eenp := view.GetEliteEdgeNodePoolOfLastCheckpoint()
+	eenp := state.NewEliteEdgeNodePool(view, true)
 
-	for _, een := range eenp.SortedEliteEdgeNodes {
+	for _, een := range eenp.GetAll(true) {
 		if een.Holder == eenAddr {
 			return een.TotalStake()
 		}

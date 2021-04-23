@@ -169,7 +169,7 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 }
 
 // GetEliteEdgeNodePoolOfLastCheckpoint returns the elite edge node pool of the given block.
-func (ledger *Ledger) GetEliteEdgeNodePoolOfLastCheckpoint(blockHash common.Hash) (*core.EliteEdgeNodePool, error) {
+func (ledger *Ledger) GetEliteEdgeNodePoolOfLastCheckpoint(blockHash common.Hash) (core.EliteEdgeNodePool, error) {
 	db := ledger.state.DB()
 	store := kvstore.NewKVStore(db)
 
@@ -749,7 +749,7 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
 
 	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
-		guardianPool, eliteEdgeNodePool := exec.RetrievePools(ledger.chain, ledger.db, ch, guardianVotes, eliteEdgeNodeVotes)
+		guardianPool, eliteEdgeNodePool := exec.RetrievePools(ledger, ledger.chain, ledger.db, ch, guardianVotes, eliteEdgeNodeVotes)
 		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 	} else { // for compatibility with lower versions (e.g. blockHeight < common.HeightEnableValidatorReward)
 		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)

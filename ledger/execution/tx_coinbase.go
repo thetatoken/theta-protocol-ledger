@@ -96,7 +96,7 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	currentBlock := exec.consensus.GetLedger().GetCurrentBlock()
 	guardianVotes := currentBlock.GuardianVotes
 	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
-	guardianPool, eliteEdgeNodePool := RetrievePools(exec.chain, exec.db, tx.BlockHeight, guardianVotes, eliteEdgeNodeVotes)
+	guardianPool, eliteEdgeNodePool := RetrievePools(exec.consensus.GetLedger(), exec.chain, exec.db, tx.BlockHeight, guardianVotes, eliteEdgeNodeVotes)
 	expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 
 	if len(expectedRewards) != len(tx.Outputs) {
@@ -139,8 +139,8 @@ func (exec *CoinbaseTxExecutor) process(chainID string, view *st.StoreView, tran
 	return txHash, result.OK
 }
 
-func RetrievePools(chain *blockchain.Chain, db database.Database, blockHeight uint64, guardianVotes *core.AggregatedVotes,
-	eliteEdgeNodeVotes *core.AggregatedEENVotes) (guardianPool *core.GuardianCandidatePool, eliteEdgeNodePool *core.EliteEdgeNodePool) {
+func RetrievePools(ledger core.Ledger, chain *blockchain.Chain, db database.Database, blockHeight uint64, guardianVotes *core.AggregatedVotes,
+	eliteEdgeNodeVotes *core.AggregatedEENVotes) (guardianPool *core.GuardianCandidatePool, eliteEdgeNodePool core.EliteEdgeNodePool) {
 	guardianPool = nil
 	eliteEdgeNodePool = nil
 
@@ -169,7 +169,10 @@ func RetrievePools(chain *blockchain.Chain, db database.Database, blockHeight ui
 
 			if eliteEdgeNodeVotes != nil {
 				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
-					eliteEdgeNodePool = storeView.GetEliteEdgeNodePoolOfLastCheckpoint()
+					eliteEdgeNodePool, err = ledger.GetEliteEdgeNodePoolOfLastCheckpoint(eliteEdgeNodeVotes.Block)
+					if err != nil {
+						logger.Panic(err)
+					}
 				} else {
 					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
 						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
@@ -186,7 +189,7 @@ func RetrievePools(chain *blockchain.Chain, db database.Database, blockHeight ui
 // CalculateReward calculates the block reward for each account
 func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.ValidatorSet,
 	guardianVotes *core.AggregatedVotes, guardianPool *core.GuardianCandidatePool,
-	eliteEdgeNodeVotes *core.AggregatedEENVotes, eliteEdgeNodePool *core.EliteEdgeNodePool) map[string]types.Coins {
+	eliteEdgeNodeVotes *core.AggregatedEENVotes, eliteEdgeNodePool core.EliteEdgeNodePool) map[string]types.Coins {
 	accountReward := map[string]types.Coins{}
 	blockHeight := view.Height() + 1 // view points to the parent block
 	if blockHeight < common.HeightEnableValidatorReward {
@@ -364,7 +367,7 @@ func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, val
 
 // grant uptime mining rewards to active elite edge nodes (they are the tfuel stakers)
 func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVotes *core.AggregatedVotes, eliteEdgeNodeVotes *core.AggregatedEENVotes,
-	eliteEdgeNodePool *core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
+	eliteEdgeNodePool core.EliteEdgeNodePool, accountReward *map[string]types.Coins, blockHeight uint64) {
 	if !common.IsCheckPointHeight(blockHeight) {
 		return
 	}
@@ -378,54 +381,34 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 		return
 	}
 
-	totalStake := big.NewInt(0)
-	eliteEdgeNodePool = eliteEdgeNodePool.WithStake()
-	for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
-		if eliteEdgeNodeVotes.Multiplies[i] == 0 {
-			continue
-		}
-		totalStake.Add(totalStake, e.TotalStake())
-	}
+	stakeSourceMap := map[common.Address]*big.Int{}
+	totalStake := new(big.Int)
 
-	if totalStake.Cmp(big.NewInt(0)) != 0 {
-		stakeSourceMap := map[common.Address]*big.Int{}
-		stakeSourceList := []common.Address{}
-
-		for i, e := range eliteEdgeNodePool.SortedEliteEdgeNodes {
-			if eliteEdgeNodeVotes.Multiplies[i] == 0 {
+	for _, eenAddr := range eliteEdgeNodeVotes.Addresses {
+		weight := eliteEdgeNodePool.RandomRewardWeight(eliteEdgeNodeVotes.Block, eenAddr)
+		een := eliteEdgeNodePool.Get(eenAddr)
+		for _, stake := range een.Stakes {
+			if stake.Withdrawn {
 				continue
 			}
-			stakes := e.Stakes
-			for _, stake := range stakes {
-				if stake.Withdrawn {
-					continue
-				}
-				stakeAmount := stake.Amount
-				stakeSource := stake.Source
-				if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-					stakeAmountSum.Add(stakeAmountSum, stakeAmount)
-				} else {
-					stakeSourceMap[stakeSource] = stakeAmount
-					stakeSourceList = append(stakeSourceList, stakeSource)
-				}
+			if _, ok := stakeSourceMap[stake.Source]; !ok {
+				stakeSourceMap[stake.Source] = new(big.Int)
 			}
+			weightedStake := new(big.Int).Mul(stake.Amount, big.NewInt(int64(weight)))
+			stakeSourceMap[stake.Source].Add(stakeSourceMap[stake.Source], weightedStake)
+			totalStake.Add(totalStake, weightedStake)
 		}
+	}
 
-		// the source of the stake divides the block reward proportional to their stake
-		totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
-		if blockHeight < common.HeightSampleStakingReward {
-			// the source of the stake divides the block reward proportional to their stake
-			issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
-		} else {
-			// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-			issueRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
-				totalStake, accountReward, totalReward, "EEN  ")
-		}
+	// the source of the stake divides the block reward proportional to their stake
+	totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
 
-		if blockHeight >= common.HeightEnableTheta3 {
-			srdsr := view.GetStakeRewardDistributionRuleSet()
-			handleEliteEdgeNodeRewardSplit(accountReward, &stakeSourceMap, eliteEdgeNodePool, srdsr)
-		}
+	// the source of the stake divides the block reward proportional to their stake
+	issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
+
+	if blockHeight >= common.HeightEnableTheta3 {
+		srdsr := view.GetStakeRewardDistributionRuleSet()
+		handleEliteEdgeNodeRewardSplit(accountReward, &stakeSourceMap, eliteEdgeNodePool, srdsr)
 	}
 }
 
@@ -569,10 +552,10 @@ func handleGuardianNodeRewardSplit(accountRewardMap *map[string]types.Coins, sta
 }
 
 func handleEliteEdgeNodeRewardSplit(accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
-	eliteEdgeNodePool *core.EliteEdgeNodePool, srdrs *core.StakeRewardDistributionRuleSet) {
+	eliteEdgeNodePool core.EliteEdgeNodePool, srdrs *core.StakeRewardDistributionRuleSet) {
 	splitMap := map[string](*SplitMetadata){}
 
-	for _, een := range eliteEdgeNodePool.SortedEliteEdgeNodes {
+	for _, een := range eliteEdgeNodePool.GetAll(true) {
 		stakeHolder := een.Holder
 		holderStakes := een.Stakes
 		addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
