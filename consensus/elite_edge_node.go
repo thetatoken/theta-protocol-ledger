@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
@@ -13,8 +14,9 @@ import (
 )
 
 const (
-	maxEENLogNeighbors uint32 = 3 // Estimated number of neighbors during gossip = 2**3 = 8
-	maxEENRound               = 20
+	maxEENLogNeighbors    uint32 = 3 // Estimated number of neighbors during gossip = 2**3 = 8
+	maxEENRound                  = 20
+	sampleResultCacheSize        = 1024
 )
 
 type EliteEdgeNodeEngine struct {
@@ -26,11 +28,12 @@ type EliteEdgeNodeEngine struct {
 	voteBookkeeper *EENVoteBookkeeper
 
 	// State for current voting
-	block    common.Hash
-	round    uint32
-	currVote *core.AggregatedEENVotes
-	nextVote *core.AggregatedEENVotes
-	eenp     core.EliteEdgeNodePool
+	block           common.Hash
+	round           uint32
+	currVote        *core.AggregatedEENVotes
+	nextVote        *core.AggregatedEENVotes
+	eenp            core.EliteEdgeNodePool
+	eenSampleResult *lru.Cache
 
 	evIncoming  chan *core.EENVote
 	aevIncoming chan *core.AggregatedEENVotes
@@ -66,6 +69,10 @@ func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
 		e.logger.Panic(err)
 	}
 	e.eenp = eenp
+	e.eenSampleResult, err = lru.New(sampleResultCacheSize)
+	if err != nil {
+		e.logger.Panic(err)
+	}
 
 	e.logger.WithFields(log.Fields{
 		"block": block.Hex(),
@@ -264,7 +271,25 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 		return
 	}
 
-	// TODO: check if edge node is selected for this round
+	// Check if edge node is selected for this round
+	ok := e.eenSampleResult.Contains(vote.Address)
+	if !ok {
+		weight := e.eenp.RandomRewardWeight(vote.Block, vote.Address)
+		if weight == 0 {
+			e.eenSampleResult.Add(vote.Address, false)
+		} else {
+			e.eenSampleResult.Add(vote.Address, true)
+		}
+	}
+	selected, _ := e.eenSampleResult.Get(vote.Address)
+	if !selected.(bool) {
+		e.logger.WithFields(log.Fields{
+			"local.block": e.block.Hex(),
+			"local.round": e.round,
+			"vote.block":  vote.Block.Hex(),
+		}).Info("Ignoring elite edge node vote: no random reward for this checkpoint")
+		return
+	}
 
 	pubkeys := e.eenp.GetPubKeys([]common.Address{vote.Address})
 	if len(pubkeys) != 1 {

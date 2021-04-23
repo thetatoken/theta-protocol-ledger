@@ -198,6 +198,12 @@ func (a *AggregatedEENVotes) Validate(eenp EliteEdgeNodePool) result.Result {
 			return result.Error("aggregate vote addresses must be sorted")
 		}
 	}
+	for _, addr := range a.Addresses {
+		weight := eenp.RandomRewardWeight(a.Block, addr)
+		if weight == 0 {
+			return result.Error("aggregate vote contains een that are not selected for checkpoint reward")
+		}
+	}
 	pubkeys := eenp.GetPubKeys(a.Addresses)
 	aggPubkey := bls.AggregatePublicKeysVec(pubkeys, a.Multiplies)
 	if !a.Signature.Verify(a.signBytes(), aggPubkey) {
@@ -280,4 +286,5 @@ type EliteEdgeNodePool interface {
 	GetAll(withstake bool) []*EliteEdgeNode
 	DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey, blockHeight uint64) (err error)
 	WithdrawStake(source common.Address, holder common.Address, currentHeight uint64) (*Stake, error)
+	RandomRewardWeight(block common.Hash, eenAddr common.Address) int
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database"
@@ -468,7 +468,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 		copy(seed[2*binary.MaxVarintLen64:], guardianVotes.Block[:])
 
 		var err error
-		samples[i], err = rand.Int(NewHashRand(seed), totalStake)
+		samples[i], err = rand.Int(util.NewHashRand(seed), totalStake)
 		if err != nil {
 			// Should not reach here
 			logger.Panic(err)
@@ -542,31 +542,6 @@ type BigIntSort []*big.Int
 func (s BigIntSort) Len() int           { return len(s) }
 func (s BigIntSort) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
 func (s BigIntSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-// HashRand generate infinite number of random bytes by repeatedly hashing the seed
-type HashRand struct {
-	remaining []byte
-	curr      common.Hash
-}
-
-func NewHashRand(seed []byte) *HashRand {
-	return &HashRand{
-		remaining: []byte{},
-		curr:      crypto.Keccak256Hash(seed),
-	}
-}
-
-func (r *HashRand) Read(buf []byte) (int, error) {
-	if len(r.remaining) != 0 {
-		n := copy(buf, r.remaining)
-		r.remaining = r.remaining[n:]
-		return n, nil
-	}
-	r.curr = crypto.Keccak256Hash(r.curr[:])
-	n := copy(buf, r.curr[:])
-	r.remaining = r.curr[n:]
-	return n, nil
-}
 
 type BeneficiaryData struct {
 	StakeAmount     *big.Int       // total amount of stake staked to the Holder

@@ -431,6 +431,10 @@ func (sv *StoreView) RemoveEliteEdgeNodeStakeReturns(height uint64) {
 	sv.Delete(EliteEdgeNodeStakeReturnsKey(height))
 }
 
+func (sv *StoreView) GetTotalEENStake(height uint32) *big.Int {
+	return nil
+}
+
 func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }

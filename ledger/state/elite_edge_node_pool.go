@@ -1,15 +1,20 @@
 package state
 
 import (
+	crand "crypto/rand"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/ledger/types"
 )
+
+const eenpRewardN = 400 // Reward receiver sampling params
 
 //
 // ------- EliteEdgeNodePool ------- //
@@ -26,6 +31,42 @@ func NewEliteEdgeNodePool(sv *StoreView, readOnly bool) *EliteEdgeNodePool {
 		readOnly: readOnly,
 		sv:       sv,
 	}
+}
+
+// Contains checks if given address is in the pool.
+func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr common.Address) int {
+	een := eenp.Get(eenAddr)
+	if een == nil {
+		return 0
+	}
+	totalStake := eenp.sv.GetTotalEENStake(uint32(eenp.sv.Height()))
+	stake := een.TotalStake()
+
+	return sampleEENWeight(util.NewHashRand(block.Bytes()), stake, totalStake)
+}
+
+func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int {
+	b := new(big.Int).Div(stake, core.MinEliteEdgeNodeStakeDeposit)
+
+	base := new(big.Int).SetUint64(1e18)
+
+	p := new(big.Int).Mul(base, big.NewInt(eenpRewardN))
+	p.Mul(p, stake)
+	p.Div(p, totalStake)
+	p.Div(p, b)
+
+	weight := 0
+	for i := 0; i < int(b.Int64()); i++ {
+		r, err := crand.Int(reader, base)
+		if err != nil {
+			log.Panicf("Failed to generate random number: %v", err)
+		}
+		if r.Cmp(p) < 0 {
+			weight++
+		}
+	}
+
+	return weight
 }
 
 // Contains checks if given address is in the pool.
