@@ -593,7 +593,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 
 		// Elite Edge node votes must be valid.
 		eenp, err := e.ledger.GetEliteEdgeNodePool(block.EliteEdgeNodeVotes.Block)
-		if err != nil {
+		if err != nil || eenp == nil {
 			e.logger.WithFields(log.Fields{
 				"block.Hash":               block.Hash().Hex(),
 				"block.Height":             block.Height,
@@ -602,13 +602,14 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 			}).Warn("Failed to load elite edge node pool")
 			return result.Error("Failed to load elite edge node pool")
 		}
-		if res := block.EliteEdgeNodeVotes.Validate(eenp); res.IsError() {
+		eenpWithStake := eenp.WithStake()
+		if res := block.EliteEdgeNodeVotes.Validate(eenpWithStake); res.IsError() {
 			e.logger.WithFields(log.Fields{
 				"block.Hash":               block.Hash().Hex(),
 				"block.Height":             block.Height,
 				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
 				"error":                    res.String(),
-			}).Warn("Failed to load elite edge node pool")
+			}).Warn("Failed to validate elite edge node votes attached to the block")
 			return result.Error("Elite Edge Node votes are not valid")
 		}
 	} else {
