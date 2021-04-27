@@ -72,7 +72,7 @@ func NewAggregatedEENVotes(block common.Hash) *AggregatedEENVotes {
 }
 
 func (a *AggregatedEENVotes) String() string {
-	return fmt.Sprintf("AggregatedEENVotes{Block: %s, Multiplies: %v}", a.Block.Hex(), a.Multiplies)
+	return fmt.Sprintf("AggregatedEENVotes{Block: %s, Addresses: %v, Multiplies: %v}", a.Block.Hex(), a.Addresses, a.Multiplies)
 }
 
 // signBytes returns the bytes to be signed.
@@ -115,9 +115,10 @@ func (a *AggregatedEENVotes) Merge(b *AggregatedEENVotes) (*AggregatedEENVotes, 
 		cmp := bytes.Compare(a.Addresses[i].Bytes(), b.Addresses[j].Bytes())
 		if cmp == 0 {
 			sum := a.Multiplies[i] + b.Multiplies[j]
-			if sum < a.Multiplies[i] || sum < b.Multiplies[i] {
+			if sum < a.Multiplies[i] || sum < b.Multiplies[j] {
 				return nil, errors.New("Signiature multipliers overflowed")
 			}
+			newAddresses = append(newAddresses, a.Addresses[i])
 			newMultiplies = append(newMultiplies, sum)
 			i++
 			j++

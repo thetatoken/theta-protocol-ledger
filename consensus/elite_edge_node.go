@@ -187,7 +187,7 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 			"e.nextVote.Multiplies": e.nextVote.Multiplies,
 			"e.nextVote.Block":      e.nextVote.Block.Hex(),
 			"error":                 err.Error(),
-		}).Info("Failed to merge aggregated elite edge node vote")
+		}).Debug("Failed to merge aggregated elite edge node vote")
 	}
 	if candidate == nil {
 		// Incoming vote is subset of the current nextVote.
@@ -205,7 +205,7 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
 			"local.vote.Multiplies": e.nextVote.Multiplies,
-		}).Info("Skipping aggregated elite edge node vote: candidate vote overflows")
+		}).Debug("Skipping aggregated elite edge node vote: candidate vote overflows")
 		return
 	}
 
@@ -215,7 +215,7 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 		"local.block":           e.block.Hex(),
 		"local.round":           e.round,
 		"local.vote.Multiplies": e.nextVote.Multiplies,
-	}).Info("New aggregated elite edge node vote")
+	}).Debug("New aggregated elite edge node vote")
 }
 
 func (e *EliteEdgeNodeEngine) HandleVote(vote *core.EENVote) {
@@ -250,7 +250,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-		}).Info("The elite edge node pool is nil, cannot validate vote")
+		}).Debug("The elite edge node pool is nil, cannot validate vote")
 		return
 	}
 
@@ -259,7 +259,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-		}).Info("Ignoring elite edge node vote: local not ready")
+		}).Debug("Ignoring elite edge node vote: local not ready")
 		return
 	}
 	if vote.Block != e.block {
@@ -267,7 +267,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-		}).Info("Ignoring elite edge node vote: block hash does not match with local candidate")
+		}).Debug("Ignoring elite edge node vote: block hash does not match with local candidate")
 		return
 	}
 
@@ -287,7 +287,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-		}).Info("Ignoring elite edge node vote: no random reward for this checkpoint")
+		}).Debug("Ignoring elite edge node vote: no random reward for this checkpoint")
 		return
 	}
 
@@ -298,7 +298,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.round":  e.round,
 			"vote.block":   vote.Block.Hex(),
 			"vote.address": vote.Address,
-		}).Info("Ignoring elite edge node vote: failed to get pubkey")
+		}).Debug("Ignoring elite edge node vote: failed to get pubkey")
 	}
 	if result := vote.Validate(pubkeys[0]); result.IsError() {
 		e.logger.WithFields(log.Fields{
@@ -307,7 +307,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"vote.block":   vote.Block.Hex(),
 			"vote.address": vote.Address,
 			"result":       result.Message,
-		}).Info("Ignoring elite edge node vote: invalid signature")
+		}).Debug("Ignoring elite edge node vote: invalid signature")
 		return
 	}
 
@@ -322,7 +322,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring aggregated elite edge node vote: local not ready")
+		}).Debug("Ignoring aggregated elite edge node vote: local not ready")
 		return
 	}
 	if vote.Block != e.block {
@@ -331,7 +331,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring aggregated elite edge node vote: block hash does not match with local candidate")
+		}).Debug("Ignoring aggregated elite edge node vote: block hash does not match with local candidate")
 		return
 	}
 	if !e.checkMultipliesForRound(vote, e.round) {
@@ -340,7 +340,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
-		}).Info("Ignoring aggregated elite edge node vote: mutiplies exceed limit for round")
+		}).Debug("Ignoring aggregated elite edge node vote: mutiplies exceed limit for round")
 		return
 	}
 	if result := vote.Validate(e.eenp); result.IsError() {
@@ -350,7 +350,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"vote.block":     vote.Block.Hex(),
 			"vote.Mutiplies": vote.Multiplies,
 			"error":          result.Message,
-		}).Info("Ignoring aggregated elite edge node vote: invalid vote")
+		}).Debug("Ignoring aggregated elite edge node vote: invalid vote")
 		return
 	}
 
