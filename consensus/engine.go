@@ -608,7 +608,7 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.Height":             block.Height,
 				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
 				"error":                    res.String(),
-			}).Warn("Failed to load elite edge node pool")
+			}).Warn("Failed to validate elite edge node votes attached to the block")
 			return result.Error("Elite Edge Node votes are not valid")
 		}
 	} else {
