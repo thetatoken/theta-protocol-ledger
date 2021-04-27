@@ -408,7 +408,7 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 
 	if blockHeight >= common.HeightEnableTheta3 {
 		srdsr := view.GetStakeRewardDistributionRuleSet()
-		handleEliteEdgeNodeRewardSplit(accountReward, &stakeSourceMap, eliteEdgeNodePool, srdsr)
+		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &stakeSourceMap, eliteEdgeNodePool, srdsr)
 	}
 }
 
@@ -551,11 +551,23 @@ func handleGuardianNodeRewardSplit(accountRewardMap *map[string]types.Coins, sta
 	handleRewardSplit(accountRewardMap, &splitMap)
 }
 
-func handleEliteEdgeNodeRewardSplit(accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
+func handleEliteEdgeNodeRewardSplit(eenAddresses []common.Address, accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
 	eliteEdgeNodePool core.EliteEdgeNodePool, srdrs *core.StakeRewardDistributionRuleSet) {
 	splitMap := map[string](*SplitMetadata){}
 
-	for _, een := range eliteEdgeNodePool.GetAll(true) {
+	// for _, een := range eliteEdgeNodePool.GetAll(true) {
+	// 	stakeHolder := een.Holder
+	// 	holderStakes := een.Stakes
+	// 	addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
+	// }
+
+	// To reduce runtime, we only count the voted and sampled elite edge nodes.
+	// This should not create bias in reward calculation
+	for _, eenAddr := range eenAddresses {
+		een := eliteEdgeNodePool.Get(eenAddr)
+		if een == nil {
+			logger.Panicf("Failed to retrieve EEN %v from the elite edge node pool", eenAddr)
+		}
 		stakeHolder := een.Holder
 		holderStakes := een.Stakes
 		addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
