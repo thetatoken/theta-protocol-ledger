@@ -242,10 +242,9 @@ func (exec *DepositStakeExecutor) checkBLSSummary(tx *types.DepositStakeTxV2) re
 func (exec *DepositStakeExecutor) getEliteEdgeNodeStake(view *st.StoreView, eenAddr common.Address) *big.Int {
 	eenp := state.NewEliteEdgeNodePool(view, true)
 
-	for _, een := range eenp.GetAll(true) {
-		if een.Holder == eenAddr {
-			return een.TotalStake()
-		}
+	een := eenp.Get(eenAddr)
+	if een != nil {
+		return een.TotalStake()
 	}
 
 	return big.NewInt(0)
