@@ -16,7 +16,7 @@ import (
 const (
 	maxEENLogNeighbors    uint32 = 3 // Estimated number of neighbors during gossip = 2**3 = 8
 	maxEENRound                  = 20
-	sampleResultCacheSize        = 1024
+	sampleResultCacheSize        = 1000000
 )
 
 type EliteEdgeNodeEngine struct {

@@ -191,7 +191,7 @@ func (a *AggregatedEENVotes) Validate(eenp EliteEdgeNodePool) result.Result {
 	if len(a.Addresses) == 0 {
 		return result.Error("aggregated vote is empty")
 	}
-	if len(a.Addresses) != a.Abs() || len(a.Addresses) != len(a.Multiplies) {
+	if len(a.Addresses) != len(a.Multiplies) {
 		return result.Error("aggregate vote lengths are inconsisent")
 	}
 	for i := 0; i < len(a.Addresses)-1; i++ {

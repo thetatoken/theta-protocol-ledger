@@ -169,10 +169,7 @@ func RetrievePools(ledger core.Ledger, chain *blockchain.Chain, db database.Data
 
 			if eliteEdgeNodeVotes != nil {
 				if eliteEdgeNodeVotes.Block == guardianVotes.Block {
-					eliteEdgeNodePool, err = ledger.GetEliteEdgeNodePoolOfLastCheckpoint(eliteEdgeNodeVotes.Block)
-					if err != nil {
-						logger.Panic(err)
-					}
+					eliteEdgeNodePool = st.NewEliteEdgeNodePool(storeView, true)
 				} else {
 					logger.Warnf("Elite edge nodes vote for block %v, while guardians vote for block %v, skip rewarding the elite edge nodes",
 						eliteEdgeNodeVotes.Block.Hex(), guardianVotes.Block.Hex())
@@ -385,7 +382,7 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 	totalStake := new(big.Int)
 
 	for _, eenAddr := range eliteEdgeNodeVotes.Addresses {
-		weight := eliteEdgeNodePool.RandomRewardWeight(eliteEdgeNodeVotes.Block, eenAddr)
+		weight := big.NewInt(int64(eliteEdgeNodePool.RandomRewardWeight(eliteEdgeNodeVotes.Block, eenAddr)))
 		een := eliteEdgeNodePool.Get(eenAddr)
 		for _, stake := range een.Stakes {
 			if stake.Withdrawn {
@@ -394,9 +391,8 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 			if _, ok := stakeSourceMap[stake.Source]; !ok {
 				stakeSourceMap[stake.Source] = new(big.Int)
 			}
-			weightedStake := new(big.Int).Mul(stake.Amount, big.NewInt(int64(weight)))
-			stakeSourceMap[stake.Source].Add(stakeSourceMap[stake.Source], weightedStake)
-			totalStake.Add(totalStake, weightedStake)
+			stakeSourceMap[stake.Source].Add(stakeSourceMap[stake.Source], weight)
+			totalStake.Add(totalStake, weight)
 		}
 	}
 
