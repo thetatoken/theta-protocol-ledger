@@ -284,7 +284,7 @@ func (e *ConsensusEngine) mainLoop() {
 				eenv := e.eliteEdgeNode.GetVoteToBroadcast()
 
 				if eenv != nil {
-					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": v}).Debug("Broadcasting aggregated elite edge node vote")
+					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": eenv}).Debug("Broadcasting aggregated elite edge node vote")
 					e.broadcastAggregatedEliteEdgeNodeVotes(eenv)
 				}
 				e.eliteEdgeNode.StartNewRound()

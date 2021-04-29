@@ -321,6 +321,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
+			"vote.Addresses": vote.Addresses,
 			"vote.Mutiplies": vote.Multiplies,
 		}).Debug("Ignoring aggregated elite edge node vote: local not ready")
 		return
@@ -330,6 +331,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
+			"vote.Addresses": vote.Addresses,
 			"vote.Mutiplies": vote.Multiplies,
 		}).Debug("Ignoring aggregated elite edge node vote: block hash does not match with local candidate")
 		return
@@ -339,6 +341,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
+			"vote.Addresses": vote.Addresses,
 			"vote.Mutiplies": vote.Multiplies,
 		}).Debug("Ignoring aggregated elite edge node vote: mutiplies exceed limit for round")
 		return
@@ -348,6 +351,7 @@ func (e *EliteEdgeNodeEngine) validateAggregatedVote(vote *core.AggregatedEENVot
 			"local.block":    e.block.Hex(),
 			"local.round":    e.round,
 			"vote.block":     vote.Block.Hex(),
+			"vote.Addresses": vote.Addresses,
 			"vote.Mutiplies": vote.Multiplies,
 			"error":          result.Message,
 		}).Debug("Ignoring aggregated elite edge node vote: invalid vote")
