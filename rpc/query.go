@@ -681,7 +681,7 @@ type GetEenpResult struct {
 
 type BlockHashEenpPair struct {
 	BlockHash common.Hash
-	Eenp      core.EliteEdgeNodePool
+	EENs      []*core.EliteEdgeNode
 }
 
 func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *GetEenpResult) (err error) {
@@ -703,9 +703,10 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
 		}
 		eenp := state.NewEliteEdgeNodePool(blockStoreView, true)
+		eens := eenp.GetAll(false)
 		blockHashEenpPairs = append(blockHashEenpPairs, BlockHashEenpPair{
 			BlockHash: blockHash,
-			Eenp:      eenp,
+			EENs:      eens,
 		})
 	}
 
