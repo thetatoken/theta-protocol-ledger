@@ -271,13 +271,13 @@ func (eenp *EliteEdgeNodePool) ReturnStake(currentHeight uint64, holder common.A
 				return err
 			}
 
-			break // only one stake to be returned
-		}
+			if len(een.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candidate anymore
+				eenp.Remove(een)
+			} else {
+				eenp.Upsert(een)
+			}
 
-		if len(een.Stakes) == 0 { // the candidate's stake becomes zero, no need to keep track of the candidate anymore
-			eenp.Remove(een)
-		} else {
-			eenp.Upsert(een)
+			break // only one stake to be returned
 		}
 	}
 
