@@ -52,6 +52,10 @@ func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int 
 		return 0
 	}
 
+	if totalStake.Cmp(big.NewInt(0)) < 0 {
+		logger.Panicf("Negative total stake: %v", totalStake)
+	}
+
 	b := new(big.Int).Div(stake, core.MinEliteEdgeNodeStakeDeposit)
 
 	base := new(big.Int).SetUint64(1e18)
