@@ -19,7 +19,7 @@ import (
 var stakeReturnsCmd = &cobra.Command{
 	Use:     "stake_returns",
 	Short:   "Get stake returns",
-	Example: `thetacli query stake_returns --height=10`,
+	Example: `thetacli query stake_returns, thetacli query stake_returns --height=800`,
 	Run:     doStakeReturnsCmd,
 }
 
@@ -55,6 +55,6 @@ func doStakeReturnsCmd(cmd *cobra.Command, args []string) {
 
 func init() {
 	stakeReturnsCmd.Flags().Uint8Var(&purposeFlag, "purpose", uint8(2), "purpose of the stake return query, validator_node=0, guardian_node=1, elite_edge_node=2")
-	stakeReturnsCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
+	stakeReturnsCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block, if height=0 the command returns all the pending stake returns")
 	//stakeReturnsCmd.MarkFlagRequired("height")
 }
