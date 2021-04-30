@@ -18,7 +18,7 @@ import (
 //		thetacli query eenp --height=10
 var srdrsCmd = &cobra.Command{
 	Use:     "srdrs",
-	Short:   "Get stake rewward distribution rule set",
+	Short:   "Get stake reward distribution rule set",
 	Example: `thetacli query srdrs --height=10`,
 	Run:     doSrdrsCmd,
 }
@@ -29,10 +29,10 @@ func doSrdrsCmd(cmd *cobra.Command, args []string) {
 	height := heightFlag
 	res, err := client.Call("theta.GetStakeRewardDistributionByHeight", rpc.GetStakeRewardDistributionRuleSetByHeightArgs{Height: common.JSONUint64(height)})
 	if err != nil {
-		utils.Error("Failed to get stake rewward distribution rule set: %v\n", err)
+		utils.Error("Failed to get stake reward distribution rule set: %v\n", err)
 	}
 	if res.Error != nil {
-		utils.Error("Failed to get stake rewward distribution rule set: %v\n", res.Error)
+		utils.Error("Failed to get stake reward distribution rule set: %v\n", res.Error)
 	}
 	json, err := json.MarshalIndent(res.Result, "", "    ")
 	if err != nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -757,6 +758,74 @@ func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
 	}
 
 	result.BlockHashStakeRewardDistributionRuleSetPairs = blockHashSrdrsPairs
+
+	return nil
+}
+
+// ------------------------------ GetEliteEdgeNodeStakeReturnsByHeight -----------------------------------
+
+type GetEliteEdgeNodeStakeReturnsByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetEliteEdgeNodeStakeReturnsByHeightResult struct {
+	EENStakeReturns []state.StakeWithHolder
+}
+
+func (t *ThetaRPCService) GetEliteEdgeNodeStakeReturnsByHeight(
+	args *GetEliteEdgeNodeStakeReturnsByHeightArgs, result *GetEliteEdgeNodeStakeReturnsByHeightResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	height := uint64(args.Height)
+	result.EENStakeReturns = deliveredView.GetEliteEdgeNodeStakeReturns(height)
+
+	return nil
+}
+
+// ------------------------------ GetAllPendingEliteEdgeNodeStakeReturns -----------------------------------
+
+type HeightStakeReturnsPair struct {
+	HeightKey       string
+	EENStakeReturns []state.StakeWithHolder
+}
+
+type GetAllPendingEliteEdgeNodeStakeReturnsArgs struct {
+}
+
+type GetAllPendingEliteEdgeNodeStakeReturnsResult struct {
+	EENHeightStakeReturnsPairs []HeightStakeReturnsPair
+}
+
+func (t *ThetaRPCService) GetAllPendingEliteEdgeNodeStakeReturns(
+	args *GetAllPendingEliteEdgeNodeStakeReturnsArgs, result *GetAllPendingEliteEdgeNodeStakeReturnsResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	eenHeightStakeReturnsPairs := []HeightStakeReturnsPair{}
+	cb := func(k, v common.Bytes) bool {
+		srList := []state.StakeWithHolder{}
+		err := types.FromBytes(v, &srList)
+		if err != nil {
+			log.Panicf("GetAllPendingEliteEdgeNodeStakeReturns: Error reading StakeWithHolder %X, error: %v",
+				v, err.Error())
+		}
+
+		eenHeightStakeReturnsPairs = append(eenHeightStakeReturnsPairs, HeightStakeReturnsPair{
+			HeightKey:       string(k),
+			EENStakeReturns: srList,
+		})
+		return true
+	}
+
+	prefix := state.EliteEdgeNodeStakeReturnsKeyPrefix()
+	deliveredView.Traverse(prefix, cb)
+
+	result.EENHeightStakeReturnsPairs = eenHeightStakeReturnsPairs
 
 	return nil
 }

@@ -374,6 +374,8 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 		panic("guardianVotes == nil")
 	}
 
+	logger.Debugf("grantEliteEdgeNodeReward: guardianVotes = %v, eliteEdgeNodeVotes = %v", guardianVotes, eliteEdgeNodeVotes)
+
 	if eliteEdgeNodeVotes == nil || eliteEdgeNodePool == nil {
 		return
 	}
@@ -393,11 +395,15 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 			}
 			stakeSourceMap[stake.Source].Add(stakeSourceMap[stake.Source], weight)
 			totalStake.Add(totalStake, weight)
+
+			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, weight = %v, stake = %v", eenAddr, weight, stake)
 		}
 	}
 
 	// the source of the stake divides the block reward proportional to their stake
 	totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
+
+	logger.Debugf("grantEliteEdgeNodeReward: totalStake = %v, totalReward = %v", totalStake, totalReward)
 
 	// the source of the stake divides the block reward proportional to their stake
 	issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")

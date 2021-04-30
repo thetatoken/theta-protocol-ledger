@@ -78,10 +78,15 @@ func StakeRewardDistributionRuleSetKey() common.Bytes {
 	return common.Bytes("ls/srdrs")
 }
 
+//EliteEdgeNodeStakeReturnsKeyPrefix returns the prefix of the elite edge node stake return key
+func EliteEdgeNodeStakeReturnsKeyPrefix() common.Bytes {
+	return common.Bytes("ls/eensrk/")
+}
+
 //EliteEdgeNodeStakeReturnsKey returns the EEN stake return key for the given height
 func EliteEdgeNodeStakeReturnsKey(height uint64) common.Bytes {
 	heightStr := strconv.FormatUint(height, 10)
-	return common.Bytes("ls/eensrk/" + heightStr)
+	return common.Bytes(string(EliteEdgeNodeStakeReturnsKeyPrefix()) + heightStr)
 }
 
 func EliteEdgeNodesTotalActiveStakeKey() common.Bytes {

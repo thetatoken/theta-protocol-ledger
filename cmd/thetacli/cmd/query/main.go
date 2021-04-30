@@ -5,6 +5,7 @@ import (
 )
 
 var (
+	purposeFlag      uint8
 	heightFlag       uint64
 	addressFlag      string
 	previewFlag      bool
@@ -32,6 +33,7 @@ func init() {
 	QueryCmd.AddCommand(gcpCmd)
 	QueryCmd.AddCommand(eenpCmd)
 	QueryCmd.AddCommand(srdrsCmd)
+	QueryCmd.AddCommand(stakeReturnsCmd)
 	QueryCmd.AddCommand(peersCmd)
 	QueryCmd.AddCommand(versionCmd)
 }
