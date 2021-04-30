@@ -46,6 +46,12 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 }
 
 func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int {
+	if stake.Cmp(big.NewInt(0)) == 0 {
+		// could happen when we sample an EEN whose stakes are all withdrawn, e.g. when
+		// validating the votes from an EEN with all stakes withdrawn
+		return 0
+	}
+
 	b := new(big.Int).Div(stake, core.MinEliteEdgeNodeStakeDeposit)
 
 	base := new(big.Int).SetUint64(1e18)
