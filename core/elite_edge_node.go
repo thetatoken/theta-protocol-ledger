@@ -223,6 +223,10 @@ func (a *AggregatedEENVotes) Copy() *AggregatedEENVotes {
 		clone.Multiplies = make([]uint32, len(a.Multiplies))
 		copy(clone.Multiplies, a.Multiplies)
 	}
+	if a.Addresses != nil {
+		clone.Addresses = make([]common.Address, len(a.Addresses))
+		copy(clone.Addresses, a.Addresses)
+	}
 	if a.Signature != nil {
 		clone.Signature = a.Signature.Copy()
 	}
