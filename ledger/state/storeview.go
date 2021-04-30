@@ -408,7 +408,7 @@ func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []StakeWithHold
 	}
 
 	returnedStakes := []StakeWithHolder{}
-	err := types.FromBytes(data, returnedStakes)
+	err := types.FromBytes(data, &returnedStakes)
 	if err != nil {
 		log.Panicf("Error reading elite edge stake returns %v, error: %v",
 			data, err.Error())
