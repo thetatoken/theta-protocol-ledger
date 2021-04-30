@@ -438,18 +438,18 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	// Genesis storeview
 	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
-	writeStoreViewV3(genesisSV, false, writer, db, common.Hash{})
+	writeStoreViewV3(genesisSV, false, writer, db)
 
 	// Last checkpoint storeview
 	if lastFinalizedBlock.Height != lastCheckpointHeight {
 		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
-		writeStoreViewV3(lastCheckpointSV, false, writer, db, genesisSV.Hash())
+		writeStoreViewV3(lastCheckpointSV, false, writer, db)
 	}
 
 	// Parent block storeview
 	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
-	writeStoreViewV3(parentSV, false, writer, db, genesisSV.Hash())
-	writeStoreViewV3(sv, true, writer, db, parentSV.Hash())
+	writeStoreViewV3(parentSV, false, writer, db)
+	writeStoreViewV3(sv, true, writer, db)
 
 	return filename, nil
 }
@@ -536,8 +536,8 @@ func writeStoreView(sv *state.StoreView, needAccountStorage bool, writer *bufio.
 	writer.Flush()
 }
 
-func writeStoreViewV3(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database, base common.Hash) {
-	writeTrie(sv.Hash(), writer, db, base)
+func writeStoreViewV3(sv *state.StoreView, needAccountStorage bool, writer *bufio.Writer, db database.Database) {
+	writeTrie(sv.Hash(), writer, db)
 
 	if needAccountStorage {
 		sv.GetStore().Traverse(nil, func(k, v common.Bytes) bool {
@@ -549,7 +549,7 @@ func writeStoreViewV3(sv *state.StoreView, needAccountStorage bool, writer *bufi
 					panic(err)
 				}
 				if account.Root != (common.Hash{}) {
-					writeTrie(account.Root, writer, db, common.Hash{})
+					writeTrie(account.Root, writer, db)
 				}
 			}
 			return true
@@ -557,21 +557,13 @@ func writeStoreViewV3(sv *state.StoreView, needAccountStorage bool, writer *bufi
 	}
 }
 
-func writeTrie(root common.Hash, writer *bufio.Writer, db database.Database, base common.Hash) {
+func writeTrie(root common.Hash, writer *bufio.Writer, db database.Database) {
 	tr, err := trie.New(root, trie.NewDatabase(db))
 	if err != nil {
 		log.Panic(err)
 	}
-	var it trie.NodeIterator
-	if !base.IsEmpty() {
-		baseTr, err := trie.New(base, trie.NewDatabase(db))
-		if err != nil {
-			log.Panic(err)
-		}
-		it, _ = trie.NewDifferenceIterator(baseTr.NodeIterator(nil), tr.NodeIterator(nil))
-	} else {
-		it = tr.NodeIterator(nil)
-	}
+
+	it := tr.NodeIterator(nil)
 	for it.Next(true) {
 		if it.Hash() != (common.Hash{}) {
 			hash := it.Hash()
