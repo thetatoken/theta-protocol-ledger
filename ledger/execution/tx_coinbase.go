@@ -380,41 +380,58 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 		return
 	}
 
-	stakeSourceMap := map[common.Address]*big.Int{}
-	totalStake := new(big.Int)
+	effectiveStakeMap := map[common.Address]*big.Int{} // map: staker (i.e. source) address => effective stake
+	totalEffectiveStake := new(big.Int)
 
+	amplifier := new(big.Int).SetUint64(1e18)
 	for _, eenAddr := range eliteEdgeNodeVotes.Addresses {
 		weight := big.NewInt(int64(eliteEdgeNodePool.RandomRewardWeight(eliteEdgeNodeVotes.Block, eenAddr)))
 		een := eliteEdgeNodePool.Get(eenAddr)
+
+		eenTotalStake := een.TotalStake()
+		if eenTotalStake.Cmp(big.NewInt(0)) == 0 {
+			continue
+		}
+
+		amplifiedWeight := big.NewInt(1).Mul(amplifier, weight)
 		for _, stake := range een.Stakes {
 			if stake.Withdrawn {
 				continue
 			}
-			if _, ok := stakeSourceMap[stake.Source]; !ok {
-				stakeSourceMap[stake.Source] = new(big.Int)
+			if _, ok := effectiveStakeMap[stake.Source]; !ok {
+				effectiveStakeMap[stake.Source] = new(big.Int)
 			}
-			stakeSourceMap[stake.Source].Add(stakeSourceMap[stake.Source], weight)
-			totalStake.Add(totalStake, weight)
 
-			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, weight = %v, stake = %v", eenAddr, weight, stake)
+			tmp := big.NewInt(1).Mul(amplifiedWeight, stake.Amount)
+			effectiveStake := tmp.Div(tmp, eenTotalStake)
+
+			effectiveStakeMap[stake.Source].Add(effectiveStakeMap[stake.Source], effectiveStake)
+			totalEffectiveStake.Add(totalEffectiveStake, effectiveStake)
+
+			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, eenTotalStake = %v, weight = %v, staker: %v, stake = %v, effectiveStake = %v",
+				eenAddr, eenTotalStake, weight, stake.Source, stake.Amount, effectiveStake)
 		}
 	}
 
 	// the source of the stake divides the block reward proportional to their stake
 	totalReward := big.NewInt(1).Mul(eenTfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
 
-	logger.Debugf("grantEliteEdgeNodeReward: totalStake = %v, totalReward = %v", totalStake, totalReward)
+	logger.Debugf("grantEliteEdgeNodeReward: totalEffectiveStake = %v, totalReward = %v", totalEffectiveStake, totalReward)
 
 	// the source of the stake divides the block reward proportional to their stake
-	issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "EEN  ")
+	issueFixedReward(effectiveStakeMap, totalEffectiveStake, accountReward, totalReward, "EEN  ")
 
 	if blockHeight >= common.HeightEnableTheta3 {
 		srdsr := view.GetStakeRewardDistributionRuleSet()
-		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &stakeSourceMap, eliteEdgeNodePool, srdsr)
+		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &effectiveStakeMap, eliteEdgeNodePool, srdsr)
 	}
 }
 
 func issueFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+	if totalStake.Cmp(big.NewInt(0)) == 0 {
+		return
+	}
+
 	for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
 		tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
 		rewardAmount := tmp.Div(tmp, totalStake)
