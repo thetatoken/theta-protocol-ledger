@@ -45,6 +45,17 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 	return sampleEENWeight(util.NewHashRand(block.Bytes()), stake, totalStake)
 }
 
+//
+// The following sampling algorithm is based on Algorand's crypto sortition to randomly sample EENs.
+// Denote the expected TOTAL number of selected "stake units" by n, the stake of the EEN stake by S.
+// We essentially flip a biased coin (with head probability p) floor(S/S_min) times. And count the
+// number of heads as the number of selected "stake units" of this EEN.
+//
+// The head probability p = min(1.0, a * n * S_min / S_total), where a = (S/S_min) / floor(S/S_min).
+// The factor a is to compensate the cases where the stake S is not a multiple of S_min. It can be
+// proved that if a user split the stakes onto multiple nodes, the expected return won't changes, the
+// variance changes a bit but shouldn't be too big.
+//
 func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int {
 	if stake.Cmp(big.NewInt(0)) == 0 || totalStake.Cmp(big.NewInt(0)) == 0 {
 		// could happen when we sample an EEN whose stakes are all withdrawn, e.g. when
@@ -74,6 +85,8 @@ func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int 
 		if r.Cmp(p) < 0 {
 			weight++
 		}
+
+		//logger.Debugf("elite edge node sampling: p = %v, r = %v, weight = %v, stake = %v, totalStake = %v", p, r, weight, stake, totalStake)
 	}
 
 	return weight
