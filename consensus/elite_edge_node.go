@@ -287,7 +287,7 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 			"local.block": e.block.Hex(),
 			"local.round": e.round,
 			"vote.block":  vote.Block.Hex(),
-		}).Debug("Ignoring elite edge node vote: no random reward for this checkpoint")
+		}).Debug("Ignoring elite edge node vote: not selected by random sampling")
 		return
 	}
 
