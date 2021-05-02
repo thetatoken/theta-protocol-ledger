@@ -26,7 +26,7 @@ var stakeRewardDistributionCmd = &cobra.Command{
 }
 
 func doStakeRewardDistributionCmd(cmd *cobra.Command, args []string) {
-	wallet, holderAddress, err := walletUnlockWithPath(cmd, holderFlag, pathFlag)
+	wallet, holderAddress, err := walletUnlockWithPath(cmd, holderFlag, pathFlag, passwordFlag)
 	if err != nil {
 		return
 	}
@@ -70,7 +70,12 @@ func doStakeRewardDistributionCmd(cmd *cobra.Command, args []string) {
 
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+	var res *rpcc.RPCResponse
+	if asyncFlag {
+		res, err = client.Call("theta.BroadcastRawTransactionAsync", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+	} else {
+		res, err = client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+	}
 	if err != nil {
 		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
@@ -90,6 +95,8 @@ func init() {
 	stakeRewardDistributionCmd.Flags().Uint64Var(&splitBasisPointFlag, "split_basis_point", 0, "fraction of the reward split in terms of basis point (1/10000). 100 basis point = 100/10000 = 1.00%")
 	stakeRewardDistributionCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	stakeRewardDistributionCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
+	stakeRewardDistributionCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
+	stakeRewardDistributionCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 
 	stakeRewardDistributionCmd.MarkFlagRequired("chain")
 	stakeRewardDistributionCmd.MarkFlagRequired("holder")

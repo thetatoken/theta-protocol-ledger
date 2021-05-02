@@ -35,6 +35,7 @@ var (
 	asyncFlag                    bool
 	beneficiaryFlag              string
 	splitBasisPointFlag          uint64
+	passwordFlag                 string
 )
 
 // TxCmd represents the Tx command
