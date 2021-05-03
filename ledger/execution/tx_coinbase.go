@@ -200,8 +200,14 @@ func CalculateReward(ledger core.Ledger, view *st.StoreView, validatorSet *core.
 		grantEliteEdgeNodeReward(ledger, view, guardianVotes, eliteEdgeNodeVotes, eliteEdgeNodePool, &accountReward, blockHeight)
 	}
 
-	for addr, reward := range accountReward {
-		logger.Infof("Total reward for staker %v : %v", hex.EncodeToString([]byte(addr)), reward)
+	addrs := []string{}
+	for addr := range accountReward {
+		addrs = append(addrs, addr)
+	}
+	sort.Strings(addrs)
+	for _, addr := range addrs {
+		reward := accountReward[addr]
+		logger.Infof("Total reward for account %v : %v", hex.EncodeToString([]byte(addr)), reward)
 	}
 
 	return accountReward
@@ -380,9 +386,10 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 		return
 	}
 
-	effectiveStakeMap := map[common.Address]*big.Int{} // map: staker (i.e. source) address => effective stake
-	totalEffectiveStake := new(big.Int)
+	effectiveStakeSumMap := map[common.Address]*big.Int{} // map: staker (i.e. source) address => effective stake sum, for EEN reward
+	stakeSumMap := map[common.Address]*big.Int{}          // map: staker (i.e. source) address => actual stake sum, for reward split
 
+	totalEffectiveStake := new(big.Int)
 	amplifier := new(big.Int).SetUint64(1e18)
 	for _, eenAddr := range eliteEdgeNodeVotes.Addresses {
 		weight := big.NewInt(int64(eliteEdgeNodePool.RandomRewardWeight(eliteEdgeNodeVotes.Block, eenAddr)))
@@ -398,15 +405,21 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 			if stake.Withdrawn {
 				continue
 			}
-			if _, ok := effectiveStakeMap[stake.Source]; !ok {
-				effectiveStakeMap[stake.Source] = new(big.Int)
-			}
 
+			// for EEN reward calculation
+			if _, ok := effectiveStakeSumMap[stake.Source]; !ok {
+				effectiveStakeSumMap[stake.Source] = new(big.Int)
+			}
 			tmp := big.NewInt(1).Mul(amplifiedWeight, stake.Amount)
 			effectiveStake := tmp.Div(tmp, eenTotalStake)
-
-			effectiveStakeMap[stake.Source].Add(effectiveStakeMap[stake.Source], effectiveStake)
+			effectiveStakeSumMap[stake.Source].Add(effectiveStakeSumMap[stake.Source], effectiveStake)
 			totalEffectiveStake.Add(totalEffectiveStake, effectiveStake)
+
+			// for reward split calculation
+			if _, ok := stakeSumMap[stake.Source]; !ok {
+				stakeSumMap[stake.Source] = new(big.Int)
+			}
+			stakeSumMap[stake.Source].Add(stakeSumMap[stake.Source], stake.Amount)
 
 			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, eenTotalStake = %v, weight = %v, staker: %v, stake = %v, effectiveStake = %v",
 				eenAddr, eenTotalStake, weight, stake.Source, stake.Amount, effectiveStake)
@@ -419,11 +432,11 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 	logger.Debugf("grantEliteEdgeNodeReward: totalEffectiveStake = %v, totalReward = %v", totalEffectiveStake, totalReward)
 
 	// the source of the stake divides the block reward proportional to their stake
-	issueFixedReward(effectiveStakeMap, totalEffectiveStake, accountReward, totalReward, "EEN  ")
+	issueFixedReward(effectiveStakeSumMap, totalEffectiveStake, accountReward, totalReward, "EEN  ")
 
 	if blockHeight >= common.HeightEnableTheta3 {
 		srdsr := view.GetStakeRewardDistributionRuleSet()
-		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &effectiveStakeMap, eliteEdgeNodePool, srdsr)
+		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &stakeSumMap, eliteEdgeNodePool, srdsr)
 	}
 }
 
@@ -619,10 +632,14 @@ func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accou
 
 		src := stake.Source
 		if stakeAmountSum, exists = (*stakeAmountSumMap)[src]; !exists {
+			// filter out the source addresses whose stake delegates (i.e. holder GN/EEN) are not selected (e.g. due to random sampling, or the GN vote multiplier is 0),
+			// since those stakes are not "active" so should not participate in the reward split
 			continue
 		}
 
 		if _, exists = (*accountRewardMap)[string(src[:])]; !exists {
+			// similarly to the above check, filter out the source addresses whose stake delegates (i.e. holder GN/EEN) are not selected (e.g. due to random sampling,
+			// or the GN vote multiplier is 0), since those stakes are not "active" so should not participate in the reward split
 			continue
 		}
 
@@ -650,6 +667,7 @@ func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[s
 	for srcAddr := range *accountRewardMap {
 		srcAddrs = append(srcAddrs, srcAddr)
 	}
+	sort.Strings(srcAddrs)
 
 	beneficiaryRewardMap := map[string]types.Coins{}
 	for _, srcAddr := range srcAddrs {
@@ -666,8 +684,13 @@ func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[s
 		for _, beneficiaryData := range splitMetadata.BeneficiaryDataList {
 			delegatedAmount = new(big.Int).Add(delegatedAmount, beneficiaryData.StakeAmount)
 		}
+
+		logger.Debugf("Reward redistribution metadata: delegatedAmount = %v, splitMetadata.StakeAmountSum = %v, splitMetadata = %v",
+			delegatedAmount, splitMetadata.StakeAmountSum, splitMetadata)
+
 		if delegatedAmount.Cmp(splitMetadata.StakeAmountSum) > 0 { // should never happen
-			logger.Panicf("Invalid split metadata: %v", splitMetadata)
+			logger.Panicf("Invalid reward redistribution  metadata: delegatedAmount = %v, splitMetadata.StakeAmountSum = %v, splitMetadata = %v",
+				delegatedAmount, splitMetadata.StakeAmountSum, splitMetadata)
 		}
 
 		reward := (*accountRewardMap)[srcAddr]
@@ -678,8 +701,12 @@ func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[s
 			tmp = tmp.Div(tmp, splitMetadata.StakeAmountSum)
 			beneficiarySplitAmount := tmp.Div(tmp, big.NewInt(10000))
 
+			logger.Debugf("Reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
+				beneficiarySplitAmount, reward.TFuelWei, splitMetadata)
+
 			if beneficiarySplitAmount.Cmp(reward.TFuelWei) > 0 {
-				logger.Panicf("Invalid split metadata: %v", splitMetadata)
+				logger.Panicf("Invalid reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
+					beneficiarySplitAmount, reward.TFuelWei, splitMetadata)
 			}
 
 			reward.TFuelWei = new(big.Int).Sub(reward.TFuelWei, beneficiarySplitAmount)
