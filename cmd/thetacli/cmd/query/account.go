@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/rpc"
 
 	"github.com/spf13/cobra"
@@ -27,7 +28,9 @@ func doAccountCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
 	res, err := client.Call("theta.GetAccount", rpc.GetAccountArgs{
-		Address: addressFlag, Preview: previewFlag})
+		Address: addressFlag,
+		Height:  common.JSONUint64(heightFlag),
+		Preview: previewFlag})
 	if err != nil {
 		utils.Error("Failed to get account details: %v\n", err)
 	}
@@ -43,6 +46,7 @@ func doAccountCmd(cmd *cobra.Command, args []string) {
 
 func init() {
 	accountCmd.Flags().StringVar(&addressFlag, "address", "", "Address of the account")
+	accountCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
 	accountCmd.Flags().BoolVar(&previewFlag, "preview", false, "Preview account balance from the screened view")
 	accountCmd.MarkFlagRequired("address")
 }

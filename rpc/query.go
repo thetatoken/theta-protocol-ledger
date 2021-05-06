@@ -60,24 +60,57 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 	}
 	address := common.HexToAddress(args.Address)
 	result.Address = args.Address
+	height := uint64(args.Height)
 
-	var ledgerState *state.StoreView
-	if args.Preview {
-		ledgerState, err = t.ledger.GetScreenedSnapshot()
+	if height == 0 { // get the latest
+		var ledgerState *state.StoreView
+		if args.Preview {
+			ledgerState, err = t.ledger.GetScreenedSnapshot()
+		} else {
+			ledgerState, err = t.ledger.GetFinalizedSnapshot()
+		}
+		if err != nil {
+			return err
+		}
+
+		account := ledgerState.GetAccount(address)
+		if account == nil {
+			return fmt.Errorf("Account with address %s is not found", address.Hex())
+		}
+		account.UpdateToHeight(ledgerState.Height())
+
+		result.Account = account
 	} else {
-		ledgerState, err = t.ledger.GetFinalizedSnapshot()
-	}
-	if err != nil {
-		return err
+		blocks := t.chain.FindBlocksByHeight(height)
+		if len(blocks) == 0 {
+			result.Account = nil
+			return nil
+		}
+
+		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		if err != nil {
+			return err
+		}
+		db := deliveredView.GetDB()
+
+		for _, b := range blocks {
+			if b.Status.IsFinalized() {
+				stateRoot := b.StateHash
+				ledgerState := state.NewStoreView(height, stateRoot, db)
+				if ledgerState == nil { // might have been pruned
+					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
+				}
+				account := ledgerState.GetAccount(address)
+				if account == nil {
+					return fmt.Errorf("Account with address %v is not found", address.Hex())
+				}
+				result.Account = account
+				break
+			}
+		}
+
 	}
 
-	account := ledgerState.GetAccount(address)
-	if account == nil {
-		return fmt.Errorf("Account with address %s is not found", address.Hex())
-	}
-	account.UpdateToHeight(ledgerState.Height())
-
-	result.Account = account
 	return nil
 }
 
