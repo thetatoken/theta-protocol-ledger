@@ -125,7 +125,7 @@ func (exec *StakeRewardDistributionTxExecutor) process(chainID string, view *st.
 
 	stakeHolderAddress := tx.Holder.Address
 	if tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode {
-		srdsr := view.GetStakeRewardDistributionRuleSet()
+		srdsr := state.NewStakeRewardDistributionRuleSet(view)
 
 		splitBasisPoint := tx.SplitBasisPoint
 		if splitBasisPoint > 10000 {
@@ -143,8 +143,6 @@ func (exec *StakeRewardDistributionTxExecutor) process(chainID string, view *st.
 			}
 			srdsr.Upsert(rd)
 		}
-
-		view.UpdateStakeRewardDistributionRuleSet(srdsr)
 	} else {
 		return common.Hash{}, result.Error("Invalid purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}

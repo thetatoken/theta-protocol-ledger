@@ -73,9 +73,15 @@ func StatePruningProgressKey() common.Bytes {
 	return common.Bytes("ls/spp")
 }
 
-// StakeRewardDistributionRuleSetKey returns the state key for the stake reward distribution rule set
-func StakeRewardDistributionRuleSetKey() common.Bytes {
-	return common.Bytes("ls/srdrs")
+// StakeRewardDistributionRuleSetKeyPrefix returns the prefix of the stake reward distribution rule
+func StakeRewardDistributionRuleSetKeyPrefix() common.Bytes {
+	return common.Bytes("ls/srdrs/")
+}
+
+// StakeRewardDistributionRuleSetKey returns the prefix of the stake reward distribution rule
+func StakeRewardDistributionRuleSetKey(addr common.Address) common.Bytes {
+	prefix := StakeRewardDistributionRuleSetKeyPrefix()
+	return append(prefix, addr[:]...)
 }
 
 //EliteEdgeNodeStakeReturnsKeyPrefix returns the prefix of the elite edge node stake return key

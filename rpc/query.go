@@ -43,9 +43,10 @@ func (t *ThetaRPCService) GetVersion(args *GetVersionArgs, result *GetVersionRes
 // ------------------------------- GetAccount -----------------------------------
 
 type GetAccountArgs struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Preview bool   `json:"preview"` // preview the account balance from the ScreenedView
+	Name    string            `json:"name"`
+	Address string            `json:"address"`
+	Height  common.JSONUint64 `json:"height"`
+	Preview bool              `json:"preview"` // preview the account balance from the ScreenedView
 }
 
 type GetAccountResult struct {
@@ -719,7 +720,8 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 // ------------------------------ GetStakeRewardDistributionRuleSetByHeight -----------------------------------
 
 type GetStakeRewardDistributionRuleSetByHeightArgs struct {
-	Height common.JSONUint64 `json:"height"`
+	Height  common.JSONUint64 `json:"height"`
+	Address string            `json:"address"` // the address of the stake holder, i.e. the guardian or elite edge node
 }
 
 type GetStakeRewardDistributionRuleSetResult struct {
@@ -728,7 +730,7 @@ type GetStakeRewardDistributionRuleSetResult struct {
 
 type BlockHashStakeRewardDistributionRuleSetPair struct {
 	BlockHash                      common.Hash
-	StakeRewardDistributionRuleSet *core.StakeRewardDistributionRuleSet
+	StakeRewardDistributionRuleSet []*core.RewardDistribution
 }
 
 func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
@@ -740,6 +742,7 @@ func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
 
 	db := deliveredView.GetDB()
 	height := uint64(args.Height)
+	addressStr := args.Address
 
 	blockHashSrdrsPairs := []BlockHashStakeRewardDistributionRuleSetPair{}
 	blocks := t.chain.FindBlocksByHeight(height)
@@ -750,10 +753,20 @@ func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
 		}
-		srdrs := blockStoreView.GetStakeRewardDistributionRuleSet()
+		srdrs := state.NewStakeRewardDistributionRuleSet(blockStoreView)
+
+		var stakeDistrList []*core.RewardDistribution
+		if addressStr != "" {
+			address := common.HexToAddress(addressStr)
+			rewardDistr := srdrs.Get(address)
+			stakeDistrList = []*core.RewardDistribution{rewardDistr}
+		} else {
+			stakeDistrList = srdrs.GetAll()
+		}
+
 		blockHashSrdrsPairs = append(blockHashSrdrsPairs, BlockHashStakeRewardDistributionRuleSetPair{
 			BlockHash:                      blockHash,
-			StakeRewardDistributionRuleSet: srdrs,
+			StakeRewardDistributionRuleSet: stakeDistrList,
 		})
 	}
 

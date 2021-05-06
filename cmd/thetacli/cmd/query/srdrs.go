@@ -25,9 +25,11 @@ var srdrsCmd = &cobra.Command{
 
 func doSrdrsCmd(cmd *cobra.Command, args []string) {
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
-
 	height := heightFlag
-	res, err := client.Call("theta.GetStakeRewardDistributionByHeight", rpc.GetStakeRewardDistributionRuleSetByHeightArgs{Height: common.JSONUint64(height)})
+	res, err := client.Call("theta.GetStakeRewardDistributionByHeight", rpc.GetStakeRewardDistributionRuleSetByHeightArgs{
+		Height:  common.JSONUint64(height),
+		Address: addressFlag,
+	})
 	if err != nil {
 		utils.Error("Failed to get stake reward distribution rule set: %v\n", err)
 	}
@@ -43,5 +45,6 @@ func doSrdrsCmd(cmd *cobra.Command, args []string) {
 
 func init() {
 	srdrsCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
+	srdrsCmd.Flags().StringVar(&addressFlag, "address", "", "Address of the account")
 	srdrsCmd.MarkFlagRequired("height")
 }

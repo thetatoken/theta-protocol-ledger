@@ -344,31 +344,6 @@ func (sv *StoreView) UpdateGuardianCandidatePool(gcp *core.GuardianCandidatePool
 	sv.Set(GuardianCandidatePoolKey(), gcpBytes)
 }
 
-// GetStakeRewardDistributionRuleSet gets stake reward distribution rule set
-func (sv *StoreView) GetStakeRewardDistributionRuleSet() *core.StakeRewardDistributionRuleSet {
-	data := sv.Get(StakeRewardDistributionRuleSetKey())
-	if data == nil || len(data) == 0 {
-		return core.NewStakeRewardDistributionRuleSet()
-	}
-	srdr := &core.StakeRewardDistributionRuleSet{}
-	err := types.FromBytes(data, srdr)
-	if err != nil {
-		log.Panicf("Error reading stake reward distribution rule set %X, error: %v",
-			data, err.Error())
-	}
-	return srdr
-}
-
-// UpdateStakeRewardDistributionRuleSet udpates the stake reward distribution rule set
-func (sv *StoreView) UpdateStakeRewardDistributionRuleSet(srdrs *core.StakeRewardDistributionRuleSet) {
-	srdrsBytes, err := types.ToBytes(srdrs)
-	if err != nil {
-		log.Panicf("Error writing stake reward distribution rule set %v, error: %v",
-			srdrs, err.Error())
-	}
-	sv.Set(StakeRewardDistributionRuleSetKey(), srdrsBytes)
-}
-
 // GetStakeTransactionHeightList gets the heights of blocks that contain stake related transactions
 func (sv *StoreView) GetStakeTransactionHeightList() *types.HeightList {
 	data := sv.Get(StakeTransactionHeightListKey())

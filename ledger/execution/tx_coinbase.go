@@ -13,6 +13,7 @@ import (
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/store/database"
@@ -363,7 +364,7 @@ func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, val
 	}
 
 	if blockHeight >= common.HeightEnableTheta3 {
-		srdsr := view.GetStakeRewardDistributionRuleSet()
+		srdsr := state.NewStakeRewardDistributionRuleSet(view)
 		handleGuardianNodeRewardSplit(accountReward, &stakeSourceMap, guardianPool, srdsr)
 	}
 }
@@ -435,7 +436,7 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 	issueFixedReward(effectiveStakeSumMap, totalEffectiveStake, accountReward, totalReward, "EEN  ")
 
 	if blockHeight >= common.HeightEnableTheta3 {
-		srdsr := view.GetStakeRewardDistributionRuleSet()
+		srdsr := state.NewStakeRewardDistributionRuleSet(view)
 		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &stakeSumMap, eliteEdgeNodePool, srdsr)
 	}
 }
@@ -571,7 +572,7 @@ type SplitMetadata struct {
 }
 
 func handleGuardianNodeRewardSplit(accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
-	guardianPool *core.GuardianCandidatePool, srdrs *core.StakeRewardDistributionRuleSet) {
+	guardianPool *core.GuardianCandidatePool, srdrs *state.StakeRewardDistributionRuleSet) {
 	splitMap := map[string](*SplitMetadata){}
 
 	for _, gn := range guardianPool.SortedGuardians {
@@ -584,7 +585,7 @@ func handleGuardianNodeRewardSplit(accountRewardMap *map[string]types.Coins, sta
 }
 
 func handleEliteEdgeNodeRewardSplit(eenAddresses []common.Address, accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
-	eliteEdgeNodePool core.EliteEdgeNodePool, srdrs *core.StakeRewardDistributionRuleSet) {
+	eliteEdgeNodePool core.EliteEdgeNodePool, srdrs *state.StakeRewardDistributionRuleSet) {
 	splitMap := map[string](*SplitMetadata){}
 
 	// for _, een := range eliteEdgeNodePool.GetAll(true) {
@@ -610,9 +611,9 @@ func handleEliteEdgeNodeRewardSplit(eenAddresses []common.Address, accountReward
 
 // splitMap: staker => staker's split metadata {staker's total stake, list of beneficiaries}
 func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accountRewardMap *map[string]types.Coins,
-	stakeAmountSumMap *map[common.Address]*big.Int, srdrs *core.StakeRewardDistributionRuleSet,
+	stakeAmountSumMap *map[common.Address]*big.Int, srdrs *state.StakeRewardDistributionRuleSet,
 	splitMap *(map[string](*SplitMetadata))) {
-	rewardDistr := srdrs.GetWithStakeHolderAddress(stakeHolder)
+	rewardDistr := srdrs.Get(stakeHolder)
 	if rewardDistr == nil {
 		return
 	}
