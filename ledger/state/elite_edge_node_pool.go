@@ -14,7 +14,7 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 )
 
-const eenpRewardN = 400 // Reward receiver sampling params
+const eenpRewardN = 800 // Reward receiver sampling params
 
 //
 // ------- EliteEdgeNodePool ------- //
