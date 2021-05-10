@@ -752,7 +752,7 @@ func (rm *RequestManager) passReadyBlocks() {
 				// Check if block's parent has already been added to chain. If not, skip block
 				found := false
 				for _, parent := range parents {
-					if parent.Hash() == block.Parent {
+					if parent.Hash() == block.Parent && parent.Status.IsValid() {
 						found = true
 						break
 					}
