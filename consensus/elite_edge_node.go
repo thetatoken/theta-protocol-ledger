@@ -284,9 +284,10 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 	selected, _ := e.eenSampleResult.Get(vote.Address)
 	if !selected.(bool) {
 		e.logger.WithFields(log.Fields{
-			"local.block": e.block.Hex(),
-			"local.round": e.round,
-			"vote.block":  vote.Block.Hex(),
+			"local.block":  e.block.Hex(),
+			"local.round":  e.round,
+			"vote.block":   vote.Block.Hex(),
+			"vote.address": vote.Address,
 		}).Debug("Ignoring elite edge node vote: not selected by random sampling")
 		return
 	}
