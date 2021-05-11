@@ -94,7 +94,7 @@ func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int 
 			weight++
 		}
 
-		//logger.Debugf("elite edge node sampling: p = %v, r = %v, weight = %v, stake = %v, totalStake = %v", p, r, weight, stake, totalStake)
+		//logger.Debugf("elite edge node sampling: p = %v, r = %v, base = %v, weight = %v, stake = %v, totalStake = %v", p, r, base, weight, stake, totalStake)
 	}
 
 	return weight
