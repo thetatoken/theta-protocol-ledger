@@ -37,14 +37,16 @@ func NewEliteEdgeNodePool(sv *StoreView, readOnly bool) *EliteEdgeNodePool {
 func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr common.Address) int {
 	een := eenp.Get(eenAddr)
 	if een == nil {
-		logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = 0, not staked yet",
-			eenAddr, block.Hex())
+		//logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = 0, not staked yet", eenAddr, block.Hex())
 		return 0
 	}
 	totalStake := eenp.sv.GetTotalEENStake()
 	stake := een.TotalStake()
 
-	weight := sampleEENWeight(util.NewHashRand(block.Bytes()), stake, totalStake)
+	seed := make([]byte, common.HashLength+common.AddressLength)
+	copy(seed, block.Bytes())
+	copy(seed[common.HashLength:], eenAddr[:])
+	weight := sampleEENWeight(util.NewHashRand(seed), stake, totalStake)
 
 	//logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = %v, stake = %v, totalStake = %v", eenAddr, block.Hex(), weight, stake, totalStake)
 
