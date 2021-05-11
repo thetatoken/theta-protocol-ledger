@@ -135,6 +135,9 @@ const (
 
 	// CfgForceGCEnabled to enable force GC
 	CfgForceGCEnabled = "gc.enabled"
+
+	// CfgDebugLogSelectedEENPs to enable logging of selected eenps
+	CfgDebugLogSelectedEENPs = "debug.logSelectedEENPs"
 )
 
 // Starting block heights of features.

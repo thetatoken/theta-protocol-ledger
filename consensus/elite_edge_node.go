@@ -77,6 +77,23 @@ func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
 	e.logger.WithFields(log.Fields{
 		"block": block.Hex(),
 	}).Debug("Starting new block")
+
+	if viper.GetBool(common.CfgDebugLogSelectedEENPs) {
+		count := 0
+		total := 0
+		for _, een := range eenp.GetAll(true) {
+			total++
+			if eenp.RandomRewardWeight(block, een.Holder) > 0 {
+				count++
+			}
+		}
+
+		e.logger.WithFields(log.Fields{
+			"block": block.Hex(),
+			"count": count,
+			"total": total,
+		}).Debug("Selected EENs")
+	}
 }
 
 func (e *EliteEdgeNodeEngine) StartNewRound() {
