@@ -19,6 +19,7 @@ import (
 // EENVote represents the vote for a block from an elite edge node.
 type EENVote struct {
 	Block     common.Hash    // Hash of the block.
+	Height    uint64         // Height of the block, just for reference
 	Address   common.Address // Address of the edge node.
 	Signature *bls.Signature // Aggregated signiature.
 }
@@ -48,8 +49,8 @@ func (e *EENVote) Validate(eenBLSPubkey *bls.PublicKey) result.Result {
 }
 
 func (e *EENVote) String() string {
-	return fmt.Sprintf("EENVote{Block: %s, Address: %v, Signature: %v}",
-		e.Block.Hex(), e.Address, e.signBytes())
+	return fmt.Sprintf("EENVote{Block: %s, Height: %v, Address: %v, Signature: %v}",
+		e.Block.Hex(), e.Height, e.Address, e.signBytes())
 }
 
 //
