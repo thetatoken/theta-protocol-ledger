@@ -702,6 +702,14 @@ func loadStateV3(file *os.File, db database.Database, fileSize uint64, logStr st
 			return fmt.Errorf("Failed to write snapshot record, %v", err)
 		}
 
+		// Set the ref count to 3 to be conservative as we have 3 state tries in the snapshot
+		for i := 0; i < 3; i++ {
+			err = batch.Reference(record.K)
+			if err != nil {
+				return fmt.Errorf("Failed to create reference of snapshot record, %v", err)
+			}
+		}
+
 		if batch.ValueSize() > database.IdealBatchSize {
 			if err := batch.Write(); err != nil {
 				return err
