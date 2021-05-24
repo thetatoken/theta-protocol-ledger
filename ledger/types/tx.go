@@ -941,7 +941,7 @@ type StakeRewardDistributionTx struct {
 	Holder          TxInput  `json:"holder"`            // stake holder account, i.e., a guardian or an elite edge node
 	Beneficiary     TxOutput `json:"beneficiary"`       // the beneficiary to split the reward as the hosting service fee
 	SplitBasisPoint uint     `json:"split_basis_point"` // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
-	Purpose         uint8    `json:"purpose"`           // purpose e.g. stake for guardian/elite edge node
+	//Purpose         uint8    `json:"purpose"`           // purpose e.g. stake for guardian/elite edge node
 }
 
 func (_ *StakeRewardDistributionTx) AssertIsTx() {}
@@ -967,8 +967,8 @@ func (tx *StakeRewardDistributionTx) SetSignature(addr common.Address, sig *cryp
 }
 
 func (tx *StakeRewardDistributionTx) String() string {
-	return fmt.Sprintf("StakeRewardDistributionTx{holder: %v, beneficiary: %v, split_basis_point: %v, purpose: %v}",
-		tx.Holder.Address, tx.Beneficiary.Address, tx.SplitBasisPoint, tx.Purpose)
+	return fmt.Sprintf("StakeRewardDistributionTx{holder: %v, beneficiary: %v, split_basis_point: %v}",
+		tx.Holder.Address, tx.Beneficiary.Address, tx.SplitBasisPoint)
 }
 
 // --------------- Utils --------------- //

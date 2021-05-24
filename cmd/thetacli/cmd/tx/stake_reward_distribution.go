@@ -17,11 +17,11 @@ import (
 
 // stakeRewardDistributionCmd represents the stake reward distribution command
 // Example:
-//		thetacli tx distribute_staking_reward --chain="privatenet" --holder=0x36A8d78C0EaD519Bd155962358A3d57A404bC20d --beneficiary=0x88884a84d980bbfb7588888126fb903486bb8888 --split_basis_point=100 --purpose=1 --seq=8
+//		thetacli tx distribute_staking_reward --chain="privatenet" --holder=0x36A8d78C0EaD519Bd155962358A3d57A404bC20d --beneficiary=0x88884a84d980bbfb7588888126fb903486bb8888 --split_basis_point=100 --seq=8
 var stakeRewardDistributionCmd = &cobra.Command{
 	Use:     "distribute_staking_reward",
 	Short:   "Configure the distribution of the guardian/elite edge node staking reward",
-	Example: `thetacli tx distribute_staking_reward --chain="privatenet" --holder=0x36A8d78C0EaD519Bd155962358A3d57A404bC20d --beneficiary=0x88884a84d980bbfb7588888126fb903486bb8888 --split_basis_point=100 --purpose=1 --seq=8`,
+	Example: `thetacli tx distribute_staking_reward --chain="privatenet" --holder=0x36A8d78C0EaD519Bd155962358A3d57A404bC20d --beneficiary=0x88884a84d980bbfb7588888126fb903486bb8888 --split_basis_point=100 --seq=8`,
 	Run:     doStakeRewardDistributionCmd,
 }
 
@@ -53,7 +53,7 @@ func doStakeRewardDistributionCmd(cmd *cobra.Command, args []string) {
 		Holder:          holder,
 		Beneficiary:     beneficiary,
 		SplitBasisPoint: uint(splitBasisPointFlag),
-		Purpose:         purposeFlag,
+		//Purpose:         purposeFlag,
 	}
 
 	sig, err := wallet.Sign(holderAddress, stakeRewardDistributionTx.SignBytes(chainIDFlag))
@@ -93,7 +93,7 @@ func init() {
 	stakeRewardDistributionCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	stakeRewardDistributionCmd.Flags().StringVar(&beneficiaryFlag, "beneficiary", "", "Address of the beneficiary")
 	stakeRewardDistributionCmd.Flags().Uint64Var(&splitBasisPointFlag, "split_basis_point", 0, "fraction of the reward split in terms of basis point (1/10000). 100 basis point = 100/10000 = 1.00%")
-	stakeRewardDistributionCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
+	//stakeRewardDistributionCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	stakeRewardDistributionCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 	stakeRewardDistributionCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
 	stakeRewardDistributionCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
