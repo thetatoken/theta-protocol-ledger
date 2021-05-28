@@ -695,15 +695,17 @@ func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[s
 		}
 
 		reward := (*accountRewardMap)[srcAddr]
+		origReward := types.NewCoins(0, 0)
+		origReward = origReward.Plus(reward)
 		for _, beneficiaryData := range splitMetadata.BeneficiaryDataList {
-			// beneficiarySplit = reward.TFuelWei * (beneficiaryData.StakeAmount / StakeAmountSum) * (beneficiaryData.SplitBasisPoint / 10000)
-			tmp := big.NewInt(1).Mul(reward.TFuelWei, beneficiaryData.StakeAmount)
+			// beneficiarySplit = origReward.TFuelWei * (beneficiaryData.StakeAmount / StakeAmountSum) * (beneficiaryData.SplitBasisPoint / 10000)
+			tmp := big.NewInt(1).Mul(origReward.TFuelWei, beneficiaryData.StakeAmount)
 			tmp = big.NewInt(1).Mul(tmp, big.NewInt(int64(beneficiaryData.SplitBasisPoint)))
 			tmp = tmp.Div(tmp, splitMetadata.StakeAmountSum)
 			beneficiarySplitAmount := tmp.Div(tmp, big.NewInt(10000))
 
-			logger.Debugf("Reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
-				beneficiarySplitAmount, reward.TFuelWei, splitMetadata)
+			logger.Debugf("Reward redistribution metadata: beneficiarySplitAmount = %v, origReward.TFuelWei = %v, reward.TFuelWei = %v, splitMetadata = %v",
+				beneficiarySplitAmount, origReward.TFuelWei, reward.TFuelWei, splitMetadata)
 
 			if beneficiarySplitAmount.Cmp(reward.TFuelWei) > 0 {
 				logger.Panicf("Invalid reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
