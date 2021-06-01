@@ -30,6 +30,7 @@ func init() {
 //
 
 type Stake struct {
+	Holder       common.Address `rlp:"-"` // Keep reference to holder in memory to process split
 	Source       common.Address
 	Amount       *big.Int
 	Withdrawn    bool

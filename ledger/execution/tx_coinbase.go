@@ -300,8 +300,8 @@ func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, val
 		return
 	}
 
-	stakeSourceMap := map[common.Address]*big.Int{}
-	stakeSourceList := []common.Address{}
+	effectiveStakes := [][]*core.Stake{}          // For compatiblity with old sampling algorithm, stakes from the same staker are grouped together
+	stakeGroupMap := make(map[common.Address]int) // stake source address -> index of the group in the effectiveStakes slice
 
 	// TODO - Need to confirm: should we get the VCP from the current view? What if there is a stake deposit/withdraw?
 	vcp := view.GetValidatorCandidatePool()
@@ -317,15 +317,13 @@ func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, val
 			if stake.Withdrawn {
 				continue
 			}
-			stakeAmount := stake.Amount
-			stakeSource := stake.Source
-			if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-				stakeAmountSum := big.NewInt(0).Add(stakeAmountSum, stakeAmount)
-				stakeSourceMap[stakeSource] = stakeAmountSum
-			} else {
-				stakeSourceMap[stakeSource] = stakeAmount
-				stakeSourceList = append(stakeSourceList, stakeSource)
+			if _, exists := stakeGroupMap[stake.Source]; !exists {
+				stakeGroupMap[stake.Source] = len(effectiveStakes)
+				effectiveStakes = append(effectiveStakes, []*core.Stake{})
 			}
+			stake.Holder = stakeDelegate.Holder
+			idx := stakeGroupMap[stake.Source]
+			effectiveStakes[idx] = append(effectiveStakes[idx], stake)
 		}
 	}
 
@@ -338,34 +336,33 @@ func grantValidatorAndGuardianReward(ledger core.Ledger, view *st.StoreView, val
 			if stake.Withdrawn {
 				continue
 			}
-			stakeAmount := stake.Amount
-			stakeSource := stake.Source
 
-			totalStake.Add(totalStake, stakeAmount)
+			totalStake.Add(totalStake, stake.Amount)
 
-			if stakeAmountSum, exists := stakeSourceMap[stakeSource]; exists {
-				stakeAmountSum.Add(stakeAmountSum, stakeAmount)
-			} else {
-				stakeSourceMap[stakeSource] = stakeAmount
-				stakeSourceList = append(stakeSourceList, stakeSource)
+			if _, exists := stakeGroupMap[stake.Source]; !exists {
+				stakeGroupMap[stake.Source] = len(effectiveStakes)
+				effectiveStakes = append(effectiveStakes, []*core.Stake{})
 			}
+			stake.Holder = g.Holder
+			idx := stakeGroupMap[stake.Source]
+			effectiveStakes[idx] = append(effectiveStakes[idx], stake)
 		}
 	}
 
 	totalReward := big.NewInt(1).Mul(tfuelRewardPerBlock, big.NewInt(common.CheckpointInterval))
 
-	if blockHeight < common.HeightSampleStakingReward {
-		// the source of the stake divides the block reward proportional to their stake
-		issueFixedReward(stakeSourceMap, totalStake, accountReward, totalReward, "Block")
-	} else {
-		// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
-		issueRandomizedReward(ledger, guardianVotes, view, stakeSourceList, stakeSourceMap,
-			totalStake, accountReward, totalReward, "Block")
+	var srdsr *st.StakeRewardDistributionRuleSet
+	if blockHeight >= common.HeightEnableTheta3 {
+		srdsr = state.NewStakeRewardDistributionRuleSet(view)
 	}
 
-	if blockHeight >= common.HeightEnableTheta3 {
-		srdsr := state.NewStakeRewardDistributionRuleSet(view)
-		handleGuardianNodeRewardSplit(accountReward, &stakeSourceMap, guardianPool, srdsr)
+	if blockHeight < common.HeightSampleStakingReward {
+		// the source of the stake divides the block reward proportional to their stake
+		issueFixedReward(effectiveStakes, totalStake, accountReward, totalReward, srdsr, "Block")
+	} else {
+		// randomly select (proportional to the stake) a constant-sized set of stakers and grand the block reward
+		issueRandomizedReward(ledger, guardianVotes, view, effectiveStakes,
+			totalStake, accountReward, totalReward, srdsr, "Block")
 	}
 }
 
@@ -387,8 +384,8 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 		return
 	}
 
-	effectiveStakeSumMap := map[common.Address]*big.Int{} // map: staker (i.e. source) address => effective stake sum, for EEN reward
-	stakeSumMap := map[common.Address]*big.Int{}          // map: staker (i.e. source) address => actual stake sum, for reward split
+	effectiveStakes := [][]*core.Stake{}          // For compatiblity with old sampling algorithm, stakes from the same staker are grouped together
+	stakeGroupMap := make(map[common.Address]int) // stake source address -> index of the group in the effectiveStakes slice
 
 	totalEffectiveStake := new(big.Int)
 	amplifier := new(big.Int).SetUint64(1e18)
@@ -407,20 +404,23 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 				continue
 			}
 
-			// for EEN reward calculation
-			if _, ok := effectiveStakeSumMap[stake.Source]; !ok {
-				effectiveStakeSumMap[stake.Source] = new(big.Int)
+			stakeCopy := &core.Stake{
+				Holder: een.Holder,
+				Source: stake.Source,
 			}
-			tmp := big.NewInt(1).Mul(amplifiedWeight, stake.Amount)
-			effectiveStake := tmp.Div(tmp, eenTotalStake)
-			effectiveStakeSumMap[stake.Source].Add(effectiveStakeSumMap[stake.Source], effectiveStake)
-			totalEffectiveStake.Add(totalEffectiveStake, effectiveStake)
 
-			// for reward split calculation
-			if _, ok := stakeSumMap[stake.Source]; !ok {
-				stakeSumMap[stake.Source] = new(big.Int)
+			if _, exists := stakeGroupMap[stakeCopy.Source]; !exists {
+				stakeGroupMap[stakeCopy.Source] = len(effectiveStakes)
+				effectiveStakes = append(effectiveStakes, []*core.Stake{})
 			}
-			stakeSumMap[stake.Source].Add(stakeSumMap[stake.Source], stake.Amount)
+			idx := stakeGroupMap[stakeCopy.Source]
+			effectiveStakes[idx] = append(effectiveStakes[idx], stakeCopy)
+
+			// for EEN reward calculation
+			effectiveStake := big.NewInt(1)
+			effectiveStake.Mul(amplifiedWeight, stake.Amount)
+			effectiveStake.Div(effectiveStake, eenTotalStake)
+			totalEffectiveStake.Add(totalEffectiveStake, effectiveStake)
 
 			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, eenTotalStake = %v, weight = %v, staker: %v, stake = %v, effectiveStake = %v",
 				eenAddr, eenTotalStake, weight, stake.Source, stake.Amount, effectiveStake)
@@ -432,43 +432,108 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 
 	logger.Debugf("grantEliteEdgeNodeReward: totalEffectiveStake = %v, totalReward = %v", totalEffectiveStake, totalReward)
 
-	// the source of the stake divides the block reward proportional to their stake
-	issueFixedReward(effectiveStakeSumMap, totalEffectiveStake, accountReward, totalReward, "EEN  ")
-
+	var srdsr *st.StakeRewardDistributionRuleSet
 	if blockHeight >= common.HeightEnableTheta3 {
-		srdsr := state.NewStakeRewardDistributionRuleSet(view)
-		handleEliteEdgeNodeRewardSplit(eliteEdgeNodeVotes.Addresses, accountReward, &stakeSumMap, eliteEdgeNodePool, srdsr)
+		srdsr = state.NewStakeRewardDistributionRuleSet(view)
+	}
+
+	// the source of the stake divides the block reward proportional to their stake
+	issueFixedReward(effectiveStakes, totalEffectiveStake, accountReward, totalReward, srdsr, "EEN  ")
+
+}
+
+func addRewardToMap(receiver common.Address, amount *big.Int, accountReward *map[string]types.Coins) {
+	rewardCoins := types.Coins{
+		ThetaWei: big.NewInt(0),
+		TFuelWei: amount,
+	}.NoNil()
+	receiverAddr := string(receiver[:])
+	if existingReward, exists := (*accountReward)[receiverAddr]; exists {
+		totalReward := existingReward.NoNil().Plus(rewardCoins)
+		(*accountReward)[receiverAddr] = totalReward
+	} else {
+		(*accountReward)[receiverAddr] = rewardCoins
 	}
 }
 
-func issueFixedReward(stakeSourceMap map[common.Address]*big.Int, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+func handleSplit(stake *core.Stake, srdsr *st.StakeRewardDistributionRuleSet, reward *big.Int, accountRewardMap *map[string]types.Coins) {
+	if srdsr == nil {
+		// Should not happen
+		logger.Panic("srdsr is nil")
+	}
+	if stake.Holder.IsEmpty() {
+		// Should not happen
+		logger.Panic("stake holder is not set")
+	}
+
+	rewardDistribution := srdsr.Get(stake.Holder)
+	if rewardDistribution == nil {
+		addRewardToMap(stake.Source, reward, accountRewardMap)
+		return
+	}
+
+	if rewardDistribution.SplitBasisPoint == 0 {
+		// Should not happen
+		logger.Panicf("SplitBasisPoint is 0. Holder=%v, Beneficiary=%v", rewardDistribution.StakeHolder, rewardDistribution.Beneficiary)
+	}
+
+	splitReward := big.NewInt(1)
+	splitReward.Mul(reward, big.NewInt(int64(rewardDistribution.SplitBasisPoint)))
+	splitReward.Div(splitReward, big.NewInt(10000))
+
+	sourceReward := new(big.Int).Sub(reward, splitReward)
+
+	logger.Debugf("Reward redistribution metadata: splitReward = %v, sourceReward = %v, SplitBasisPoint = %v",
+		splitReward, sourceReward, rewardDistribution.SplitBasisPoint)
+
+	if splitReward.Cmp(reward) > 0 {
+		logger.Panic("Invalid reward redistribution metadata")
+	}
+
+	addRewardToMap(stake.Source, sourceReward, accountRewardMap)
+	addRewardToMap(rewardDistribution.Beneficiary, splitReward, accountRewardMap)
+}
+
+func issueFixedReward(effectiveStakes [][]*core.Stake, totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, srdsr *st.StakeRewardDistributionRuleSet, rewardType string) {
 	if totalStake.Cmp(big.NewInt(0)) == 0 {
 		return
 	}
 
-	for stakeSourceAddr, stakeAmountSum := range stakeSourceMap {
-		tmp := big.NewInt(1).Mul(totalReward, stakeAmountSum)
-		rewardAmount := tmp.Div(tmp, totalStake)
+	if srdsr != nil {
+		for _, stakes := range effectiveStakes {
+			for _, stake := range stakes {
+				rewardAmount := big.NewInt(1)
+				rewardAmount.Mul(totalReward, stake.Amount)
+				rewardAmount.Div(rewardAmount, totalStake)
 
-		stakingReward := types.Coins{
-			ThetaWei: big.NewInt(0),
-			TFuelWei: rewardAmount,
-		}.NoNil()
+				logger.Infof("%v reward for staker %v : %v  (before split)", rewardType, hex.EncodeToString(stake.Source[:]), rewardAmount)
 
-		staker := string(stakeSourceAddr[:])
-		if existingReward, exists := (*accountReward)[staker]; exists {
-			totalStakingReward := existingReward.NoNil().Plus(stakingReward)
-			(*accountReward)[staker] = totalStakingReward
-		} else {
-			(*accountReward)[staker] = stakingReward
+				// Calculate split
+				handleSplit(stake, srdsr, rewardAmount, accountReward)
+			}
 		}
+	} else {
+		// Aggregate all stakes of a source before calculating reward to be compatible with previous algorithm
+		for _, stakes := range effectiveStakes {
+			if len(stakes) == 0 {
+				continue
+			}
+			totalSourceStake := big.NewInt(0)
+			for _, stake := range stakes {
+				totalSourceStake.Add(totalSourceStake, stake.Amount)
+			}
+			rewardAmount := big.NewInt(1)
+			rewardAmount.Mul(totalReward, totalSourceStake)
+			rewardAmount.Div(rewardAmount, totalStake)
+			addRewardToMap(stakes[0].Source, rewardAmount, accountReward)
 
-		logger.Infof("%v reward for staker %v : %v  (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), stakingReward)
+			logger.Infof("%v reward for staker %v : %v  (before split)", rewardType, hex.EncodeToString(stakes[0].Source[:]), rewardAmount)
+		}
 	}
 }
 
-func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVotes, view *st.StoreView, stakeSourceList []common.Address, stakeSourceMap map[common.Address]*big.Int,
-	totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, rewardType string) {
+func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVotes, view *st.StoreView, effectiveStakes [][]*core.Stake,
+	totalStake *big.Int, accountReward *map[string]types.Coins, totalReward *big.Int, srdsr *st.StakeRewardDistributionRuleSet, rewardType string) {
 
 	if guardianVotes == nil {
 		// Should never reach here
@@ -499,48 +564,82 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 
 	sort.Sort(BigIntSort(samples))
 
-	curr := 0
-	currSum := big.NewInt(0)
+	if srdsr != nil {
+		curr := 0
+		currSum := big.NewInt(0)
 
-	for i := 0; i < len(stakeSourceList); i++ {
-		stakeSourceAddr := stakeSourceList[i]
-		stakeAmountSum := stakeSourceMap[stakeSourceAddr]
+		for _, stakes := range effectiveStakes {
+			for _, stake := range stakes {
+				stakeSourceAddr := stake.Holder
+				stakeAmountSum := stake.Amount
 
-		if curr >= tfuelRewardN {
-			break
+				if curr >= tfuelRewardN {
+					break
+				}
+
+				count := 0
+				lower := currSum
+				upper := new(big.Int).Add(currSum, stakeAmountSum)
+				for curr < tfuelRewardN && samples[curr].Cmp(lower) >= 0 && samples[curr].Cmp(upper) < 0 {
+					count++
+					curr++
+				}
+				currSum = upper
+
+				logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
+
+				if count > 0 {
+					tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
+					rewardAmount := tmp.Div(tmp, big.NewInt(int64(tfuelRewardN)))
+
+					logger.Infof("%v reward for staker %v : %v (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), rewardAmount)
+
+					// Calculate split
+					handleSplit(stake, srdsr, rewardAmount, accountReward)
+				}
+			}
 		}
+	} else {
+		// Aggregate all stakes of a source before calculating reward to be compatible with previous algorithm
+		curr := 0
+		currSum := big.NewInt(0)
 
-		count := 0
-		lower := currSum
-		upper := new(big.Int).Add(currSum, stakeAmountSum)
-		for curr < tfuelRewardN && samples[curr].Cmp(lower) >= 0 && samples[curr].Cmp(upper) < 0 {
-			count++
-			curr++
-		}
-		currSum = upper
-
-		logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
-
-		if count > 0 {
-			tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
-			rewardAmount := tmp.Div(tmp, big.NewInt(int64(tfuelRewardN)))
-
-			reward := types.Coins{
-				ThetaWei: big.NewInt(0),
-				TFuelWei: rewardAmount,
-			}.NoNil()
-
-			staker := string(stakeSourceAddr[:])
-			if thetaStakingReward, exists := (*accountReward)[staker]; exists {
-				totalStakingReward := thetaStakingReward.NoNil().Plus(reward)
-				(*accountReward)[staker] = totalStakingReward
-			} else {
-				(*accountReward)[staker] = reward
+		for _, stakes := range effectiveStakes {
+			if len(stakes) == 0 {
+				continue
+			}
+			stakeSourceAddr := stakes[0].Holder
+			stakeAmountSum := big.NewInt(0)
+			for _, stake := range stakes {
+				stakeAmountSum.Add(stakeAmountSum, stake.Amount)
 			}
 
-			logger.Infof("%v reward for staker %v : %v (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), reward)
+			if curr >= tfuelRewardN {
+				break
+			}
+
+			count := 0
+			lower := currSum
+			upper := new(big.Int).Add(currSum, stakeAmountSum)
+			for curr < tfuelRewardN && samples[curr].Cmp(lower) >= 0 && samples[curr].Cmp(upper) < 0 {
+				count++
+				curr++
+			}
+			currSum = upper
+
+			logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
+
+			if count > 0 {
+				tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
+				rewardAmount := tmp.Div(tmp, big.NewInt(int64(tfuelRewardN)))
+
+				addRewardToMap(stakeSourceAddr, rewardAmount, accountReward)
+
+				logger.Infof("%v reward for staker %v : %v (before split)", rewardType, hex.EncodeToString(stakeSourceAddr[:]), rewardAmount)
+			}
 		}
 	}
+
 }
 
 func (exec *CoinbaseTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
@@ -558,180 +657,3 @@ type BigIntSort []*big.Int
 func (s BigIntSort) Len() int           { return len(s) }
 func (s BigIntSort) Less(i, j int) bool { return s[i].Cmp(s[j]) < 0 }
 func (s BigIntSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
-
-type BeneficiaryData struct {
-	StakeAmount     *big.Int       // total amount of stake staked to the Holder
-	Holder          common.Address // delegate address, i.e. the address of a gardian/elite edge node
-	Beneficiary     common.Address // beneficiary for the reward split
-	SplitBasisPoint uint           // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
-}
-
-type SplitMetadata struct {
-	StakeAmountSum      *big.Int // the total amount of stake from a staker, i.e. the "source" wallet
-	BeneficiaryDataList []BeneficiaryData
-}
-
-func handleGuardianNodeRewardSplit(accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
-	guardianPool *core.GuardianCandidatePool, srdrs *state.StakeRewardDistributionRuleSet) {
-	splitMap := map[string](*SplitMetadata){}
-
-	for _, gn := range guardianPool.SortedGuardians {
-		stakeHolder := gn.Holder
-		holderStakes := gn.Stakes
-		addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
-	}
-
-	handleRewardSplit(accountRewardMap, &splitMap)
-}
-
-func handleEliteEdgeNodeRewardSplit(eenAddresses []common.Address, accountRewardMap *map[string]types.Coins, stakeAmountSumMap *map[common.Address]*big.Int,
-	eliteEdgeNodePool core.EliteEdgeNodePool, srdrs *state.StakeRewardDistributionRuleSet) {
-	splitMap := map[string](*SplitMetadata){}
-
-	// for _, een := range eliteEdgeNodePool.GetAll(true) {
-	// 	stakeHolder := een.Holder
-	// 	holderStakes := een.Stakes
-	// 	addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
-	// }
-
-	// To reduce runtime, we only count the voted and sampled elite edge nodes.
-	// This should not create bias in reward calculation
-	for _, eenAddr := range eenAddresses {
-		een := eliteEdgeNodePool.Get(eenAddr)
-		if een == nil {
-			logger.Panicf("Failed to retrieve EEN %v from the elite edge node pool", eenAddr)
-		}
-		stakeHolder := een.Holder
-		holderStakes := een.Stakes
-		addToSplitMap(stakeHolder, holderStakes, accountRewardMap, stakeAmountSumMap, srdrs, &splitMap)
-	}
-
-	handleRewardSplit(accountRewardMap, &splitMap)
-}
-
-// splitMap: staker => staker's split metadata {staker's total stake, list of beneficiaries}
-func addToSplitMap(stakeHolder common.Address, holderStakes []*core.Stake, accountRewardMap *map[string]types.Coins,
-	stakeAmountSumMap *map[common.Address]*big.Int, srdrs *state.StakeRewardDistributionRuleSet,
-	splitMap *(map[string](*SplitMetadata))) {
-	rewardDistr := srdrs.Get(stakeHolder)
-	if rewardDistr == nil {
-		return
-	}
-
-	if rewardDistr.StakeHolder != stakeHolder {
-		logger.Panicf("Invalid reward distribution: rewardDistr.StakeHolder = %v, stakeHolder = %v",
-			rewardDistr.StakeHolder, stakeHolder)
-	}
-
-	for _, stake := range holderStakes {
-		var exists bool
-		var stakeAmountSum *big.Int
-
-		if stake.Withdrawn {
-			continue
-		}
-
-		src := stake.Source
-		if stakeAmountSum, exists = (*stakeAmountSumMap)[src]; !exists {
-			// filter out the source addresses whose stake delegates (i.e. holder GN/EEN) are not selected (e.g. due to random sampling, or the GN vote multiplier is 0),
-			// since those stakes are not "active" so should not participate in the reward split
-			continue
-		}
-
-		if _, exists = (*accountRewardMap)[string(src[:])]; !exists {
-			// similarly to the above check, filter out the source addresses whose stake delegates (i.e. holder GN/EEN) are not selected (e.g. due to random sampling,
-			// or the GN vote multiplier is 0), since those stakes are not "active" so should not participate in the reward split
-			continue
-		}
-
-		var splitMetadata *SplitMetadata
-		if splitMetadata, exists = (*splitMap)[string(src[:])]; !exists {
-			splitMetadata = &SplitMetadata{
-				StakeAmountSum: stakeAmountSum,
-			}
-			(*splitMap)[string(src[:])] = splitMetadata
-		}
-
-		beneficiaryData := BeneficiaryData{
-			StakeAmount:     stake.Amount,
-			Holder:          rewardDistr.StakeHolder,
-			Beneficiary:     rewardDistr.Beneficiary,
-			SplitBasisPoint: rewardDistr.SplitBasisPoint,
-		}
-
-		splitMetadata.BeneficiaryDataList = append(splitMetadata.BeneficiaryDataList, beneficiaryData)
-	}
-}
-
-func handleRewardSplit(accountRewardMap *map[string]types.Coins, splitMap *map[string](*SplitMetadata)) {
-	srcAddrs := []string{}
-	for srcAddr := range *accountRewardMap {
-		srcAddrs = append(srcAddrs, srcAddr)
-	}
-	sort.Strings(srcAddrs)
-
-	beneficiaryRewardMap := map[string]types.Coins{}
-	for _, srcAddr := range srcAddrs {
-		splitMetadata, exists := (*splitMap)[srcAddr]
-		if !exists {
-			continue
-		}
-
-		if splitMetadata.StakeAmountSum.Cmp(big.NewInt(0)) == 0 {
-			continue
-		}
-
-		delegatedAmount := big.NewInt(0)
-		for _, beneficiaryData := range splitMetadata.BeneficiaryDataList {
-			delegatedAmount = new(big.Int).Add(delegatedAmount, beneficiaryData.StakeAmount)
-		}
-
-		logger.Debugf("Reward redistribution metadata: delegatedAmount = %v, splitMetadata.StakeAmountSum = %v, splitMetadata = %v",
-			delegatedAmount, splitMetadata.StakeAmountSum, splitMetadata)
-
-		if delegatedAmount.Cmp(splitMetadata.StakeAmountSum) > 0 { // should never happen
-			logger.Panicf("Invalid reward redistribution  metadata: delegatedAmount = %v, splitMetadata.StakeAmountSum = %v, splitMetadata = %v",
-				delegatedAmount, splitMetadata.StakeAmountSum, splitMetadata)
-		}
-
-		reward := (*accountRewardMap)[srcAddr]
-		for _, beneficiaryData := range splitMetadata.BeneficiaryDataList {
-			// beneficiarySplit = reward.TFuelWei * (beneficiaryData.StakeAmount / StakeAmountSum) * (beneficiaryData.SplitBasisPoint / 10000)
-			tmp := big.NewInt(1).Mul(reward.TFuelWei, beneficiaryData.StakeAmount)
-			tmp = big.NewInt(1).Mul(tmp, big.NewInt(int64(beneficiaryData.SplitBasisPoint)))
-			tmp = tmp.Div(tmp, splitMetadata.StakeAmountSum)
-			beneficiarySplitAmount := tmp.Div(tmp, big.NewInt(10000))
-
-			logger.Debugf("Reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
-				beneficiarySplitAmount, reward.TFuelWei, splitMetadata)
-
-			if beneficiarySplitAmount.Cmp(reward.TFuelWei) > 0 {
-				logger.Panicf("Invalid reward redistribution metadata: beneficiarySplitAmount = %v, reward.TFuelWei = %v, splitMetadata = %v",
-					beneficiarySplitAmount, reward.TFuelWei, splitMetadata)
-			}
-
-			reward.TFuelWei = new(big.Int).Sub(reward.TFuelWei, beneficiarySplitAmount)
-
-			beneficiarySplitCoins := types.Coins{
-				ThetaWei: big.NewInt(0),
-				TFuelWei: beneficiarySplitAmount,
-			}
-			bAddr := string(beneficiaryData.Beneficiary[:])
-			if br, ok := beneficiaryRewardMap[bAddr]; ok {
-				beneficiaryRewardMap[bAddr] = br.Plus(beneficiarySplitCoins)
-			} else {
-				beneficiaryRewardMap[bAddr] = beneficiarySplitCoins
-			}
-		}
-
-		(*accountRewardMap)[srcAddr] = reward
-	}
-
-	for bAddr, bReward := range beneficiaryRewardMap {
-		if accReward, exists := (*accountRewardMap)[bAddr]; exists {
-			(*accountRewardMap)[bAddr] = accReward.Plus(bReward)
-		} else {
-			(*accountRewardMap)[bAddr] = bReward
-		}
-	}
-}
