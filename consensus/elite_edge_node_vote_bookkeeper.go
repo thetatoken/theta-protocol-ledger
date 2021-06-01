@@ -139,7 +139,7 @@ func (vb *EENVoteBookkeeper) Record(vote *tcore.EENVote) bool {
 }
 
 func getVoteHash(vote *tcore.EENVote) string {
-	voteStr := fmt.Sprintf("%v:%v", vote.Address, vote.Block)
+	voteStr := fmt.Sprintf("%v:%v", vote.Address, vote.Block) // discard the height reported by the vote
 	txhash := tcrypto.Keccak256Hash([]byte(voteStr))
 	txhashStr := hex.EncodeToString(txhash[:])
 	return txhashStr

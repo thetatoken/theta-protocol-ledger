@@ -85,6 +85,7 @@ func (e *EliteEdgeNodeEngine) StartNewBlock(block common.Hash) {
 			total++
 			if eenp.RandomRewardWeight(block, een.Holder) > 0 {
 				count++
+				logger.Debugf("selected EEN: %v, block: %v", een.Holder, block.Hex())
 			}
 		}
 
@@ -264,26 +265,29 @@ func (e *EliteEdgeNodeEngine) HandleAggregatedVote(vote *core.AggregatedEENVotes
 func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 	if e.eenp == nil {
 		e.logger.WithFields(log.Fields{
-			"local.block": e.block.Hex(),
-			"local.round": e.round,
-			"vote.block":  vote.Block.Hex(),
+			"local.block":  e.block.Hex(),
+			"local.round":  e.round,
+			"vote.block":   vote.Block.Hex(),
+			"vote.address": vote.Address,
 		}).Debug("The elite edge node pool is nil, cannot validate vote")
 		return
 	}
 
 	if e.block.IsEmpty() {
 		e.logger.WithFields(log.Fields{
-			"local.block": e.block.Hex(),
-			"local.round": e.round,
-			"vote.block":  vote.Block.Hex(),
+			"local.block":  e.block.Hex(),
+			"local.round":  e.round,
+			"vote.block":   vote.Block.Hex(),
+			"vote.address": vote.Address,
 		}).Debug("Ignoring elite edge node vote: local not ready")
 		return
 	}
 	if vote.Block != e.block {
 		e.logger.WithFields(log.Fields{
-			"local.block": e.block.Hex(),
-			"local.round": e.round,
-			"vote.block":  vote.Block.Hex(),
+			"local.block":  e.block.Hex(),
+			"local.round":  e.round,
+			"vote.block":   vote.Block.Hex(),
+			"vote.address": vote.Address,
 		}).Debug("Ignoring elite edge node vote: block hash does not match with local candidate")
 		return
 	}

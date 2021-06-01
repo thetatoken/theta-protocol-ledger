@@ -29,6 +29,7 @@ func (m MempoolError) Error() string {
 }
 
 const DuplicateTxError = MempoolError("Transaction already seen")
+const MaxMempoolTxCount int = 25600
 
 //
 // mempoolTransaction implements the pqueue.Element interface
@@ -183,6 +184,11 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		logger.Debugf("Transaction already seen: %v, hash: 0x%v",
 			hex.EncodeToString(rawTx), getTransactionHash(rawTx))
 		return DuplicateTxError
+	}
+
+	if mp.size >= MaxMempoolTxCount {
+		logger.Debugf("Mempool is full")
+		return errors.New("mempool is full, please submit your transaction again later")
 	}
 
 	var txInfo *core.TxInfo

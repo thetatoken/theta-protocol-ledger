@@ -58,44 +58,44 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 		return result.Error("Only allow at most 10.00%% reward split for the beneficiary for now (i.e., SplitBasisPoint <= 1000)")
 	}
 
-	stakeHolderAddress := tx.Holder.Address
-	beneficiaryAddress := tx.Beneficiary.Address
+	// stakeHolderAddress := tx.Holder.Address
+	// beneficiaryAddress := tx.Beneficiary.Address
 
-	vcp := view.GetValidatorCandidatePool()
-	if vcp.FindStakeDelegate(stakeHolderAddress) != nil {
-		// for safety purpose, for now we don't allow reward split for validators, even if the validator is also a guardian
-		return result.Error("StakeRewardDistributionTx not allowed for Validators for now")
-	}
+	// vcp := view.GetValidatorCandidatePool()
+	// if vcp.FindStakeDelegate(stakeHolderAddress) != nil {
+	// 	// for safety purpose, for now we don't allow reward split for validators, even if the validator is also a guardian
+	// 	return result.Error("StakeRewardDistributionTx not allowed for Validators for now")
+	// }
 
-	if tx.Purpose == core.StakeForGuardian {
-		gcp := view.GetGuardianCandidatePool().WithStake()
+	// if tx.Purpose == core.StakeForGuardian {
+	// 	gcp := view.GetGuardianCandidatePool().WithStake()
 
-		var gn *core.Guardian
-		if gn = gcp.GetWithHolderAddress(stakeHolderAddress); gn == nil {
-			return result.Error("%v is not an staked guardian node", stakeHolderAddress)
-		}
+	// 	var gn *core.Guardian
+	// 	if gn = gcp.GetWithHolderAddress(stakeHolderAddress); gn == nil {
+	// 		return result.Error("%v is not an staked guardian node", stakeHolderAddress)
+	// 	}
 
-		for _, stake := range gn.Stakes {
-			if stake.Source == beneficiaryAddress {
-				return result.Error("Beneficiary is not allowed to be a staker address")
-			}
-		}
-	} else if tx.Purpose == core.StakeForEliteEdgeNode {
-		eenp := state.NewEliteEdgeNodePool(view, true)
+	// 	for _, stake := range gn.Stakes {
+	// 		if stake.Source == beneficiaryAddress {
+	// 			return result.Error("Beneficiary is not allowed to be a staker address")
+	// 		}
+	// 	}
+	// } else if tx.Purpose == core.StakeForEliteEdgeNode {
+	// 	eenp := state.NewEliteEdgeNodePool(view, true)
 
-		var een *core.EliteEdgeNode
-		if een = eenp.Get(stakeHolderAddress); een == nil {
-			return result.Error("%v is not an staked elite edge node", stakeHolderAddress)
-		}
+	// 	var een *core.EliteEdgeNode
+	// 	if een = eenp.Get(stakeHolderAddress); een == nil {
+	// 		return result.Error("%v is not an staked elite edge node", stakeHolderAddress)
+	// 	}
 
-		for _, stake := range een.Stakes {
-			if stake.Source == beneficiaryAddress {
-				return result.Error("Beneficiary is not allowed to be a staker address")
-			}
-		}
-	} else {
-		return result.Error("Invalid purpose: %v", tx.Purpose)
-	}
+	// 	for _, stake := range een.Stakes {
+	// 		if stake.Source == beneficiaryAddress {
+	// 			return result.Error("Beneficiary is not allowed to be a staker address")
+	// 		}
+	// 	}
+	// } else {
+	// 	return result.Error("Invalid purpose: %v", tx.Purpose)
+	// }
 
 	if !sanityCheckForFee(tx.Fee) {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
@@ -124,28 +124,28 @@ func (exec *StakeRewardDistributionTxExecutor) process(chainID string, view *st.
 	}
 
 	stakeHolderAddress := tx.Holder.Address
-	if tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode {
-		srdsr := state.NewStakeRewardDistributionRuleSet(view)
+	//if tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode {
+	srdsr := state.NewStakeRewardDistributionRuleSet(view)
 
-		splitBasisPoint := tx.SplitBasisPoint
-		if splitBasisPoint > 10000 {
-			splitBasisPoint = 10000
-		} else if splitBasisPoint < 0 { // should not happen, but doesn't hurt to have the check
-			splitBasisPoint = 0
-		}
-
-		if splitBasisPoint == 0 { // considered as removal
-			srdsr.Remove(stakeHolderAddress) // no need to check the return value, ok to remove a non-existing reward distribution rule
-		} else {
-			rd, err := core.NewRewardDistribution(stakeHolderAddress, tx.Beneficiary.Address, splitBasisPoint)
-			if err != nil { // should not reach here
-				logger.Panicf("Failed to create reward distribution: %v", err)
-			}
-			srdsr.Upsert(rd)
-		}
-	} else {
-		return common.Hash{}, result.Error("Invalid purpose").WithErrorCode(result.CodeInvalidStakePurpose)
+	splitBasisPoint := tx.SplitBasisPoint
+	if splitBasisPoint > 10000 {
+		splitBasisPoint = 10000
+	} else if splitBasisPoint < 0 { // should not happen, but doesn't hurt to have the check
+		splitBasisPoint = 0
 	}
+
+	if splitBasisPoint == 0 { // considered as removal
+		srdsr.Remove(stakeHolderAddress) // no need to check the return value, ok to remove a non-existing reward distribution rule
+	} else {
+		rd, err := core.NewRewardDistribution(stakeHolderAddress, tx.Beneficiary.Address, splitBasisPoint)
+		if err != nil { // should not reach here
+			logger.Panicf("Failed to create reward distribution: %v", err)
+		}
+		srdsr.Upsert(rd)
+	}
+	// } else {
+	// 	return common.Hash{}, result.Error("Invalid purpose").WithErrorCode(result.CodeInvalidStakePurpose)
+	// }
 
 	stakeHolderAccount.Sequence++
 	view.SetAccount(tx.Holder.Address, stakeHolderAccount)

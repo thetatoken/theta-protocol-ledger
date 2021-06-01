@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -19,12 +20,24 @@ import (
 // EENVote represents the vote for a block from an elite edge node.
 type EENVote struct {
 	Block     common.Hash    // Hash of the block.
+	Height    uint64         // Height of the block, just for reference
 	Address   common.Address // Address of the edge node.
 	Signature *bls.Signature // Aggregated signiature.
+	Timestamp *big.Int       // Unix timestamp when the EENVote was created, just for reference
 }
 
 type EENBlsSigMsg struct {
 	Block common.Hash
+}
+
+func NewEENVote(block common.Hash, blockHeight uint64, eenAddr common.Address, signature *bls.Signature) *EENVote {
+	return &EENVote{
+		Block:     block,
+		Height:    blockHeight,
+		Address:   eenAddr,
+		Signature: signature,
+		Timestamp: big.NewInt(time.Now().Unix()),
+	}
 }
 
 // signBytes returns the bytes to be signed.
@@ -48,8 +61,8 @@ func (e *EENVote) Validate(eenBLSPubkey *bls.PublicKey) result.Result {
 }
 
 func (e *EENVote) String() string {
-	return fmt.Sprintf("EENVote{Block: %s, Address: %v, Signature: %v}",
-		e.Block.Hex(), e.Address, e.signBytes())
+	return fmt.Sprintf("EENVote{Block: %s, Height: %v, Address: %v, Signature: %v, CreationTimestamp: %v}",
+		e.Block.Hex(), e.Height, e.Address, e.signBytes(), e.Timestamp)
 }
 
 //
