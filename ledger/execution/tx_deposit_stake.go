@@ -17,11 +17,14 @@ var _ TxExecutor = (*DepositStakeExecutor)(nil)
 
 // DepositStakeExecutor implements the TxExecutor interface
 type DepositStakeExecutor struct {
+	state *st.LedgerState
 }
 
 // NewDepositStakeExecutor creates a new instance of DepositStakeExecutor
-func NewDepositStakeExecutor() *DepositStakeExecutor {
-	return &DepositStakeExecutor{}
+func NewDepositStakeExecutor(state *st.LedgerState) *DepositStakeExecutor {
+	return &DepositStakeExecutor{
+		state: state,
+	}
 }
 
 func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
@@ -50,9 +53,9 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {

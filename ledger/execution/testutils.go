@@ -209,7 +209,7 @@ func (et *execTest) SetAcc(accs ...types.PrivAccount) {
 }
 
 func getMinimumTxFee() int64 {
-	return int64(types.MinimumTransactionFeeTFuelWei)
+	return int64(types.MinimumTransactionFeeTFuelWeiJune2021)
 }
 
 func createServicePaymentTx(chainID string, source, target *types.PrivAccount, amount int64, srcSeq, tgtSeq, paymentSeq, reserveSeq int, resourceID string) *types.ServicePaymentTx {
@@ -328,7 +328,11 @@ func setupForSmartContract(ast *assert.Assertions, numAccounts int) (et *execTes
 
 	for i := 0; i < numAccounts; i++ {
 		secret := "acc_secret_" + strconv.FormatInt(int64(i), 16)
-		privAccount := types.MakeAccWithInitBalance(secret, types.NewCoins(0, int64(9000000*types.MinimumGasPrice)))
+		privAccount := types.MakeAccWithInitBalance(secret,
+			types.Coins{
+				big.NewInt(0),
+				big.NewInt(1).Mul(big.NewInt(9000000), big.NewInt(int64(types.MinimumGasPriceJune2021))),
+			})
 		privAccounts = append(privAccounts, privAccount)
 		et.acc2State(privAccount)
 	}

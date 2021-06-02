@@ -17,11 +17,14 @@ var _ TxExecutor = (*SendTxExecutor)(nil)
 
 // SendTxExecutor implements the TxExecutor interface
 type SendTxExecutor struct {
+	state *st.LedgerState
 }
 
 // NewSendTxExecutor creates a new instance of SendTxExecutor
-func NewSendTxExecutor() *SendTxExecutor {
-	return &SendTxExecutor{}
+func NewSendTxExecutor(state *st.LedgerState) *SendTxExecutor {
+	return &SendTxExecutor{
+		state: state,
+	}
 }
 
 func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
@@ -76,9 +79,9 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForSendTxFee(tx.Fee, numAccountsAffected, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	outTotal := sumOutputs(tx.Outputs)

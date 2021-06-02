@@ -60,13 +60,16 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidValueToTransfer)
 	}
 
-	if !sanityCheckForGasPrice(tx.GasPrice) {
-		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", types.MinimumGasPrice).
+	blockHeight := getBlockHeight(exec.state)
+	if !sanityCheckForGasPrice(tx.GasPrice, blockHeight) {
+		minimumGasPrice := types.GetMinimumGasPrice(blockHeight)
+		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", minimumGasPrice).
 			WithErrorCode(result.CodeInvalidGasPrice)
 	}
 
-	if tx.GasLimit > types.MaximumTxGasLimit {
-		return result.Error("Invalid gas limit. Gas limit needs to be at most %v", types.MaximumTxGasLimit).
+	maxGasLimit := types.GetMaxGasLimit(blockHeight)
+	if new(big.Int).SetUint64(tx.GasLimit).Cmp(maxGasLimit) > 0 {
+		return result.Error("Invalid gas limit. Gas limit needs to be at most %v", maxGasLimit).
 			WithErrorCode(result.CodeInvalidGasLimit)
 	}
 
