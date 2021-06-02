@@ -320,7 +320,7 @@ func newRawSendTx(chainID string, sequence int, addPubKey bool, accOut, accIn ty
 		if randint < 0 {
 			randint = -randint
 		}
-		delta = randint * int64(types.GasSendTxPerAccount*2)
+		delta = randint * int64(types.GasRegularTxJune2021)
 		if err != nil {
 			panic(err)
 		}

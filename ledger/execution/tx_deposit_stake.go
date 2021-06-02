@@ -196,7 +196,7 @@ func (exec *DepositStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 func (exec *DepositStakeExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := exec.castTx(transaction)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasDepositStakeTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

@@ -290,3 +290,11 @@ func getBlockHeight(ledgerState *state.LedgerState) uint64 {
 	blockHeight := ledgerState.Height() + 1
 	return blockHeight
 }
+
+func getRegularTxGas(ledgerState *state.LedgerState) uint64 {
+	blockHeight := getBlockHeight(ledgerState)
+	if blockHeight < common.HeightJune2021FeeAdjustment {
+		return types.GasRegularTx
+	}
+	return types.GasRegularTxJune2021
+}
