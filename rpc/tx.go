@@ -10,6 +10,7 @@ import (
 	"github.com/thetatoken/theta/common/hexutil"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/mempool"
 )
 
 const txTimeout = 60 * time.Second
@@ -139,14 +140,16 @@ func (t *ThetaRPCService) BroadcastRawTransaction(
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
-	logger.Infof("Broadcast raw transaction (sync): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
+	logger.Infof("Prepare to broadcast raw transaction (sync): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	err = t.mempool.InsertTransaction(txBytes)
-	if err != nil {
+	if err == nil || err == mempool.FastsyncSkipTxError {
+		t.mempool.BroadcastTx(txBytes) // still broadcast the transactions received locally during the fastsync mode
+		logger.Infof("Broadcasted raw transaction (sync): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
+	} else {
+		logger.Warnf("Failed to broadcast raw transaction (sync): %v, hash: %v, err: %v", hex.EncodeToString(txBytes), hash.Hex(), err)
 		return err
 	}
-
-	t.mempool.BroadcastTx(txBytes)
 
 	finalized := make(chan *core.Block)
 	timeout := time.NewTimer(txTimeout)
@@ -192,16 +195,18 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	hash := crypto.Keccak256Hash(txBytes)
 	result.TxHash = hash.Hex()
 
-	logger.Infof("Broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
+	logger.Infof("Prepare to broadcast raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
 
 	err = t.mempool.InsertTransaction(txBytes)
-	if err != nil {
-		return err
+	if err == nil || err == mempool.FastsyncSkipTxError {
+		t.mempool.BroadcastTx(txBytes) // still broadcast the transactions received locally during the fastsync mode
+		logger.Infof("Broadcasted raw transaction (async): %v, hash: %v", hex.EncodeToString(txBytes), hash.Hex())
+		return nil
 	}
 
-	t.mempool.BroadcastTx(txBytes)
+	logger.Warnf("Failed to broadcast raw transaction (async): %v, hash: %v, err: %v", hex.EncodeToString(txBytes), hash.Hex(), err)
 
-	return nil
+	return err
 }
 
 // -------------------------- Utilities -------------------------- //
