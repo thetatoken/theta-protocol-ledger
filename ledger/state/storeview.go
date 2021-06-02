@@ -526,6 +526,11 @@ func (sv *StoreView) ResetRefund() {
 	sv.refund = 0
 }
 
+func (sv *StoreView) GetBlockHeight() uint64 {
+	blockHeight := sv.height + 1
+	return blockHeight
+}
+
 func (sv *StoreView) GetCommittedState(addr common.Address, key common.Hash) common.Hash {
 	return sv.GetState(addr, key)
 }
