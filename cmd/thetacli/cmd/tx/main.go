@@ -34,6 +34,8 @@ var (
 	sourceFlag                   string
 	holderFlag                   string
 	asyncFlag                    bool
+	onChainFlag                  bool
+	sourceSignatureFlag          string
 )
 
 // TxCmd represents the Tx command
