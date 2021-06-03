@@ -404,26 +404,27 @@ func grantEliteEdgeNodeReward(ledger core.Ledger, view *st.StoreView, guardianVo
 				continue
 			}
 
-			stakeCopy := &core.Stake{
+			// for EEN reward calculation
+			effectiveStakeAmount := big.NewInt(1)
+			effectiveStakeAmount.Mul(amplifiedWeight, stake.Amount)
+			effectiveStakeAmount.Div(effectiveStakeAmount, eenTotalStake)
+
+			effectiveStake := &core.Stake{
 				Holder: een.Holder,
 				Source: stake.Source,
+				Amount: effectiveStakeAmount,
 			}
-
-			if _, exists := stakeGroupMap[stakeCopy.Source]; !exists {
-				stakeGroupMap[stakeCopy.Source] = len(effectiveStakes)
+			if _, exists := stakeGroupMap[effectiveStake.Source]; !exists {
+				stakeGroupMap[effectiveStake.Source] = len(effectiveStakes)
 				effectiveStakes = append(effectiveStakes, []*core.Stake{})
 			}
-			idx := stakeGroupMap[stakeCopy.Source]
-			effectiveStakes[idx] = append(effectiveStakes[idx], stakeCopy)
+			idx := stakeGroupMap[effectiveStake.Source]
+			effectiveStakes[idx] = append(effectiveStakes[idx], effectiveStake)
 
-			// for EEN reward calculation
-			effectiveStake := big.NewInt(1)
-			effectiveStake.Mul(amplifiedWeight, stake.Amount)
-			effectiveStake.Div(effectiveStake, eenTotalStake)
-			totalEffectiveStake.Add(totalEffectiveStake, effectiveStake)
+			totalEffectiveStake.Add(totalEffectiveStake, effectiveStakeAmount)
 
-			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, eenTotalStake = %v, weight = %v, staker: %v, stake = %v, effectiveStake = %v",
-				eenAddr, eenTotalStake, weight, stake.Source, stake.Amount, effectiveStake)
+			logger.Debugf("grantEliteEdgeNodeReward: eenAddr = %v, eenTotalStake = %v, weight = %v, staker: %v, stake = %v, effectiveStakeAmount = %v",
+				eenAddr, eenTotalStake, weight, stake.Source, stake.Amount, effectiveStakeAmount)
 		}
 	}
 
