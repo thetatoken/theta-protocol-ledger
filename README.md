@@ -19,11 +19,11 @@ To learn more about the Theta Network, please visit the Theta Documentation site
 
 ### On macOS
 
-Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.12.1**. On macOS, install Go with the following command
+Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.14.2**. On macOS, install Go with the following command
 
 ```
-brew install go@1.12.1
-brew link go@1.12.1 --force
+brew install go@1.14.1
+brew link go@1.14.1 --force
 ```
 
 Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
