@@ -128,13 +128,66 @@ func TestServicePaymentTxNormalExecutionAndSlash(t *testing.T) {
 	//assert.Equal(1, len(et.state().Delivered().GetSlashIntents()))
 
 
+// Set up for Off-Chain testing
 
-thetacli tx reserve --async --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=10 --collateral=11 --duration=1001 --resource_ids=rid1000001 --seq=1
+thetacli query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 
-"hash": "0x711e0001d454a556f6f1408f23f263fd2023c4c0e8eb54f5add1aaac137c8370",
 
-thetacli query tx --hash=711e0001d454a556f6f1408f23f263fd2023c4c0e8eb54f5add1aaac137c8370
+thetacli tx reserve --async --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=10 --collateral=11 --duration=31 --resource_ids=rid1000001 --seq=1
 
-thetacli tx service_payment --on_chain --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=2 --resource_id=rid1000001
+thetacli tx send --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --theta=0 --tfuel=1 --seq=2
 
-thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=2 --resource_id=rid1000001
+thetacli query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
+
+thetacli query account --address=70f587259738cB626A1720Af7038B8DcDb6a42a0
+
+// Alice : I want rid1000001 and I'm willing to pay up to 10 TFuel for it.
+thetacli query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
+
+thetacli tx reserve --async --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --fund=10 --collateral=11 --duration=101 --resource_ids=rid1000001 --seq=12
+
+thetacli query account --address=2E833968E5bB786Ae419c4d13189fB081Cc43bab
+
+"hash": "0x4bb258b6784ec0a755e5ab7dfb50403a462866ebac3d27c96463b2a1becd65ca"
+
+thetacli query tx --hash=0x3d38c3851ae49072400b9f4c63fea1511b600552ff0eed4f008eb1d5cec5013a
+
+// Alice -> Bob
+"end_block_height": "1533"
+thetacli query tx --hash=0x29745a458dc5e1f39a511b889f04396d1add0a16ad279816b46dfa496b1fa228
+// Alice <- Bob
+--resource_id=rid1000001
+
+// Alice -> Bob
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2
+
+--resource_id=rid1000001
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=2 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2
+
+// Alice -> Carol
+thetacli query tx --hash=0x29745a458dc5e1f39a511b889f04396d1add0a16ad279816b46dfa496b1fa228
+// Alice <- Carol
+--resource_id=rid1000001
+
+// Alice -> Carol
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=cd56123D0c5D6C1Ba4D39367b88cba61D93F5405 --payment_seq=3 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2
+
+--resource_id=rid1000001
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=cd56123D0c5D6C1Ba4D39367b88cba61D93F5405 --payment_seq=4 --reserve_seq=13 --resource_id=rid1000001 --tfuel=4
+
+
+// Bob -> Payout
+thetacli query tx --hash=0x3d38c3851ae49072400b9f4c63fea1511b600552ff0eed4f008eb1d5cec5013a
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2 --on_chain --src_sig=0x12bd5090066cb508b50c437faba261afca2ed1c985812a2f7e4d2a6321d9128c33a5456c4105ceafb3da7897cfb97b50e6ff70e1ba7aaf0ba562890246ec728801
+
+thetacli query account --address=70f587259738cB626A1720Af7038B8DcDb6a42a0
+
+// Carol -> Payout
+thetacli query tx --hash=0x3d38c3851ae49072400b9f4c63fea1511b600552ff0eed4f008eb1d5cec5013a
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=cd56123D0c5D6C1Ba4D39367b88cba61D93F5405 --payment_seq=4 --reserve_seq=12 --resource_id=rid1000001 --tfuel=4 --on_chain --src_sig=0x1114ce5922a7e940542468fc2b6cd22f779408224310d63eb6215171e8618daf53432533b207704dcd2d21235a8e40e84819df369154b01f7a47357e496250e801
+
+thetacli query account --address=0xcd56123D0c5D6C1Ba4D39367b88cba61D93F5405

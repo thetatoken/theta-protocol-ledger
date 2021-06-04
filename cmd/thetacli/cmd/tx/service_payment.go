@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
-//	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rpc"
@@ -46,25 +46,32 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-//	var swallet wtypes.Wallet
+	var swallet wtypes.Wallet
 	//common.HexToAddress(addressStr)
-//	var fromAddress = common.BytesToAddress([]byte(fromFlag))
-//	var twallet wtypes.Wallet
-//	var toAddress = common.BytesToAddress([]byte(toFlag))
+	var fromAddress = common.HexToAddress(fromFlag)
+	var twallet wtypes.Wallet
+	var toAddress = common.HexToAddress(toFlag)
+	var err error
 
-//	if onChainFlag {
-		twallet, toAddress, err := walletUnlockWithPath(cmd, toFlag, pathFlag)
+	if onChainFlag {
+//	if 1 == 1 {
+		twallet, toAddress, err = walletUnlockWithPath(cmd, toFlag, pathFlag)
 		if err != nil || twallet == nil {
 			return
 		}
 		defer twallet.Lock(toAddress)
-//	} else {
-		swallet, fromAddress, err := walletUnlockWithPath(cmd, fromFlag, pathFlag)
+	} else {
+		swallet, fromAddress, err = walletUnlockWithPath(cmd, fromFlag, pathFlag)
 		if err != nil || swallet == nil {
 			return
 		}
 		defer swallet.Lock(fromAddress)
-//	}
+	}
+
+	tfuel, ok := types.ParseCoinAmount(tfuelAmountFlag)
+	if !ok {
+		utils.Error("Failed to parse tfuel amount")
+	}
 
 	fee, ok := types.ParseCoinAmount(feeFlag)
 	if !ok {
@@ -75,18 +82,23 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		Address: fromAddress,
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			TFuelWei: new(big.Int).SetUint64(1),
+			//TFuelWei: new(big.Int).Add(tfuel, fee),
+			TFuelWei: tfuel,
+			//TFuelWei: new(big.Int).SetUint64(1),
 		},
 		Sequence: uint64(paymentSeqFlag),
+		//Signature:
 	}
 
 	tinput := types.TxInput{
 		Address: toAddress,
 		Coins: types.Coins{
 			ThetaWei: new(big.Int).SetUint64(0),
-			TFuelWei: new(big.Int).SetUint64(0),
+			TFuelWei: tfuel,
+			//TFuelWei: new(big.Int).SetUint64(0),
 		},
 		//Sequence: uint64(paymentSeqFlag),
+		//Signature:
 	}
 
 	// See theta-protocol-ledger > ledger > types > tx.go : Line 522
@@ -103,7 +115,8 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 	}
 
 	if onChainFlag {
-		ssig, err := crypto.SignatureFromBytes([]byte(sourceSignatureFlag))
+		//ssig, err := crypto.UnmarshalJSON([]byte(sourceSignatureFlag))
+		ssig, err := crypto.SignatureFromBytes(common.FromHex(sourceSignatureFlag))
 		if err != nil {
 			utils.Error("Failed to convert passed signature: %v\n", err)
 		}
@@ -137,31 +150,41 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 	signedTx := hex.EncodeToString(raw)
 
 	if onChainFlag {
-		client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
-
-		var res *jsonrpc.RPCResponse
-		if asyncFlag {
-			res, err = client.Call("theta.BroadcastRawTransactionAsync", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+		if dryRunFlag  {
+			formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
+			if err != nil {
+				utils.Error("Failed to parse off-chain transaction: %v\n", err)
+			}
+			fmt.Printf("On-Chain transaction(dry-run):\n%s\n", formatted)
+	
 		} else {
-			res, err = client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
-		}
 
-		if err != nil {
-			utils.Error("Failed to broadcast transaction: %v\n", err)
+			client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
+
+			var res *jsonrpc.RPCResponse
+			if asyncFlag {
+				res, err = client.Call("theta.BroadcastRawTransactionAsync", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+			} else {
+				res, err = client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
+			}
+
+			if err != nil {
+				utils.Error("Failed to broadcast transaction: %v\n", err)
+			}
+			if res.Error != nil {
+				utils.Error("Server returned error: %v\n", res.Error)
+			}
+			result := &rpc.BroadcastRawTransactionResult{}
+			err = res.GetObject(result)
+			if err != nil {
+				utils.Error("Failed to parse server response: %v\n", err)
+			}
+			formatted, err := json.MarshalIndent(result, "", "    ")
+			if err != nil {
+				utils.Error("Failed to parse server response: %v\n", err)
+			}
+			fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 		}
-		if res.Error != nil {
-			utils.Error("Server returned error: %v\n", res.Error)
-		}
-		result := &rpc.BroadcastRawTransactionResult{}
-		err = res.GetObject(result)
-		if err != nil {
-			utils.Error("Failed to parse server response: %v\n", err)
-		}
-		formatted, err := json.MarshalIndent(result, "", "    ")
-		if err != nil {
-			utils.Error("Failed to parse server response: %v\n", err)
-		}
-		fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 	} else {
 		formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
 		if err != nil {
@@ -179,13 +202,15 @@ func init() {
 	servicePaymentCmd.Flags().StringVar(&pathFlag, "path", "", "Wallet derivation path")
 	servicePaymentCmd.Flags().Uint64Var(&paymentSeqFlag, "payment_seq", 0, "Payment sequence number of the transaction")
 	servicePaymentCmd.Flags().Uint64Var(&reserveSeqFlag, "reserve_seq", 0, "Reserve sequence number of the transaction")
+	servicePaymentCmd.Flags().StringVar(&tfuelAmountFlag, "tfuel", "0", "TFuel amount")
 	servicePaymentCmd.Flags().StringVar(&resourceIDFlag, "resource_id", "", "Corresponding resourceID")
 	servicePaymentCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	servicePaymentCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano|trezor)")
 	servicePaymentCmd.Flags().StringVar(&sourceSignatureFlag, "src_sig", "unsigned", "Source Signature from prior Off-Chain transaction")
 	servicePaymentCmd.Flags().BoolVar(&onChainFlag, "on_chain", false, "Process transaction On-Chain else return json of what would have been sent")
 	servicePaymentCmd.Flags().BoolVar(&asyncFlag, "async", false, "Block until tx has been included in the blockchain")
-
+	servicePaymentCmd.Flags().BoolVar(&dryRunFlag, "dry_run", false, "Dry Run(don't execute) the On-Chain transaction")
+	
 	servicePaymentCmd.MarkFlagRequired("chain")
 	servicePaymentCmd.MarkFlagRequired("from")
 	servicePaymentCmd.MarkFlagRequired("to")
