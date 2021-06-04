@@ -248,12 +248,12 @@ func adjustByOutputs(view *state.StoreView, accounts map[string]*types.Account, 
 	}
 }
 
-func sanityCheckForGasPrice(gasPrice *big.Int) bool {
+func sanityCheckForGasPrice(gasPrice *big.Int, blockHeight uint64) bool {
 	if gasPrice == nil {
 		return false
 	}
 
-	minimumGasPrice := new(big.Int).SetUint64(types.MinimumGasPrice)
+	minimumGasPrice := types.GetMinimumGasPrice(blockHeight)
 	if gasPrice.Cmp(minimumGasPrice) < 0 {
 		return false
 	}
@@ -261,10 +261,20 @@ func sanityCheckForGasPrice(gasPrice *big.Int) bool {
 	return true
 }
 
-func sanityCheckForFee(fee types.Coins) bool {
+func sanityCheckForFee(fee types.Coins, blockHeight uint64) (minimumFee *big.Int, success bool) {
 	fee = fee.NoNil()
-	minimumFee := new(big.Int).SetUint64(types.MinimumTransactionFeeTFuelWei)
-	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0
+	minimumFee = types.GetMinimumTransactionFeeTFuelWei(blockHeight)
+	success = (fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0)
+
+	return minimumFee, success
+}
+
+func sanityCheckForSendTxFee(fee types.Coins, numAccountsAffected uint64, blockHeight uint64) (minimumFee *big.Int, success bool) {
+	fee = fee.NoNil()
+	minimumFee = types.GetSendTxMinimumTransactionFeeTFuelWei(numAccountsAffected, blockHeight)
+	success = (fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0)
+
+	return minimumFee, success
 }
 
 func chargeFee(account *types.Account, fee types.Coins) bool {
@@ -274,4 +284,17 @@ func chargeFee(account *types.Account, fee types.Coins) bool {
 
 	account.Balance = account.Balance.Minus(fee)
 	return true
+}
+
+func getBlockHeight(ledgerState *state.LedgerState) uint64 {
+	blockHeight := ledgerState.Height() + 1
+	return blockHeight
+}
+
+func getRegularTxGas(ledgerState *state.LedgerState) uint64 {
+	blockHeight := getBlockHeight(ledgerState)
+	if blockHeight < common.HeightJune2021FeeAdjustment {
+		return types.GasRegularTx
+	}
+	return types.GasRegularTxJune2021
 }

@@ -15,6 +15,9 @@ const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 1
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
 const HeightSampleStakingReward uint64 = 9497418 // approximate time: 7pm Mar 10th, 2021 PST
 
+// HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
+const HeightJune2021FeeAdjustment uint64 = 9000000000
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 

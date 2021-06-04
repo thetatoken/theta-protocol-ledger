@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
-	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm"
 )
@@ -256,7 +256,7 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 	sequence uint64, assert *assert.Assertions) (contractAddr common.Address) {
 	deployerAcc := deployerPrivAcc.Account
 	deployerAddr := deployerAcc.Address
-	gasPrice := types.MinimumGasPrice
+	gasPrice := types.MinimumGasPriceJune2021
 	deploySCTx := &types.SmartContractTx{
 		From: types.TxInput{
 			Address:  deployerAddr,
@@ -271,9 +271,9 @@ func deploySmartContract(et *execTest, deployerPrivAcc *types.PrivAccount,
 	deploySCTx.From.Signature = deployerPrivAcc.Sign(signBytes)
 
 	// Dry run to get the smart contract address when it is actually deployed
-	parentBlock := &core.Block {
-		BlockHeader: &core.BlockHeader {
-			Height: 1,
+	parentBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    1,
 			Timestamp: 1601599331,
 		},
 	}
@@ -319,7 +319,7 @@ func callSmartContract(et *execTest, contractAddr common.Address, callerPrivAcc 
 	gasLimit uint64, data common.Bytes, sequence uint64, assert *assert.Assertions) (vmRet common.Bytes, vmErr error, gasUsed uint64) {
 	callerAcc := callerPrivAcc.Account
 	callerAddr := callerAcc.Address
-	gasPrice := types.MinimumGasPrice
+	gasPrice := types.MinimumGasPriceJune2021
 	callSCTX := &types.SmartContractTx{
 		From: types.TxInput{
 			Address:  callerAddr,
@@ -337,9 +337,9 @@ func callSmartContract(et *execTest, contractAddr common.Address, callerPrivAcc 
 	stateCopy, err := et.state().Delivered().Copy()
 	assert.Nil(err)
 
-	parentBlock := &core.Block {
-		BlockHeader: &core.BlockHeader {
-			Height: 1,
+	parentBlock := &core.Block{
+		BlockHeader: &core.BlockHeader{
+			Height:    1,
 			Timestamp: 1601599331,
 		},
 	}
@@ -358,7 +358,7 @@ func executeSmartContract(et *execTest, contractAddr common.Address, callerPrivA
 	callerAcc := callerPrivAcc.Account
 	callerAddr := callerAcc.Address
 	retrievedCallerAccBeforeExec := et.state().Delivered().GetAccount(callerAddr)
-	gasPrice := types.MinimumGasPrice
+	gasPrice := types.MinimumGasPriceJune2021
 	execSCTX := &types.SmartContractTx{
 		From: types.TxInput{
 			Address:  callerAddr,

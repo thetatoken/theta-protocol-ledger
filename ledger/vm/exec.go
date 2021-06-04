@@ -41,7 +41,12 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 	contractAddr = tx.To.Address
 	createContract := (contractAddr == common.Address{})
 
-	if gasLimit > types.MaximumTxGasLimit {
+	// if gasLimit > maxGasLimit {
+	// 	return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
+	// }
+	blockHeight := storeView.Height() + 1
+	maxGasLimit := types.GetMaxGasLimit(blockHeight)
+	if new(big.Int).SetUint64(gasLimit).Cmp(maxGasLimit) > 0 {
 		return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
 	}
 

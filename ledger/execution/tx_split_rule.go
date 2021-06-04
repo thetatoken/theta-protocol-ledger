@@ -48,9 +48,10 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -154,7 +155,7 @@ func (exec *SplitRuleTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 func (exec *SplitRuleTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.SplitRuleTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasSplitRuleTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }
