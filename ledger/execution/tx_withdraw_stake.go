@@ -48,9 +48,10 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode) {
@@ -144,7 +145,7 @@ func (exec *WithdrawStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo 
 func (exec *WithdrawStakeExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.WithdrawStakeTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasWidthdrawStakeTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

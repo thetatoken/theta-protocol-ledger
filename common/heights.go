@@ -36,6 +36,9 @@ const HeightEnableTheta3 uint64 = 50
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
 const HeightSampleStakingReward uint64 = 550
 
+// HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
+const HeightJune2021FeeAdjustment uint64 = 50
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 

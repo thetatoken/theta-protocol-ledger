@@ -77,9 +77,10 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 		return result.Error(errMsg)
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	transferAmount := tx.Source.Coins
@@ -217,7 +218,7 @@ func (exec *ServicePaymentTxExecutor) getTxInfo(transaction types.Tx) *core.TxIn
 func (exec *ServicePaymentTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.ServicePaymentTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasServicePaymentTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

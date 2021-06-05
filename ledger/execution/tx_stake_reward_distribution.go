@@ -29,6 +29,8 @@ func NewStakeRewardDistributionTxExecutor(state *st.LedgerState) *StakeRewardDis
 }
 
 func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
+
 	tx := transaction.(*types.StakeRewardDistributionTx)
 
 	res := tx.Holder.ValidateBasic()
@@ -97,9 +99,9 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 	// 	return result.Error("Invalid purpose: %v", tx.Purpose)
 	// }
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -166,7 +168,7 @@ func (exec *StakeRewardDistributionTxExecutor) getTxInfo(transaction types.Tx) *
 func (exec *StakeRewardDistributionTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.StakeRewardDistributionTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasStakeRewardDistributionTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

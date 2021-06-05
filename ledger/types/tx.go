@@ -33,16 +33,20 @@ Transaction Types:
 */
 
 // Gas of regular transactions
+// const (
+// 	GasSendTxPerAccount   uint64 = 5000
+// 	GasReserveFundTx      uint64 = 10000
+// 	GasReleaseFundTx      uint64 = 10000
+// 	GasServicePaymentTx   uint64 = 10000
+// 	GasSplitRuleTx        uint64 = 10000
+// 	GasUpdateValidatorsTx uint64 = 10000
+// 	GasDepositStakeTx     uint64 = 10000
+// 	GasWidthdrawStakeTx   uint64 = 10000
+// )
+
 const (
-	GasSendTxPerAccount          uint64 = 5000
-	GasReserveFundTx             uint64 = 10000
-	GasReleaseFundTx             uint64 = 10000
-	GasServicePaymentTx          uint64 = 10000
-	GasSplitRuleTx               uint64 = 10000
-	GasUpdateValidatorsTx        uint64 = 10000
-	GasDepositStakeTx            uint64 = 10000
-	GasWidthdrawStakeTx          uint64 = 10000
-	GasStakeRewardDistributionTx uint64 = 10000
+	GasRegularTx         uint64 = 10000
+	GasRegularTxJune2021 uint64 = 80000
 )
 
 type Tx interface {

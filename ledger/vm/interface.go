@@ -50,6 +50,8 @@ type StateDB interface {
 	GetState(common.Address, common.Hash) common.Hash
 	SetState(common.Address, common.Hash, common.Hash)
 
+	GetBlockHeight() uint64
+
 	Suicide(common.Address) bool
 	HasSuicided(common.Address) bool
 
