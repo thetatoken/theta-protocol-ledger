@@ -571,7 +571,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 
 		for _, stakes := range effectiveStakes {
 			for _, stake := range stakes {
-				stakeSourceAddr := stake.Holder
+				stakeSourceAddr := stake.Source
 				stakeAmountSum := stake.Amount
 
 				if curr >= tfuelRewardN {
@@ -609,7 +609,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 			if len(stakes) == 0 {
 				continue
 			}
-			stakeSourceAddr := stakes[0].Holder
+			stakeSourceAddr := stakes[0].Source
 			stakeAmountSum := big.NewInt(0)
 			for _, stake := range stakes {
 				stakeAmountSum.Add(stakeAmountSum, stake.Amount)
