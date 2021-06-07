@@ -587,7 +587,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 				}
 				currSum = upper
 
-				logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
+				//logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
 
 				if count > 0 {
 					tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
@@ -628,7 +628,7 @@ func issueRandomizedReward(ledger core.Ledger, guardianVotes *core.AggregatedVot
 			}
 			currSum = upper
 
-			logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
+			// logger.Infof("RandomReward -- staker: %v, count: %v, height: %v, stake: %v, type: %v", stakeSourceAddr, count, view.Height()+1, stakeAmountSum, rewardType)
 
 			if count > 0 {
 				tmp := new(big.Int).Mul(totalReward, big.NewInt(int64(count)))
