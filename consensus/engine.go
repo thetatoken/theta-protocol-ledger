@@ -334,13 +334,13 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		}).Debug("Received block")
 		e.handleBlock(m)
 	case *core.AggregatedVotes:
-		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
+		// e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
 	case *core.EENVote:
-		e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
+		// e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
 		e.handleEliteEdgeNodeVote(m)
 	case *core.AggregatedEENVotes:
-		e.logger.WithFields(log.Fields{"aggregated elite edge node vote": m}).Debug("Received agggregated elite edge node vote")
+		// e.logger.WithFields(log.Fields{"aggregated elite edge node vote": m}).Debug("Received agggregated elite edge node vote")
 		e.handleAggregatedEliteEdgeNodeVote(m)
 	default:
 		// Should not happen.

@@ -148,13 +148,13 @@ func (e *EliteEdgeNodeEngine) processVote(vote *core.EENVote) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
-	logger.Debugf("Process edge node vote {%v : %v}", vote.Address, vote.Block.Hex())
+	//logger.Debugf("Process edge node vote {%v : %v}", vote.Address, vote.Block.Hex())
 
 	if !e.validateVote(vote) {
 		return
 	}
 
-	logger.Debugf("Validated edge node vote {%v : %v}", vote.Address, vote.Block.Hex())
+	//logger.Debugf("Validated edge node vote {%v : %v}", vote.Address, vote.Block.Hex())
 
 	aggregatedVote, err := e.convertVote(vote)
 	if err != nil {
@@ -238,12 +238,12 @@ func (e *EliteEdgeNodeEngine) processAggregatedVote(vote *core.AggregatedEENVote
 
 func (e *EliteEdgeNodeEngine) HandleVote(vote *core.EENVote) {
 	if e.voteBookkeeper.HasSeen(vote) {
-		logger.Debugf("Received edge node vote {%v : %v} earlier, safely ignore", vote.Address, vote.Block.Hex())
+		//logger.Debugf("Received edge node vote {%v : %v} earlier, safely ignore", vote.Address, vote.Block.Hex())
 		return
 	}
 	e.voteBookkeeper.Record(vote)
 
-	logger.Debugf("Received edge node vote {%v : %v} for the first time", vote.Address, vote.Block.Hex())
+	//logger.Debugf("Received edge node vote {%v : %v} for the first time", vote.Address, vote.Block.Hex())
 
 	select {
 	case e.evIncoming <- vote:
@@ -264,31 +264,31 @@ func (e *EliteEdgeNodeEngine) HandleAggregatedVote(vote *core.AggregatedEENVotes
 
 func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 	if e.eenp == nil {
-		e.logger.WithFields(log.Fields{
-			"local.block":  e.block.Hex(),
-			"local.round":  e.round,
-			"vote.block":   vote.Block.Hex(),
-			"vote.address": vote.Address,
-		}).Debug("The elite edge node pool is nil, cannot validate vote")
+		// e.logger.WithFields(log.Fields{
+		// 	"local.block":  e.block.Hex(),
+		// 	"local.round":  e.round,
+		// 	"vote.block":   vote.Block.Hex(),
+		// 	"vote.address": vote.Address,
+		// }).Debug("The elite edge node pool is nil, cannot validate vote")
 		return
 	}
 
 	if e.block.IsEmpty() {
-		e.logger.WithFields(log.Fields{
-			"local.block":  e.block.Hex(),
-			"local.round":  e.round,
-			"vote.block":   vote.Block.Hex(),
-			"vote.address": vote.Address,
-		}).Debug("Ignoring elite edge node vote: local not ready")
+		// e.logger.WithFields(log.Fields{
+		// 	"local.block":  e.block.Hex(),
+		// 	"local.round":  e.round,
+		// 	"vote.block":   vote.Block.Hex(),
+		// 	"vote.address": vote.Address,
+		// }).Debug("Ignoring elite edge node vote: local not ready")
 		return
 	}
 	if vote.Block != e.block {
-		e.logger.WithFields(log.Fields{
-			"local.block":  e.block.Hex(),
-			"local.round":  e.round,
-			"vote.block":   vote.Block.Hex(),
-			"vote.address": vote.Address,
-		}).Debug("Ignoring elite edge node vote: block hash does not match with local candidate")
+		// e.logger.WithFields(log.Fields{
+		// 	"local.block":  e.block.Hex(),
+		// 	"local.round":  e.round,
+		// 	"vote.block":   vote.Block.Hex(),
+		// 	"vote.address": vote.Address,
+		// }).Debug("Ignoring elite edge node vote: block hash does not match with local candidate")
 		return
 	}
 
@@ -304,12 +304,12 @@ func (e *EliteEdgeNodeEngine) validateVote(vote *core.EENVote) (res bool) {
 	}
 	selected, _ := e.eenSampleResult.Get(vote.Address)
 	if !selected.(bool) {
-		e.logger.WithFields(log.Fields{
-			"local.block":  e.block.Hex(),
-			"local.round":  e.round,
-			"vote.block":   vote.Block.Hex(),
-			"vote.address": vote.Address,
-		}).Debug("Ignoring elite edge node vote: not selected by random sampling")
+		// e.logger.WithFields(log.Fields{
+		// 	"local.block":  e.block.Hex(),
+		// 	"local.round":  e.round,
+		// 	"vote.block":   vote.Block.Hex(),
+		// 	"vote.address": vote.Address,
+		// }).Debug("Ignoring elite edge node vote: not selected by random sampling")
 		return
 	}
 

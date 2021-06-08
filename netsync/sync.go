@@ -636,10 +636,10 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			}).Warn("Failed to decode DataResponse payload")
 			return
 		}
-		m.logger.WithFields(log.Fields{
-			"vote.Block": vote.Block.Hex(),
-			"peer":       peerID,
-		}).Debug("Received elite edge node vote")
+		// m.logger.WithFields(log.Fields{
+		// 	"vote.Block": vote.Block.Hex(),
+		// 	"peer":       peerID,
+		// }).Debug("Received elite edge node vote")
 		m.handleEliteEdgeNodeVote(vote)
 	case common.ChannelIDAggregatedEliteEdgeNodeVotes:
 		vote := &core.AggregatedEENVotes{}
@@ -657,7 +657,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"vote.Block":      vote.Block.Hex(),
 			"vote.Multiplies": vote.Multiplies,
 			"peer":            peerID,
-		}).Debug("Received elite edge node vote")
+		}).Debug("Received aggregated elite edge node vote")
 		m.handleAggregatedEliteEdgeNodeVotes(vote)
 	case common.ChannelIDHeader:
 		headers := &Headers{}
