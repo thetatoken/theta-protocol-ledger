@@ -37,6 +37,7 @@ var (
 	onChainFlag                  bool
 	sourceSignatureFlag          string
 	dryRunFlag					 bool
+	pwFlag                       string
 )
 
 // TxCmd represents the Tx command
@@ -50,7 +51,7 @@ func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
 	TxCmd.AddCommand(servicePaymentCmd)
-	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
+	TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
 	TxCmd.AddCommand(splitRuleCmd)
 	TxCmd.AddCommand(smartContractCmd)
 	TxCmd.AddCommand(depositStakeCmd)

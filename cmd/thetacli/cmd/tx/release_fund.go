@@ -74,6 +74,7 @@ func doReleaseFundCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
+	releaseFundCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	releaseFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	releaseFundCmd.Flags().StringVar(&fromFlag, "from", "", "Reserve owner's address")
 	releaseFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

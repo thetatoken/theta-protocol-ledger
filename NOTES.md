@@ -159,7 +159,7 @@ thetacli query tx --hash=0x29745a458dc5e1f39a511b889f04396d1add0a16ad279816b46df
 --resource_id=rid1000001
 
 // Alice -> Bob
-thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=8 --resource_id=rid1000001 --tfuel=2
 
 --resource_id=rid1000001
 
@@ -181,7 +181,7 @@ thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d1
 // Bob -> Payout
 thetacli query tx --hash=0x3d38c3851ae49072400b9f4c63fea1511b600552ff0eed4f008eb1d5cec5013a
 
-thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=12 --resource_id=rid1000001 --tfuel=2 --on_chain --src_sig=0x12bd5090066cb508b50c437faba261afca2ed1c985812a2f7e4d2a6321d9128c33a5456c4105ceafb3da7897cfb97b50e6ff70e1ba7aaf0ba562890246ec728801
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=1 --reserve_seq=8 --resource_id=rid1000001 --tfuel=2 --on_chain --src_sig=0x9bc43df9cfb50a0284161543709a3cad4d55a42ad74e2e8520af74730a9977b835aa976803a473451ca109c4032b8c947d7edb8499c949a6926231db8b4f53c900
 
 thetacli query account --address=70f587259738cB626A1720Af7038B8DcDb6a42a0
 
@@ -191,3 +191,18 @@ thetacli query tx --hash=0x3d38c3851ae49072400b9f4c63fea1511b600552ff0eed4f008eb
 thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=cd56123D0c5D6C1Ba4D39367b88cba61D93F5405 --payment_seq=4 --reserve_seq=12 --resource_id=rid1000001 --tfuel=4 --on_chain --src_sig=0x1114ce5922a7e940542468fc2b6cd22f779408224310d63eb6215171e8618daf53432533b207704dcd2d21235a8e40e84819df369154b01f7a47357e496250e801
 
 thetacli query account --address=0xcd56123D0c5D6C1Ba4D39367b88cba61D93F5405
+
+
+
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=2 --reserve_seq=8 --resource_id=rid1000001 --tfuel=2
+
+thetacli tx service_payment --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --to=70f587259738cB626A1720Af7038B8DcDb6a42a0 --payment_seq=2 --reserve_seq=8 --resource_id=rid1000001 --tfuel=2 --on_chain --src_sig=0x9e2ff11e85636b8aece02127db7b9bfa4ffdff144a026f99aeb6f375d0c21ec244618896410d3bad9eaad560162ffb8c00b6906ef9a424a2354173342119a00201
+
+0x12bd5090066cb508b50c437faba261afca2ed1c985812a2f7e4d2a6321d9128c33a5456c4105ceafb3da7897cfb97b50e6ff70e1ba7aaf0ba562890246ec728801
+
+thetacli tx release --chain="privatenet" --from=2E833968E5bB786Ae419c4d13189fB081Cc43bab --reserve_seq=17 --seq=18
+Using config file: /Users/i830671/.thetacli/config.yaml
+Please enter password: 
+Server returned error: -32000: Fund cannot be released until blockheight 3051
+

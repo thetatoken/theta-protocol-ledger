@@ -134,6 +134,7 @@ func doDepositStakeCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
+	depositStakeCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	depositStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	depositStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	depositStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")

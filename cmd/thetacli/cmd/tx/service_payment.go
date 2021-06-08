@@ -155,7 +155,8 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				utils.Error("Failed to parse off-chain transaction: %v\n", err)
 			}
-			fmt.Printf("On-Chain transaction(dry-run):\n%s\n", formatted)
+			//fmt.Printf("On-Chain transaction(dry-run):\n%s\n", formatted)
+			fmt.Printf("%s\n", formatted)
 	
 		} else {
 
@@ -190,12 +191,14 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		if err != nil {
 			utils.Error("Failed to parse off-chain transaction: %v\n", err)
 		}
-		fmt.Printf("Off-Chain transaction:\n%s\n", formatted)
+		//fmt.Printf("Off-Chain transaction:\n%s\n", formatted)
+		fmt.Printf("%s\n", formatted)
 	}
 
 }
 
 func init() {
+	servicePaymentCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	servicePaymentCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	servicePaymentCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	servicePaymentCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")

@@ -29,7 +29,14 @@ func walletUnlockWithPath(cmd *cobra.Command, addressStr string, path string) (w
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft {
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
+		var cfgPW string = ""
+		cfgPW = cmd.Flag("pw").Value.String()
+		if cfgPW == "" {
+			wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
+		} else {
+			wallet, address, err = SoftWalletUnlockPW(cfgPath, addressStr, cfgPW)
+		}
+		//wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
 	} else {
 		derivationPath, err := parseDerivationPath(path, walletType)
 		if err != nil {
@@ -84,6 +91,32 @@ func SoftWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address
 		fmt.Printf("Failed to get password: %v\n", err)
 		return nil, common.Address{}, err
 	}
+
+	address := common.HexToAddress(addressStr)
+	err = wallet.Unlock(address, password, nil)
+	if err != nil {
+		fmt.Printf("Failed to unlock address %v: %v\n", address.Hex(), err)
+		return nil, common.Address{}, err
+	}
+
+	return wallet, address, nil
+}
+
+func SoftWalletUnlockPW(cfgPath, addressStr string, password string) (wtypes.Wallet, common.Address, error) {
+	wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
+	if err != nil {
+		fmt.Printf("Failed to open wallet: %v\n", err)
+		return nil, common.Address{}, err
+	}
+
+	//prompt := fmt.Sprintf("Please enter pasword: ")
+	//password, err := utils.GetPassword(prompt)
+	//if err != nil {
+	//	fmt.Printf("Failed to get password: %v\n", err)
+	//	return nil, common.Address{}, err
+	//}
+
+	// password:= "qwertyuiop"
 
 	address := common.HexToAddress(addressStr)
 	err = wallet.Unlock(address, password, nil)

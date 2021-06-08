@@ -106,6 +106,7 @@ func doSplitRuleCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
+	splitRuleCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	splitRuleCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	splitRuleCmd.Flags().StringVar(&fromFlag, "from", "", "Initiator's address")
 	splitRuleCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

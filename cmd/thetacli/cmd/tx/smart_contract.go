@@ -115,6 +115,7 @@ func doSmartContractCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
+	smartContractCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	smartContractCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	smartContractCmd.Flags().StringVar(&fromFlag, "from", "", "The caller address")
 	smartContractCmd.Flags().StringVar(&toFlag, "to", "", "The smart contract address")

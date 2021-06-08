@@ -10,6 +10,6 @@ spawn thetacli tx reserve --async --chain="privatenet" $arg1 $arg2 $arg3 $arg4 $
 set code [open "./defaultpw" r]
 set pass [read $code]
 expect {
-        password: {send "$pass\r" ; exp_continue}
+        password: {send "$pass\n" ; exp_continue}
         eof exit
 }
