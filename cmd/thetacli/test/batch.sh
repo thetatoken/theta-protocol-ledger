@@ -2,19 +2,28 @@
 #set -x #echo on
 do_run=1 # Execute(evaluate) the commands
 #do_run=0 # Don't evaluate any commands
-do_echo=1 # Echo the commands
-#do_echo=0 # Don't echo any commands
+#do_echo=1 # Echo the commands
+do_echo=0 # Don't echo any commands
+do_echo_on_chain=1 # Echo the on-chain commands
+#do_echo_on_chain=0 # Don't echo on-chain commands
 
 Alice=2E833968E5bB786Ae419c4d13189fB081Cc43bab
 Bob=70f587259738cB626A1720Af7038B8DcDb6a42a0
 Carol=cd56123D0c5D6C1Ba4D39367b88cba61D93F5405
 rid=rid1000001
 rpduration=51
-rfund=100
-rcoll=101
-tfuel=50
-bobsigs=1
-carolsigs=1
+rfund=200
+rcoll=201
+
+tfuel=2
+
+bobsigs=5
+carolsigs=5
+
+tfuelfee=0.3
+tfuelperc=0.0
+visaperc=0.0129
+visaflat=0.05
 
 startseq=0
 
@@ -44,10 +53,127 @@ function un_wei()
 echo ""
 echo "Getting Current Block Height."
 #cmd='cat outbin/combined.json | jq '"'"'.contracts | ."'$solfile':'$contractName'" | .abi '"'"' > outbin/abi.json'
-cmd='cbh=$(thetacli query status | jq .current_height)'
+cmd='cbh=$(thetacli query status | jq .current_height | tr -d '"'"'"'"'"')'
 if [ $do_echo -eq 1 ]; then echo $cmd; fi
 if [ $do_run -eq 1 ]; then eval $cmd; fi
 echo "current_block_height: "$cbh
+
+echo ""
+echo "Getting Current Block Height Timestamp."
+#cmd='cat outbin/combined.json | jq '"'"'.contracts | ."'$solfile':'$contractName'" | .abi '"'"' > outbin/abi.json'
+cmd='cbt=$(thetacli query block --height='$cbh' | jq .timestamp | tr -d '"'"'"'"'"')'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "current_timestamp: "$cbt
+
+echo ""
+echo "Getting Block Height-100 Timestamp."
+cmd='pbh=$(echo "scale=2; '$cbh' - 100" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+
+cmd='pbt=$(thetacli query block --height='$pbh' | jq .timestamp | tr -d '"'"'"'"'"')'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "block-100_timestamp: "$pbt
+
+# Last 100 block running average seconds per block
+cmd='aspb=$(echo "scale=2; ('$cbt' - '$pbt')/100" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "average seconds per block: "$aspb
+
+#// github.com/thetatoken/theta/ledger/types/const.go : Line 85
+#	// MaximumFundReserveDuration indicates the maximum duration (in terms of number of blocks) of reserving fund
+#    MaximumFundReserveDuration uint64 = 12 * 3600
+#
+#	// MinimumFundReserveDuration indicates the minimum duration (in terms of number of blocks) of reserving fund
+#	MinimumFundReserveDuration uint64 = 300
+xfdb=43200
+#nfdb=300  My privatenet is overriden to 30 blocks for testing.
+nfdb=30
+
+let xffrb=$cbh+xfdb  # maXimum Future Fund Reserverve Block
+let nffrb=$cbh+nfdb  # miNimum Future Fund Reserverve Block
+
+cmd='deltatime=$(echo "scale=0; ('$aspb' "'*'" '$xfdb')/1" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "deltatime: "$deltatime
+
+let hours=deltatime/3600
+let minutes=(deltatime/60)%60
+let seconds=deltatime%60
+printf "Max time until Reserve Deposit Expiration: %d:%02d:%02d\n" $hours $minutes $seconds
+
+cmd='deltatime=$(echo "scale=0; ('$aspb' "'*'" '$nfdb')/1" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "deltatime: "$deltatime
+
+let hours=deltatime/3600
+let minutes=(deltatime/60)%60
+let seconds=deltatime%60
+printf "Min time until Reserve Deposit Expiration: %d:%02d:%02d\n" $hours $minutes $seconds
+
+let moviesecs=120*60 # 90mins + 30 for pausing to pee and make popcorn
+cmd='deltablocks=$(echo "scale=0; ('$moviesecs' / '$aspb')/1" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "deltablocks: "$deltablocks
+
+echo -n "          Current Date-Time : " ; date -r $cbt
+#dis=$(date +%s)
+cmd='expireatsecs=$(echo "scale=0; ('$cbt' + '$deltatime')/1" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo -n "Estimated Reserve Expiration: " ; date -r $expireatsecs
+
+#curl -s https://explorer.thetatoken.org:8443/api/price/all | jq '.body[] | select(._id == "TFUEL") | .price'
+tfuelperusd=$(curl -s https://explorer.thetatoken.org:8443/api/price/all | jq '.body[] | select(._id == "TFUEL") | .price')
+echo "TFuel(USD): "$tfuelperusd
+
+cmd='tfuelflat=$(echo "scale=2; (('$tfuelperusd' "'*'" '$tfuelfee') + 0.005)/1" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "USD/Transaction: "$tfuelflat
+
+# https://www.fool.com/the-ascent/research/average-credit-card-processing-fees-costs-america/
+#Visa	1.29% + $0.05
+
+#(((tfuel * tfuelperusd * visaperc) + visaflat) * (bobsigs + carlolsigs))
+
+#((tfuel * tfuelperusd * tfuelperc) + tfuelflat) * (bobsigs + carlolsigs)
+
+let totalitems=bobsigs+carolsigs
+
+cmd='tfuelitemusd=$(echo "scale=2; (('$tfuel' "'*'" '$tfuelperusd') + 0.005)/1 " | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+
+cmd='totalvalue=$(echo "scale=2; (('$tfuelitemusd' "'*'" '$totalitems') + 0.005)/1 " | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo $tfuel" TFuel in USD = "$tfuelitemusd" x "$totalitems" items = "$totalvalue" USD"
+
+
+cmd='visacost=$(echo "scale=2; (((('$tfuel' "'*'" '$tfuelperusd' "'*'" '$visaperc') + '$visaflat') "'*'" '$totalitems') + 0.005)/1 " | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+cmd='visamargin=$(echo "scale=4; (('$visacost' / '$totalvalue') "'*'" 100)" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "visacost USD: "$visacost" to send "$totalitems" items ("$visamargin"%)margin"
+
+cmd='mn30cost=$(echo "scale=2; (((('$tfuel' "'*'" '$tfuelperusd' "'*'" '$tfuelperc') + '$tfuelflat') "'*'" '$totalitems') + 0.005)/1 " | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+cmd='mn30margin=$(echo "scale=4; (('$mn30cost' / '$totalvalue') "'*'" 100)" | bc -q 2>/dev/null)'
+if [ $do_echo -eq 1 ]; then echo $cmd; fi
+if [ $do_run -eq 1 ]; then eval $cmd; fi
+echo "mn30cost USD: "$mn30cost" to send "$totalitems" items ("$mn30margin"%)margin"
+
+#exit
 
 #aib=$(thetacli query account --address=$Alice | tail -n +2 | jq .coins.tfuelwei | tr -d '"'"'"'"'"')
 echo ""
@@ -65,6 +191,20 @@ if [ $do_run -eq 1 ]; then eval $cmd; fi
 ans=$(( $aseq + 1 ))
 echo "Alice next sequence: "$ans
 
+#echo ""
+#echo "Send Bob 1 TFuel(manually)."
+#cmd='thetacli tx send --chain="privatenet" --async --from='$Alice' --to='$Bob' --theta=0 --tfuel=1 --seq='$ans
+#if [ $do_echo -eq 1 ]; then echo $cmd; fi
+#if [ $do_run -eq 1 ]; then eval $cmd; fi
+#exit
+
+#echo ""
+#echo "Send Carol 1 TFuel(manually)."
+#cmd='thetacli tx send --chain="privatenet" --async --from='$Alice' --to='$Carol' --theta=0 --tfuel=1 --seq='$ans
+#if [ $do_echo -eq 1 ]; then echo $cmd; fi
+#if [ $do_run -eq 1 ]; then eval $cmd; fi
+#exit
+
 echo ""
 echo "Check for existing reserve fund."
 cmd='arf=$(thetacli query account --address='$Alice' | jq .reserved_funds)'
@@ -79,10 +219,10 @@ if [ ${#arf} == 2 ]; then
     cmd='thetacli tx reserve --chain="privatenet" --async --from='$Alice' --fund='$rfund' --collateral='$rcoll' --duration='$rpduration' --resource_ids='$rid' --seq='$ans' --pw=qwertyuiop'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
-    echo "Alice end create reserve.  Wait 10 seconds and rereun."
+    echo "Alice end create reserve.  Wait 15 seconds and rereun."
     echo "Sleeping..."
-    sleep 10
-    #exit
+    sleep 15
+    exit
 else
     echo "Reserve Fund Exists"
     #echo "arf:"$arf
@@ -93,20 +233,6 @@ else
     echo "end_block_height:"$ebh
     echo "current_block_height:"$(thetacli query status | jq .current_height | tr -d '"')
 fi
-
-#echo ""
-#echo "Send Bob 1 TFuel(manually)."
-#cmd='thetacli tx send --chain="privatenet" --async --from='$Alice' --to='$Bob' --theta=0 --tfuel='$tfuel' --seq='$ans
-#if [ $do_echo -eq 1 ]; then echo $cmd; fi
-##if [ $do_run -eq 1 ]; then eval $cmd; fi
-#exit
-
-#echo ""
-#echo "Send Carol 1 TFuel(manually)."
-#cmd='thetacli tx send --chain="privatenet" --async --from='$Alice' --to='$Carol' --theta=0 --tfuel='$tfuel' --seq='$ans
-#if [ $do_echo -eq 1 ]; then echo $cmd; fi
-##if [ $do_run -eq 1 ]; then eval $cmd; fi
-#exit
 
 aab=$(thetacli query account --address=$Alice | jq .coins.tfuelwei | tr -d '"')
 bab=$(thetacli query account --address=$Bob | jq .coins.tfuelwei | tr -d '"')
@@ -181,12 +307,17 @@ i=0
 while [ $i -lt $bobsigs ]; do
     #echo "i:"$i
     sig=${sigs[$i]}
-    echo "Bob["$i"]:"$sig
     payseq=$(( $startseq+$i+1 ))
+    echo "Bob["$payseq"]"
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
     cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' --pw=qwertyuiop --on_chain --src_sig='$sig
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
-    if [ $do_run -eq 1 ]; then eval $cmd; fi
+    if [ $do_echo_on_chain -eq 1 ]; then
+        echo $cmd
+        echo ""
+    else
+        if [ $do_run -eq 1 ]; then eval $cmd; fi
+    fi
     let i++
 done
 
@@ -194,12 +325,17 @@ i=0
 while [ $i -lt $carolsigs ]; do
     #echo "i:"$i
     sig=${sigs[$i+$bobsigs]}
-    echo "Carol["$i+$bobsigs"]:"$sig
     payseq=$(( $startseq+$bobsigs+$i+1 ))
+    echo "Carol["$payseq"]"
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
     cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' --pw=qwertyuiop --on_chain --src_sig='$sig
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
-    if [ $do_run -eq 1 ]; then eval $cmd; fi
+    if [ $do_echo_on_chain -eq 1 ]; then
+        echo $cmd
+        echo ""
+    else
+        if [ $do_run -eq 1 ]; then eval $cmd; fi
+    fi
     let i++
 done
 
