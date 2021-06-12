@@ -799,8 +799,8 @@ var hasherPool = sync.Pool{
 	New: func() interface{} { return sha3.NewLegacyKeccak256() },
 }
 
-// rlpHash encodes x and hashes the encoded bytes.
-func rlpHash(x interface{}) (h common.Hash) {
+// RLPHash encodes x and hashes the encoded bytes.
+func RLPHash(x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
@@ -812,7 +812,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 func (tx *SmartContractTx) EthTxHash(chainID string) common.Hash {
 	ethChainID := MapChainID(chainID)
 
-	ethTxHash := rlpHash([]interface{}{
+	ethTxHash := RLPHash([]interface{}{
 		tx.From.Sequence,
 		tx.GasPrice,
 		tx.GasLimit,

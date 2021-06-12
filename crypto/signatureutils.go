@@ -106,13 +106,37 @@ var (
 
 // ----------------------- ETH signature utils ----------------------- //
 
-func decodeSignature(sig []byte) (r, s, v *big.Int) {
-	if len(sig) != SignatureLength {
-		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), SignatureLength))
+func EncodeSignature(R, S, Vb *big.Int) (*Signature, error) {
+	if Vb.BitLen() > 8 {
+		return nil, errors.New("invalid v, r, s values")
 	}
-	r = new(big.Int).SetBytes(sig[:32])
-	s = new(big.Int).SetBytes(sig[32:64])
-	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	V := byte(Vb.Uint64() - 27)
+	if !ValidateSignatureValues(V, R, S, true) {
+		return nil, errors.New("invalid v, r, s values")
+	}
+	// encode the signature in uncompressed format
+	r, s := R.Bytes(), S.Bytes()
+	sigBytes := make([]byte, SignatureLength)
+	copy(sigBytes[32-len(r):32], r)
+	copy(sigBytes[64-len(s):64], s)
+	sigBytes[64] = V
+
+	sig, err := SignatureFromBytes(sigBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return sig, nil
+}
+
+func DecodeSignature(sig *Signature) (r, s, v *big.Int) {
+	sigBytes := sig.ToBytes()
+	if len(sigBytes) != SignatureLength {
+		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sigBytes), SignatureLength))
+	}
+	r = new(big.Int).SetBytes(sigBytes[:32])
+	s = new(big.Int).SetBytes(sigBytes[32:64])
+	v = new(big.Int).SetBytes([]byte{sigBytes[64] + 27})
 	return r, s, v
 }
 
@@ -143,14 +167,13 @@ func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common
 	return addr, nil
 }
 
-func homesteadSignerSender(txHash common.Hash, sig *Signature) (common.Address, error) {
-	sigBytes := sig.ToBytes()
-	v, r, s := decodeSignature(sigBytes)
+func HomesteadSignerSender(txHash common.Hash, sig *Signature) (common.Address, error) {
+	v, r, s := DecodeSignature(sig)
 	return recoverPlain(txHash, r, s, v, true)
 }
 
 func ValidateEthSignature(sender common.Address, txHash common.Hash, sig *Signature) error {
-	recoveredSender, err := homesteadSignerSender(txHash, sig)
+	recoveredSender, err := HomesteadSignerSender(txHash, sig)
 	if err != nil {
 		return err
 	}
