@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"sync"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -13,6 +14,7 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 /*
@@ -790,6 +792,41 @@ func (tx *SmartContractTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
+// For ETH compatibility
+
+// hasherPool holds LegacyKeccak256 hashers for rlpHash.
+var hasherPool = sync.Pool{
+	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+}
+
+// rlpHash encodes x and hashes the encoded bytes.
+func rlpHash(x interface{}) (h common.Hash) {
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
+}
+
+func (tx *SmartContractTx) SignBytesEth(chainID string) common.Hash {
+	ethChainID := MapChainID(chainID)
+
+	ethTxHash := rlpHash([]interface{}{
+		tx.From.Sequence,
+		tx.GasPrice,
+		tx.GasLimit,
+		tx.To.Address,
+		tx.From.Coins.NoNil().TFuelWei,
+		tx.Data,
+		ethChainID, uint(0), uint(0),
+	})
+
+	signBytes := ethTxHash
+
+	return signBytes
+}
+
 func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.From.Address == addr {
 		tx.From.Signature = sig
@@ -1002,4 +1039,23 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 		log.Panic(err)
 	}
 	return signBytes
+}
+
+// To be compatible with Ethereum, MapChainID() returns 1 for "mainnet", 3 for "testnet_sapphire", and 4 for "testnet_amber"
+// Reference: https://github.com/ethereum/go-ethereum/blob/43cd31ea9f57e26f8f67aa8bd03bbb0a50814465/params/config.go#L55
+func MapChainID(chainIDStr string) *big.Int {
+	if chainIDStr == "mainnet" { // correspond to the Ethereum mainnet
+		return big.NewInt(1)
+	} else if chainIDStr == "testnet_sapphire" { // correspond to Ropsten
+		return big.NewInt(3)
+	} else if chainIDStr == "testnet_amber" { // correspond to Rinkeby
+		return big.NewInt(4)
+	} else if chainIDStr == "testnet" {
+		return big.NewInt(5)
+	} else if chainIDStr == "privatenet" {
+		return big.NewInt(6)
+	}
+
+	chainIDBigInt := new(big.Int).Abs(crypto.Keccak256Hash(common.Bytes(chainIDStr)).Big()) // all other chainIDs
+	return chainIDBigInt
 }

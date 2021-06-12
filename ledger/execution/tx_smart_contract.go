@@ -32,6 +32,7 @@ func NewSmartContractTxExecutor(chain *blockchain.Chain, state *st.LedgerState) 
 }
 
 func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	blockHeight := getBlockHeight(exec.state)
 	tx := transaction.(*types.SmartContractTx)
 
 	// Validate from, basic
@@ -50,8 +51,18 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	signBytes := tx.SignBytes(chainID)
 	res = validateInputAdvanced(fromAccount, signBytes, tx.From)
 	if res.IsError() {
-		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
-		return res
+		if blockHeight < common.HeightRPCCompatibility {
+			logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
+			return res
+		}
+
+		// process ETH tx
+		signBytesEth := tx.SignBytesEth(chainID)
+		resEth := validateInputAdvanced(fromAccount, signBytesEth.Bytes(), tx.From)
+		if resEth.IsError() {
+			logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
+			return res
+		}
 	}
 
 	coins := tx.From.Coins.NoNil()
@@ -60,7 +71,6 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidValueToTransfer)
 	}
 
-	blockHeight := getBlockHeight(exec.state)
 	if !sanityCheckForGasPrice(tx.GasPrice, blockHeight) {
 		minimumGasPrice := types.GetMinimumGasPrice(blockHeight)
 		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", minimumGasPrice).

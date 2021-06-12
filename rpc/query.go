@@ -876,6 +876,65 @@ func (t *ThetaRPCService) GetAllPendingEliteEdgeNodeStakeReturns(
 	return nil
 }
 
+// ------------------------------- GetCode -----------------------------------
+
+type GetCodeArgs struct {
+	Address string            `json:"address"`
+	Height  common.JSONUint64 `json:"height"`
+}
+
+type GetCodeResult struct {
+	Address string `json:"address"`
+	Code    string `json:"code"`
+}
+
+func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err error) {
+	if args.Address == "" {
+		return errors.New("address must be specified")
+	}
+	address := common.HexToAddress(args.Address)
+	result.Address = args.Address
+	height := uint64(args.Height)
+
+	if height == 0 { // get the latest
+		var ledgerState *state.StoreView
+		ledgerState, err = t.ledger.GetFinalizedSnapshot()
+		if err != nil {
+			return err
+		}
+		codeBytes := ledgerState.GetCode(address)
+		result.Code = hex.EncodeToString(codeBytes)
+	} else {
+		blocks := t.chain.FindBlocksByHeight(height)
+		if len(blocks) == 0 {
+			result.Code = ""
+			return nil
+		}
+
+		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		if err != nil {
+			return err
+		}
+		db := deliveredView.GetDB()
+
+		for _, b := range blocks {
+			if b.Status.IsFinalized() {
+				stateRoot := b.StateHash
+				ledgerState := state.NewStoreView(height, stateRoot, db)
+				if ledgerState == nil { // might have been pruned
+					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
+				}
+				codeBytes := ledgerState.GetCode(address)
+				result.Code = hex.EncodeToString(codeBytes)
+				break
+			}
+		}
+
+	}
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {
