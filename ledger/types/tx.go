@@ -809,7 +809,7 @@ func rlpHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-func (tx *SmartContractTx) SignBytesEth(chainID string) common.Hash {
+func (tx *SmartContractTx) EthTxHash(chainID string) common.Hash {
 	ethChainID := MapChainID(chainID)
 
 	ethTxHash := rlpHash([]interface{}{
@@ -822,9 +822,7 @@ func (tx *SmartContractTx) SignBytesEth(chainID string) common.Hash {
 		ethChainID, uint(0), uint(0),
 	})
 
-	signBytes := ethTxHash
-
-	return signBytes
+	return ethTxHash
 }
 
 func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {

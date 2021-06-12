@@ -22,11 +22,16 @@ package crypto
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"errors"
 	"fmt"
+	"math/big"
 
+	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/math"
 	"github.com/thetatoken/theta/crypto/secp256k1"
 )
+
+const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
 
 // ecrecover returns the uncompressed public key that created the given signature.
 func ecrecover(hash, sig []byte) ([]byte, error) {
@@ -98,3 +103,61 @@ var (
 	Ecrecover = ecrecover
 	Sign      = sign
 )
+
+// ----------------------- ETH signature utils ----------------------- //
+
+func decodeSignature(sig []byte) (r, s, v *big.Int) {
+	if len(sig) != SignatureLength {
+		panic(fmt.Sprintf("wrong size for signature: got %d, want %d", len(sig), SignatureLength))
+	}
+	r = new(big.Int).SetBytes(sig[:32])
+	s = new(big.Int).SetBytes(sig[32:64])
+	v = new(big.Int).SetBytes([]byte{sig[64] + 27})
+	return r, s, v
+}
+
+func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
+	if Vb.BitLen() > 8 {
+		return common.Address{}, errors.New("invalid transaction v, r, s values")
+	}
+	V := byte(Vb.Uint64() - 27)
+	if !ValidateSignatureValues(V, R, S, homestead) {
+		return common.Address{}, errors.New("invalid transaction v, r, s values")
+	}
+	// encode the signature in uncompressed format
+	r, s := R.Bytes(), S.Bytes()
+	sig := make([]byte, SignatureLength)
+	copy(sig[32-len(r):32], r)
+	copy(sig[64-len(s):64], s)
+	sig[64] = V
+	// recover the public key from the signature
+	pub, err := Ecrecover(txhash[:], sig)
+	if err != nil {
+		return common.Address{}, err
+	}
+	if len(pub) == 0 || pub[0] != 4 {
+		return common.Address{}, errors.New("invalid public key")
+	}
+	var addr common.Address
+	copy(addr[:], Keccak256(pub[1:])[12:])
+	return addr, nil
+}
+
+func homesteadSignerSender(txHash common.Hash, sig *Signature) (common.Address, error) {
+	sigBytes := sig.ToBytes()
+	v, r, s := decodeSignature(sigBytes)
+	return recoverPlain(txHash, r, s, v, true)
+}
+
+func ValidateEthSignature(sender common.Address, txHash common.Hash, sig *Signature) error {
+	recoveredSender, err := homesteadSignerSender(txHash, sig)
+	if err != nil {
+		return err
+	}
+
+	if recoveredSender != sender {
+		return errors.New(fmt.Sprintf("Recovered sender mismatch, recovered sender: %v, sender: %v", recoveredSender.Hex(), sender.Hex()))
+	}
+
+	return nil
+}

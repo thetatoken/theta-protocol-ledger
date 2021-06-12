@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm"
@@ -48,20 +50,34 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	// Validate input, advanced
+
+	// Check sequence/coins
+	seq, balance := fromAccount.Sequence, fromAccount.Balance
+	if seq+1 != tx.From.Sequence {
+		return result.Error("ValidateInputAdvanced: Got %v, expected %v. (acc.seq=%v)",
+			tx.From.Sequence, seq+1, fromAccount.Sequence).WithErrorCode(result.CodeInvalidSequence)
+	}
+
+	// Check amount
+	if !balance.IsGTE(tx.From.Coins) {
+		return result.Error("Insufficient fund: balance is %v, tried to send %v",
+			balance, tx.From.Coins).WithErrorCode(result.CodeInsufficientFund)
+	}
+
+	// Check signatures
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(fromAccount, signBytes, tx.From)
-	if res.IsError() {
+	if !tx.From.Signature.Verify(signBytes, fromAccount.Address) {
 		if blockHeight < common.HeightRPCCompatibility {
-			logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
-			return res
+			return result.Error("Signature verification failed, SignBytes: %v",
+				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 		}
 
-		// process ETH tx
-		signBytesEth := tx.SignBytesEth(chainID)
-		resEth := validateInputAdvanced(fromAccount, signBytesEth.Bytes(), tx.From)
-		if resEth.IsError() {
-			logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
-			return res
+		// interpret the signature as ETH tx signature
+		ethTxHash := tx.EthTxHash(chainID)
+		err := crypto.ValidateEthSignature(tx.From.Address, ethTxHash, tx.From.Signature)
+		if err != nil {
+			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",
+				hex.EncodeToString(signBytes), err.Error()).WithErrorCode(result.CodeInvalidSignature)
 		}
 	}
 

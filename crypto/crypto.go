@@ -312,3 +312,8 @@ type KeccakState interface {
 func NewKeccakState() KeccakState {
 	return sha3.NewLegacyKeccak256().(KeccakState)
 }
+
+func VerifyEthSignature(ethTxHash common.Hash, sig *Signature) bool {
+
+	return false
+}
