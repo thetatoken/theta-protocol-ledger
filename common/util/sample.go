@@ -3,6 +3,9 @@ package util
 import (
 	"math/rand"
 	"time"
+
+	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/crypto"
 )
 
 // Sample returns a sample of the given entries
@@ -24,4 +27,29 @@ func Sample(entries []string, sampleSize int) []string {
 func Shuffle(entries []string) []string {
 	numEntries := len(entries)
 	return Sample(entries, numEntries)
+}
+
+// HashRand generate infinite number of random bytes by repeatedly hashing the seed
+type HashRand struct {
+	remaining []byte
+	curr      common.Hash
+}
+
+func NewHashRand(seed []byte) *HashRand {
+	return &HashRand{
+		remaining: []byte{},
+		curr:      crypto.Keccak256Hash(seed),
+	}
+}
+
+func (r *HashRand) Read(buf []byte) (int, error) {
+	if len(r.remaining) != 0 {
+		n := copy(buf, r.remaining)
+		r.remaining = r.remaining[n:]
+		return n, nil
+	}
+	r.curr = crypto.Keccak256Hash(r.curr[:])
+	n := copy(buf, r.curr[:])
+	r.remaining = r.curr[n:]
+	return n, nil
 }

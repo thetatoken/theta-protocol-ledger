@@ -13,7 +13,7 @@ func TestStakeBasics(t *testing.T) {
 
 	addr := common.HexToAddress("0x123")
 	amount := new(big.Int).SetUint64(1000)
-	stake := newStake(addr, amount)
+	stake := NewStake(addr, amount)
 	assert.True(stake.Source == addr)
 	assert.True(stake.Amount.Cmp(amount) == 0)
 	assert.False(stake.Withdrawn)
@@ -37,7 +37,7 @@ func TestStakeDeposit(t *testing.T) {
 	stake3Amount3 := new(big.Int).SetUint64(900)
 
 	holderAddr := common.HexToAddress("0xabc")
-	stakeHolder := newStakeHolder(holderAddr, []*Stake{newStake(sourceAddr1, stake1Amount1)})
+	stakeHolder := NewStakeHolder(holderAddr, []*Stake{NewStake(sourceAddr1, stake1Amount1)})
 	assert.True(stakeHolder.TotalStake().Cmp(stake1Amount1) == 0)
 	assert.Equal(len(stakeHolder.Stakes), 1)
 
@@ -76,7 +76,7 @@ func TestStakeWithdraw(t *testing.T) {
 	currentHeight := uint64(10000)
 
 	holderAddr := common.HexToAddress("0xabc")
-	stakeHolder := newStakeHolder(holderAddr, []*Stake{newStake(sourceAddr1, stake1Amount1)})
+	stakeHolder := NewStakeHolder(holderAddr, []*Stake{NewStake(sourceAddr1, stake1Amount1)})
 	assert.Nil(stakeHolder.depositStake(sourceAddr2, stake2Amount1))
 	assert.True(stakeHolder.TotalStake().Cmp(new(big.Int).SetUint64(9000)) == 0)
 
@@ -108,7 +108,7 @@ func TestStakeReturn(t *testing.T) {
 	initHeight := uint64(10000)
 
 	holderAddr := common.HexToAddress("0xabc")
-	stakeHolder := newStakeHolder(holderAddr, []*Stake{})
+	stakeHolder := NewStakeHolder(holderAddr, []*Stake{})
 	stakeHolder.depositStake(sourceAddr1, stake1Amount1)
 	stakeHolder.depositStake(sourceAddr1, stake1Amount2)
 	stakeHolder.depositStake(sourceAddr2, stake2Amount1)

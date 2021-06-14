@@ -4,7 +4,9 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
+	"math/rand"
 	"strings"
 	"time"
 
@@ -41,9 +43,10 @@ func (t *ThetaRPCService) GetVersion(args *GetVersionArgs, result *GetVersionRes
 // ------------------------------- GetAccount -----------------------------------
 
 type GetAccountArgs struct {
-	Name    string `json:"name"`
-	Address string `json:"address"`
-	Preview bool   `json:"preview"` // preview the account balance from the ScreenedView
+	Name    string            `json:"name"`
+	Address string            `json:"address"`
+	Height  common.JSONUint64 `json:"height"`
+	Preview bool              `json:"preview"` // preview the account balance from the ScreenedView
 }
 
 type GetAccountResult struct {
@@ -57,24 +60,57 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 	}
 	address := common.HexToAddress(args.Address)
 	result.Address = args.Address
+	height := uint64(args.Height)
 
-	var ledgerState *state.StoreView
-	if args.Preview {
-		ledgerState, err = t.ledger.GetScreenedSnapshot()
+	if height == 0 { // get the latest
+		var ledgerState *state.StoreView
+		if args.Preview {
+			ledgerState, err = t.ledger.GetScreenedSnapshot()
+		} else {
+			ledgerState, err = t.ledger.GetFinalizedSnapshot()
+		}
+		if err != nil {
+			return err
+		}
+
+		account := ledgerState.GetAccount(address)
+		if account == nil {
+			return fmt.Errorf("Account with address %s is not found", address.Hex())
+		}
+		account.UpdateToHeight(ledgerState.Height())
+
+		result.Account = account
 	} else {
-		ledgerState, err = t.ledger.GetFinalizedSnapshot()
-	}
-	if err != nil {
-		return err
+		blocks := t.chain.FindBlocksByHeight(height)
+		if len(blocks) == 0 {
+			result.Account = nil
+			return nil
+		}
+
+		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		if err != nil {
+			return err
+		}
+		db := deliveredView.GetDB()
+
+		for _, b := range blocks {
+			if b.Status.IsFinalized() {
+				stateRoot := b.StateHash
+				ledgerState := state.NewStoreView(height, stateRoot, db)
+				if ledgerState == nil { // might have been pruned
+					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
+				}
+				account := ledgerState.GetAccount(address)
+				if account == nil {
+					return fmt.Errorf("Account with address %v is not found", address.Hex())
+				}
+				result.Account = account
+				break
+			}
+		}
+
 	}
 
-	account := ledgerState.GetAccount(address)
-	if account == nil {
-		return fmt.Errorf("Account with address %s is not found", address.Hex())
-	}
-	account.UpdateToHeight(ledgerState.Height())
-
-	result.Account = account
 	return nil
 }
 
@@ -207,16 +243,17 @@ type GetBlockResult struct {
 type GetBlocksResult []*GetBlockResultInner
 
 type GetBlockResultInner struct {
-	ChainID       string                 `json:"chain_id"`
-	Epoch         common.JSONUint64      `json:"epoch"`
-	Height        common.JSONUint64      `json:"height"`
-	Parent        common.Hash            `json:"parent"`
-	TxHash        common.Hash            `json:"transactions_hash"`
-	StateHash     common.Hash            `json:"state_hash"`
-	Timestamp     *common.JSONBig        `json:"timestamp"`
-	Proposer      common.Address         `json:"proposer"`
-	HCC           core.CommitCertificate `json:"hcc"`
-	GuardianVotes *core.AggregatedVotes  `json:"guardian_votes"`
+	ChainID            string                   `json:"chain_id"`
+	Epoch              common.JSONUint64        `json:"epoch"`
+	Height             common.JSONUint64        `json:"height"`
+	Parent             common.Hash              `json:"parent"`
+	TxHash             common.Hash              `json:"transactions_hash"`
+	StateHash          common.Hash              `json:"state_hash"`
+	Timestamp          *common.JSONBig          `json:"timestamp"`
+	Proposer           common.Address           `json:"proposer"`
+	HCC                core.CommitCertificate   `json:"hcc"`
+	GuardianVotes      *core.AggregatedVotes    `json:"guardian_votes"`
+	EliteEdgeNodeVotes *core.AggregatedEENVotes `json:"elite_edge_node_votes"`
 
 	Children []common.Hash    `json:"children"`
 	Status   core.BlockStatus `json:"status"`
@@ -239,6 +276,7 @@ const (
 	TxTypeDepositStake
 	TxTypeWithdrawStake
 	TxTypeDepositStakeTxV2
+	TxTypeStakeRewardDistributionTx
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
@@ -331,6 +369,7 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	result.Status = block.Status
 	result.HCC = block.HCC
 	result.GuardianVotes = block.GuardianVotes
+	result.EliteEdgeNodeVotes = block.EliteEdgeNodeVotes
 
 	result.Hash = block.Hash()
 
@@ -497,16 +536,44 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	return
 }
 
+// ------------------------------ GetPeerURLs -----------------------------------
+
+type GetPeerURLsArgs struct {
+	SkipEdgeNode bool `json:"skip_edge_node"`
+}
+
+type GetPeerURLsResult struct {
+	PeerURLs []string `json:"peer_urls"`
+}
+
+func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeerURLsResult) (err error) {
+	peerURLs := t.dispatcher.PeerURLs(args.SkipEdgeNode)
+
+	numPeers := len(peerURLs)
+	rand.Seed(time.Now().UnixNano())
+	rand.Shuffle(numPeers, func(i, j int) { peerURLs[i], peerURLs[j] = peerURLs[j], peerURLs[i] })
+
+	maxNumOfPeers := 256
+	if len(peerURLs) < maxNumOfPeers {
+		maxNumOfPeers = len(peerURLs)
+	}
+	result.PeerURLs = peerURLs[0:maxNumOfPeers]
+
+	return
+}
+
 // ------------------------------ GetPeers -----------------------------------
 
-type GetPeersArgs struct{}
+type GetPeersArgs struct {
+	SkipEdgeNode bool `json:"skip_edge_node"`
+}
 
 type GetPeersResult struct {
 	Peers []string `json:"peers"`
 }
 
 func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
-	peers := t.dispatcher.Peers()
+	peers := t.dispatcher.Peers(args.SkipEdgeNode)
 	result.Peers = peers
 
 	return
@@ -637,6 +704,178 @@ func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *Get
 	return nil
 }
 
+// ------------------------------ GetEenp -----------------------------------
+
+type GetEenpByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetEenpResult struct {
+	BlockHashEenpPairs []BlockHashEenpPair
+}
+
+type BlockHashEenpPair struct {
+	BlockHash common.Hash
+	EENs      []*core.EliteEdgeNode
+}
+
+func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *GetEenpResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	blockHashEenpPairs := []BlockHashEenpPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+		}
+		eenp := state.NewEliteEdgeNodePool(blockStoreView, true)
+		eens := eenp.GetAll(false)
+		blockHashEenpPairs = append(blockHashEenpPairs, BlockHashEenpPair{
+			BlockHash: blockHash,
+			EENs:      eens,
+		})
+	}
+
+	result.BlockHashEenpPairs = blockHashEenpPairs
+
+	return nil
+}
+
+// ------------------------------ GetStakeRewardDistributionRuleSetByHeight -----------------------------------
+
+type GetStakeRewardDistributionRuleSetByHeightArgs struct {
+	Height  common.JSONUint64 `json:"height"`
+	Address string            `json:"address"` // the address of the stake holder, i.e. the guardian or elite edge node
+}
+
+type GetStakeRewardDistributionRuleSetResult struct {
+	BlockHashStakeRewardDistributionRuleSetPairs []BlockHashStakeRewardDistributionRuleSetPair
+}
+
+type BlockHashStakeRewardDistributionRuleSetPair struct {
+	BlockHash                      common.Hash
+	StakeRewardDistributionRuleSet []*core.RewardDistribution
+}
+
+func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
+	args *GetStakeRewardDistributionRuleSetByHeightArgs, result *GetStakeRewardDistributionRuleSetResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+	addressStr := args.Address
+
+	blockHashSrdrsPairs := []BlockHashStakeRewardDistributionRuleSetPair{}
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		blockHash := b.Hash()
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+		}
+		srdrs := state.NewStakeRewardDistributionRuleSet(blockStoreView)
+
+		var stakeDistrList []*core.RewardDistribution
+		if addressStr != "" {
+			address := common.HexToAddress(addressStr)
+			rewardDistr := srdrs.Get(address)
+			stakeDistrList = []*core.RewardDistribution{rewardDistr}
+		} else {
+			stakeDistrList = srdrs.GetAll()
+		}
+
+		blockHashSrdrsPairs = append(blockHashSrdrsPairs, BlockHashStakeRewardDistributionRuleSetPair{
+			BlockHash:                      blockHash,
+			StakeRewardDistributionRuleSet: stakeDistrList,
+		})
+	}
+
+	result.BlockHashStakeRewardDistributionRuleSetPairs = blockHashSrdrsPairs
+
+	return nil
+}
+
+// ------------------------------ GetEliteEdgeNodeStakeReturnsByHeight -----------------------------------
+
+type GetEliteEdgeNodeStakeReturnsByHeightArgs struct {
+	Height common.JSONUint64 `json:"height"`
+}
+
+type GetEliteEdgeNodeStakeReturnsByHeightResult struct {
+	EENStakeReturns []state.StakeWithHolder
+}
+
+func (t *ThetaRPCService) GetEliteEdgeNodeStakeReturnsByHeight(
+	args *GetEliteEdgeNodeStakeReturnsByHeightArgs, result *GetEliteEdgeNodeStakeReturnsByHeightResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	height := uint64(args.Height)
+	result.EENStakeReturns = deliveredView.GetEliteEdgeNodeStakeReturns(height)
+
+	return nil
+}
+
+// ------------------------------ GetAllPendingEliteEdgeNodeStakeReturns -----------------------------------
+
+type HeightStakeReturnsPair struct {
+	HeightKey       string
+	EENStakeReturns []state.StakeWithHolder
+}
+
+type GetAllPendingEliteEdgeNodeStakeReturnsArgs struct {
+}
+
+type GetAllPendingEliteEdgeNodeStakeReturnsResult struct {
+	EENHeightStakeReturnsPairs []HeightStakeReturnsPair
+}
+
+func (t *ThetaRPCService) GetAllPendingEliteEdgeNodeStakeReturns(
+	args *GetAllPendingEliteEdgeNodeStakeReturnsArgs, result *GetAllPendingEliteEdgeNodeStakeReturnsResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	eenHeightStakeReturnsPairs := []HeightStakeReturnsPair{}
+	cb := func(k, v common.Bytes) bool {
+		srList := []state.StakeWithHolder{}
+		err := types.FromBytes(v, &srList)
+		if err != nil {
+			log.Panicf("GetAllPendingEliteEdgeNodeStakeReturns: Error reading StakeWithHolder %X, error: %v",
+				v, err.Error())
+		}
+
+		eenHeightStakeReturnsPairs = append(eenHeightStakeReturnsPairs, HeightStakeReturnsPair{
+			HeightKey:       string(k),
+			EENStakeReturns: srList,
+		})
+		return true
+	}
+
+	prefix := state.EliteEdgeNodeStakeReturnsKeyPrefix()
+	deliveredView.Traverse(prefix, cb)
+
+	result.EENHeightStakeReturnsPairs = eenHeightStakeReturnsPairs
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {
@@ -664,6 +903,8 @@ func getTxType(tx types.Tx) byte {
 		t = TxTypeWithdrawStake
 	case *types.DepositStakeTxV2:
 		t = TxTypeDepositStakeTxV2
+	case *types.StakeRewardDistributionTx:
+		t = TxTypeStakeRewardDistributionTx
 	}
 
 	return t

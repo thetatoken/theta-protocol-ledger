@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 
@@ -36,8 +37,8 @@ type Peer struct {
 	netAddress   *nu.NetAddress
 
 	nodeInfo p2ptypes.NodeInfo // information of the blockchain node of the peer
-
-	config PeerConfig
+	nodeType cmn.NodeType
+	config   PeerConfig
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -151,10 +152,16 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	peer.nodeInfo = targetPeerNodeInfo
 
 	// Forward compatibility.
-	localChainID := viper.GetString(common.CfgGenesisChainID)
+	localChainID := viper.GetString(cmn.CfgGenesisChainID)
+	selfNodeType := viper.GetInt(cmn.CfgNodeType)
+	var peerType int
 	cmn.Parallel(
 		func() {
 			sendError = rlp.Encode(peer.connection.GetBufNetconn(), localChainID)
+			if sendError != nil {
+				return
+			}
+			sendError = rlp.Encode(peer.connection.GetBufNetconn(), strconv.Itoa(selfNodeType))
 			if sendError != nil {
 				return
 			}
@@ -171,9 +178,25 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 			}
 			if msg != localChainID {
 				recvError = fmt.Errorf("ChainID mismatch: peer chainID: %v, local ChainID: %v", msg, localChainID)
-				return
+				//return
 			}
 			logger.Infof("Peer ChainID: %v", msg)
+
+			recvError = s.Decode(&msg)
+			if recvError != nil {
+				return
+			}
+			var convErr error
+			peerType, convErr = strconv.Atoi(msg)
+			if convErr != nil {
+				//recvError = fmt.Errorf("Cannot parse the peer type: %v", msg)
+
+				peerType = int(cmn.NodeTypeBlockchainNode)          // for backward compatibility, by default consider the peer as a blockchain node
+				logger.Warnf("Cannot parse the peer type: %v", msg) // for backward compatibility, just print a warning instead of setting the recvError
+				return
+			}
+			logger.Infof("Peer Type: %v", peerType)
+
 			for {
 				recvError = s.Decode(&msg)
 				if recvError != nil {
@@ -193,6 +216,8 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		logger.Errorf("Error during handshake/recv extra info: %v", recvError)
 		return recvError
 	}
+
+	peer.nodeType = common.NodeType(peerType)
 
 	remotePub, err := peer.connection.DoEncHandshake(
 		crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
@@ -261,6 +286,11 @@ func (peer *Peer) IsPersistent() bool {
 // IsOutbound returns whether the peer is an outbound peer
 func (peer *Peer) IsOutbound() bool {
 	return peer.isOutbound
+}
+
+// NodeType returns the node type of the peer
+func (peer *Peer) NodeType() cmn.NodeType {
+	return peer.nodeType
 }
 
 // SetSeed sets the isSeed for the given peer

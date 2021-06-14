@@ -61,7 +61,7 @@ func TestSeedPeerConnector(t *testing.T) {
 		connected := <-discMgr.seedPeerConnector.Connected
 		assert.True(connected)
 	}
-	allPeers := discMgr.peerTable.GetAllPeers()
+	allPeers := discMgr.peerTable.GetAllPeers(true)
 	assert.Equal(2, len(*allPeers))
 	t.Logf("---------------- All peers ----------------")
 	for _, peer := range *allPeers {
@@ -131,7 +131,7 @@ func TestInboundPeerListener(t *testing.T) {
 		assert.True(inboundDetected)
 	}
 
-	allPeers := discMgr.peerTable.GetAllPeers()
+	allPeers := discMgr.peerTable.GetAllPeers(true)
 	t.Logf("---------------- All peers ----------------")
 	for _, peer := range *allPeers {
 		assert.False(peer.IsOutbound())
@@ -336,7 +336,7 @@ func TestInboundPeerListener(t *testing.T) {
 // 		assert.True(discDetected)
 // 	}
 
-// 	allPeers := discMgr.peerTable.GetAllPeers()
+// 	allPeers := discMgr.peerTable.GetAllPeers(true)
 // 	assert.Equal(numDiscAddresses+2, len(*allPeers))
 // 	t.Logf("---------------- All peers ----------------")
 // 	for _, peer := range *allPeers {

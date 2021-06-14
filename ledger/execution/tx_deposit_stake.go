@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -58,7 +59,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
-	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
+	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode) {
 		return result.Error("Invalid stake purpose!").
 			WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -69,8 +70,13 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 			WithErrorCode(result.CodeInvalidStake)
 	}
 
-	if stake.TFuelWei.Cmp(types.Zero) != 0 {
-		return result.Error("TFuel has to be zero for stake deposit!").
+	if (tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) && stake.TFuelWei.Cmp(types.Zero) != 0 {
+		return result.Error("TFuel has to be zero for validator or guardian stake deposit!").
+			WithErrorCode(result.CodeInvalidStake)
+	}
+
+	if tx.Purpose == core.StakeForEliteEdgeNode && stake.ThetaWei.Cmp(types.Zero) != 0 {
+		return result.Error("Theta has to be zero for elite edge node stake deposit!").
 			WithErrorCode(result.CodeInvalidStake)
 	}
 
@@ -88,6 +94,33 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 		if stake.ThetaWei.Cmp(minGuardianStake) < 0 {
 			return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each guardian deposit", minGuardianStake).
 				WithErrorCode(result.CodeInsufficientStake)
+		}
+	}
+
+	if tx.Purpose == core.StakeForEliteEdgeNode {
+		if blockHeight < common.HeightEnableTheta3 {
+			return result.Error("Elite Edge Node staking feature not enabled yet").WithErrorCode(result.CodeGenericError)
+		}
+
+		minEliteEdgeNodeStake := core.MinEliteEdgeNodeStakeDeposit
+		maxEliteEdgeNodeStake := core.MaxEliteEdgeNodeStakeDeposit
+
+		if stake.ThetaWei.Cmp(big.NewInt(0)) > 0 {
+			return result.Error("Only TFuel can be deposited for elite edge nodes").
+				WithErrorCode(result.CodeStakeExceedsCap)
+		}
+
+		if stake.TFuelWei.Cmp(minEliteEdgeNodeStake) < 0 {
+			return result.Error("Insufficient amount of stake, at least %v TFuelWei is required for each elite edge node deposit", minEliteEdgeNodeStake).
+				WithErrorCode(result.CodeInsufficientStake)
+		}
+
+		eenAddr := tx.Holder.Address
+		currentStake := exec.getEliteEdgeNodeStake(view, eenAddr)
+		expectedStake := big.NewInt(0).Add(currentStake, stake.TFuelWei)
+		if expectedStake.Cmp(maxEliteEdgeNodeStake) > 0 {
+			return result.Error("Stake exceeds the cap, at most %v TFuelWei can be deposited to each elite edge node", maxEliteEdgeNodeStake).
+				WithErrorCode(result.CodeStakeExceedsCap)
 		}
 	}
 
@@ -138,22 +171,9 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		gcp := view.GetGuardianCandidatePool()
 
 		if !gcp.Contains(holderAddress) {
-			if tx.BlsPubkey.IsEmpty() {
-				return common.Hash{}, result.Error("Must provide BLS Pubkey")
-			}
-			if tx.BlsPop.IsEmpty() {
-				return common.Hash{}, result.Error("Must provide BLS POP")
-			}
-			if tx.HolderSig == nil || tx.HolderSig.IsEmpty() {
-				return common.Hash{}, result.Error("Must provide Holder Signature")
-			}
-
-			if !tx.HolderSig.Verify(tx.BlsPop.ToBytes(), tx.Holder.Address) {
-				return common.Hash{}, result.Error("BLS key info is not properly signed")
-			}
-
-			if !tx.BlsPop.PopVerify(tx.BlsPubkey) {
-				return common.Hash{}, result.Error("BLS pop is invalid")
+			checkBLSRes := exec.checkBLSSummary(tx)
+			if checkBLSRes.IsError() {
+				return common.Hash{}, checkBLSRes
 			}
 		}
 
@@ -162,6 +182,22 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
 		view.UpdateGuardianCandidatePool(gcp)
+	} else if tx.Purpose == core.StakeForEliteEdgeNode {
+		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
+		stakeAmount := stake.TFuelWei // elite edge node deposits TFuel
+		eenp := state.NewEliteEdgeNodePool(view, false)
+
+		if !eenp.Contains(holderAddress) {
+			checkBLSRes := exec.checkBLSSummary(tx)
+			if checkBLSRes.IsError() {
+				return common.Hash{}, checkBLSRes
+			}
+		}
+
+		err := eenp.DepositStake(sourceAddress, holderAddress, stakeAmount, tx.BlsPubkey, blockHeight)
+		if err != nil {
+			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
+		}
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -182,6 +218,39 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 
 	txHash := types.TxID(chainID, tx)
 	return txHash, result.OK
+}
+
+func (exec *DepositStakeExecutor) checkBLSSummary(tx *types.DepositStakeTxV2) result.Result {
+	if tx.BlsPubkey.IsEmpty() {
+		return result.Error("Must provide BLS Pubkey")
+	}
+	if tx.BlsPop.IsEmpty() {
+		return result.Error("Must provide BLS POP")
+	}
+	if tx.HolderSig == nil || tx.HolderSig.IsEmpty() {
+		return result.Error("Must provide Holder Signature")
+	}
+
+	if !tx.HolderSig.Verify(tx.BlsPop.ToBytes(), tx.Holder.Address) {
+		return result.Error("BLS key info is not properly signed")
+	}
+
+	if !tx.BlsPop.PopVerify(tx.BlsPubkey) {
+		return result.Error("BLS pop is invalid")
+	}
+
+	return result.OK
+}
+
+func (exec *DepositStakeExecutor) getEliteEdgeNodeStake(view *st.StoreView, eenAddr common.Address) *big.Int {
+	eenp := state.NewEliteEdgeNodePool(view, true)
+
+	een := eenp.Get(eenAddr)
+	if een != nil {
+		return een.TotalStake()
+	}
+
+	return big.NewInt(0)
 }
 
 func (exec *DepositStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {

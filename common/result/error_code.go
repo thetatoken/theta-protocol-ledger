@@ -40,4 +40,5 @@ const (
 	CodeInvalidStake            ErrorCode = 106002
 	CodeInsufficientStake       ErrorCode = 106003
 	CodeNotEnoughBalanceToStake ErrorCode = 106004
+	CodeStakeExceedsCap         ErrorCode = 106005
 )

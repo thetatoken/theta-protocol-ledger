@@ -27,7 +27,7 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
-	wallet, fromAddress, err := walletUnlock(cmd, fromFlag)
+	wallet, fromAddress, err := walletUnlock(cmd, fromFlag, passwordFlag)
 	if err != nil {
 		return
 	}
@@ -90,15 +90,12 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 
 	client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
 
-	//res, err := client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
-	var res *jsonrpc.RPCResponse
+	var res *rpcc.RPCResponse
 	if asyncFlag {
 		res, err = client.Call("theta.BroadcastRawTransactionAsync", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	} else {
 		res, err = client.Call("theta.BroadcastRawTransaction", rpc.BroadcastRawTransactionArgs{TxBytes: signedTx})
 	}
-
-
 	if err != nil {
 		utils.Error("Failed to broadcast transaction: %v\n", err)
 	}
@@ -131,6 +128,7 @@ func init() {
 	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Resource IDs")
 	reserveFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 	reserveFundCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
+	reserveFundCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 
 	reserveFundCmd.MarkFlagRequired("chain")
 	reserveFundCmd.MarkFlagRequired("from")
