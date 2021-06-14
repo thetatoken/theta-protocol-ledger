@@ -184,7 +184,9 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				utils.Error("Failed to parse server response: %v\n", err)
 			}
-			fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+			//fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+			// Verbose output makes parsing json difficult
+			fmt.Printf("%s\n", formatted)
 		}
 	} else {
 		formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
@@ -211,6 +213,7 @@ func init() {
 	servicePaymentCmd.Flags().StringVar(&sourceSignatureFlag, "src_sig", "unsigned", "Source Signature from prior Off-Chain transaction")
 	servicePaymentCmd.Flags().BoolVar(&onChainFlag, "on_chain", false, "Process transaction On-Chain else return json of what would have been sent")
 	servicePaymentCmd.Flags().BoolVar(&asyncFlag, "async", false, "Block until tx has been included in the blockchain")
+	servicePaymentCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 	servicePaymentCmd.Flags().BoolVar(&dryRunFlag, "dry_run", false, "Dry Run(don't execute) the On-Chain transaction")
 	
 	servicePaymentCmd.MarkFlagRequired("chain")

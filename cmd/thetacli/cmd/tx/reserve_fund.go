@@ -111,7 +111,9 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	if err != nil {
 		utils.Error("Failed to parse server response: %v\n", err)
 	}
-	fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+	//fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+	// Verbose output makes parsing json difficult
+	fmt.Printf("%s\n", formatted)
 	
 	//fmt.Printf("Successfully broadcasted transaction.\n")
 }

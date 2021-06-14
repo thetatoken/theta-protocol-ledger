@@ -25,11 +25,11 @@ rfund=100
 rcoll=101
 
 #tfuel=0.1
-tfuel=2
+tfuel=0.3
 
 # total 10 items
-bobsigs=10
-carolsigs=10
+bobsigs=1
+carolsigs=0
 
 tfuelfee=0.3
 tfuelperc=0.0
@@ -391,7 +391,7 @@ while [ $i -lt $bobsigs ]; do
     fi
 
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
-    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig
+    cmd='sphash=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig' | jq .hash)'
 
     if [ $accumulate -eq 1 ]; then
         if [ $i -lt $holdcnt ]; then
@@ -402,7 +402,7 @@ while [ $i -lt $bobsigs ]; do
             echo "Submit: Bob["$payseq"]"
             let baccum++
             if [ $do_echo -eq 1 ]; then echo $cmd; fi
-            if [ $do_echo_on_chain -eq 1 ]; then echo $cmd; echo ""; else if [ $do_run -eq 1 ]; then eval $cmd; fi fi
+            if [ $do_echo_on_chain -eq 1 ]; then echo $cmd; echo ""; else if [ $do_run -eq 1 ]; then eval $cmd; echo $sphash; fi fi
        fi
     else
         echo "Bob["$payseq"]"
@@ -430,7 +430,7 @@ while [ $i -lt $carolsigs ]; do
     fi
 
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
-    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig
+    cmd='sphash=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig' | jq .hash)'
 
     if [ $accumulate -eq 1 ]; then
         if [ $i -lt $holdcnt ]; then
@@ -441,7 +441,7 @@ while [ $i -lt $carolsigs ]; do
             echo "Submit: Carol["$payseq"]"
             let caccum++
             if [ $do_echo -eq 1 ]; then echo $cmd; fi
-            if [ $do_echo_on_chain -eq 1 ]; then echo $cmd; echo ""; else if [ $do_run -eq 1 ]; then eval $cmd; fi fi
+            if [ $do_echo_on_chain -eq 1 ]; then echo $cmd; echo ""; else if [ $do_run -eq 1 ]; then eval $cmd; echo $sphash; fi fi
        fi
     else
         echo "Carol["$payseq"]"
