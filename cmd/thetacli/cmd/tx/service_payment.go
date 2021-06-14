@@ -55,13 +55,13 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 
 	if onChainFlag {
 //	if 1 == 1 {
-		twallet, toAddress, err = walletUnlockWithPath(cmd, toFlag, pathFlag)
+		twallet, toAddress, err = walletUnlockWithPath(cmd, toFlag, pathFlag, passwordFlag)
 		if err != nil || twallet == nil {
 			return
 		}
 		defer twallet.Lock(toAddress)
 	} else {
-		swallet, fromAddress, err = walletUnlockWithPath(cmd, fromFlag, pathFlag)
+		swallet, fromAddress, err = walletUnlockWithPath(cmd, fromFlag, pathFlag, passwordFlag)
 		if err != nil || swallet == nil {
 			return
 		}

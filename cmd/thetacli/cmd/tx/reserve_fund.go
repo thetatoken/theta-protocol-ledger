@@ -12,7 +12,7 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rpc"
 
-	"github.com/ybbus/jsonrpc"
+//	"github.com/ybbus/jsonrpc"
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
