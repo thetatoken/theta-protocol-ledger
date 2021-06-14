@@ -40,16 +40,19 @@ type Network interface {
 	Stop()
 
 	// Broadcast broadcasts the given message to all the neighboring peers
-	Broadcast(message types.Message) chan bool
+	Broadcast(message types.Message, skipEdgeNode bool) chan bool
 
 	// BroadcastToNeighbors broadcasts the given message to the neighboring peers
-	BroadcastToNeighbors(message types.Message, maxNumPeersToBroadcast int) chan bool
+	BroadcastToNeighbors(message types.Message, maxNumPeersToBroadcast int, skipEdgeNode bool) chan bool
 
 	// Send sends the given message to the peer specified by the peerID
 	Send(peerID string, message types.Message) bool
 
 	// Peers return the IDs of all peers
-	Peers() []string
+	Peers(skipEdgeNode bool) []string
+
+	// PeerURLs return the URLs of all peers
+	PeerURLs(skipEdgeNode bool) []string
 
 	// PeerExists indicates if the given peerID is a neighboring peer
 	PeerExists(peerID string) bool

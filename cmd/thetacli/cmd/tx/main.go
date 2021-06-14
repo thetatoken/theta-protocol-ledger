@@ -36,8 +36,11 @@ var (
 	asyncFlag                    bool
 	onChainFlag                  bool
 	sourceSignatureFlag          string
-	dryRunFlag					 bool
+	dryRunFlag                   bool
 	pwFlag                       string
+	beneficiaryFlag              string
+	splitBasisPointFlag          uint64
+	passwordFlag                 string
 )
 
 // TxCmd represents the Tx command
@@ -56,4 +59,5 @@ func init() {
 	TxCmd.AddCommand(smartContractCmd)
 	TxCmd.AddCommand(depositStakeCmd)
 	TxCmd.AddCommand(withdrawStakeCmd)
+	TxCmd.AddCommand(stakeRewardDistributionCmd)
 }

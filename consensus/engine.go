@@ -39,6 +39,7 @@ type ConsensusEngine struct {
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
 	guardian         *GuardianEngine
+	eliteEdgeNode    *EliteEdgeNodeEngine
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
@@ -85,6 +86,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		e.logger.Panic(err)
 	}
 	e.guardian = NewGuardianEngine(e, blsKey)
+	e.eliteEdgeNode = NewEliteEdgeNodeEngine(e, blsKey)
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
 
@@ -146,6 +148,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 	e.resetGuardianTimer()
 	e.guardian.Start(e.ctx)
+	e.eliteEdgeNode.Start(e.ctx)
 
 	e.checkSyncStatus()
 
@@ -277,6 +280,14 @@ func (e *ConsensusEngine) mainLoop() {
 					e.broadcastGuardianVote(v)
 				}
 				e.guardian.StartNewRound()
+
+				eenv := e.eliteEdgeNode.GetVoteToBroadcast()
+
+				if eenv != nil {
+					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": eenv}).Debug("Broadcasting aggregated elite edge node vote")
+					e.broadcastAggregatedEliteEdgeNodeVotes(eenv)
+				}
+				e.eliteEdgeNode.StartNewRound()
 			}
 		}
 	}
@@ -323,8 +334,14 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		}).Debug("Received block")
 		e.handleBlock(m)
 	case *core.AggregatedVotes:
-		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
+		// e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
+	case *core.EENVote:
+		// e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
+		e.handleEliteEdgeNodeVote(m)
+	case *core.AggregatedEENVotes:
+		// e.logger.WithFields(log.Fields{"aggregated elite edge node vote": m}).Debug("Received agggregated elite edge node vote")
+		e.handleAggregatedEliteEdgeNodeVote(m)
 	default:
 		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
@@ -478,35 +495,40 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	// We allow checkpoint blocs to have nil guardian votes.
 	if block.GuardianVotes != nil && block.Height >= common.HeightEnableTheta2 && common.IsCheckPointHeight(block.Height) {
 		// Voted block must exist.
-		lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
-		if err != nil {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"error":               err.Error(),
-			}).Warn("Guardian votes refers to non-existing block")
-			return result.Error("Block in guardian votes cannot be found")
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"error":               err.Error(),
+				}).Warn("Guardian votes refers to non-existing block")
+				return result.Error("Block in guardian votes cannot be found")
+			}
+
+			// // Voted block must be at previous checkpoint height.
+			// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
+			// 	e.logger.WithFields(log.Fields{
+			// 		"block.Hash":          block.Hash().Hex(),
+			// 		"block.Height":        block.Height,
+			// 		"block.GuardianVotes": block.GuardianVotes.String(),
+			// 	}).Warn("Voted block must be at previous checkpoint height")
+			// 	return result.Error("Voted block must be at previous checkpoint height")
+			// }
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in guardian votes")
+			}
 		}
-		// // Voted block must be at previous checkpoint height.
-		// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
-		// 	e.logger.WithFields(log.Fields{
-		// 		"block.Hash":          block.Hash().Hex(),
-		// 		"block.Height":        block.Height,
-		// 		"block.GuardianVotes": block.GuardianVotes.String(),
-		// 	}).Warn("Voted block must be at previous checkpoint height")
-		// 	return result.Error("Voted block must be at previous checkpoint height")
-		// }
-		// Voted block must be ascendant.
-		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
-			}).Warn("Block is not descendant of checkpoint")
-			return result.Error("Block is not descendant of checkpoint in guardian votes")
-		}
+
 		// Guardian votes must be valid.
 		gcp, err := e.ledger.GetGuardianCandidatePool(block.GuardianVotes.Block)
 		if err != nil {
@@ -537,6 +559,68 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.GuardianVotes": block.GuardianVotes.String(),
 			}).Warn("Guardian votes in non-checkpoint block")
 			return result.Error("Non-checkpoint block should not have guardian votes")
+		}
+	}
+
+	// Validate Elite Edge Node Votes.
+	// We allow checkpoint blocks to have nil elite edge node votes.
+	if block.EliteEdgeNodeVotes != nil && block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		// Voted block must exist.
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.EliteEdgeNodeVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"error":                    err.Error(),
+				}).Warn("Elite Edge Node votes refers to non-existing block")
+				return result.Error("Block in elite edge node votes cannot be found")
+			}
+
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"lastCheckpoint":           lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in elite edge node votes")
+			}
+		}
+
+		// Elite Edge node votes must be valid.
+		eenp, err := e.ledger.GetEliteEdgeNodePoolOfLastCheckpoint(block.EliteEdgeNodeVotes.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    err.Error(),
+			}).Warn("Failed to load elite edge node pool")
+			return result.Error("Failed to load elite edge node pool")
+		}
+		if res := block.EliteEdgeNodeVotes.Validate(eenp); res.IsError() {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    res.String(),
+			}).Warn("Failed to validate elite edge node votes attached to the block")
+			return result.Error("Elite Edge Node votes are not valid")
+		}
+	} else {
+		if block.EliteEdgeNodeVotes != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Epoch":              block.Epoch,
+				"block.proposer":           block.Proposer.Hex(),
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+			}).Warn("Elite Edge Node votes in non-checkpoint block")
+			return result.Error("Non-checkpoint block should not have elite edge node votes")
 		}
 	}
 
@@ -969,6 +1053,27 @@ func (e *ConsensusEngine) broadcastGuardianVote(vote *core.AggregatedVotes) {
 	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
+func (e *ConsensusEngine) handleEliteEdgeNodeVote(v *core.EENVote) {
+	e.eliteEdgeNode.HandleVote(v)
+}
+
+func (e *ConsensusEngine) handleAggregatedEliteEdgeNodeVote(v *core.AggregatedEENVotes) {
+	e.eliteEdgeNode.HandleAggregatedVote(v)
+}
+
+func (e *ConsensusEngine) broadcastAggregatedEliteEdgeNodeVotes(vote *core.AggregatedEENVotes) {
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"elite edge node vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	voteMsg := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDAggregatedEliteEdgeNodeVotes,
+		Payload:   payload,
+	}
+	e.dispatcher.SendData([]string{}, voteMsg)
+}
+
 // GetSummary returns a summary of consensus state.
 func (e *ConsensusEngine) GetSummary() *StateStub {
 	return e.state.GetSummary()
@@ -1034,9 +1139,10 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// duplicate TX in fork.
 	e.chain.AddTxsToIndex(block, true)
 
-	// Guardians to vote for checkpoint blocks.
+	// Guardians and Elite Edge Nodes to vote for checkpoint blocks.
 	if common.IsCheckPointHeight(block.Height) {
 		e.guardian.StartNewBlock(block.Hash())
+		e.eliteEdgeNode.StartNewBlock(block.Hash())
 		e.resetGuardianTimer()
 	}
 
@@ -1113,6 +1219,11 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	// Add guardian votes.
 	if block.Height >= common.HeightEnableTheta2 && common.IsCheckPointHeight(block.Height) {
 		block.GuardianVotes = e.guardian.GetBestVote()
+	}
+
+	// Add elite edge node votes.
+	if block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		block.EliteEdgeNodeVotes = e.eliteEdgeNode.GetBestVote()
 	}
 
 	// Add Txs.

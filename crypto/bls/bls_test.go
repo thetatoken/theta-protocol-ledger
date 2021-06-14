@@ -303,3 +303,190 @@ func TestVerifyAggregate(t *testing.T) {
 	}
 
 }
+
+func aggregatePublicKeysVecWithoutSkippingZeroEntries(p []*PublicKey, vec []uint32) *PublicKey {
+	if len(p) != len(vec) {
+		panic("len(pubkeys) must be equal to len(vec)")
+	}
+	newPub := NewAggregatePubkey()
+	for i, pub := range p {
+		newPub.Aggregate(pubkeyExp(pub, vec[i]))
+	}
+	return newPub
+}
+
+func aggregateSignaturesVecWithoutSkippingZeroEntries(s []*Signature, vec []uint32) *Signature {
+	if len(s) != len(vec) {
+		panic("len(sigs) must be equal to len(vec)")
+	}
+	newSig := NewAggregateSignature()
+	for i, sig := range s {
+		newSig.Aggregate(sigExp(sig, vec[i]))
+	}
+	return newSig
+}
+
+func TestAggregatePublicKeysVecSkipZeroEntries(t *testing.T) {
+	numEntries := 300
+	pubkeys := make([]*PublicKey, numEntries, numEntries)
+	vec := make([]uint32, numEntries, numEntries)
+	for i := 0; i < numEntries; i++ {
+		priv, _ := RandKey()
+		pub := priv.PublicKey()
+		pubkeys[i] = pub
+	}
+
+	// ------- TEST A ------- //
+
+	// Deterministic vector
+	for i := 0; i < numEntries; i++ {
+		if i%3 == 0 || i%7 == 1 {
+			vec[i] = uint32(3*i*i*i + 4532*i*i + 2342*i)
+		} else {
+			vec[i] = 0
+		}
+	}
+
+	aggPub1 := AggregatePublicKeysVec(pubkeys, vec)
+	aggPub2 := aggregatePublicKeysVecWithoutSkippingZeroEntries(pubkeys, vec)
+	if !aggPub1.Equals(aggPub2) {
+		t.Errorf("Public key not equal, aggPub1: %v, aggPub2: %v", aggPub1, aggPub2)
+	}
+
+	t.Logf("TEST A - vec: %v", vec)
+	t.Logf("TEST A - aggPub1: %v", aggPub1)
+	t.Logf("TEST A - aggPub2: %v", aggPub2)
+
+	// ------- TEST B ------- //
+
+	// Random vector
+	for i := 0; i < numEntries; i++ {
+		vec[i] = 0
+		if mrand.Intn(100) < 30 {
+			vec[i] = uint32(mrand.Uint64())
+		}
+	}
+
+	aggPub3 := AggregatePublicKeysVec(pubkeys, vec)
+	aggPub4 := aggregatePublicKeysVecWithoutSkippingZeroEntries(pubkeys, vec)
+	if !aggPub3.Equals(aggPub4) {
+		t.Errorf("Public key not equal, aggPub1: %v, aggPub2: %v", aggPub3, aggPub4)
+	}
+
+	t.Logf("TEST B - vec: %v", vec)
+	t.Logf("TEST B - aggPub3: %v", aggPub3)
+	t.Logf("TEST B - aggPub4: %v", aggPub4)
+}
+
+func TestAggregateSignaturesVecSkipZeroEntries1(t *testing.T) {
+	numEntries := 500
+	pubkeys := make([]*PublicKey, numEntries, numEntries)
+	sigs := make([]*Signature, numEntries, numEntries)
+	vec := make([]uint32, numEntries, numEntries)
+	msg := []byte("hello world")
+	for i := 0; i < numEntries; i++ {
+		priv, _ := RandKey()
+		pub := priv.PublicKey()
+		sig := priv.Sign(msg)
+		pubkeys[i] = pub
+		sigs[i] = sig
+	}
+
+	// Deterministic vector
+	for i := 0; i < numEntries; i++ {
+		if i%5 == 0 || i%6 == 1 {
+			vec[i] = uint32(2*i*i*i + 762*i*i + 9872*i)
+		} else {
+			vec[i] = 0
+		}
+	}
+
+	aggPub1 := AggregatePublicKeysVec(pubkeys, vec)
+	aggPub2 := aggregatePublicKeysVecWithoutSkippingZeroEntries(pubkeys, vec)
+	if !aggPub1.Equals(aggPub2) {
+		t.Errorf("Public key not equal, aggPub1: %v, aggPub2: %v", aggPub1, aggPub2)
+	}
+
+	aggSig1 := AggregateSignaturesVec(sigs, vec)
+	aggSig2 := aggregateSignaturesVecWithoutSkippingZeroEntries(sigs, vec)
+	if !aggSig1.Equals(aggSig2) {
+		t.Errorf("Signature not equal, aggSig1: %v, aggSig2: %v", aggSig1, aggSig2)
+	}
+
+	// Should cross verify
+	if !aggSig1.Verify(msg, aggPub1) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig1.Verify(msg, aggPub2) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig2.Verify(msg, aggPub1) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig2.Verify(msg, aggPub2) {
+		t.Error("Signature did not verify")
+	}
+
+	t.Logf("TEST - vec: %v", vec)
+	t.Logf("TEST - aggSig1: %v", aggSig1)
+	t.Logf("TEST - aggSig2: %v", aggSig2)
+
+	//t.Errorf("INTENTIONAL ERROR FOR LOG PRINTING")
+}
+
+func TestAggregateSignaturesVecSkipZeroEntries2(t *testing.T) {
+	numEntries := 1000
+	pubkeys := make([]*PublicKey, numEntries, numEntries)
+	sigs := make([]*Signature, numEntries, numEntries)
+	vec := make([]uint32, numEntries, numEntries)
+	msg := []byte("The Times 03/Jan/2009 Chancellor on brink of second bailout for banks")
+	for i := 0; i < numEntries; i++ {
+		priv, _ := RandKey()
+		pub := priv.PublicKey()
+		sig := priv.Sign(msg)
+		pubkeys[i] = pub
+		sigs[i] = sig
+
+		//t.Logf("TEST - sig[%v]: %v", i, sig)
+	}
+
+	// Random vector
+	for i := 0; i < numEntries; i++ {
+		vec[i] = 0
+		if mrand.Intn(100) < 30 {
+			vec[i] = uint32(mrand.Uint64())
+		}
+	}
+
+	aggPub1 := AggregatePublicKeysVec(pubkeys, vec)
+	aggPub2 := aggregatePublicKeysVecWithoutSkippingZeroEntries(pubkeys, vec)
+	if !aggPub1.Equals(aggPub2) {
+		t.Errorf("Public key not equal, aggPub1: %v, aggPub2: %v", aggPub1, aggPub2)
+	}
+
+	aggSig1 := AggregateSignaturesVec(sigs, vec)
+	aggSig2 := aggregateSignaturesVecWithoutSkippingZeroEntries(sigs, vec)
+	if !aggSig1.Equals(aggSig2) {
+		t.Errorf("Signature not equal, aggSig1: %v, aggSig2: %v", aggSig1, aggSig2)
+	}
+
+	// Should cross verify
+	if !aggSig1.Verify(msg, aggPub1) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig1.Verify(msg, aggPub2) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig2.Verify(msg, aggPub1) {
+		t.Error("Signature did not verify")
+	}
+	if !aggSig2.Verify(msg, aggPub2) {
+		t.Error("Signature did not verify")
+	}
+
+	t.Logf("TEST - vec: %v", vec)
+	t.Logf("TEST - aggSig1: %v", aggSig1)
+	t.Logf("TEST - aggSig2: %v", aggSig2)
+
+	//t.Errorf("INTENTIONAL ERROR FOR LOG PRINTING")
+}

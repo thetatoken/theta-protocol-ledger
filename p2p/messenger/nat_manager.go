@@ -122,7 +122,7 @@ func (nmgr *NATManager) maintainNATMapping() {
 			Content:   content,
 		}
 
-		nmgr.messenger.Broadcast(message)
+		nmgr.messenger.Broadcast(message, false /* should inform both blockchain and edge nodes */)
 
 		nmgr.eport = eport
 

@@ -657,8 +657,8 @@ func (db *Database) Commit(node common.Hash, report bool) error {
 	memcacheCommitSizeMeter.Mark(int64(storage - db.nodesSize))
 	memcacheCommitNodesMeter.Mark(int64(nodes - len(db.nodes)))
 
-	logger.Debug("Persisted trie from memory database", "nodes", nodes-len(db.nodes)+int(db.flushnodes), "size", storage-db.nodesSize+db.flushsize, "time", time.Since(start)+db.flushtime,
-		"gcnodes", db.gcnodes, "gcsize", db.gcsize, "gctime", db.gctime, "livenodes", len(db.nodes), "livesize", db.nodesSize)
+	logger.Debug("Persisted trie from memory database", ", nodes: ", nodes-len(db.nodes)+int(db.flushnodes), ", size: ", storage-db.nodesSize+db.flushsize, ", time: ", time.Since(start)+db.flushtime,
+		", gcnodes: ", db.gcnodes, ", gcsize: ", db.gcsize, ", gctime: ", db.gctime, ", livenodes: ", len(db.nodes), ", livesize: ", db.nodesSize)
 
 	// Reset the garbage collection statistics
 	db.gcnodes, db.gcsize, db.gctime = 0, 0, 0

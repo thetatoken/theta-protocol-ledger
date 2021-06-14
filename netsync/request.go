@@ -562,7 +562,7 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 		targetSize += 2
 	}
 	if len(peersToRequest) < targetSize { // resample
-		allPeers := rm.syncMgr.dispatcher.Peers()
+		allPeers := rm.syncMgr.dispatcher.Peers(true) // skip edge nodes
 		samples := util.Sample(allPeers, targetSize)
 		for _, sample := range samples {
 			duplicate := false

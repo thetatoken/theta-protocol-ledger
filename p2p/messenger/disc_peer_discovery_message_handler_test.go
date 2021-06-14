@@ -353,7 +353,7 @@ func TestPeerDiscoveryMessageHandler(t *testing.T) {
 		assert.True(discDetected)
 	}
 
-	allPeers := discMgr.peerTable.GetAllPeers()
+	allPeers := discMgr.peerTable.GetAllPeers(true)
 	assert.Equal(numDiscAddresses+2, len(*allPeers))
 	t.Logf("---------------- All peers ----------------")
 	for _, peer := range *allPeers {
