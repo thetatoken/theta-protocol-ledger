@@ -37,7 +37,6 @@ var (
 	onChainFlag                  bool
 	sourceSignatureFlag          string
 	dryRunFlag                   bool
-	pwFlag                       string
 	beneficiaryFlag              string
 	splitBasisPointFlag          uint64
 	passwordFlag                 string

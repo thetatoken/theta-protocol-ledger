@@ -252,7 +252,7 @@ if [ ${#arf} == 2 ]; then
         if [ $do_run -eq 1 ]; then eval $cmd; fi
         echo "Using: "$rfdurationblocks" blocks = "$rfdurationsecs"secs"
     fi
-    cmd='thetacli tx reserve --chain="privatenet" --async --from='$Alice' --fund='$rfund' --collateral='$rcoll' --duration='$rfdurationblocks' --resource_ids='$rid' --seq='$ans' --pw=qwertyuiop'
+    cmd='thetacli tx reserve --chain="privatenet" --async --from='$Alice' --fund='$rfund' --collateral='$rcoll' --duration='$rfdurationblocks' --resource_ids='$rid' --seq='$ans' --password=qwertyuiop'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
     echo "Alice end create reserve.  Wait 15 seconds and rereun."
@@ -319,7 +319,7 @@ while [ $i -lt $bobsigs ]; do
     fi
     echo "Bob:"$payseq" = "$tfuelamt
     #cmd='sigout=$(./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$i' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' | tail -n +6 | jq .source.signature | tr -d '"'"'"'"'"')'
-    cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --pw=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
+    cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
     sigs+=($sigout)
@@ -341,7 +341,7 @@ while [ $i -lt $carolsigs ]; do
     fi
     echo "Carol:"$payseq" = "$tfuelamt
     #cmd='sigout=$(./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$i' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' | tail -n +6 | jq .source.signature | tr -d '"'"'"'"'"')'
-    cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --pw=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
+    cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
     sigs+=($sigout)
@@ -391,7 +391,7 @@ while [ $i -lt $bobsigs ]; do
     fi
 
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
-    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --pw=qwertyuiop --on_chain --src_sig='$sig
+    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig
 
     if [ $accumulate -eq 1 ]; then
         if [ $i -lt $holdcnt ]; then
@@ -430,7 +430,7 @@ while [ $i -lt $carolsigs ]; do
     fi
 
     #cmd='./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$ans' --resource_id='$rid' --tfuel='$tfuel' --on_chain --src_sig='$sig
-    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --pw=qwertyuiop --on_chain --src_sig='$sig
+    cmd='thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop --on_chain --src_sig='$sig
 
     if [ $accumulate -eq 1 ]; then
         if [ $i -lt $holdcnt ]; then

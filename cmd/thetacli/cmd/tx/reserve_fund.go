@@ -117,7 +117,6 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	reserveFundCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	reserveFundCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	reserveFundCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	reserveFundCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")

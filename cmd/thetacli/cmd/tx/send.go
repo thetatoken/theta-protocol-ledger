@@ -128,7 +128,6 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	sendCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	sendCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	sendCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	sendCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")

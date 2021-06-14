@@ -198,7 +198,6 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	servicePaymentCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	servicePaymentCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	servicePaymentCmd.Flags().StringVar(&fromFlag, "from", "", "Address to send from")
 	servicePaymentCmd.Flags().StringVar(&toFlag, "to", "", "Address to send to")

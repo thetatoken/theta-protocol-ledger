@@ -85,7 +85,6 @@ func doWithdrawStakeCmd(cmd *cobra.Command, args []string) {
 }
 
 func init() {
-	withdrawStakeCmd.Flags().StringVar(&pwFlag, "pw", "", "Password")
 	withdrawStakeCmd.Flags().StringVar(&chainIDFlag, "chain", "", "Chain ID")
 	withdrawStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	withdrawStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
