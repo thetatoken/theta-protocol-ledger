@@ -43,6 +43,27 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 		return res
 	}
 
+	// Check signatures
+	signBytes := tx.SignBytes(chainID)
+	if !tx.From.Signature.Verify(signBytes, tx.From.Address) {
+		if blockHeight < common.HeightRPCCompatibility {
+			return result.Error("Signature verification failed, SignBytes: %v",
+				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
+		}
+
+		// interpret the signature as ETH tx signature
+		if tx.From.Coins.ThetaWei.Cmp(big.NewInt(0)) != 0 {
+			return result.Error("Sending Theta with ETH transaction is not allowed") // extra check, since ETH transaction only signs the TFuel part (i.e., value, gasPrice, gasLimit, etc)
+		}
+
+		ethTxHash := tx.EthTxHash(chainID)
+		err := crypto.ValidateEthSignature(tx.From.Address, ethTxHash, tx.From.Signature)
+		if err != nil {
+			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",
+				hex.EncodeToString(signBytes), err.Error()).WithErrorCode(result.CodeInvalidSignature)
+		}
+	}
+
 	// Get input account
 	fromAccount, success := getInput(view, tx.From)
 	if success.IsError() {
@@ -62,23 +83,6 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	if !balance.IsGTE(tx.From.Coins) {
 		return result.Error("Insufficient fund: balance is %v, tried to send %v",
 			balance, tx.From.Coins).WithErrorCode(result.CodeInsufficientFund)
-	}
-
-	// Check signatures
-	signBytes := tx.SignBytes(chainID)
-	if !tx.From.Signature.Verify(signBytes, fromAccount.Address) {
-		if blockHeight < common.HeightRPCCompatibility {
-			return result.Error("Signature verification failed, SignBytes: %v",
-				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
-		}
-
-		// interpret the signature as ETH tx signature
-		ethTxHash := tx.EthTxHash(chainID)
-		err := crypto.ValidateEthSignature(tx.From.Address, ethTxHash, tx.From.Signature)
-		if err != nil {
-			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",
-				hex.EncodeToString(signBytes), err.Error()).WithErrorCode(result.CodeInvalidSignature)
-		}
 	}
 
 	coins := tx.From.Coins.NoNil()
