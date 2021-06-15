@@ -236,6 +236,9 @@ func (t *ThetaRPCService) BroadcastRawEthTransactionAsync(
 	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
 
 	ethTxStr := args.TxBytes
+
+	logger.Debugf("Received ETH transaction: %v", ethTxStr)
+
 	txStr, err := translateEthTx(ethTxStr)
 	if err != nil {
 		return err

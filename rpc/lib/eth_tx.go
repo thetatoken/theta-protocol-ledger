@@ -17,10 +17,10 @@
 package lib
 
 import (
+	"encoding/hex"
 	"errors"
 	"math/big"
-	"sync/atomic"
-	"time"
+	"strings"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
@@ -31,21 +31,31 @@ import (
 // TranslateEthTx an ETH transaction to a Theta smart contract transaction
 func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 	var ethTx *EthTransaction
-	err := rlp.DecodeBytes(common.Hex2Bytes(ethTxStr), &ethTx)
+
+	if strings.HasPrefix(ethTxStr, "0x") {
+		ethTxStr = ethTxStr[2:]
+	}
+
+	ethTxBytes, err := hex.DecodeString(ethTxStr)
+	if err != nil {
+		return nil, err
+	}
+
+	err = rlp.DecodeBytes(ethTxBytes, &ethTx)
 	if err != nil {
 		return nil, err
 	}
 
 	ethTxHash := types.RLPHash([]interface{}{
-		ethTx.inner.nonce(),
-		ethTx.inner.gasPrice(),
-		ethTx.inner.gas(),
-		ethTx.inner.to(),
-		ethTx.inner.value(),
-		ethTx.inner.data(),
+		ethTx.nonce(),
+		ethTx.gasPrice(),
+		ethTx.gas(),
+		ethTx.to(),
+		ethTx.value(),
+		ethTx.data(),
 	})
 
-	r, s, v := ethTx.inner.rawSignatureValues()
+	v, r, s := ethTx.rawSignatureValues()
 	sig, err := crypto.EncodeSignature(r, s, v)
 	if err != nil {
 		return nil, err
@@ -58,59 +68,39 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 
 	coins := types.Coins{
 		ThetaWei: big.NewInt(0),
-		TFuelWei: ethTx.inner.value(),
+		TFuelWei: ethTx.value(),
 	}
 
 	from := types.TxInput{
 		Address:   fromAddr,
 		Coins:     coins,
-		Sequence:  ethTx.inner.nonce(),
+		Sequence:  ethTx.nonce(),
 		Signature: sig,
 	}
 
-	if ethTx.inner.to() == nil {
+	if ethTx.to() == nil {
 		return nil, errors.New("To address is nil")
 	}
 
 	to := types.TxOutput{
-		Address: *ethTx.inner.to(),
+		Address: *ethTx.to(),
 		Coins:   types.NewCoins(0, 0),
 	}
 
 	thetaTx := types.SmartContractTx{
 		From:     from,
 		To:       to,
-		GasLimit: ethTx.inner.gas(),
-		GasPrice: ethTx.inner.gasPrice(),
-		Data:     ethTx.inner.data(),
+		GasLimit: ethTx.gas(),
+		GasPrice: ethTx.gasPrice(),
+		Data:     ethTx.data(),
 	}
 
 	return &thetaTx, nil
 }
 
-// EthTransaction is an Ethereum transaction.
-type EthTransaction struct {
-	inner TxData    // Consensus contents of a transaction
-	time  time.Time // Time first seen locally (spam avoidance)
-
-	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
-}
-
-// setDecoded sets the inner transaction and size after decoding.
-func (tx *EthTransaction) setDecoded(inner TxData, size int) {
-	tx.inner = inner
-	tx.time = time.Now()
-	if size > 0 {
-		tx.size.Store(float64(size))
-	}
-}
-
 // TxData is the underlying data of a transaction.
 //
-// This is implemented by LegacyTx and AccessListTx.
+// This is implemented by EthTransaction and AccessListTx.
 type TxData interface {
 	//txType() byte // returns the type ID
 	copy() TxData // creates a deep copy and initializes all fields
@@ -127,26 +117,8 @@ type TxData interface {
 	setSignatureValues(chainID, v, r, s *big.Int)
 }
 
-// Transaction is an Ethereum transaction.
-type Transaction struct {
-	inner TxData    // Consensus contents of a transaction
-	time  time.Time // Time first seen locally (spam avoidance)
-
-	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
-}
-
-// NewTx creates a new transaction.
-func NewTx(inner TxData) *EthTransaction {
-	tx := new(EthTransaction)
-	tx.setDecoded(inner.copy(), 0)
-	return tx
-}
-
-// LegacyTx is the transaction data of regular Ethereum transactions.
-type LegacyTx struct {
+// EthTransaction is the transaction data of regular Ethereum transactions.
+type EthTransaction struct {
 	Nonce    uint64          // nonce of sender account
 	GasPrice *big.Int        // wei per gas
 	Gas      uint64          // gas limit
@@ -156,34 +128,9 @@ type LegacyTx struct {
 	V, R, S  *big.Int        // signature values
 }
 
-// NewTransaction creates an unsigned legacy transaction.
-// Deprecated: use NewTx instead.
-func NewTransaction(nonce uint64, to common.Address, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *EthTransaction {
-	return NewTx(&LegacyTx{
-		Nonce:    nonce,
-		To:       &to,
-		Value:    amount,
-		Gas:      gasLimit,
-		GasPrice: gasPrice,
-		Data:     data,
-	})
-}
-
-// NewContractCreation creates an unsigned legacy transaction.
-// Deprecated: use NewTx instead.
-func NewContractCreation(nonce uint64, amount *big.Int, gasLimit uint64, gasPrice *big.Int, data []byte) *EthTransaction {
-	return NewTx(&LegacyTx{
-		Nonce:    nonce,
-		Value:    amount,
-		Gas:      gasLimit,
-		GasPrice: gasPrice,
-		Data:     data,
-	})
-}
-
 // copy creates a deep copy of the transaction data and initializes all fields.
-func (tx *LegacyTx) copy() TxData {
-	cpy := &LegacyTx{
+func (tx *EthTransaction) copy() TxData {
+	cpy := &EthTransaction{
 		Nonce: tx.Nonce,
 		To:    tx.To, // TODO: copy pointed-to address
 		Data:  common.CopyBytes(tx.Data),
@@ -215,31 +162,18 @@ func (tx *LegacyTx) copy() TxData {
 
 // accessors for innerTx.
 
-func (tx *LegacyTx) chainID() *big.Int   { return deriveChainId(tx.V) }
-func (tx *LegacyTx) data() []byte        { return tx.Data }
-func (tx *LegacyTx) gas() uint64         { return tx.Gas }
-func (tx *LegacyTx) gasPrice() *big.Int  { return tx.GasPrice }
-func (tx *LegacyTx) value() *big.Int     { return tx.Value }
-func (tx *LegacyTx) nonce() uint64       { return tx.Nonce }
-func (tx *LegacyTx) to() *common.Address { return tx.To }
+func (tx *EthTransaction) chainID() *big.Int   { return crypto.DeriveEthChainId(tx.V) }
+func (tx *EthTransaction) data() []byte        { return tx.Data }
+func (tx *EthTransaction) gas() uint64         { return tx.Gas }
+func (tx *EthTransaction) gasPrice() *big.Int  { return tx.GasPrice }
+func (tx *EthTransaction) value() *big.Int     { return tx.Value }
+func (tx *EthTransaction) nonce() uint64       { return tx.Nonce }
+func (tx *EthTransaction) to() *common.Address { return tx.To }
 
-func (tx *LegacyTx) rawSignatureValues() (v, r, s *big.Int) {
+func (tx *EthTransaction) rawSignatureValues() (v, r, s *big.Int) {
 	return tx.V, tx.R, tx.S
 }
 
-func (tx *LegacyTx) setSignatureValues(chainID, v, r, s *big.Int) {
+func (tx *EthTransaction) setSignatureValues(chainID, v, r, s *big.Int) {
 	tx.V, tx.R, tx.S = v, r, s
-}
-
-// deriveChainId derives the chain id from the given v parameter
-func deriveChainId(v *big.Int) *big.Int {
-	if v.BitLen() <= 64 {
-		v := v.Uint64()
-		if v == 27 || v == 28 {
-			return new(big.Int)
-		}
-		return new(big.Int).SetUint64((v - 35) / 2)
-	}
-	v = new(big.Int).Sub(v, big.NewInt(35))
-	return v.Div(v, big.NewInt(2))
 }

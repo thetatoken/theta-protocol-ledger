@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
+	rpclib "github.com/thetatoken/theta/rpc/lib"
 )
 
 func handleError(err error) {
@@ -57,6 +59,16 @@ func blockFromBytes(raw []byte) error {
 	return fmt.Errorf("Not an extended block object")
 }
 
+func ethTxFromBytes(raw []byte) error {
+	ethTx := rpclib.EthTransaction{}
+	err := rlp.DecodeBytes(raw, &ethTx)
+	if err == nil {
+		fmt.Printf("\nEthTransaction: %v\n\n", ethTx)
+		return nil
+	}
+	return fmt.Errorf("Not an ETH transaction object")
+}
+
 func main() {
 	args := os.Args[1:]
 	if len(args) != 1 {
@@ -64,13 +76,19 @@ func main() {
 		return
 	}
 
-	raw, err := hex.DecodeString(args[0])
+	objHexStr := args[0]
+	if strings.HasPrefix(objHexStr, "0x") {
+		objHexStr = objHexStr[2:]
+	}
+
+	raw, err := hex.DecodeString(objHexStr)
 	handleError(err)
 
 	handlers := []func(raw []byte) error{
 		blockFromBytes,
 		voteFromBytes,
 		txFromBytes,
+		ethTxFromBytes,
 	}
 	for _, handler := range handlers {
 		err := handler(raw)
