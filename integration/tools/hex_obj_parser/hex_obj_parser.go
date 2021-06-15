@@ -10,7 +10,7 @@ import (
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
-	rpclib "github.com/thetatoken/theta/rpc/lib"
+	"github.com/thetatoken/theta/rpc"
 )
 
 func handleError(err error) {
@@ -60,7 +60,7 @@ func blockFromBytes(raw []byte) error {
 }
 
 func ethTxFromBytes(raw []byte) error {
-	ethTx := rpclib.EthTransaction{}
+	ethTx := rpc.EthTransaction{}
 	err := rlp.DecodeBytes(raw, &ethTx)
 	if err == nil {
 		fmt.Printf("\nEthTransaction: %v\n\n", ethTx)

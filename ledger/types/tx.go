@@ -813,7 +813,7 @@ func (tx *SmartContractTx) EthTxHash(chainID string) common.Hash {
 	ethChainID := MapChainID(chainID)
 
 	ethTxHash := RLPHash([]interface{}{
-		tx.From.Sequence,
+		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
 		tx.GasPrice,
 		tx.GasLimit,
 		tx.To.Address,

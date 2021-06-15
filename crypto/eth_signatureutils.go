@@ -6,7 +6,11 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
+
+	log "github.com/sirupsen/logrus"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "crypto"})
 
 // ----------------------- ETH signature utils ----------------------- //
 
@@ -18,25 +22,6 @@ func isProtectedV(V *big.Int) bool {
 	// anything not 27 or 28 is considered protected
 	return true
 }
-
-// func getPlainV(V *big.Int, maybeProtected bool) byte {
-// 	var plainV byte
-// 	if isProtectedV(V) {
-// 		chainID := DeriveEthChainId(V).Uint64()
-// 		plainV = byte(V.Uint64() - 35 - 2*chainID)
-// 	} else if maybeProtected {
-// 		// Only EIP-155 signatures can be optionally protected. Since
-// 		// we determined this v value is not protected, it must be a
-// 		// raw 27 or 28.
-// 		plainV = byte(V.Uint64() - 27)
-// 	} else {
-// 		// If the signature is not optionally protected, we assume it
-// 		// must already be equal to the recovery id.
-// 		plainV = byte(V.Uint64())
-// 	}
-
-// 	return plainV
-// }
 
 // DeriveEthChainId derives the chain id from the given v parameter
 func DeriveEthChainId(v *big.Int) *big.Int {
@@ -65,7 +50,7 @@ func EncodeSignature(R, S, Vb *big.Int) (*Signature, error) {
 	sigBytes := make([]byte, SignatureLength)
 	copy(sigBytes[32-len(r):32], r)
 	copy(sigBytes[64-len(s):64], s)
-	sigBytes[64] = V
+	sigBytes[64] = V + 27
 
 	sig, err := SignatureFromBytes(sigBytes)
 	if err != nil {
@@ -82,7 +67,8 @@ func DecodeSignature(sig *Signature) (r, s, v *big.Int) {
 	}
 	r = new(big.Int).SetBytes(sigBytes[:32])
 	s = new(big.Int).SetBytes(sigBytes[32:64])
-	v = new(big.Int).SetBytes([]byte{sigBytes[64] + 27})
+	v = new(big.Int).SetBytes([]byte{sigBytes[64]})
+	//v = new(big.Int).SetBytes([]byte{sigBytes[64] + 27})
 	return r, s, v
 }
 
@@ -114,8 +100,12 @@ func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common
 }
 
 func HomesteadSignerSender(txHash common.Hash, sig *Signature) (common.Address, error) {
-	v, r, s := DecodeSignature(sig)
+	r, s, v := DecodeSignature(sig)
 	vadj := adjustV(v)
+
+	logger.Debugf("ethTx.DecodeSignature: r = %v, s = %v, v = %v", r, s, v)
+	logger.Debugf("ethTx.DecodeSignature: vadj = %v", vadj)
+
 	return recoverPlain(txHash, r, s, vadj, true)
 }
 
@@ -124,6 +114,9 @@ func ValidateEthSignature(sender common.Address, txHash common.Hash, sig *Signat
 	if err != nil {
 		return err
 	}
+
+	logger.Debugf("ethTx.ValidateEthSignature: recoveredSender = %v, sender = %v, txHash = %v, signature = %v",
+		recoveredSender.Hex(), sender.Hex(), txHash.Hex(), sig.ToBytes().String())
 
 	if recoveredSender != sender {
 		return errors.New(fmt.Sprintf("Recovered sender mismatch, recovered sender: %v, sender: %v", recoveredSender.Hex(), sender.Hex()))

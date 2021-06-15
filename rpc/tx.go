@@ -13,7 +13,6 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/mempool"
-	"github.com/thetatoken/theta/rpc/lib"
 )
 
 const txTimeout = 60 * time.Second
@@ -252,10 +251,13 @@ func (t *ThetaRPCService) BroadcastRawEthTransactionAsync(
 }
 
 func translateEthTx(ethTxStr string) (string, error) {
-	thetaSmartContractTx, err := lib.TranslateEthTx(ethTxStr)
+	thetaSmartContractTx, err := TranslateEthTx(ethTxStr)
 	if err != nil {
 		return "", err
 	}
+
+	logger.Debugf("Recovered from address: %v, signature: %v",
+		thetaSmartContractTx.From.Address.Hex(), thetaSmartContractTx.From.Signature.ToBytes().String())
 
 	raw, err := types.TxToBytes(thetaSmartContractTx)
 	if err != nil {

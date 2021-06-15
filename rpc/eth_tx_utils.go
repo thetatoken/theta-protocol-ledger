@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package lib
+package rpc
 
 import (
 	"encoding/hex"
@@ -53,7 +53,10 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 		ethTx.to(),
 		ethTx.value(),
 		ethTx.data(),
+		ethTx.chainID(), uint(0), uint(0),
 	})
+
+	logger.Debugf("ethTx.ethTxHash: %v", ethTxHash.Hex())
 
 	v, r, s := ethTx.rawSignatureValues()
 	sig, err := crypto.EncodeSignature(r, s, v)
@@ -61,10 +64,14 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 		return nil, err
 	}
 
+	logger.Debugf("ethTx.signature: %v", sig.ToBytes().String())
+
 	fromAddr, err := crypto.HomesteadSignerSender(ethTxHash, sig)
 	if err != nil {
 		return nil, err
 	}
+
+	logger.Debugf("ethTx.recoveredFromAddress: %v", fromAddr.Hex())
 
 	coins := types.Coins{
 		ThetaWei: big.NewInt(0),
@@ -74,7 +81,7 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 	from := types.TxInput{
 		Address:   fromAddr,
 		Coins:     coins,
-		Sequence:  ethTx.nonce(),
+		Sequence:  ethTx.nonce() + 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
 		Signature: sig,
 	}
 
