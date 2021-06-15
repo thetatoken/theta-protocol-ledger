@@ -809,8 +809,8 @@ func RLPHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-func (tx *SmartContractTx) EthTxHash(chainID string) common.Hash {
-	ethChainID := MapChainID(chainID)
+func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.Hash {
+	ethChainID := MapChainID(chainID, blockHeight)
 
 	ethTxHash := RLPHash([]interface{}{
 		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
@@ -1039,9 +1039,22 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 	return signBytes
 }
 
-// To be compatible with Ethereum, MapChainID() returns 1 for "mainnet", 3 for "testnet_sapphire", and 4 for "testnet_amber"
-// Reference: https://github.com/ethereum/go-ethereum/blob/43cd31ea9f57e26f8f67aa8bd03bbb0a50814465/params/config.go#L55
-func MapChainID(chainIDStr string) *big.Int {
+// For replay attack protection
+// https://chainid.network/
+const CHAIN_ID_OFFSET int64 = 360
+
+func MapChainID(chainIDStr string, blockHeight uint64) *big.Int {
+	chainIDWithoutOffset := mapChainIDWithoutOffset(chainIDStr)
+	if blockHeight < common.HeightRPCCompatibility {
+		return chainIDWithoutOffset
+	}
+
+	// For replay attack protection, should NOT use the same chainID as Ethereum
+	chainID := big.NewInt(1).Add(big.NewInt(CHAIN_ID_OFFSET), chainIDWithoutOffset)
+	return chainID
+}
+
+func mapChainIDWithoutOffset(chainIDStr string) *big.Int {
 	if chainIDStr == "mainnet" { // correspond to the Ethereum mainnet
 		return big.NewInt(1)
 	} else if chainIDStr == "testnet_sapphire" { // correspond to Ropsten

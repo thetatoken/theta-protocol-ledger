@@ -24,7 +24,7 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 		Time:        parentBlock.Timestamp,
 		Difficulty:  new(big.Int).SetInt64(0),
 	}
-	chainIDBigInt := types.MapChainID(parentBlock.ChainID)
+	chainIDBigInt := types.MapChainID(parentBlock.ChainID, context.BlockNumber.Uint64())
 	chainConfig := &params.ChainConfig{
 		ChainID: chainIDBigInt,
 	}

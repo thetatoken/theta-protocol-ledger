@@ -56,7 +56,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			return result.Error("Sending Theta with ETH transaction is not allowed") // extra check, since ETH transaction only signs the TFuel part (i.e., value, gasPrice, gasLimit, etc)
 		}
 
-		ethTxHash := tx.EthTxHash(chainID)
+		ethTxHash := tx.EthTxHash(chainID, blockHeight)
 		err := crypto.ValidateEthSignature(tx.From.Address, ethTxHash, tx.From.Signature)
 		if err != nil {
 			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",

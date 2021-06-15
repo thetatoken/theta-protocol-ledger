@@ -37,10 +37,10 @@ func DeriveEthChainId(v *big.Int) *big.Int {
 }
 
 func EncodeSignature(R, S, Vb *big.Int) (*Signature, error) {
-	if Vb.BitLen() > 8 {
+	VAdj := adjustV(Vb)
+	if VAdj.BitLen() > 8 {
 		return nil, errors.New("invalid v, r, s values")
 	}
-	VAdj := adjustV(Vb)
 	V := byte(VAdj.Uint64() - 27)
 	if !ValidateSignatureValues(V, R, S, true) {
 		return nil, errors.New("invalid v, r, s values")
