@@ -812,11 +812,16 @@ func RLPHash(x interface{}) (h common.Hash) {
 func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.Hash {
 	ethChainID := MapChainID(chainID, blockHeight)
 
+	var toAddress *common.Address
+	if (tx.To.Address != common.Address{}) {
+		toAddress = &tx.To.Address
+	}
+
 	ethTxHash := RLPHash([]interface{}{
 		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
 		tx.GasPrice,
 		tx.GasLimit,
-		tx.To.Address,
+		toAddress,
 		tx.From.Coins.NoNil().TFuelWei,
 		tx.Data,
 		ethChainID, uint(0), uint(0),
