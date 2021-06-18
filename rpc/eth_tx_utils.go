@@ -18,7 +18,6 @@ package rpc
 
 import (
 	"encoding/hex"
-	"errors"
 	"math/big"
 	"strings"
 
@@ -86,7 +85,8 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 	}
 
 	if ethTx.to() == nil {
-		return nil, errors.New("To address is nil")
+		//return nil, errors.New("To address is nil")
+		ethTx.To = &common.Address{}
 	}
 
 	to := types.TxOutput{
