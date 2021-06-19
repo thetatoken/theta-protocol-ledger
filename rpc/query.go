@@ -941,6 +941,64 @@ func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err
 	return nil
 }
 
+// ------------------------------- GetStorageAt -----------------------------------
+
+type GetStorageAtArgs struct {
+	Address         string            `json:"address"`
+	StoragePosition string            `json:"storage_positon"`
+	Height          common.JSONUint64 `json:"height"`
+}
+
+type GetStorageAtResult struct {
+	Value string `json:"value"`
+}
+
+func (t *ThetaRPCService) GetStorageAt(args *GetStorageAtArgs, result *GetStorageAtResult) (err error) {
+	if args.Address == "" || args.StoragePosition == "" {
+		return fmt.Errorf("address and storage_position must be specified, address: %v, storage_position: %v", args.Address, args.StoragePosition)
+	}
+	address := common.HexToAddress(args.Address)
+	key := common.HexToHash(args.StoragePosition)
+	height := uint64(args.Height)
+
+	if height == 0 { // get the latest
+		var ledgerState *state.StoreView
+		ledgerState, err = t.ledger.GetFinalizedSnapshot()
+		if err != nil {
+			return err
+		}
+		value := ledgerState.GetState(address, key)
+		result.Value = hex.EncodeToString(value.Bytes())
+	} else {
+		blocks := t.chain.FindBlocksByHeight(height)
+		if len(blocks) == 0 {
+			result.Value = ""
+			return nil
+		}
+
+		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		if err != nil {
+			return err
+		}
+		db := deliveredView.GetDB()
+
+		for _, b := range blocks {
+			if b.Status.IsFinalized() {
+				stateRoot := b.StateHash
+				ledgerState := state.NewStoreView(height, stateRoot, db)
+				if ledgerState == nil { // might have been pruned
+					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
+				}
+				value := ledgerState.GetState(address, key)
+				result.Value = hex.EncodeToString(value.Bytes())
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 // ------------------------------ Utils ------------------------------
 
 func getTxType(tx types.Tx) byte {
