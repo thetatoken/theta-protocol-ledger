@@ -459,12 +459,18 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 			}
 			hash := crypto.Keccak256Hash(txBytes)
 
-			t := getTxType(tx)
+			tp := getTxType(tx)
 			txw := Tx{
 				Tx:   tx,
 				Hash: hash,
-				Type: t,
+				Type: tp,
 			}
+
+			receipt, found := t.chain.FindTxReceiptByHash(hash)
+			if found {
+				txw.Receipt = receipt
+			}
+
 			blkInner.Txs = append(blkInner.Txs, txw)
 		}
 
