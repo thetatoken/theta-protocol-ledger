@@ -263,11 +263,11 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 
 			// recover persisted peers
 			var peerNetAddresses []*netutil.NetAddress
-			prevPeerAddrs, err := pdmh.discMgr.peerTable.RetrievePreviousPeers()
-			if err == nil {
-				for _, addr := range prevPeerAddrs {
-					if !pdmh.discMgr.peerTable.PeerAddrExists(addr) {
-						peerNetAddresses = append(peerNetAddresses, addr)
+			prevPeerAddrs := pdmh.discMgr.peerTable.GetAllPeers()
+			if prevPeerAddrs != nil {
+				for _, addr := range *prevPeerAddrs {
+					if !pdmh.discMgr.peerTable.PeerAddrExists(addr.NetAddress()) {
+						peerNetAddresses = append(peerNetAddresses, addr.NetAddress())
 					}
 				}
 				if len(peerNetAddresses) > 0 {
@@ -276,13 +276,12 @@ func (pdmh *PeerDiscoveryMessageHandler) maintainSufficientConnectivity() {
 			}
 
 			// discovery
-			numPeersToSendRequest := numPeers * requestPeersAddressesPercent / 100
+			numPeersToSendRequest := numPeers
 			if numPeersToSendRequest < 1 {
 				numPeersToSendRequest = 1
 			}
 			perm := rand.Perm(int(numPeers))
 			for i := uint(0); i < numPeersToSendRequest; i++ {
-				time.Sleep(time.Duration(rand.Int63n(discoverInterval)) * time.Millisecond)
 				peer := peers[perm[i]]
 				pdmh.requestAddresses(peer)
 			}

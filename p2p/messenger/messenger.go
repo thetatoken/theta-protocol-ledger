@@ -231,7 +231,7 @@ func (msgr *Messenger) Peers() []string {
 	allPeers := msgr.peerTable.GetAllPeers()
 	peerIDs := []string{}
 	for _, peer := range *allPeers {
-		peerIDs = append(peerIDs, peer.ID())
+		peerIDs = append(peerIDs, peer.NetAddress().IP.String())
 	}
 	return peerIDs
 }
