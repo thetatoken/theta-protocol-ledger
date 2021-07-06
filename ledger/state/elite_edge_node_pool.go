@@ -16,6 +16,8 @@ import (
 
 const eenpRewardN = 800 // Reward receiver sampling params
 
+const eenpRewardNLowered = 400 // Reward receiver sampling params
+
 //
 // ------- EliteEdgeNodePool ------- //
 //
@@ -35,6 +37,7 @@ func NewEliteEdgeNodePool(sv *StoreView, readOnly bool) *EliteEdgeNodePool {
 
 // Contains checks if given address is in the pool.
 func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr common.Address) int {
+	blockHeight := eenp.sv.Height() + 1
 	een := eenp.Get(eenAddr)
 	if een == nil {
 		//logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = 0, not staked yet", eenAddr, block.Hex())
@@ -46,7 +49,7 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 	seed := make([]byte, common.HashLength+common.AddressLength)
 	copy(seed, block.Bytes())
 	copy(seed[common.HashLength:], eenAddr[:])
-	weight := sampleEENWeight(util.NewHashRand(seed), stake, totalStake)
+	weight := sampleEENWeight(util.NewHashRand(seed), stake, totalStake, blockHeight)
 
 	//logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = %v, stake = %v, totalStake = %v", eenAddr, block.Hex(), weight, stake, totalStake)
 
@@ -64,7 +67,7 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 // proved that if a user split the stakes onto multiple nodes, the expected return won't changes, the
 // variance changes a bit but shouldn't be too big.
 //
-func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int {
+func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int, blockHeight uint64) int {
 	if stake.Cmp(big.NewInt(0)) == 0 || totalStake.Cmp(big.NewInt(0)) == 0 {
 		// could happen when we sample an EEN whose stakes are all withdrawn, e.g. when
 		// validating the votes from an EEN with all stakes withdrawn
@@ -79,7 +82,12 @@ func sampleEENWeight(reader io.Reader, stake *big.Int, totalStake *big.Int) int 
 
 	base := new(big.Int).SetUint64(1e18)
 
-	p := new(big.Int).Mul(base, big.NewInt(eenpRewardN))
+	expectedNumSelected := int64(eenpRewardN)
+	if blockHeight > common.HeightRPCCompatibility {
+		expectedNumSelected = eenpRewardNLowered
+	}
+
+	p := new(big.Int).Mul(base, big.NewInt(expectedNumSelected))
 	p.Mul(p, stake)
 	p.Div(p, totalStake)
 	p.Div(p, b)
