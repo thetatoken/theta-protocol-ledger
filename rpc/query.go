@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spf13/viper"
+
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/crypto/bls"
 
@@ -500,6 +502,7 @@ type GetStatusResult struct {
 	CurrentHeight              common.JSONUint64 `json:"current_height"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
+	GenesisBlockHash           common.Hash       `json:"genesis_block_hash"`
 }
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
@@ -538,6 +541,14 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	}
 
 	result.Syncing = !t.consensus.HasSynced()
+
+	var genesisHash common.Hash
+	if t.consensus.Chain().ChainID == core.MainnetChainID {
+		genesisHash = common.HexToHash(core.MainnetGenesisBlockHash)
+	} else {
+		genesisHash = common.HexToHash(viper.GetString(common.CfgGenesisHash))
+	}
+	result.GenesisBlockHash = genesisHash
 
 	return
 }

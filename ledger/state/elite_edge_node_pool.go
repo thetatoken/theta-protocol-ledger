@@ -40,7 +40,7 @@ func (eenp *EliteEdgeNodePool) RandomRewardWeight(block common.Hash, eenAddr com
 	blockHeight := eenp.sv.Height() + 1
 	een := eenp.Get(eenAddr)
 	if een == nil {
-		//logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = 0, not staked yet", eenAddr, block.Hex())
+		logger.Debugf("elite edge node random reward weight: address = %v, block = %v, weight = 0, not staked yet", eenAddr, block.Hex())
 		return 0
 	}
 	totalStake := eenp.sv.GetTotalEENStake()

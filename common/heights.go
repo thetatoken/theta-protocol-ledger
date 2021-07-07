@@ -12,11 +12,14 @@ package common
 // // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
 // const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
 
-// // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
-// const HeightEnableTheta3 uint64 = 1000000000
-
 // // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
 // const HeightSampleStakingReward uint64 = 9497418 // approximate time: 7pm Mar 10th, 2021 PST
+
+// // HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
+// const HeightJune2021FeeAdjustment uint64 = 10709540 // approximate time: 12pm June 11, 2021 PT
+
+// // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
+// const HeightEnableTheta3 uint64 = 10968061 // approximate time: 12pm June 30, 2021 PT
 
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
 const HeightEnableValidatorReward uint64 = 50 // approximate time: 2pm January 14th, 2020 PST
@@ -30,17 +33,17 @@ const HeightLowerGNStakeThresholdTo1000 uint64 = 50 // approximate time: 12pm De
 // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
 const HeightEnableSmartContract uint64 = 50 // approximate time: 12pm Dec 10th, 2020 PST
 
-// HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
-const HeightEnableTheta3 uint64 = 50
-
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
-const HeightSampleStakingReward uint64 = 550
+const HeightSampleStakingReward uint64 = 50 // approximate time: 7pm Mar 10th, 2021 PST
 
 // HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
-const HeightJune2021FeeAdjustment uint64 = 10709540 // approximate time: 12pm June 11, 2021 PT
+const HeightJune2021FeeAdjustment uint64 = 50 // approximate time: 12pm June 11, 2021 PT
+
+// HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
+const HeightEnableTheta3 uint64 = 51 // approximate time: 12pm June 30, 2021 PT
 
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
-const HeightRPCCompatibility uint64 = 50
+const HeightRPCCompatibility uint64 = 51
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
