@@ -52,9 +52,12 @@ type ConsensusEngine struct {
 	stopped bool
 
 	mu            *sync.Mutex
+	voteTimer     *time.Timer
 	epochTimer    *time.Timer
-	proposalTimer *time.Timer
 	guardianTimer *time.Ticker
+
+	voteTimerReady bool
+	blockProcessed bool
 
 	state *State
 }
@@ -76,6 +79,9 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		state: NewState(db, chain),
 
 		validatorManager: validatorManager,
+
+		voteTimerReady: false,
+		blockProcessed: false,
 	}
 
 	logger = util.GetLoggerForModule("consensus")
@@ -134,10 +140,10 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.cancel = cancel
 
 	// Verify configurations
-	if viper.GetInt(common.CfgConsensusMaxEpochLength) <= viper.GetInt(common.CfgConsensusMinProposalWait) {
+	if viper.GetInt(common.CfgConsensusMaxEpochLength) <= viper.GetInt(common.CfgConsensusMinBlockInterval) {
 		log.WithFields(log.Fields{
-			"CfgConsensusMaxEpochLength":  viper.GetInt(common.CfgConsensusMaxEpochLength),
-			"CfgConsensusMinProposalWait": viper.GetInt(common.CfgConsensusMinProposalWait),
+			"CfgConsensusMaxEpochLength":   viper.GetInt(common.CfgConsensusMaxEpochLength),
+			"CfgConsensusMinBlockInterval": viper.GetInt(common.CfgConsensusMinBlockInterval),
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
@@ -255,6 +261,7 @@ func (e *ConsensusEngine) mainLoop() {
 
 	for {
 		e.enterEpoch()
+		e.propose()
 	Epoch:
 		for {
 			select {
@@ -266,12 +273,15 @@ func (e *ConsensusEngine) mainLoop() {
 				if endEpoch {
 					break Epoch
 				}
+			case <-e.voteTimer.C:
+				e.voteTimerReady = true
+				if e.blockProcessed {
+					e.vote()
+				}
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
-			case <-e.proposalTimer.C:
-				e.propose()
 			case <-e.guardianTimer.C:
 				v := e.guardian.GetVoteToBroadcast()
 
@@ -301,10 +311,13 @@ func (e *ConsensusEngine) enterEpoch() {
 	}
 	e.epochTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
 
-	if e.proposalTimer != nil {
-		e.proposalTimer.Stop()
+	if e.voteTimer != nil {
+		e.voteTimer.Stop()
 	}
-	e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
+	e.voteTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinBlockInterval)) * time.Second)
+
+	e.voteTimerReady = false
+	e.blockProcessed = false
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface.
@@ -779,7 +792,10 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	// Allow block with one epoch behind since votes are processed first and might advance epoch
 	// before block is processed.
 	if localEpoch := e.GetEpoch(); block.Epoch == localEpoch-1 || block.Epoch == localEpoch {
-		e.vote()
+		e.blockProcessed = true
+		if e.voteTimerReady {
+			e.vote()
+		}
 	} else {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
