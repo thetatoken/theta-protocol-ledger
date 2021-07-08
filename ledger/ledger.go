@@ -251,6 +251,9 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
+	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.Height)
+	start := time.Now()
+
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
@@ -262,6 +265,10 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 
 	view := ledger.state.Checked()
 
+	logger.Debugf("ProposeBlockTxs: Start adding block transactions, block.height = %v", block.Height)
+	preparationTime := time.Since(start)
+	start = time.Now()
+
 	// Add special transactions
 	rawTxCandidates := []common.Bytes{}
 	ledger.addSpecialTransactions(block, view, &rawTxCandidates)
@@ -271,6 +278,10 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 	for _, regularRawTx := range regularRawTxs {
 		rawTxCandidates = append(rawTxCandidates, regularRawTx)
 	}
+
+	logger.Debugf("ProposeBlockTxs: block transactions added, block.height = %v", block.Height)
+	addTxsTime := time.Since(start)
+	start = time.Now()
 
 	blockRawTxs = []common.Bytes{}
 	for _, rawTxCandidate := range rawTxCandidates {
@@ -286,9 +297,19 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
+	logger.Debugf("ProposeBlockTxs: block transactions executed, block.height = %v", block.Height)
+	execTxsTime := time.Since(start)
+	start = time.Now()
+
 	ledger.handleDelayedStateUpdates(view)
 
 	stateRootHash = view.Hash()
+
+	logger.Debugf("ProposeBlockTxs: delay update handled, block.height = %v", block.Height)
+	handleDelayedUpdateTime := time.Since(start)
+
+	logger.Debugf("ProposeBlockTxs: Done, block.height = %v, preparationTime = %v, addTxsTime = %v, execTxsTime = %v, handleDelayedUpdateTime = %v",
+		block.Height, preparationTime, addTxsTime, execTxsTime, handleDelayedUpdateTime)
 
 	return stateRootHash, blockRawTxs, result.OK
 }
