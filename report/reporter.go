@@ -30,7 +30,7 @@ var setPeersSuffix string = "/peers/set"
 var peerUrl string
 var rpcJSON = []byte(`{"jsonrpc": "2.0", "method": "theta.GetStatus", "params": [{}], "id": 0}`)
 
-const sleepTime time.Duration = time.Second * 60
+const sleepTime time.Duration = time.Second * 60 * 10
 
 type Reporter struct {
 	init   bool

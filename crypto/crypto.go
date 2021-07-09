@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"encoding/json"
+	"hash"
 	"io"
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/hexutil"
 	"github.com/thetatoken/theta/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 //
@@ -296,4 +298,17 @@ func PublicKeyFromBytes(pkBytes common.Bytes) (*PublicKey, error) {
 func SignatureFromBytes(sigBytes common.Bytes) (*Signature, error) {
 	sig := &Signature{data: sigBytes}
 	return sig, nil
+}
+
+// KeccakState wraps sha3.state. In addition to the usual hash methods, it also supports
+// Read to get a variable amount of data from the hash state. Read is faster than Sum
+// because it doesn't copy the internal state, but also modifies the internal state.
+type KeccakState interface {
+	hash.Hash
+	Read([]byte) (int, error)
+}
+
+// NewKeccakState creates a new KeccakState
+func NewKeccakState() KeccakState {
+	return sha3.NewLegacyKeccak256().(KeccakState)
 }
