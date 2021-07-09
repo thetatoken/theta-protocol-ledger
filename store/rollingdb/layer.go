@@ -87,10 +87,7 @@ func (l *DBLayer) addTag(height uint64, stateRoot common.Hash) {
 	}
 	err = l.db.Put(layerTagKey, raw)
 	if err != nil {
-		err = rlp.DecodeBytes(raw, layerTag)
-		if err != nil {
-			log.Panicf("Failed to save layer tag, layer=%v, tag=%v, err=%v", l.name, raw, err)
-		}
+		log.Panicf("Failed to save layer tag, layer=%v, tag=%v, err=%v", l.name, raw, err)
 	}
 }
 
