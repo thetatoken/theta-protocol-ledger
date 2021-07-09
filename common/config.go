@@ -47,6 +47,8 @@ const (
 	CfgStorageLevelDBCacheSize = "storage.levelDBCacheSize"
 	// CfgStorageLevelDBHandles indicates Level DB handle count
 	CfgStorageLevelDBHandles = "storage.levelDBHandles"
+	// CfgStorageRollingInterval is the block interval that we start new db layer
+	CfgStorageRollingInterval = "storage.rollingInterval"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -172,6 +174,7 @@ func init() {
 	viper.SetDefault(CfgStorageStatePruningSkipCheckpoints, true)
 	viper.SetDefault(CfgStorageLevelDBCacheSize, 256)
 	viper.SetDefault(CfgStorageLevelDBHandles, 16)
+	viper.SetDefault(CfgStorageRollingInterval, 10000)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)

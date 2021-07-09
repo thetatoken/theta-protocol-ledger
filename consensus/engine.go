@@ -1326,22 +1326,25 @@ func (e *ConsensusEngine) propose() {
 }
 
 func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
-	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
-		return
-	}
+	// Permanently disabled
+	return
 
-	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
-	if currentBlockHeight%pruneInterval != 0 {
-		return
-	}
+	// if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+	// 	return
+	// }
 
-	minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
-	if currentBlockHeight <= minimumNumBlocksToRetain+1 {
-		return
-	}
+	// pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
+	// if currentBlockHeight%pruneInterval != 0 {
+	// 	return
+	// }
 
-	endHeight := currentBlockHeight - minimumNumBlocksToRetain
-	e.ledger.PruneState(endHeight)
+	// minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
+	// if currentBlockHeight <= minimumNumBlocksToRetain+1 {
+	// 	return
+	// }
+
+	// endHeight := currentBlockHeight - minimumNumBlocksToRetain
+	// e.ledger.PruneState(endHeight)
 }
 
 func (e *ConsensusEngine) State() *State {
