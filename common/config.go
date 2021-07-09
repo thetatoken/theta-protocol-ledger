@@ -26,8 +26,8 @@ const (
 
 	// CfgConsensusMaxEpochLength defines the maxium length of an epoch.
 	CfgConsensusMaxEpochLength = "consensus.maxEpochLength"
-	// CfgConsensusMinProposalWait defines the minimal interval between proposals.
-	CfgConsensusMinProposalWait = "consensus.minProposalWait"
+	// CfgConsensusMinBlockTime defines the minimal block interval (in seconds)
+	CfgConsensusMinBlockInterval = "consensus.minBlockInterval"
 	// CfgConsensusMessageQueueSize defines the capacity of consensus message queue.
 	CfgConsensusMessageQueueSize = "consensus.messageQueueSize"
 	// CfgConsensusEdgeNodeVoteQueueSize defines the capacity of edge node vote message queue.
@@ -157,7 +157,7 @@ func init() {
 	viper.SetDefault(CfgForceValidateSnapshot, false)
 
 	viper.SetDefault(CfgConsensusMaxEpochLength, 20)
-	viper.SetDefault(CfgConsensusMinProposalWait, 6)
+	viper.SetDefault(CfgConsensusMinBlockInterval, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 	viper.SetDefault(CfgConsensusEdgeNodeVoteQueueSize, 100000)
 	viper.SetDefault(CfgConsensusPassThroughGuardianVote, false)
