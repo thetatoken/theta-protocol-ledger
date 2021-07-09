@@ -305,6 +305,8 @@ func (e *ConsensusEngine) mainLoop() {
 
 // enterEpoch is called when engine enters a new epoch.
 func (e *ConsensusEngine) enterEpoch() {
+	logger.Debugf("Enter epoch %v", e.GetEpoch())
+
 	// Reset timers.
 	if e.epochTimer != nil {
 		e.epochTimer.Stop()
