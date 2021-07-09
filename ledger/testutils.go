@@ -59,7 +59,7 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 
 	mempool := mp.CreateMempool(dispatcher, consensus)
 
-	ledgerState := st.NewLedgerState(chainID, db)
+	ledgerState := st.NewLedgerState(chainID, db, nil)
 	//ledgerState.ResetState(initHeight, snapshot.block.StateHash)
 	ledgerState.ResetState(snapshot.block)
 
@@ -199,7 +199,7 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 	p2psimnet := p2psim.NewSimnetWithHandler(nil)
 	messenger := p2psimnet.AddEndpoint(peerID)
 	mempool = newTestMempool(peerID, messenger, nil)
-	ledger = NewLedger(chainID, db, chain, consensus, valMgr, mempool)
+	ledger = NewLedger(chainID, db, nil, chain, consensus, valMgr, mempool)
 	mempool.SetLedger(ledger)
 
 	ctx := context.Background()
