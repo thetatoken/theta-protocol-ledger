@@ -212,9 +212,12 @@ func isCompactionHeight(height uint64) bool {
 //
 var _ database.Database = (*RollingDB)(nil)
 
+// Return all layers, ordered from new to old
 func (rdb *RollingDB) allLayers() []*DBLayer {
 	ret := []*DBLayer{rdb.activeLayer}
-	ret = append(ret, rdb.layers...)
+	for i := len(rdb.layers) - 1; i >= 0; i-- {
+		ret = append(ret, rdb.layers[i])
+	}
 	ret = append(ret, rdb.rootLayer)
 	return ret
 }
@@ -262,8 +265,11 @@ func (rdb *RollingDB) Delete(key []byte) error {
 	rdb.mu.Lock()
 	defer rdb.mu.Unlock()
 
-	// TODO: do we need to delete from all layers?
-	return rdb.activeLayer.db.Delete(key)
+	for _, layer := range rdb.allLayers() {
+		layer.db.Delete(key)
+	}
+
+	return nil
 }
 
 func (rdb *RollingDB) Close() {
