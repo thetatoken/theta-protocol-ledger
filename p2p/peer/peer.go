@@ -135,17 +135,17 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		},
 	)
 	if sendError != nil {
-		logger.Errorf("Error during handshake/send: %v", sendError)
+		logger.Warnf("Error during handshake/send: %v", sendError)
 		return sendError
 	}
 	if recvError != nil {
-		logger.Errorf("Error during handshake/recv: %v", recvError)
+		logger.Warnf("Error during handshake/recv: %v", recvError)
 		return recvError
 	}
 	netconn := peer.connection.GetNetconn()
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
-		logger.Errorf("Error during handshake/recv: %v", err)
+		logger.Warnf("Error during handshake/recv: %v", err)
 		return err
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
