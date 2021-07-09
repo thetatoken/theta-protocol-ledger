@@ -42,23 +42,25 @@ func NewRollingDB(parentPath string, root database.Database) *RollingDB {
 
 	rollingPath := path.Join(parentPath, "db", "rolling")
 	_ = os.Mkdir(rollingPath, 0700)
-	activeLayer, layers := loadLayers(rollingPath)
 
-	return &RollingDB{
-		parentPath:  parentPath,
-		root:        root,
-		rootLayer:   rootLayer,
-		layers:      layers,
-		activeLayer: activeLayer,
-		compactC:    make(chan struct{}, 1),
+	rdb := &RollingDB{
+		parentPath: parentPath,
+		root:       root,
+		rootLayer:  rootLayer,
+		compactC:   make(chan struct{}, 1),
 	}
+	activeLayer, layers := rdb.loadLayers(rollingPath)
+	rdb.activeLayer = activeLayer
+	rdb.layers = layers
+	return rdb
+
 }
 
 func (rdb *RollingDB) SetChain(chain *blockchain.Chain) {
 	rdb.chain = chain
 }
 
-func loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
+func (rdb *RollingDB) loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
 	files, err := ioutil.ReadDir(rollingPath)
 	if err != nil {
 		logger.Panicf("Failed to load layers", err)
@@ -76,6 +78,9 @@ func loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
 	}
 
 	if len(names) == 0 {
+		if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+			return rdb.rootLayer, nil
+		}
 		return NewDBLayer(rollingPath, 1), nil
 	}
 
@@ -90,7 +95,11 @@ func loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
 }
 
 func (rdb *RollingDB) Tag(height uint64, stateRoot common.Hash) {
-	logger.Infof("Tag: height=%v, root=%v", height, stateRoot.Hex())
+	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+		return
+	}
+
+	logger.Debugf("Tag: height=%v, root=%v", height, stateRoot.Hex())
 	rdb.activeLayer.addTag(height, stateRoot)
 
 	if isRollingHeight(height) {
@@ -98,7 +107,7 @@ func (rdb *RollingDB) Tag(height uint64, stateRoot common.Hash) {
 	}
 
 	if isCompactionHeight(height) {
-		go rdb.compact()
+		go rdb.compact(height)
 	}
 }
 
@@ -110,9 +119,11 @@ func (rdb *RollingDB) addLayer() {
 
 	rdb.layers = append(rdb.layers, rdb.activeLayer)
 	rdb.activeLayer = NewDBLayer(rollingPath, rdb.activeLayer.name+1)
+
+	logger.Debugf("Added new layer: name=%v", rdb.activeLayer.name)
 }
 
-func (rdb *RollingDB) compact() {
+func (rdb *RollingDB) compact(height uint64) {
 	select {
 	case rdb.compactC <- struct{}{}: // Make sure there is only one active compaction task
 		logger.Infof("Starting compaction")
@@ -130,41 +141,58 @@ func (rdb *RollingDB) compact() {
 			return
 		}
 
-		lastLayer := rdb.layers[len(rdb.layers)-1]
+		// Copying state from source to target
+		targetLayer := rdb.activeLayer
+		var sourceLayer *DBLayer
 
-		if !isRollingHeight(lastLayer.tag.Height) {
-			// potentially db was not cut off cleanly, keep the layer until one cleancut is made
-			logger.Infof("Compaction canceled: lastLayer.name=%v, lastLayer.Height=%v", lastLayer.name, lastLayer.tag.Height)
+		// Look for layers to cut off
+		minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
+		found := false
+		for i := len(rdb.layers) - 1; i >= 0; i-- {
+			if height-rdb.layers[i].tag.Height > minimumNumBlocksToRetain+10 {
+				found = true
+				sourceLayer = rdb.layers[i]
+				break
+			}
+		}
+		if !found {
+			logger.Info("No layer old enough to cut off")
 			return
 		}
 
-		blocks := rdb.chain.FindBlocksByHeight(lastLayer.tag.Height)
+		if !isRollingHeight(sourceLayer.tag.Height) {
+			// potentially db was not cut off cleanly, keep the layer until one cleancut is made
+			logger.Infof("Compaction canceled: sourceLayer.name=%v, lastLayer.Height=%v", sourceLayer.name, sourceLayer.tag.Height)
+			return
+		}
+
+		blocks := rdb.chain.FindBlocksByHeight(sourceLayer.tag.Height)
 		for _, block := range blocks {
 			if block.Status.IsFinalized() {
-				for _, stateRoot := range lastLayer.tag.StateRoots {
+				for _, stateRoot := range sourceLayer.tag.StateRoots {
 					if stateRoot == block.StateHash {
-						logger.Infof("Moving finalized state hash=%v", stateRoot.Hex())
-						copyState(rdb, rdb.activeLayer.db.NewBatch(), stateRoot)
+						logger.Infof("Moving finalized state hash=%v, source=%v, target=%v", stateRoot.Hex(), sourceLayer.name, targetLayer.name)
+						copyState(rdb, targetLayer.db.NewBatch(), stateRoot)
+
+						rdb.mu.Lock()
+						defer rdb.mu.Unlock()
+
+						remainingLayers := []*DBLayer{}
+						for _, layer := range rdb.layers {
+							// New layers might have been added after `targetLayer`
+							if layer.name <= sourceLayer.name {
+								layer.destroy()
+							} else {
+								remainingLayers = append(remainingLayers, layer)
+							}
+						}
+						rdb.layers = remainingLayers
 						break
 					}
 				}
 				break
 			}
 		}
-
-		rdb.mu.Lock()
-		defer rdb.mu.Unlock()
-
-		remainingLayers := []*DBLayer{}
-		for _, layer := range rdb.layers {
-			// New layers might have been added after `lastLayer`
-			if layer.name < lastLayer.name {
-				layer.destroy()
-			} else {
-				remainingLayers = append(remainingLayers, layer)
-			}
-		}
-		rdb.layers = remainingLayers
 	default:
 		return
 	}

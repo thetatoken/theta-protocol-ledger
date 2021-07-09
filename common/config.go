@@ -174,8 +174,7 @@ func init() {
 	viper.SetDefault(CfgStorageStatePruningSkipCheckpoints, true)
 	viper.SetDefault(CfgStorageLevelDBCacheSize, 256)
 	viper.SetDefault(CfgStorageLevelDBHandles, 16)
-	viper.SetDefault(CfgStorageRollingInterval, 100)
-	// viper.SetDefault(CfgStorageRollingInterval, 10000)
+	viper.SetDefault(CfgStorageRollingInterval, 10000)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
