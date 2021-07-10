@@ -99,7 +99,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 
 	if tx.Purpose == core.StakeForEliteEdgeNode {
 		if blockHeight < common.HeightEnableTheta3 {
-			return result.Error("Elite Edge Node staking feature not enabled yet").WithErrorCode(result.CodeGenericError)
+			return result.Error(fmt.Sprintf("Elite Edge Node staking not enabled yet, please wait until block height %v", common.HeightEnableTheta3)).WithErrorCode(result.CodeGenericError)
 		}
 
 		minEliteEdgeNodeStake := core.MinEliteEdgeNodeStakeDeposit

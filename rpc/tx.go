@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/thetatoken/theta/cmd/thetacli/cmd/utils"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/hexutil"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/mempool"
 )
 
@@ -207,6 +209,63 @@ func (t *ThetaRPCService) BroadcastRawTransactionAsync(
 	logger.Warnf("Failed to broadcast raw transaction (async): %v, hash: %v, err: %v", hex.EncodeToString(txBytes), hash.Hex(), err)
 
 	return err
+}
+
+// ------------------------------- BroadcastRawEthTransaction -----------------------------------
+
+func (t *ThetaRPCService) BroadcastRawEthTransaction(
+	args *BroadcastRawTransactionArgs, result *BroadcastRawTransactionResult) (err error) {
+
+	ethTxStr := args.TxBytes
+	txStr, err := translateEthTx(ethTxStr)
+	if err != nil {
+		return err
+	}
+
+	err = t.BroadcastRawTransaction(&BroadcastRawTransactionArgs{
+		TxBytes: txStr,
+	}, result)
+
+	return err
+}
+
+// ------------------------------- BroadcastRawEthTransactionAsyc -----------------------------------
+
+func (t *ThetaRPCService) BroadcastRawEthTransactionAsync(
+	args *BroadcastRawTransactionAsyncArgs, result *BroadcastRawTransactionAsyncResult) (err error) {
+
+	ethTxStr := args.TxBytes
+
+	logger.Debugf("Received ETH transaction: %v", ethTxStr)
+
+	txStr, err := translateEthTx(ethTxStr)
+	if err != nil {
+		return err
+	}
+
+	err = t.BroadcastRawTransactionAsync(&BroadcastRawTransactionAsyncArgs{
+		TxBytes: txStr,
+	}, result)
+
+	return err
+}
+
+func translateEthTx(ethTxStr string) (string, error) {
+	thetaSmartContractTx, err := TranslateEthTx(ethTxStr)
+	if err != nil {
+		return "", err
+	}
+
+	logger.Debugf("Recovered from address: %v, signature: %v",
+		thetaSmartContractTx.From.Address.Hex(), thetaSmartContractTx.From.Signature.ToBytes().String())
+
+	raw, err := types.TxToBytes(thetaSmartContractTx)
+	if err != nil {
+		utils.Error("Failed to encode transaction: %v\n", err)
+	}
+	txStr := hex.EncodeToString(raw)
+
+	return txStr, nil
 }
 
 // -------------------------- Utilities -------------------------- //

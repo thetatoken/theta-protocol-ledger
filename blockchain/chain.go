@@ -289,6 +289,11 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) error {
 		if err != nil {
 			logger.Panic(err)
 		}
+
+		// Force update TX index on block finalization so that the index doesn't point to
+		// duplicate TX in fork.
+		ch.AddTxsToIndex(block, true)
+
 		hash = block.Parent
 	}
 	return nil
