@@ -35,6 +35,8 @@ const (
 	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
 	CfgConsensusPassThroughGuardianVote = "consensus.passThroughGuardianVote"
 
+	// CfgStorageRollingEnabled indicates whether rolling is enabled
+	CfgStorageRollingEnabled = "storage.stateRollingEnabled"
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
 	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
 	// CfgStorageStatePruningInterval indicates the purning interval (in terms of blocks)
@@ -168,6 +170,7 @@ func init() {
 	viper.SetDefault(CfgSyncDownloadByHash, false)
 	viper.SetDefault(CfgSyncDownloadByHeader, true)
 
+	viper.SetDefault(CfgStorageRollingEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
 	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
