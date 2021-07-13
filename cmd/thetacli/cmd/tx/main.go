@@ -21,6 +21,7 @@ var (
 	reserveFundInTFuelFlag       string
 	reserveCollateralInTFuelFlag string
 	reserveSeqFlag               uint64
+	paymentSeqFlag               uint64
 	addressesFlag                []string
 	percentagesFlag              []string
 	valueFlag                    string
@@ -33,6 +34,9 @@ var (
 	sourceFlag                   string
 	holderFlag                   string
 	asyncFlag                    bool
+	onChainFlag                  bool
+	sourceSignatureFlag          string
+	dryRunFlag                   bool
 	beneficiaryFlag              string
 	splitBasisPointFlag          uint64
 	passwordFlag                 string
@@ -48,7 +52,8 @@ var TxCmd = &cobra.Command{
 func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
-	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
+	TxCmd.AddCommand(servicePaymentCmd)
+	TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
 	TxCmd.AddCommand(splitRuleCmd)
 	TxCmd.AddCommand(smartContractCmd)
 	TxCmd.AddCommand(depositStakeCmd)

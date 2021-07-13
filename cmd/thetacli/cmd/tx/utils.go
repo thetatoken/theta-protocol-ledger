@@ -97,6 +97,32 @@ func SoftWalletUnlock(cfgPath, addressStr string, password string) (wtypes.Walle
 	return wallet, address, nil
 }
 
+func SoftWalletUnlockPW(cfgPath, addressStr string, password string) (wtypes.Wallet, common.Address, error) {
+	wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
+	if err != nil {
+		fmt.Printf("Failed to open wallet: %v\n", err)
+		return nil, common.Address{}, err
+	}
+
+	//prompt := fmt.Sprintf("Please enter pasword: ")
+	//password, err := utils.GetPassword(prompt)
+	//if err != nil {
+	//	fmt.Printf("Failed to get password: %v\n", err)
+	//	return nil, common.Address{}, err
+	//}
+
+	// password:= "qwertyuiop"
+
+	address := common.HexToAddress(addressStr)
+	err = wallet.Unlock(address, password, nil)
+	if err != nil {
+		fmt.Printf("Failed to unlock address %v: %v\n", address.Hex(), err)
+		return nil, common.Address{}, err
+	}
+
+	return wallet, address, nil
+}
+
 func getWalletType(cmd *cobra.Command) (walletType wtypes.WalletType) {
 	walletTypeStr := cmd.Flag("wallet").Value.String()
 	if walletTypeStr == "nano" {
