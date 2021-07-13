@@ -78,7 +78,7 @@ func (rdb *RollingDB) loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
 	}
 
 	if len(names) == 0 {
-		if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+		if !viper.GetBool(common.CfgStorageRollingEnabled) {
 			return rdb.rootLayer, nil
 		}
 		return NewDBLayer(rollingPath, 1), nil
@@ -95,7 +95,7 @@ func (rdb *RollingDB) loadLayers(rollingPath string) (*DBLayer, []*DBLayer) {
 }
 
 func (rdb *RollingDB) Tag(height uint64, stateRoot common.Hash) {
-	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+	if !viper.GetBool(common.CfgStorageRollingEnabled) {
 		return
 	}
 
@@ -124,6 +124,10 @@ func (rdb *RollingDB) addLayer() {
 }
 
 func (rdb *RollingDB) compact(height uint64) {
+	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+		return
+	}
+
 	select {
 	case rdb.compactC <- struct{}{}: // Make sure there is only one active compaction task
 		logger.Infof("Starting compaction")
