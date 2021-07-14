@@ -26,6 +26,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/snapshot"
 	"github.com/thetatoken/theta/store/database/backend"
+	"github.com/thetatoken/theta/store/rollingdb"
 	"github.com/thetatoken/theta/version"
 	ks "github.com/thetatoken/theta/wallet/softwallet/keystore"
 )
@@ -62,6 +63,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	db, err := backend.NewLDBDatabase(mainDBPath, refDBPath,
 		viper.GetInt(common.CfgStorageLevelDBCacheSize),
 		viper.GetInt(common.CfgStorageLevelDBHandles))
+
+	rdb := rollingdb.NewRollingDB(dbPath, db)
 
 	if err != nil {
 		log.Fatalf("Failed to connect to the db. main: %v, ref: %v, err: %v",
@@ -139,6 +142,7 @@ func runStart(cmd *cobra.Command, args []string) {
 		NetworkOld:          networkOld,
 		Network:             network,
 		DB:                  db,
+		RollingDB:           rdb,
 		SnapshotPath:        snapshotPath,
 		ChainImportDirPath:  chainImportDirPath,
 		ChainCorrectionPath: chainCorrectionPath,

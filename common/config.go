@@ -35,6 +35,8 @@ const (
 	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
 	CfgConsensusPassThroughGuardianVote = "consensus.passThroughGuardianVote"
 
+	// CfgStorageRollingEnabled indicates whether rolling is enabled
+	CfgStorageRollingEnabled = "storage.stateRollingEnabled"
 	// CfgStorageStatePruningEnabled indicates whether state pruning is enabled
 	CfgStorageStatePruningEnabled = "storage.statePruningEnabled"
 	// CfgStorageStatePruningInterval indicates the purning interval (in terms of blocks)
@@ -47,6 +49,8 @@ const (
 	CfgStorageLevelDBCacheSize = "storage.levelDBCacheSize"
 	// CfgStorageLevelDBHandles indicates Level DB handle count
 	CfgStorageLevelDBHandles = "storage.levelDBHandles"
+	// CfgStorageRollingInterval is the block interval that we start new db layer
+	CfgStorageRollingInterval = "storage.rollingInterval"
 
 	// CfgSyncMessageQueueSize defines the capacity of Sync Manager message queue.
 	CfgSyncMessageQueueSize = "sync.messageQueueSize"
@@ -166,12 +170,14 @@ func init() {
 	viper.SetDefault(CfgSyncDownloadByHash, false)
 	viper.SetDefault(CfgSyncDownloadByHeader, true)
 
+	viper.SetDefault(CfgStorageRollingEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningInterval, 16)
 	viper.SetDefault(CfgStorageStatePruningRetainedBlocks, 2048)
 	viper.SetDefault(CfgStorageStatePruningSkipCheckpoints, true)
 	viper.SetDefault(CfgStorageLevelDBCacheSize, 256)
 	viper.SetDefault(CfgStorageLevelDBHandles, 16)
+	viper.SetDefault(CfgStorageRollingInterval, 10000)
 
 	viper.SetDefault(CfgRPCEnabled, false)
 	viper.SetDefault(CfgP2PMessageQueueSize, 512)
