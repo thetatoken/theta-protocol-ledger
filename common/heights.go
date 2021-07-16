@@ -1,28 +1,52 @@
 package common
 
+// // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
+// const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020 PST
+
+// // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
+// const HeightEnableTheta2 uint64 = 5877350 // approximate time: 12pm May 27th, 2020 PDT
+
+// // HeightLowerGNStakeThresholdTo1000 specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
+// const HeightLowerGNStakeThresholdTo1000 uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
+
+// // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
+// const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
+
+// // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
+// const HeightSampleStakingReward uint64 = 9497418 // approximate time: 7pm Mar 10th, 2021 PST
+
+// // HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
+// const HeightJune2021FeeAdjustment uint64 = 10709540 // approximate time: 12pm June 11, 2021 PT
+
+// // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
+// const HeightEnableTheta3 uint64 = 10968061 // approximate time: 12pm June 30, 2021 PT
+
+// // HeightRPCCompatibility specifies the block height to enable Ethereum compatible RPC support
+// const HeightRPCCompatibility uint64 = 1000000000
+
 // HeightEnableValidatorReward specifies the minimal block height to enable the validtor TFUEL reward
-const HeightEnableValidatorReward uint64 = 4164982 // approximate time: 2pm January 14th, 2020 PST
+const HeightEnableValidatorReward uint64 = 10 // approximate time: 2pm January 14th, 2020 PST
 
 // HeightEnableTheta2 specifies the minimal block height to enable the Theta2.0 feature.
-const HeightEnableTheta2 uint64 = 5877350 // approximate time: 12pm May 27th, 2020 PDT
+const HeightEnableTheta2 uint64 = 10 // approximate time: 12pm May 27th, 2020 PDT
 
 // HeightLowerGNStakeThresholdTo1000 specifies the minimal block height to lower the GN Stake Threshold to 1,000 THETA
-const HeightLowerGNStakeThresholdTo1000 uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
+const HeightLowerGNStakeThresholdTo1000 uint64 = 10 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightEnableSmartContract specifies the minimal block height to eanble the Turing-complete smart contract support
-const HeightEnableSmartContract uint64 = 8411427 // approximate time: 12pm Dec 10th, 2020 PST
+const HeightEnableSmartContract uint64 = 10 // approximate time: 12pm Dec 10th, 2020 PST
 
 // HeightSampleStakingReward specifies the block heigth to enable sampling of staking reward
-const HeightSampleStakingReward uint64 = 9497418 // approximate time: 7pm Mar 10th, 2021 PST
+const HeightSampleStakingReward uint64 = 10 // approximate time: 7pm Mar 10th, 2021 PST
 
 // HeightJune2021FeeAdjustment specifies the block heigth to enable transaction fee burning adjustment
-const HeightJune2021FeeAdjustment uint64 = 10709540 // approximate time: 12pm June 11, 2021 PT
+const HeightJune2021FeeAdjustment uint64 = 10 // approximate time: 12pm June 11, 2021 PT
 
 // HeightEnableTheta3 specifies the minimal block height to enable the Theta3.0 feature.
-const HeightEnableTheta3 uint64 = 10968061 // approximate time: 12pm June 30, 2021 PT
+const HeightEnableTheta3 uint64 = 10 // approximate time: 12pm June 30, 2021 PT
 
 // HeightRPCCompatibility specifies the block height to enable Ethereum compatible RPC support
-const HeightRPCCompatibility uint64 = 1000000000
+const HeightRPCCompatibility uint64 = 10
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
