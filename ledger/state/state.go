@@ -136,8 +136,8 @@ func (s *LedgerState) Finalized() *StoreView {
 // returns the hash for the commit.
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
-	s.dbTagger.Tag(s.delivered.height, hash)
 	s.delivered.IncrementHeight()
+	s.dbTagger.Tag(s.delivered.height, hash)
 
 	var err error
 	s.checked, err = s.delivered.Copy()
