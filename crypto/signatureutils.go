@@ -28,6 +28,8 @@ import (
 	"github.com/thetatoken/theta/crypto/secp256k1"
 )
 
+const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id
+
 // ecrecover returns the uncompressed public key that created the given signature.
 func ecrecover(hash, sig []byte) ([]byte, error) {
 	return secp256k1.RecoverPubkey(hash, sig)

@@ -135,17 +135,17 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		},
 	)
 	if sendError != nil {
-		logger.Errorf("Error during handshake/send: %v", sendError)
+		logger.Warnf("Error during handshake/send: %v", sendError)
 		return sendError
 	}
 	if recvError != nil {
-		logger.Errorf("Error during handshake/recv: %v", recvError)
+		logger.Warnf("Error during handshake/recv: %v", recvError)
 		return recvError
 	}
 	netconn := peer.connection.GetNetconn()
 	targetNodePubKey, err := crypto.PublicKeyFromBytes(targetPeerNodeInfo.PubKeyBytes)
 	if err != nil {
-		logger.Errorf("Error during handshake/recv: %v", err)
+		logger.Warnf("Error during handshake/recv: %v", err)
 		return err
 	}
 	targetPeerNodeInfo.PubKey = targetNodePubKey
@@ -209,11 +209,11 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 		},
 	)
 	if sendError != nil {
-		logger.Errorf("Error during handshake/send extra info: %v", sendError)
+		logger.Warnf("Error during handshake/send extra info: %v", sendError)
 		return sendError
 	}
 	if recvError != nil {
-		logger.Errorf("Error during handshake/recv extra info: %v", recvError)
+		logger.Warnf("Error during handshake/recv extra info: %v", recvError)
 		return recvError
 	}
 
@@ -222,12 +222,12 @@ func (peer *Peer) Handshake(sourceNodeInfo *p2ptypes.NodeInfo) error {
 	remotePub, err := peer.connection.DoEncHandshake(
 		crypto.PrivKeyToECDSA(sourceNodeInfo.PrivKey), crypto.PubKeyToECDSA(targetNodePubKey))
 	if err != nil {
-		logger.Errorf("Error during handshake/key exchange: %v", err)
+		logger.Warnf("Error during handshake/key exchange: %v", err)
 		return err
 	} else {
 		if remotePub.Address() != targetNodePubKey.Address() {
 			err = fmt.Errorf("expected remote address: %v, actual address: %v", targetNodePubKey.Address(), remotePub.Address())
-			logger.Errorf("Error during handshake/key exchange: %v", err)
+			logger.Warnf("Error during handshake/key exchange: %v", err)
 			return err
 		}
 	}
@@ -338,7 +338,7 @@ func createPeer(netconn net.Conn, isOutbound bool,
 	peerConfig PeerConfig, connConfig cn.ConnectionConfig) *Peer {
 	connection := cn.CreateConnection(netconn, connConfig)
 	if connection == nil {
-		logger.Errorf("Failed to create connection")
+		logger.Warnf("Failed to create connection")
 		if netconn != nil {
 			netconn.Close()
 		}

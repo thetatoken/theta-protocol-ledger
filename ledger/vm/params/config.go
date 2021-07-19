@@ -32,70 +32,70 @@ var (
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
-	MainnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(1),
-		HomesteadBlock:      big.NewInt(1150000),
-		DAOForkBlock:        big.NewInt(1920000),
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(2463000),
-		EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
-		EIP155Block:         big.NewInt(2675000),
-		EIP158Block:         big.NewInt(2675000),
-		ByzantiumBlock:      big.NewInt(4370000),
-		ConstantinopleBlock: nil,
-		Ethash:              new(EthashConfig),
-	}
+	// MainnetChainConfig = &ChainConfig{
+	// 	ChainID:             big.NewInt(1),
+	// 	HomesteadBlock:      big.NewInt(1150000),
+	// 	DAOForkBlock:        big.NewInt(1920000),
+	// 	DAOForkSupport:      true,
+	// 	EIP150Block:         big.NewInt(2463000),
+	// 	EIP150Hash:          common.HexToHash("0x2086799aeebeae135c246c65021c82b4e15a2c451340993aacfd2751886514f0"),
+	// 	EIP155Block:         big.NewInt(2675000),
+	// 	EIP158Block:         big.NewInt(2675000),
+	// 	ByzantiumBlock:      big.NewInt(4370000),
+	// 	ConstantinopleBlock: nil,
+	// 	Ethash:              new(EthashConfig),
+	// }
 
-	// MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
-	MainnetTrustedCheckpoint = &TrustedCheckpoint{
-		Name:         "mainnet",
-		SectionIndex: 195,
-		SectionHead:  common.HexToHash("0x1cdd2a84cf6c1261ffccc88f6bcefb513abd7934a96c1e909fbf74767560f16b"),
-		CHTRoot:      common.HexToHash("0xe453333c20391d16b91b6fe11c104704f62c8dba15f69db73b4cdf7e100105eb"),
-		BloomRoot:    common.HexToHash("0x47f30069473072e00d2cdca146dce40f0aad243dfc8221bf810822c091674efe"),
-	}
+	// // MainnetTrustedCheckpoint contains the light client trusted checkpoint for the main network.
+	// MainnetTrustedCheckpoint = &TrustedCheckpoint{
+	// 	Name:         "mainnet",
+	// 	SectionIndex: 195,
+	// 	SectionHead:  common.HexToHash("0x1cdd2a84cf6c1261ffccc88f6bcefb513abd7934a96c1e909fbf74767560f16b"),
+	// 	CHTRoot:      common.HexToHash("0xe453333c20391d16b91b6fe11c104704f62c8dba15f69db73b4cdf7e100105eb"),
+	// 	BloomRoot:    common.HexToHash("0x47f30069473072e00d2cdca146dce40f0aad243dfc8221bf810822c091674efe"),
+	// }
 
-	// TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
-	TestnetChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(3),
-		HomesteadBlock:      big.NewInt(0),
-		DAOForkBlock:        nil,
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(0),
-		EIP150Hash:          common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
-		EIP155Block:         big.NewInt(10),
-		EIP158Block:         big.NewInt(10),
-		ByzantiumBlock:      big.NewInt(1700000),
-		ConstantinopleBlock: big.NewInt(4230000),
-		Ethash:              new(EthashConfig),
-	}
+	// // TestnetChainConfig contains the chain parameters to run a node on the Ropsten test network.
+	// TestnetChainConfig = &ChainConfig{
+	// 	ChainID:             big.NewInt(3),
+	// 	HomesteadBlock:      big.NewInt(0),
+	// 	DAOForkBlock:        nil,
+	// 	DAOForkSupport:      true,
+	// 	EIP150Block:         big.NewInt(0),
+	// 	EIP150Hash:          common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d"),
+	// 	EIP155Block:         big.NewInt(10),
+	// 	EIP158Block:         big.NewInt(10),
+	// 	ByzantiumBlock:      big.NewInt(1700000),
+	// 	ConstantinopleBlock: big.NewInt(4230000),
+	// 	Ethash:              new(EthashConfig),
+	// }
 
-	// TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
-	TestnetTrustedCheckpoint = &TrustedCheckpoint{
-		Name:         "testnet",
-		SectionIndex: 126,
-		SectionHead:  common.HexToHash("0x48f7dd4c9c60be04bf15fd4d0bcac46ddd8caf6b01d6fb8f8e1f7955cdd1337a"),
-		CHTRoot:      common.HexToHash("0x6e54cb80a1884881ea1a114243af9012c95e0296b47f103b5ab124313968508e"),
-		BloomRoot:    common.HexToHash("0xb55accf6dce6455b47db8510d15eff38d0ed7378829f3036d26b48e7d15da3f6"),
-	}
+	// // TestnetTrustedCheckpoint contains the light client trusted checkpoint for the Ropsten test network.
+	// TestnetTrustedCheckpoint = &TrustedCheckpoint{
+	// 	Name:         "testnet",
+	// 	SectionIndex: 126,
+	// 	SectionHead:  common.HexToHash("0x48f7dd4c9c60be04bf15fd4d0bcac46ddd8caf6b01d6fb8f8e1f7955cdd1337a"),
+	// 	CHTRoot:      common.HexToHash("0x6e54cb80a1884881ea1a114243af9012c95e0296b47f103b5ab124313968508e"),
+	// 	BloomRoot:    common.HexToHash("0xb55accf6dce6455b47db8510d15eff38d0ed7378829f3036d26b48e7d15da3f6"),
+	// }
 
-	// RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
-	RinkebyChainConfig = &ChainConfig{
-		ChainID:             big.NewInt(4),
-		HomesteadBlock:      big.NewInt(1),
-		DAOForkBlock:        nil,
-		DAOForkSupport:      true,
-		EIP150Block:         big.NewInt(2),
-		EIP150Hash:          common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
-		EIP155Block:         big.NewInt(3),
-		EIP158Block:         big.NewInt(3),
-		ByzantiumBlock:      big.NewInt(1035301),
-		ConstantinopleBlock: nil,
-		Clique: &CliqueConfig{
-			Period: 15,
-			Epoch:  30000,
-		},
-	}
+	// // RinkebyChainConfig contains the chain parameters to run a node on the Rinkeby test network.
+	// RinkebyChainConfig = &ChainConfig{
+	// 	ChainID:             big.NewInt(4),
+	// 	HomesteadBlock:      big.NewInt(1),
+	// 	DAOForkBlock:        nil,
+	// 	DAOForkSupport:      true,
+	// 	EIP150Block:         big.NewInt(2),
+	// 	EIP150Hash:          common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"),
+	// 	EIP155Block:         big.NewInt(3),
+	// 	EIP158Block:         big.NewInt(3),
+	// 	ByzantiumBlock:      big.NewInt(1035301),
+	// 	ConstantinopleBlock: nil,
+	// 	Clique: &CliqueConfig{
+	// 		Period: 15,
+	// 		Epoch:  30000,
+	// 	},
+	// }
 
 	// RinkebyTrustedCheckpoint contains the light client trusted checkpoint for the Rinkeby test network.
 	RinkebyTrustedCheckpoint = &TrustedCheckpoint{

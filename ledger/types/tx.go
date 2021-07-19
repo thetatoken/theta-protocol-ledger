@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"math/big"
+	"sync"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -13,6 +14,7 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
+	"golang.org/x/crypto/sha3"
 )
 
 /*
@@ -790,6 +792,44 @@ func (tx *SmartContractTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
+// For ETH compatibility
+
+// hasherPool holds LegacyKeccak256 hashers for rlpHash.
+var hasherPool = sync.Pool{
+	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+}
+
+// RLPHash encodes x and hashes the encoded bytes.
+func RLPHash(x interface{}) (h common.Hash) {
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
+}
+
+func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.Hash {
+	ethChainID := MapChainID(chainID, blockHeight)
+
+	var toAddress *common.Address
+	if (tx.To.Address != common.Address{}) {
+		toAddress = &tx.To.Address
+	}
+
+	ethTxHash := RLPHash([]interface{}{
+		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
+		tx.GasPrice,
+		tx.GasLimit,
+		toAddress,
+		tx.From.Coins.NoNil().TFuelWei,
+		tx.Data,
+		ethChainID, uint(0), uint(0),
+	})
+
+	return ethTxHash
+}
+
 func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.From.Address == addr {
 		tx.From.Signature = sig
@@ -1002,4 +1042,36 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 		log.Panic(err)
 	}
 	return signBytes
+}
+
+// For replay attack protection
+// https://chainid.network/
+const CHAIN_ID_OFFSET int64 = 360
+
+func MapChainID(chainIDStr string, blockHeight uint64) *big.Int {
+	chainIDWithoutOffset := mapChainIDWithoutOffset(chainIDStr)
+	if blockHeight < common.HeightRPCCompatibility {
+		return chainIDWithoutOffset
+	}
+
+	// For replay attack protection, should NOT use the same chainID as Ethereum
+	chainID := big.NewInt(1).Add(big.NewInt(CHAIN_ID_OFFSET), chainIDWithoutOffset)
+	return chainID
+}
+
+func mapChainIDWithoutOffset(chainIDStr string) *big.Int {
+	if chainIDStr == "mainnet" { // correspond to the Ethereum mainnet
+		return big.NewInt(1)
+	} else if chainIDStr == "testnet_sapphire" { // correspond to Ropsten
+		return big.NewInt(3)
+	} else if chainIDStr == "testnet_amber" { // correspond to Rinkeby
+		return big.NewInt(4)
+	} else if chainIDStr == "testnet" {
+		return big.NewInt(5)
+	} else if chainIDStr == "privatenet" {
+		return big.NewInt(6)
+	}
+
+	chainIDBigInt := new(big.Int).Abs(crypto.Keccak256Hash(common.Bytes(chainIDStr)).Big()) // all other chainIDs
+	return chainIDBigInt
 }

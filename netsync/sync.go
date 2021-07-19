@@ -668,7 +668,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"payload":   data.Payload,
 				"error":     err,
 				"peerID":    peerID,
-			}).Warn("Failed to decode HeaderResponse payload")
+			}).Debug("Failed to decode HeaderResponse payload")
 			return
 		}
 		for _, header := range headers.HeaderArray {

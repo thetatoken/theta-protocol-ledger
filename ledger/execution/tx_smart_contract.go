@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/crypto"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm"
@@ -32,12 +34,34 @@ func NewSmartContractTxExecutor(chain *blockchain.Chain, state *st.LedgerState) 
 }
 
 func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	blockHeight := getBlockHeight(exec.state)
 	tx := transaction.(*types.SmartContractTx)
 
 	// Validate from, basic
 	res := tx.From.ValidateBasic()
 	if res.IsError() {
 		return res
+	}
+
+	// Check signatures
+	signBytes := tx.SignBytes(chainID)
+	if !tx.From.Signature.Verify(signBytes, tx.From.Address) {
+		if blockHeight < common.HeightRPCCompatibility {
+			return result.Error("Signature verification failed, SignBytes: %v",
+				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
+		}
+
+		// interpret the signature as ETH tx signature
+		if tx.From.Coins.ThetaWei.Cmp(big.NewInt(0)) != 0 {
+			return result.Error("Sending Theta with ETH transaction is not allowed") // extra check, since ETH transaction only signs the TFuel part (i.e., value, gasPrice, gasLimit, etc)
+		}
+
+		ethTxHash := tx.EthTxHash(chainID, blockHeight)
+		err := crypto.ValidateEthSignature(tx.From.Address, ethTxHash, tx.From.Signature)
+		if err != nil {
+			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",
+				hex.EncodeToString(signBytes), err.Error()).WithErrorCode(result.CodeInvalidSignature)
+		}
 	}
 
 	// Get input account
@@ -47,11 +71,18 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	}
 
 	// Validate input, advanced
-	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(fromAccount, signBytes, tx.From)
-	if res.IsError() {
-		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.From.Address.Hex(), res))
-		return res
+
+	// Check sequence/coins
+	seq, balance := fromAccount.Sequence, fromAccount.Balance
+	if seq+1 != tx.From.Sequence {
+		return result.Error("ValidateInputAdvanced: Got %v, expected %v. (acc.seq=%v)",
+			tx.From.Sequence, seq+1, fromAccount.Sequence).WithErrorCode(result.CodeInvalidSequence)
+	}
+
+	// Check amount
+	if !balance.IsGTE(tx.From.Coins) {
+		return result.Error("Insufficient fund: balance is %v, tried to send %v",
+			balance, tx.From.Coins).WithErrorCode(result.CodeInsufficientFund)
 	}
 
 	coins := tx.From.Coins.NoNil()
@@ -60,7 +91,6 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidValueToTransfer)
 	}
 
-	blockHeight := getBlockHeight(exec.state)
 	if !sanityCheckForGasPrice(tx.GasPrice, blockHeight) {
 		minimumGasPrice := types.GetMinimumGasPrice(blockHeight)
 		return result.Error("Insufficient gas price. Gas price needs to be at least %v TFuelWei", minimumGasPrice).

@@ -14,9 +14,14 @@ import (
 // ------------------------- State -------------------------
 //
 
+type Tagger interface {
+	Tag(height uint64, root common.Hash)
+}
+
 type LedgerState struct {
-	chainID string
-	db      database.Database
+	chainID  string
+	db       database.Database
+	dbTagger Tagger
 
 	parentBlock *core.Block
 
@@ -29,10 +34,11 @@ type LedgerState struct {
 // NewLedgerState creates a new Leger State with given store.
 // NOTE: before using the LedgerState, we need to call LedgerState.ResetState() to set
 //       the proper height and stateRootHash
-func NewLedgerState(chainID string, db database.Database) *LedgerState {
+func NewLedgerState(chainID string, db database.Database, tagger Tagger) *LedgerState {
 	s := &LedgerState{
-		chainID: chainID,
-		db:      db,
+		chainID:  chainID,
+		db:       db,
+		dbTagger: tagger,
 	}
 	//s.ResetState(uint64(0), common.Hash{})
 	s.ResetState(&core.Block{
@@ -131,6 +137,7 @@ func (s *LedgerState) Finalized() *StoreView {
 func (s *LedgerState) Commit() common.Hash {
 	hash := s.delivered.Save()
 	s.delivered.IncrementHeight()
+	s.dbTagger.Tag(s.delivered.height, hash)
 
 	var err error
 	s.checked, err = s.delivered.Copy()

@@ -47,8 +47,8 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
-	state := st.NewLedgerState(chainID, db)
+func NewLedger(chainID string, db database.Database, tagger st.Tagger, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
+	state := st.NewLedgerState(chainID, db, tagger)
 	executor := exec.NewExecutor(db, chain, state, consensus, valMgr)
 	ledger := &Ledger{
 		db:        db,
@@ -455,46 +455,49 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 
 // PruneState attempts to prune the state up to the targetEndHeight
 func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
-	var processedHeight uint64
-	db := ledger.State().DB()
-	kvStore := kvstore.NewKVStore(db)
-	err := kvStore.Get(state.StatePruningProgressKey(), &processedHeight)
-	if err != nil {
-		processedHeight = ledger.chain.Root().Height
-	}
-
-	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
-	maxHeightsToPrune := 3 * pruneInterval // prune too many heights at once could cause hang, should catchup gradually
-	endHeight := processedHeight + maxHeightsToPrune
-	if endHeight > targetEndHeight {
-		endHeight = targetEndHeight
-	}
-
-	startHeight := processedHeight + 1
-	if endHeight < startHeight {
-		errMsg := fmt.Sprintf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
-		logger.Warnf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-
-	lastFinalizedBlock := ledger.consensus.GetLastFinalizedBlock()
-	if endHeight >= lastFinalizedBlock.Height {
-		errMsg := fmt.Sprintf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
-		logger.Warnf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-
-	// Need to save the progress before pruning -- in case the program exits during pruning (e.g. Ctrl+C),
-	// the states that are already pruned do not get pruned again
-	kvStore.Put(state.StatePruningProgressKey(), endHeight)
-
-	err = ledger.pruneStateForRange(startHeight, endHeight)
-	if err != nil {
-		logger.Warnf("Unable to pruning state: %v", err)
-		return err
-	}
-
+	// Permanently disabled
 	return nil
+
+	// var processedHeight uint64
+	// db := ledger.State().DB()
+	// kvStore := kvstore.NewKVStore(db)
+	// err := kvStore.Get(state.StatePruningProgressKey(), &processedHeight)
+	// if err != nil {
+	// 	processedHeight = ledger.chain.Root().Height
+	// }
+
+	// pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
+	// maxHeightsToPrune := 3 * pruneInterval // prune too many heights at once could cause hang, should catchup gradually
+	// endHeight := processedHeight + maxHeightsToPrune
+	// if endHeight > targetEndHeight {
+	// 	endHeight = targetEndHeight
+	// }
+
+	// startHeight := processedHeight + 1
+	// if endHeight < startHeight {
+	// 	errMsg := fmt.Sprintf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
+	// 	logger.Warnf(errMsg)
+	// 	return fmt.Errorf(errMsg)
+	// }
+
+	// lastFinalizedBlock := ledger.consensus.GetLastFinalizedBlock()
+	// if endHeight >= lastFinalizedBlock.Height {
+	// 	errMsg := fmt.Sprintf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
+	// 	logger.Warnf(errMsg)
+	// 	return fmt.Errorf(errMsg)
+	// }
+
+	// // Need to save the progress before pruning -- in case the program exits during pruning (e.g. Ctrl+C),
+	// // the states that are already pruned do not get pruned again
+	// kvStore.Put(state.StatePruningProgressKey(), endHeight)
+
+	// err = ledger.pruneStateForRange(startHeight, endHeight)
+	// if err != nil {
+	// 	logger.Warnf("Unable to pruning state: %v", err)
+	// 	return err
+	// }
+
+	// return nil
 }
 
 // pruneStateForRange prunes states from startHeight to endHeight (inclusive for both end)
