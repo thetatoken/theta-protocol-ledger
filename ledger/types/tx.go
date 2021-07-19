@@ -587,6 +587,12 @@ func (_ *ServicePaymentTx) AssertIsTx() {}
 func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	signBytes := encodeToBytes(chainID)
 
+	//formatted, err := json.MarshalIndent(result, "", "    ")
+	//if err != nil {
+	//	utils.Error("Failed : %v\n", err)
+	//}
+	fmt.Printf("signBytes: %s\n", hex.EncodeToString(signBytes))
+
 	source := tx.Source
 	target := tx.Target
 	fee := tx.Fee
@@ -595,8 +601,16 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 	tx.Target = TxInput{Address: target.Address}
 	tx.Fee = NewCoins(0, 0)
 
+	formatted, err := json.MarshalIndent(tx, "", "    ")
+	if err != nil {
+		fmt.Printf("Failed : %v\n", err)
+	}
+	fmt.Printf("tx: %s\n", formatted)
+
 	txBytes, _ := TxToBytes(tx)
+	fmt.Printf("txBytes: %s\n", hex.EncodeToString(txBytes))
 	signBytes = append(signBytes, txBytes...)
+	fmt.Printf("append signBytes: %s\n", hex.EncodeToString(signBytes))
 
 	tx.Source = source
 	tx.Target = target
@@ -604,6 +618,7 @@ func (tx *ServicePaymentTx) SourceSignBytes(chainID string) []byte {
 
 	signBytes = addPrefixForSignBytes(signBytes)
 
+	fmt.Printf("addPrefixForSignBytes: %s\n", hex.EncodeToString(signBytes))
 	return signBytes
 }
 

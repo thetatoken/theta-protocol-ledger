@@ -114,6 +114,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		ResourceID: resourceIDFlag,
 	}
 
+	// Set the Source Signature
 	if onChainFlag {
 		//ssig, err := crypto.UnmarshalJSON([]byte(sourceSignatureFlag))
 		ssig, err := crypto.SignatureFromBytes(common.FromHex(sourceSignatureFlag))
@@ -129,6 +130,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		servicePaymentTx.SetSourceSignature(ssig)
 	}
 
+	// Set the Target Signature
 	if onChainFlag {
 		tsig, err := twallet.Sign(toAddress, servicePaymentTx.TargetSignBytes(chainIDFlag))
 		if err != nil {

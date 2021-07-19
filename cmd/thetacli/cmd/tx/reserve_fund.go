@@ -82,6 +82,10 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	reserveFundTx.SetSignature(fromAddress, sig)
 
+	// reqformatted, err := json.MarshalIndent(reserveFundTx, "", "    ")
+	// fmt.Printf("ReserveFundRequest:\n%s\n", reqformatted)
+
+
 	raw, err := types.TxToBytes(reserveFundTx)
 	if err != nil {
 		utils.Error("Failed to encode transaction: %v\n", err)
