@@ -52,6 +52,8 @@ func NewRollingDB(parentPath string, root database.Database) *RollingDB {
 	activeLayer, layers := rdb.loadLayers(rollingPath)
 	rdb.activeLayer = activeLayer
 	rdb.layers = layers
+
+	logger.Debugf("Number of layers after loading DB: %v", len(rdb.layers))
 	return rdb
 
 }
@@ -141,7 +143,9 @@ func (rdb *RollingDB) compact(height uint64) {
 			<-rdb.compactC
 		}()
 
+		logger.Debugf("Number of layers: %v", len(rdb.layers))
 		if len(rdb.layers) == 0 {
+			logger.Infof("No rolling DB layer found, skip compaction")
 			return
 		}
 
@@ -171,9 +175,15 @@ func (rdb *RollingDB) compact(height uint64) {
 		}
 
 		blocks := rdb.chain.FindBlocksByHeight(sourceLayer.tag.Height)
+		logger.Debugf("Found %v blocks for height %v", len(blocks), sourceLayer.tag.Height)
+
 		for _, block := range blocks {
 			if block.Status.IsFinalized() {
+				logger.Debugf("Found finalized block: %v", block.Hash().Hex())
+
 				for _, stateRoot := range sourceLayer.tag.StateRoots {
+					logger.Debugf("State root check, stateRoot: %v, block.StateHash: %v", stateRoot.Hex(), block.StateHash.Hex())
+
 					if stateRoot == block.StateHash {
 						logger.Infof("Moving finalized state hash=%v, source=%v, target=%v", stateRoot.Hex(), sourceLayer.name, targetLayer.name)
 						copyState(rdb, targetLayer.db.NewBatch(), stateRoot)
@@ -198,6 +208,7 @@ func (rdb *RollingDB) compact(height uint64) {
 			}
 		}
 	default:
+		logger.Debugf("Only one active compaction task allowed")
 		return
 	}
 

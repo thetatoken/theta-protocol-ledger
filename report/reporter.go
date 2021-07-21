@@ -55,7 +55,7 @@ func NewReporter(disp *dp.Dispatcher, consensus *consensus.ConsensusEngine, chai
 	peerUrl = "http://" + viper.GetString(common.CfgMetricsServer) + reportPeersPort + setPeersSuffix
 	ipAddr, err := util.GetPublicIP()
 	if err != nil {
-		logger.Errorf("Reporter failed to retrieve the node's IP address: %v", err)
+		logger.Warnf("Reporter failed to retrieve the node's IP address: %v", err)
 	}
 	var ok bool = true
 	if mserver := viper.GetString(common.CfgMetricsServer); mserver != "" {
@@ -128,14 +128,14 @@ func (rp *Reporter) handlePeers() {
 	data := []byte(jsonStr)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf("Reporter failed to create request: %v", err)
+		logger.Warnf("Reporter failed to create request: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		logger.Errorf("Reporter failed to create request: %v", err)
+		logger.Warnf("Reporter failed to create request: %v", err)
 		return
 	}
 	defer resp.Body.Close()
