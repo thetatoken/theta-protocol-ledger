@@ -1,4 +1,4 @@
-package github.com/thetatoken/theta/version
+package version
 const (
   Timestamp = "Wed Jul 21 20:40:34 UTC 2021"
   Version = "3.1.0"
