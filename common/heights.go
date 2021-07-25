@@ -22,7 +22,7 @@ const HeightJune2021FeeAdjustment uint64 = 10709540 // approximate time: 12pm Ju
 const HeightEnableTheta3 uint64 = 10968061 // approximate time: 12pm June 30, 2021 PT
 
 // HeightRPCCompatibility specifies the block height to enable Ethereum compatible RPC support
-const HeightRPCCompatibility uint64 = 1000000000
+const HeightRPCCompatibility uint64 = 11354820 // approximate time: 12pm July 30, 2021 PT
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
