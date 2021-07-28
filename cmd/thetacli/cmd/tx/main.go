@@ -40,6 +40,7 @@ var (
 	beneficiaryFlag              string
 	splitBasisPointFlag          uint64
 	passwordFlag                 string
+	debuggingFlag                bool
 )
 
 // TxCmd represents the Tx command

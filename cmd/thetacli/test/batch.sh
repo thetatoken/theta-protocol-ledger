@@ -4,8 +4,10 @@ do_run=1 # Execute(evaluate) the commands
 #do_run=0 # Don't evaluate any commands
 #do_echo=1 # Echo the commands
 do_echo=0 # Don't echo any commands
-#do_echo_on_chain=1 # Echo the on-chain commands
-do_echo_on_chain=0 # Don't echo, actually execute on-chain commands
+do_echo_off_chain=1 # Echo the on-chain commands
+#do_echo_off_chain=0 # Don't echo, actually execute on-chain commands
+do_echo_on_chain=1 # Echo the on-chain commands
+#do_echo_on_chain=0 # Don't echo, actually execute on-chain commands
 #calc_costs_only=1 # Only calculate the costs
 calc_costs_only=0 # Calculate the costs then run tx
 
@@ -21,11 +23,12 @@ rfdurationblocks=30        # Reserve Fund Duration in blocktimes : Minimum for t
 let rfdurationsecs=10*60    # 10 minutes
 #let rfdurationsecs=3*60*60 # 3 hours
 
-rfund=100
-rcoll=101
+rfund=1000
+rcoll=1001
 
 #tfuel=0.1
-tfuel=0.3
+#tfuel=0.3
+tfuel=20
 
 # total 10 items
 bobsigs=1
@@ -313,6 +316,7 @@ while [ $i -lt $bobsigs ]; do
     if [ $accumulate -eq 1 ]; then
         cmd='tfuelamt=$(echo "scale=3; ('$tfuelamt' + '$tfuel')/1" | bc -q 2>/dev/null)'
         if [ $do_echo -eq 1 ]; then echo $cmd; fi
+    	if [ $do_echo_off_chain -eq 1 ]; then echo $cmd; echo ""; fi
         if [ $do_run -eq 1 ]; then eval $cmd; fi
     else 
         tfuelamt=$tfuel 
@@ -321,6 +325,7 @@ while [ $i -lt $bobsigs ]; do
     #cmd='sigout=$(./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$i' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' | tail -n +6 | jq .source.signature | tr -d '"'"'"'"'"')'
     cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Bob' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
+    if [ $do_echo_off_chain -eq 1 ]; then echo $cmd; echo ""; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
     sigs+=($sigout)
     echo ""
@@ -335,6 +340,7 @@ while [ $i -lt $carolsigs ]; do
     if [ $accumulate -eq 1 ]; then
         cmd='tfuelamt=$(echo "scale=3; ('$tfuelamt' + '$tfuel')/1" | bc -q 2>/dev/null)'
         if [ $do_echo -eq 1 ]; then echo $cmd; fi
+    	if [ $do_echo_off_chain -eq 1 ]; then echo $cmd; echo ""; fi
         if [ $do_run -eq 1 ]; then eval $cmd; fi
     else 
         tfuelamt=$tfuel 
@@ -343,6 +349,7 @@ while [ $i -lt $carolsigs ]; do
     #cmd='sigout=$(./sp.sh --from='$Alice' --to='$Bob' --payment_seq='$i' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuel' | tail -n +6 | jq .source.signature | tr -d '"'"'"'"'"')'
     cmd='sigout=$(thetacli tx service_payment --chain="privatenet" --from='$Alice' --to='$Carol' --payment_seq='$payseq' --reserve_seq='$resseq' --resource_id='$rid' --tfuel='$tfuelamt' --password=qwertyuiop | jq .source.signature | tr -d '"'"'"'"'"')'
     if [ $do_echo -eq 1 ]; then echo $cmd; fi
+    if [ $do_echo_off_chain -eq 1 ]; then echo $cmd; echo ""; fi
     if [ $do_run -eq 1 ]; then eval $cmd; fi
     sigs+=($sigout)
     echo ""

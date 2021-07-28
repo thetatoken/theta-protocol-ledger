@@ -30,6 +30,10 @@ var servicePaymentCmd = &cobra.Command{
 }
 
 func doServicePaymentCmd(cmd *cobra.Command, args []string) {
+	var debugging = false
+	if debuggingFlag {
+		debugging = true
+	}
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft && len(fromFlag) == 0 {
 		utils.Error("The from address cannot be empty") // we don't need to specify the "from address" for hardware wallets
@@ -52,6 +56,12 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 	var twallet wtypes.Wallet
 	var toAddress = common.HexToAddress(toFlag)
 	var err error
+
+	if (debugging) {
+		fmt.Printf("fromAddress: %s\n", fromAddress)
+		fmt.Printf("toAddress: %s\n", toAddress)
+		fmt.Printf("passwordFlag: %s\n", passwordFlag)
+	}
 
 	if onChainFlag {
 //	if 1 == 1 {
@@ -78,6 +88,11 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Failed to parse fee")
 	}
 
+	if (debugging) {
+		fmt.Printf("tfuel: %d\n", tfuel)
+		fmt.Printf("fee: %d\n", fee)
+	}
+
 	sinput := types.TxInput{
 		Address: fromAddress,
 		Coins: types.Coins{
@@ -101,6 +116,12 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		//Signature:
 	}
 
+	if (debugging) {
+		fmt.Printf("paymentSeqFlag: %d\n", paymentSeqFlag)
+		fmt.Printf("reserveSeqFlag: %d\n", reserveSeqFlag)
+		fmt.Printf("resourceIDFlag: %s\n", resourceIDFlag)
+	}
+
 	// See theta-protocol-ledger > ledger > types > tx.go : Line 522
 	servicePaymentTx := &types.ServicePaymentTx{
 		Fee: types.Coins{
@@ -116,6 +137,9 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 
 	// Set the Source Signature
 	if onChainFlag {
+		if (debugging) {
+			fmt.Printf("Set the Source Signature On-Chain\n")
+		}
 		//ssig, err := crypto.UnmarshalJSON([]byte(sourceSignatureFlag))
 		ssig, err := crypto.SignatureFromBytes(common.FromHex(sourceSignatureFlag))
 		if err != nil {
@@ -123,43 +147,78 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		}
 		servicePaymentTx.SetSourceSignature(ssig)
 	} else {
+		if (debugging) {
+			fmt.Printf("Set the Source Signature Off-Chain\n")
+		}
 		ssig, err := swallet.Sign(fromAddress, servicePaymentTx.SourceSignBytes(chainIDFlag))
 		if err != nil {
 			utils.Error("Failed to sign source transaction: %v\n", err)
 		}
+
+		//fmt.Printf("ssig: %s\n", ssig)
 		servicePaymentTx.SetSourceSignature(ssig)
+		if (debugging) {
+			fmt.Printf("Set the Source Signature Off-Chain Finished\n")
+		}
 	}
 
 	// Set the Target Signature
 	if onChainFlag {
+		if (debugging) {
+			fmt.Printf("Set the Target Signature On-Chain\n")
+		}
 		tsig, err := twallet.Sign(toAddress, servicePaymentTx.TargetSignBytes(chainIDFlag))
 		if err != nil {
 			utils.Error("Failed to sign target transaction: %v\n", err)
 		}
 		servicePaymentTx.SetTargetSignature(tsig)
 	} else {
+		if (debugging) {
+			fmt.Printf("Set the Target Signature Off-Chain\n")
+		}
 		tsig, err := crypto.SignatureFromBytes([]byte("unsigned"))
 		if err != nil {
 			utils.Error("Failed to convert passed signature: %v\n", err)
 		}
 		servicePaymentTx.SetTargetSignature(tsig)
+		if (debugging) {
+			fmt.Printf("Set the Target Signature Off-Chain Finished\n")
+		}
+	}
+
+	if (debugging) {
+		formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
+		if err != nil {
+			utils.Error("Failed to parse off-chain transaction: %v\n", err)
+		}
+		fmt.Printf("Off-Chain transaction:\n%s\n", formatted)
 	}
 
 	raw, err := types.TxToBytes(servicePaymentTx)
 	if err != nil {
 		utils.Error("Failed to encode transaction: %v\n", err)
 	}
+
+	if (debugging) {
+		fmt.Printf("  raw: %s\n", hex.EncodeToString(raw))
+	}
+
 	signedTx := hex.EncodeToString(raw)
+
+	if (debugging) {
+		fmt.Printf("  signedTx: %s\n", signedTx)
+	}
 
 	if onChainFlag {
 		if dryRunFlag  {
-			formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
-			if err != nil {
-				utils.Error("Failed to parse off-chain transaction: %v\n", err)
+			if (debugging) {
+				formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
+				if err != nil {
+					utils.Error("Failed to parse off-chain transaction: %v\n", err)
+				}
+				//fmt.Printf("On-Chain transaction(dry-run):\n%s\n", formatted)
+				fmt.Printf("%s\n", formatted)
 			}
-			//fmt.Printf("On-Chain transaction(dry-run):\n%s\n", formatted)
-			fmt.Printf("%s\n", formatted)
-	
 		} else {
 
 			client := rpcc.NewRPCClient(viper.GetString(utils.CfgRemoteRPCEndpoint))
@@ -182,6 +241,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 			if err != nil {
 				utils.Error("Failed to parse server response: %v\n", err)
 			}
+
 			formatted, err := json.MarshalIndent(result, "", "    ")
 			if err != nil {
 				utils.Error("Failed to parse server response: %v\n", err)
@@ -217,6 +277,7 @@ func init() {
 	servicePaymentCmd.Flags().BoolVar(&asyncFlag, "async", false, "Block until tx has been included in the blockchain")
 	servicePaymentCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 	servicePaymentCmd.Flags().BoolVar(&dryRunFlag, "dry_run", false, "Dry Run(don't execute) the On-Chain transaction")
+	servicePaymentCmd.Flags().BoolVar(&debuggingFlag, "debugging", false, "Print verbose debugging output")
 	
 	servicePaymentCmd.MarkFlagRequired("chain")
 	servicePaymentCmd.MarkFlagRequired("from")

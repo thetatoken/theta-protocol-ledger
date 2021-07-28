@@ -27,6 +27,21 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
+
+
+	// formatted0, err0 := json.MarshalIndent(cmd, "", "    ")
+	// if err0 != nil {
+	// 	utils.Error("Failed to parse server response: %v\n", err0)
+	// }
+	// //fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+	// // Verbose output makes parsing json difficult
+	// fmt.Printf("cmd: %s\n", formatted0)
+
+	fmt.Printf("cmd: %s\n", cmd.Short)
+	fmt.Printf("config: %s\n", cmd.Flag("config").Value.String())
+	
+
+
 	wallet, fromAddress, err := walletUnlock(cmd, fromFlag, passwordFlag)
 	if err != nil {
 		return
