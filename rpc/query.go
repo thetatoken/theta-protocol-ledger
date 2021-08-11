@@ -395,6 +395,7 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	result.Hash = block.Hash()
 
 	// Parse and fulfill Txs.
+	result.Txs = []Tx{}
 	var tx types.Tx
 	for _, txBytes := range block.Txs {
 		tx, err = types.TxFromBytes(txBytes)
