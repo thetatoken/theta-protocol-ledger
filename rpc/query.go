@@ -344,7 +344,8 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	// 	return errors.New("Block height must be specified")
 	// }
 
-	blocks := t.chain.FindBlocksByHeight(uint64(args.Height))
+	blockHeight := uint64(args.Height)
+	blocks := t.chain.FindBlocksByHeight(blockHeight)
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
@@ -352,6 +353,24 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 			block = b
 			break
 		}
+	}
+
+	if blockHeight == 0 && block == nil { // special handling for a node starting from a non-genesis snapshot
+		var genesisHash common.Hash
+		if t.consensus.Chain().ChainID == core.MainnetChainID {
+			genesisHash = common.HexToHash(core.MainnetGenesisBlockHash)
+		} else {
+			genesisHash = common.HexToHash(viper.GetString(common.CfgGenesisHash))
+		}
+
+		result.GetBlockResultInner = &GetBlockResultInner{}
+		result.ChainID = t.consensus.Chain().ChainID
+		result.Children = []common.Hash{}
+		result.Status = core.BlockStatusDirectlyFinalized
+		result.Timestamp = (*common.JSONBig)(big.NewInt(0))
+		result.Txs = []Tx{}
+		result.Hash = genesisHash
+		return
 	}
 
 	if block == nil {
