@@ -340,9 +340,9 @@ type GetBlockByHeightArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
-	if args.Height == 0 {
-		return errors.New("Block height must be specified")
-	}
+	// if args.Height == 0 {
+	// 	return errors.New("Block height must be specified")
+	// }
 
 	blocks := t.chain.FindBlocksByHeight(uint64(args.Height))
 
