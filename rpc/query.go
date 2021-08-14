@@ -169,7 +169,6 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return errors.New("Transanction hash must be specified")
 	}
 	hash := common.HexToHash(args.Hash)
-	result.TxHash = hash
 
 	raw, block, found := t.chain.FindTxByHash(hash)
 	if !found {
@@ -201,8 +200,15 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.Tx = tx
 	result.Type = getTxType(tx)
 
+	// args.Hash maybe an ETH tx hash, need to lookup the receipt using the hash of the corresponding native Smart contract Tx
+	canonicalTxHash := hash
+	if result.Type == TxTypeSmartContract {
+		canonicalTxHash = crypto.Keccak256Hash(raw)
+	}
+	result.TxHash = canonicalTxHash
+
 	// Add receipt
-	receipt, found := t.chain.FindTxReceiptByHash(hash)
+	receipt, found := t.chain.FindTxReceiptByHash(canonicalTxHash)
 	if found {
 		result.Receipt = receipt
 	}
