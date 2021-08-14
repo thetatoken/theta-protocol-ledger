@@ -4,9 +4,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -16,6 +17,8 @@ import (
 	"github.com/thetatoken/theta/rlp"
 	"golang.org/x/crypto/sha3"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
 
 /*
 Tx (Transaction) is an atomic operation on the ledger state.
@@ -809,7 +812,7 @@ func RLPHash(x interface{}) (h common.Hash) {
 	return h
 }
 
-func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.Hash {
+func (tx *SmartContractTx) EthSigningHash(chainID string, blockHeight uint64) common.Hash {
 	ethChainID := MapChainID(chainID, blockHeight)
 
 	var toAddress *common.Address
@@ -817,7 +820,7 @@ func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.
 		toAddress = &tx.To.Address
 	}
 
-	ethTxHash := RLPHash([]interface{}{
+	ethSigningHash := RLPHash([]interface{}{
 		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
 		tx.GasPrice,
 		tx.GasLimit,
@@ -827,7 +830,7 @@ func (tx *SmartContractTx) EthTxHash(chainID string, blockHeight uint64) common.
 		ethChainID, uint(0), uint(0),
 	})
 
-	return ethTxHash
+	return ethSigningHash
 }
 
 func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
