@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
-package rpc
+package types
 
 import (
 	"encoding/hex"
@@ -23,12 +23,11 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
-	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rlp"
 )
 
 // TranslateEthTx an ETH transaction to a Theta smart contract transaction
-func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
+func TranslateEthTx(ethTxStr string) (*SmartContractTx, error) {
 	var ethTx *EthTransaction
 
 	if strings.HasPrefix(ethTxStr, "0x") {
@@ -45,7 +44,7 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 		return nil, err
 	}
 
-	ethTxHash := types.RLPHash([]interface{}{
+	ethSigningHash := RLPHash([]interface{}{
 		ethTx.nonce(),
 		ethTx.gasPrice(),
 		ethTx.gas(),
@@ -55,7 +54,7 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 		ethTx.chainID(), uint(0), uint(0),
 	})
 
-	logger.Debugf("ethTx.ethTxHash: %v", ethTxHash.Hex())
+	logger.Debugf("ethTx.ethSigningHash: %v", ethSigningHash.Hex())
 
 	v, r, s := ethTx.rawSignatureValues()
 	sig, err := crypto.EncodeSignature(r, s, v)
@@ -65,19 +64,19 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 
 	logger.Debugf("ethTx.signature: %v", sig.ToBytes().String())
 
-	fromAddr, err := crypto.HomesteadSignerSender(ethTxHash, sig)
+	fromAddr, err := crypto.HomesteadSignerSender(ethSigningHash, sig)
 	if err != nil {
 		return nil, err
 	}
 
 	logger.Debugf("ethTx.recoveredFromAddress: %v", fromAddr.Hex())
 
-	coins := types.Coins{
+	coins := Coins{
 		ThetaWei: big.NewInt(0),
 		TFuelWei: ethTx.value(),
 	}
 
-	from := types.TxInput{
+	from := TxInput{
 		Address:   fromAddr,
 		Coins:     coins,
 		Sequence:  ethTx.nonce() + 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
@@ -89,12 +88,12 @@ func TranslateEthTx(ethTxStr string) (*types.SmartContractTx, error) {
 		ethTx.To = &common.Address{}
 	}
 
-	to := types.TxOutput{
+	to := TxOutput{
 		Address: *ethTx.to(),
-		Coins:   types.NewCoins(0, 0),
+		Coins:   NewCoins(0, 0),
 	}
 
-	thetaTx := types.SmartContractTx{
+	thetaTx := SmartContractTx{
 		From:     from,
 		To:       to,
 		GasLimit: ethTx.gas(),
@@ -165,6 +164,11 @@ func (tx *EthTransaction) copy() TxData {
 		cpy.S.Set(tx.S)
 	}
 	return cpy
+}
+
+func (tx *EthTransaction) Hash() common.Hash {
+	h := RLPHash(tx)
+	return h
 }
 
 // accessors for innerTx.

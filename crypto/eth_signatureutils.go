@@ -72,7 +72,7 @@ func DecodeSignature(sig *Signature) (r, s, v *big.Int) {
 	return r, s, v
 }
 
-func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
+func recoverPlain(signingHash common.Hash, R, S, Vb *big.Int, homestead bool) (common.Address, error) {
 	if Vb.BitLen() > 8 {
 		return common.Address{}, errors.New("invalid transaction v, r, s values")
 	}
@@ -87,7 +87,7 @@ func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common
 	copy(sig[64-len(s):64], s)
 	sig[64] = V
 	// recover the public key from the signature
-	pub, err := Ecrecover(txhash[:], sig)
+	pub, err := Ecrecover(signingHash[:], sig)
 	if err != nil {
 		return common.Address{}, err
 	}
@@ -99,24 +99,24 @@ func recoverPlain(txhash common.Hash, R, S, Vb *big.Int, homestead bool) (common
 	return addr, nil
 }
 
-func HomesteadSignerSender(txHash common.Hash, sig *Signature) (common.Address, error) {
+func HomesteadSignerSender(signingHash common.Hash, sig *Signature) (common.Address, error) {
 	r, s, v := DecodeSignature(sig)
 	vadj := adjustV(v)
 
 	logger.Debugf("ethTx.DecodeSignature: r = %v, s = %v, v = %v", r, s, v)
 	logger.Debugf("ethTx.DecodeSignature: vadj = %v", vadj)
 
-	return recoverPlain(txHash, r, s, vadj, true)
+	return recoverPlain(signingHash, r, s, vadj, true)
 }
 
-func ValidateEthSignature(sender common.Address, txHash common.Hash, sig *Signature) error {
-	recoveredSender, err := HomesteadSignerSender(txHash, sig)
+func ValidateEthSignature(sender common.Address, signingHash common.Hash, sig *Signature) error {
+	recoveredSender, err := HomesteadSignerSender(signingHash, sig)
 	if err != nil {
 		return err
 	}
 
-	logger.Debugf("ethTx.ValidateEthSignature: recoveredSender = %v, sender = %v, txHash = %v, signature = %v",
-		recoveredSender.Hex(), sender.Hex(), txHash.Hex(), sig.ToBytes().String())
+	logger.Debugf("ethTx.ValidateEthSignature: recoveredSender = %v, sender = %v, signingHash = %v, signature = %v",
+		recoveredSender.Hex(), sender.Hex(), signingHash.Hex(), sig.ToBytes().String())
 
 	if recoveredSender != sender {
 		return errors.New(fmt.Sprintf("Recovered sender mismatch, recovered sender: %v, sender: %v", recoveredSender.Hex(), sender.Hex()))
