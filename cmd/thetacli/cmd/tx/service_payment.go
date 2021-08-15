@@ -30,10 +30,7 @@ var servicePaymentCmd = &cobra.Command{
 }
 
 func doServicePaymentCmd(cmd *cobra.Command, args []string) {
-	var debugging = false
-	if debuggingFlag {
-		debugging = true
-	}
+	var debugging = debuggingFlag
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft && len(fromFlag) == 0 {
 		utils.Error("The from address cannot be empty") // we don't need to specify the "from address" for hardware wallets
@@ -57,14 +54,14 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 	var toAddress = common.HexToAddress(toFlag)
 	var err error
 
-	if (debugging) {
+	if debugging {
 		fmt.Printf("fromAddress: %s\n", fromAddress)
 		fmt.Printf("toAddress: %s\n", toAddress)
 		fmt.Printf("passwordFlag: %s\n", passwordFlag)
 	}
 
 	if onChainFlag {
-//	if 1 == 1 {
+		//	if 1 == 1 {
 		twallet, toAddress, err = walletUnlockWithPath(cmd, toFlag, pathFlag, passwordFlag)
 		if err != nil || twallet == nil {
 			return
@@ -88,7 +85,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Failed to parse fee")
 	}
 
-	if (debugging) {
+	if debugging {
 		fmt.Printf("tfuel: %d\n", tfuel)
 		fmt.Printf("fee: %d\n", fee)
 	}
@@ -116,7 +113,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		//Signature:
 	}
 
-	if (debugging) {
+	if debugging {
 		fmt.Printf("paymentSeqFlag: %d\n", paymentSeqFlag)
 		fmt.Printf("reserveSeqFlag: %d\n", reserveSeqFlag)
 		fmt.Printf("resourceIDFlag: %s\n", resourceIDFlag)
@@ -128,16 +125,16 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 			ThetaWei: new(big.Int).SetUint64(0),
 			TFuelWei: fee,
 		},
-		Source:     sinput,
-		Target:     tinput,
+		Source:          sinput,
+		Target:          tinput,
 		PaymentSequence: paymentSeqFlag,
 		ReserveSequence: reserveSeqFlag,
-		ResourceID: resourceIDFlag,
+		ResourceID:      resourceIDFlag,
 	}
 
 	// Set the Source Signature
 	if onChainFlag {
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Source Signature On-Chain\n")
 		}
 		//ssig, err := crypto.UnmarshalJSON([]byte(sourceSignatureFlag))
@@ -147,7 +144,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		}
 		servicePaymentTx.SetSourceSignature(ssig)
 	} else {
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Source Signature Off-Chain\n")
 		}
 		ssig, err := swallet.Sign(fromAddress, servicePaymentTx.SourceSignBytes(chainIDFlag))
@@ -157,14 +154,14 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 
 		//fmt.Printf("ssig: %s\n", ssig)
 		servicePaymentTx.SetSourceSignature(ssig)
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Source Signature Off-Chain Finished\n")
 		}
 	}
 
 	// Set the Target Signature
 	if onChainFlag {
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Target Signature On-Chain\n")
 		}
 		tsig, err := twallet.Sign(toAddress, servicePaymentTx.TargetSignBytes(chainIDFlag))
@@ -173,7 +170,7 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		}
 		servicePaymentTx.SetTargetSignature(tsig)
 	} else {
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Target Signature Off-Chain\n")
 		}
 		tsig, err := crypto.SignatureFromBytes([]byte("unsigned"))
@@ -181,12 +178,12 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 			utils.Error("Failed to convert passed signature: %v\n", err)
 		}
 		servicePaymentTx.SetTargetSignature(tsig)
-		if (debugging) {
+		if debugging {
 			fmt.Printf("Set the Target Signature Off-Chain Finished\n")
 		}
 	}
 
-	if (debugging) {
+	if debugging {
 		formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
 		if err != nil {
 			utils.Error("Failed to parse off-chain transaction: %v\n", err)
@@ -199,19 +196,19 @@ func doServicePaymentCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Failed to encode transaction: %v\n", err)
 	}
 
-	if (debugging) {
+	if debugging {
 		fmt.Printf("  raw: %s\n", hex.EncodeToString(raw))
 	}
 
 	signedTx := hex.EncodeToString(raw)
 
-	if (debugging) {
+	if debugging {
 		fmt.Printf("  signedTx: %s\n", signedTx)
 	}
 
 	if onChainFlag {
-		if dryRunFlag  {
-			if (debugging) {
+		if dryRunFlag {
+			if debugging {
 				formatted, err := json.MarshalIndent(servicePaymentTx, "", "    ")
 				if err != nil {
 					utils.Error("Failed to parse off-chain transaction: %v\n", err)
@@ -278,7 +275,7 @@ func init() {
 	servicePaymentCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 	servicePaymentCmd.Flags().BoolVar(&dryRunFlag, "dry_run", false, "Dry Run(don't execute) the On-Chain transaction")
 	servicePaymentCmd.Flags().BoolVar(&debuggingFlag, "debugging", false, "Print verbose debugging output")
-	
+
 	servicePaymentCmd.MarkFlagRequired("chain")
 	servicePaymentCmd.MarkFlagRequired("from")
 	servicePaymentCmd.MarkFlagRequired("to")

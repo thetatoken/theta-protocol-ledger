@@ -12,7 +12,7 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rpc"
 
-//	"github.com/ybbus/jsonrpc"
+	//	"github.com/ybbus/jsonrpc"
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
@@ -27,21 +27,6 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
-
-
-	// formatted0, err0 := json.MarshalIndent(cmd, "", "    ")
-	// if err0 != nil {
-	// 	utils.Error("Failed to parse server response: %v\n", err0)
-	// }
-	// //fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
-	// // Verbose output makes parsing json difficult
-	// fmt.Printf("cmd: %s\n", formatted0)
-
-	fmt.Printf("cmd: %s\n", cmd.Short)
-	fmt.Printf("config: %s\n", cmd.Flag("config").Value.String())
-	
-
-
 	wallet, fromAddress, err := walletUnlock(cmd, fromFlag, passwordFlag)
 	if err != nil {
 		return
@@ -97,10 +82,6 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	reserveFundTx.SetSignature(fromAddress, sig)
 
-	// reqformatted, err := json.MarshalIndent(reserveFundTx, "", "    ")
-	// fmt.Printf("ReserveFundRequest:\n%s\n", reqformatted)
-
-
 	raw, err := types.TxToBytes(reserveFundTx)
 	if err != nil {
 		utils.Error("Failed to encode transaction: %v\n", err)
@@ -133,7 +114,7 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	//fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
 	// Verbose output makes parsing json difficult
 	fmt.Printf("%s\n", formatted)
-	
+
 	//fmt.Printf("Successfully broadcasted transaction.\n")
 }
 
