@@ -2,6 +2,7 @@ package tx
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"math/big"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/rpc"
 
+//	"github.com/ybbus/jsonrpc"
 	rpcc "github.com/ybbus/jsonrpc"
 )
 
@@ -25,6 +27,21 @@ var reserveFundCmd = &cobra.Command{
 }
 
 func doReserveFundCmd(cmd *cobra.Command, args []string) {
+
+
+	// formatted0, err0 := json.MarshalIndent(cmd, "", "    ")
+	// if err0 != nil {
+	// 	utils.Error("Failed to parse server response: %v\n", err0)
+	// }
+	// //fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+	// // Verbose output makes parsing json difficult
+	// fmt.Printf("cmd: %s\n", formatted0)
+
+	fmt.Printf("cmd: %s\n", cmd.Short)
+	fmt.Printf("config: %s\n", cmd.Flag("config").Value.String())
+	
+
+
 	wallet, fromAddress, err := walletUnlock(cmd, fromFlag, passwordFlag)
 	if err != nil {
 		return
@@ -80,6 +97,10 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	}
 	reserveFundTx.SetSignature(fromAddress, sig)
 
+	// reqformatted, err := json.MarshalIndent(reserveFundTx, "", "    ")
+	// fmt.Printf("ReserveFundRequest:\n%s\n", reqformatted)
+
+
 	raw, err := types.TxToBytes(reserveFundTx)
 	if err != nil {
 		utils.Error("Failed to encode transaction: %v\n", err)
@@ -100,7 +121,20 @@ func doReserveFundCmd(cmd *cobra.Command, args []string) {
 	if res.Error != nil {
 		utils.Error("Server returned error: %v\n", res.Error)
 	}
-	fmt.Printf("Successfully broadcasted transaction.\n")
+	result := &rpc.BroadcastRawTransactionResult{}
+	err = res.GetObject(result)
+	if err != nil {
+		utils.Error("Failed to parse server response: %v\n", err)
+	}
+	formatted, err := json.MarshalIndent(result, "", "    ")
+	if err != nil {
+		utils.Error("Failed to parse server response: %v\n", err)
+	}
+	//fmt.Printf("Successfully broadcasted transaction:\n%s\n", formatted)
+	// Verbose output makes parsing json difficult
+	fmt.Printf("%s\n", formatted)
+	
+	//fmt.Printf("Successfully broadcasted transaction.\n")
 }
 
 func init() {
@@ -111,7 +145,7 @@ func init() {
 	reserveFundCmd.Flags().StringVar(&reserveCollateralInTFuelFlag, "collateral", "0", "TFuel amount as collateral")
 	reserveFundCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWeiJune2021), "Fee")
 	reserveFundCmd.Flags().Uint64Var(&durationFlag, "duration", 1000, "Reserve duration")
-	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Reserouce IDs")
+	reserveFundCmd.Flags().StringSliceVar(&resourceIDsFlag, "resource_ids", []string{}, "Resource IDs")
 	reserveFundCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 	reserveFundCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
 	reserveFundCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
