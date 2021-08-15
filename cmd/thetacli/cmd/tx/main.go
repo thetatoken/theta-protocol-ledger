@@ -54,7 +54,7 @@ func init() {
 	TxCmd.AddCommand(sendCmd)
 	TxCmd.AddCommand(reserveFundCmd)
 	TxCmd.AddCommand(servicePaymentCmd)
-	TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
+	//TxCmd.AddCommand(releaseFundCmd) // No need for releaseFundCmd since auto-release is already implemented
 	TxCmd.AddCommand(splitRuleCmd)
 	TxCmd.AddCommand(smartContractCmd)
 	TxCmd.AddCommand(depositStakeCmd)
