@@ -53,7 +53,7 @@ func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 
 // Index the ETH smart contract transactions, using the ETH tx hash as the key
 func (ch *Chain) insertEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte, txIndexEntry *TxIndexEntry) error {
-	ethTxHash, err := calcTthTxHash(block, rawTxBytes)
+	ethTxHash, err := CalcEthTxHash(block, rawTxBytes)
 	if err != nil {
 		return err // skip insertion
 	}
@@ -152,7 +152,7 @@ func (ch *Chain) FindTxReceiptByHash(hash common.Hash) (*TxReceiptEntry, bool) {
 
 // ---------------- Utils ---------------
 
-func calcTthTxHash(block *core.ExtendedBlock, rawTxBytes []byte) (common.Hash, error) {
+func CalcEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte) (common.Hash, error) {
 	tx, err := types.TxFromBytes(rawTxBytes)
 	if err != nil {
 		return common.Hash{}, err
