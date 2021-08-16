@@ -5,15 +5,16 @@ import (
 )
 
 var (
-	purposeFlag      uint8
-	heightFlag       uint64
-	addressFlag      string
-	previewFlag      bool
-	resourceIDFlag   string
-	hashFlag         string
-	startFlag        uint64
-	endFlag          uint64
-	skipEdgeNodeFlag bool
+	purposeFlag          uint8
+	heightFlag           uint64
+	addressFlag          string
+	previewFlag          bool
+	resourceIDFlag       string
+	hashFlag             string
+	startFlag            uint64
+	endFlag              uint64
+	skipEdgeNodeFlag     bool
+	includeEthTxHashFlag bool
 )
 
 // QueryCmd represents the query command
