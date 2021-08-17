@@ -67,5 +67,5 @@ func init() {
 	blockCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
 	blockCmd.Flags().Uint64Var(&startFlag, "start", uint64(0), "starting height of the blocks")
 	blockCmd.Flags().Uint64Var(&endFlag, "end", uint64(0), "ending height of the blocks")
-	blockCmd.Flags().BoolVar(&includeEthTxHashFlag, "include_eth_tx_hash", false, "include eth tx hash for the smart contract transactions")
+	blockCmd.Flags().BoolVar(&includeEthTxHashFlag, "include_eth_tx_hashes", false, "include eth tx hash for the smart contract transactions")
 }
