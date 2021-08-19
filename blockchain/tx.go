@@ -1,6 +1,9 @@
 package blockchain
 
 import (
+	"fmt"
+	"math/big"
+
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
@@ -43,7 +46,25 @@ func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 		if err != nil {
 			logger.Panic(err)
 		}
+
+		ch.insertEthTxHash(block, tx, &txIndexEntry)
 	}
+}
+
+// Index the ETH smart contract transactions, using the ETH tx hash as the key
+func (ch *Chain) insertEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte, txIndexEntry *TxIndexEntry) error {
+	ethTxHash, err := CalcEthTxHash(block, rawTxBytes)
+	if err != nil {
+		return err // skip insertion
+	}
+
+	key := txIndexKey(ethTxHash)
+	err = ch.store.Put(key, *txIndexEntry)
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	return nil
 }
 
 // FindTxByHash looks up transaction by hash and additionally returns the containing block.
@@ -127,4 +148,56 @@ func (ch *Chain) FindTxReceiptByHash(hash common.Hash) (*TxReceiptEntry, bool) {
 		return nil, false
 	}
 	return txReceiptEntry, true
+}
+
+// ---------------- Utils ---------------
+
+func CalcEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte) (common.Hash, error) {
+	tx, err := types.TxFromBytes(rawTxBytes)
+	if err != nil {
+		return common.Hash{}, err
+	}
+
+	sctx, ok := tx.(*types.SmartContractTx)
+	if !ok {
+		return common.Hash{}, fmt.Errorf("not a smart contract transaction") // not a smart contract tx, skip ETH tx insertion
+	}
+
+	ethSigningHash := sctx.EthSigningHash(block.ChainID, block.Height)
+	err = crypto.ValidateEthSignature(sctx.From.Address, ethSigningHash, sctx.From.Signature)
+	if err != nil {
+		return common.Hash{}, fmt.Errorf("not an ETH smart contract transaction") // it is a Theta native smart contract transaction, no need to index it as an EthTxHash
+	}
+
+	var toAddress *common.Address
+	if (sctx.To.Address != common.Address{}) {
+		toAddress = &sctx.To.Address
+	}
+
+	r, s, v := crypto.DecodeSignature(sctx.From.Signature)
+	chainID := types.MapChainID(block.ChainID, block.Height)
+	vPrime := big.NewInt(1).Mul(chainID, big.NewInt(2))
+	vPrime = big.NewInt(0).Add(vPrime, big.NewInt(8))
+	vPrime = big.NewInt(0).Add(vPrime, v)
+
+	ethTx := types.EthTransaction{
+		Nonce:    sctx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
+		GasPrice: sctx.GasPrice,
+		Gas:      sctx.GasLimit,
+		To:       toAddress,
+		Value:    sctx.From.Coins.NoNil().TFuelWei,
+		Data:     sctx.Data,
+		V:        vPrime,
+		R:        r,
+		S:        s,
+	}
+
+	ethTxHash := ethTx.Hash()
+
+	//ethTxBytes, _ := rlp.EncodeToBytes(ethTx)
+	//logger.Debugf("ethTxBytes: %v", hex.EncodeToString(ethTxBytes))
+	logger.Debugf("ethTxHash: %v", ethTxHash.Hex())
+	logger.Debugf("ethTxHash, nonce: %v, r: %x, s: %x, v: %v", sctx.From.Sequence-1, r, s, vPrime)
+
+	return ethTxHash, nil
 }

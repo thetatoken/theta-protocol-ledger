@@ -3,6 +3,8 @@ package rpc
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -246,12 +248,25 @@ func (t *ThetaRPCService) BroadcastRawEthTransactionAsync(
 	err = t.BroadcastRawTransactionAsync(&BroadcastRawTransactionAsyncArgs{
 		TxBytes: txStr,
 	}, result)
+	if err != nil {
+		return err
+	}
+
+	ethTxStr = strings.TrimPrefix(ethTxStr, "0x")
+	ethTxBytes, err := hex.DecodeString(ethTxStr)
+	if err != nil {
+		return fmt.Errorf("cannot decode hex string: %v", txStr)
+	}
+	ethTxHash := common.BytesToHash(crypto.Keccak256(ethTxBytes)).Hex()
+	result.TxHash = ethTxHash
+
+	logger.Debugf("ethTxHash: %v", ethTxHash)
 
 	return err
 }
 
 func translateEthTx(ethTxStr string) (string, error) {
-	thetaSmartContractTx, err := TranslateEthTx(ethTxStr)
+	thetaSmartContractTx, err := types.TranslateEthTx(ethTxStr)
 	if err != nil {
 		return "", err
 	}

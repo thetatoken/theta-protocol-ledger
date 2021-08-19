@@ -169,7 +169,6 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return errors.New("Transanction hash must be specified")
 	}
 	hash := common.HexToHash(args.Hash)
-	result.TxHash = hash
 
 	raw, block, found := t.chain.FindTxByHash(hash)
 	if !found {
@@ -201,8 +200,15 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.Tx = tx
 	result.Type = getTxType(tx)
 
+	// args.Hash maybe an ETH tx hash, need to lookup the receipt using the hash of the corresponding native Smart contract Tx
+	canonicalTxHash := hash
+	if result.Type == TxTypeSmartContract {
+		canonicalTxHash = crypto.Keccak256Hash(raw)
+	}
+	result.TxHash = canonicalTxHash
+
 	// Add receipt
-	receipt, found := t.chain.FindTxReceiptByHash(hash)
+	receipt, found := t.chain.FindTxReceiptByHash(canonicalTxHash)
 	if found {
 		result.Receipt = receipt
 	}
@@ -228,7 +234,8 @@ func (t *ThetaRPCService) GetPendingTransactions(args *GetPendingTransactionsArg
 // ------------------------------ GetBlock -----------------------------------
 
 type GetBlockArgs struct {
-	Hash common.Hash `json:"hash"`
+	Hash               common.Hash `json:"hash"`
+	IncludeEthTxHashes bool        `json:"include_eth_tx_hashes"`
 }
 
 type Tx struct {
@@ -236,6 +243,14 @@ type Tx struct {
 	Type     byte                       `json:"type"`
 	Hash     common.Hash                `json:"hash"`
 	Receipt  *blockchain.TxReceiptEntry `json:"receipt"`
+}
+
+type TxWithEthHash struct {
+	types.Tx  `json:"raw"`
+	Type      byte                       `json:"type"`
+	Hash      common.Hash                `json:"hash"`
+	EthTxHash common.Hash                `json:"eth_tx_hash"`
+	Receipt   *blockchain.TxReceiptEntry `json:"receipt"`
 }
 
 type GetBlockResult struct {
@@ -260,8 +275,8 @@ type GetBlockResultInner struct {
 	Children []common.Hash    `json:"children"`
 	Status   core.BlockStatus `json:"status"`
 
-	Hash common.Hash `json:"hash"`
-	Txs  []Tx        `json:"transactions"`
+	Hash common.Hash   `json:"hash"`
+	Txs  []interface{} `json:"transactions"` // for backward conpatibility, see function ThetaRPCService.gatherTxs()
 }
 
 type TxType byte
@@ -307,44 +322,25 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 
 	result.Hash = block.Hash()
 
-	// Parse and fulfill Txs.
-	var tx types.Tx
-	for _, txBytes := range block.Txs {
-		tx, err = types.TxFromBytes(txBytes)
-		if err != nil {
-			return
-		}
-		hash := crypto.Keccak256Hash(txBytes)
+	t.gatherTxs(block, &result.Txs, args.IncludeEthTxHashes)
 
-		tp := getTxType(tx)
-		txw := Tx{
-			Tx:   tx,
-			Hash: hash,
-			Type: tp,
-		}
-
-		receipt, found := t.chain.FindTxReceiptByHash(hash)
-		if found {
-			txw.Receipt = receipt
-		}
-
-		result.Txs = append(result.Txs, txw)
-	}
 	return
 }
 
 // ------------------------------ GetBlockByHeight -----------------------------------
 
 type GetBlockByHeightArgs struct {
-	Height common.JSONUint64 `json:"height"`
+	Height             common.JSONUint64 `json:"height"`
+	IncludeEthTxHashes bool              `json:"include_eth_tx_hashes"`
 }
 
 func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
-	if args.Height == 0 {
-		return errors.New("Block height must be specified")
-	}
+	// if args.Height == 0 {
+	// 	return errors.New("Block height must be specified")
+	// }
 
-	blocks := t.chain.FindBlocksByHeight(uint64(args.Height))
+	blockHeight := uint64(args.Height)
+	blocks := t.chain.FindBlocksByHeight(blockHeight)
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
@@ -352,6 +348,23 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 			block = b
 			break
 		}
+	}
+
+	if blockHeight == 0 && block == nil { // special handling for a node starting from a non-genesis snapshot
+		var genesisHash common.Hash
+		if t.consensus.Chain().ChainID == core.MainnetChainID {
+			genesisHash = common.HexToHash(core.MainnetGenesisBlockHash)
+		} else {
+			genesisHash = common.HexToHash(viper.GetString(common.CfgGenesisHash))
+		}
+
+		result.GetBlockResultInner = &GetBlockResultInner{}
+		result.ChainID = t.consensus.Chain().ChainID
+		result.Children = []common.Hash{}
+		result.Status = core.BlockStatusDirectlyFinalized
+		result.Timestamp = (*common.JSONBig)(big.NewInt(0))
+		result.Hash = genesisHash
+		return
 	}
 
 	if block == nil {
@@ -375,37 +388,17 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 
 	result.Hash = block.Hash()
 
-	// Parse and fulfill Txs.
-	var tx types.Tx
-	for _, txBytes := range block.Txs {
-		tx, err = types.TxFromBytes(txBytes)
-		if err != nil {
-			return
-		}
-		hash := crypto.Keccak256Hash(txBytes)
+	t.gatherTxs(block, &result.Txs, args.IncludeEthTxHashes)
 
-		tp := getTxType(tx)
-		txw := Tx{
-			Tx:   tx,
-			Hash: hash,
-			Type: tp,
-		}
-
-		receipt, found := t.chain.FindTxReceiptByHash(hash)
-		if found {
-			txw.Receipt = receipt
-		}
-
-		result.Txs = append(result.Txs, txw)
-	}
 	return
 }
 
 // ------------------------------ GetBlocksByRange -----------------------------------
 
 type GetBlocksByRangeArgs struct {
-	Start common.JSONUint64 `json:"start"`
-	End   common.JSONUint64 `json:"end"`
+	Start              common.JSONUint64 `json:"start"`
+	End                common.JSONUint64 `json:"end"`
+	IncludeEthTxHashes bool              `json:"include_eth_tx_hashes"`
 }
 
 func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
@@ -452,29 +445,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 
 		blkInner.Hash = block.Hash()
 
-		// Parse and fulfill Txs.
-		var tx types.Tx
-		for _, txBytes := range block.Txs {
-			tx, err = types.TxFromBytes(txBytes)
-			if err != nil {
-				return
-			}
-			hash := crypto.Keccak256Hash(txBytes)
-
-			tp := getTxType(tx)
-			txw := Tx{
-				Tx:   tx,
-				Hash: hash,
-				Type: tp,
-			}
-
-			receipt, found := t.chain.FindTxReceiptByHash(hash)
-			if found {
-				txw.Receipt = receipt
-			}
-
-			blkInner.Txs = append(blkInner.Txs, txw)
-		}
+		t.gatherTxs(block, &blkInner.Txs, args.IncludeEthTxHashes)
 
 		*result = append([]*GetBlockResultInner{blkInner}, *result...)
 
@@ -1011,6 +982,47 @@ func (t *ThetaRPCService) GetStorageAt(args *GetStorageAtArgs, result *GetStorag
 }
 
 // ------------------------------ Utils ------------------------------
+
+func (t *ThetaRPCService) gatherTxs(block *core.ExtendedBlock, txs *[]interface{}, includeEthTxHashes bool) error {
+	// Parse and fulfill Txs.
+	//var tx types.Tx
+	for _, txBytes := range block.Txs {
+		tx, err := types.TxFromBytes(txBytes)
+		if err != nil {
+			return err
+		}
+		hash := crypto.Keccak256Hash(txBytes)
+		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		if !found {
+			receipt = nil
+		}
+
+		tp := getTxType(tx)
+
+		var txw interface{}
+		if !includeEthTxHashes { // For backward compatibility, return the same tx struct as before
+			txw = Tx{
+				Tx:      tx,
+				Hash:    hash,
+				Type:    tp,
+				Receipt: receipt,
+			}
+		} else {
+			ethTxHash, _ := blockchain.CalcEthTxHash(block, txBytes) // ignore error, since ethTxHash will be 0x000...000 if the function returns an error
+			txw = TxWithEthHash{
+				Tx:        tx,
+				Hash:      hash,
+				EthTxHash: ethTxHash,
+				Type:      tp,
+				Receipt:   receipt,
+			}
+		}
+
+		*txs = append(*txs, txw)
+	}
+
+	return nil
+}
 
 func getTxType(tx types.Tx) byte {
 	t := byte(0x0)
