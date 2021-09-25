@@ -26,11 +26,15 @@ import (
 // StateDB is an EVM database for full state querying.
 type StateDB interface {
 	CreateAccount(common.Address)
+	GetAccount(common.Address) *types.Account
+	ResetAccountButRetainPreviousBlance(addr common.Address)
 
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)
 	GetBalance(common.Address) *big.Int
 
+	SubThetaBalance(common.Address, *big.Int)
+	AddThetaBalance(common.Address, *big.Int)
 	GetThetaBalance(common.Address) *big.Int // GetThetaBalance returns the ThetaWei balance of the given address
 	GetThetaStake(common.Address) *big.Int   // GetThetaStake returns the total amount of ThetaWei the address staked to validators and/or guardians
 

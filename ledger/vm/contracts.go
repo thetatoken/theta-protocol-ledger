@@ -33,8 +33,8 @@ import (
 // requires a deterministic gas count based on the input size of the Run method of the
 // contract.
 type PrecompiledContract interface {
-	RequiredGas(input []byte, blockHeight uint64) uint64 // RequiredPrice calculates the contract gas use
-	Run(evm *EVM, input []byte) ([]byte, error)          // Run runs the precompiled contract
+	RequiredGas(input []byte, blockHeight uint64) uint64                     // RequiredPrice calculates the contract gas use
+	Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) // Run runs the precompiled contract
 }
 
 // PrecompiledContractsHomestead contains the default set of pre-compiled Ethereum
@@ -62,12 +62,28 @@ var PrecompiledContractsByzantium = map[common.Address]PrecompiledContract{
 	common.BytesToAddress([]byte{202}): &thetaStake{},
 }
 
+var PrecompiledContractsThetaSupport = map[common.Address]PrecompiledContract{
+	common.BytesToAddress([]byte{1}): &ecrecover{},
+	common.BytesToAddress([]byte{2}): &sha256hash{},
+	common.BytesToAddress([]byte{3}): &ripemd160hash{},
+	common.BytesToAddress([]byte{4}): &dataCopy{},
+	common.BytesToAddress([]byte{5}): &bigModExp{},
+	common.BytesToAddress([]byte{6}): &bn256Add{},
+	common.BytesToAddress([]byte{7}): &bn256ScalarMul{},
+	common.BytesToAddress([]byte{8}): &bn256Pairing{},
+
+	common.BytesToAddress([]byte{201}): &thetaBalance{},
+	common.BytesToAddress([]byte{202}): &thetaStake{},
+	common.BytesToAddress([]byte{203}): &transferTheta{},
+}
+
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
 func RunPrecompiledContract(evm *EVM, p PrecompiledContract, input []byte, contract *Contract) (ret []byte, err error) {
 	blockHeight := evm.StateDB.GetBlockHeight()
 	gas := p.RequiredGas(input, blockHeight)
 	if contract.UseGas(gas) {
-		return p.Run(evm, input)
+		contractAddr := contract.self.Address()
+		return p.Run(evm, input, contractAddr)
 	}
 	return nil, ErrOutOfGas
 }
@@ -79,7 +95,7 @@ func (c *ecrecover) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.EcrecoverGas
 }
 
-func (c *ecrecover) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *ecrecover) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	const ecRecoverInputLength = 128
 
 	input = common.RightPadBytes(input, ecRecoverInputLength)
@@ -115,7 +131,7 @@ type sha256hash struct{}
 func (c *sha256hash) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return uint64(len(input)+31)/32*params.Sha256PerWordGas + params.Sha256BaseGas
 }
-func (c *sha256hash) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *sha256hash) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	h := sha256.Sum256(input)
 	return h[:], nil
 }
@@ -130,7 +146,7 @@ type ripemd160hash struct{}
 func (c *ripemd160hash) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return uint64(len(input)+31)/32*params.Ripemd160PerWordGas + params.Ripemd160BaseGas
 }
-func (c *ripemd160hash) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *ripemd160hash) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	ripemd := ripemd160.New()
 	ripemd.Write(input)
 	return common.LeftPadBytes(ripemd.Sum(nil), 32), nil
@@ -146,7 +162,7 @@ type dataCopy struct{}
 func (c *dataCopy) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return uint64(len(input)+31)/32*params.IdentityPerWordGas + params.IdentityBaseGas
 }
-func (c *dataCopy) Run(evm *EVM, in []byte) ([]byte, error) {
+func (c *dataCopy) Run(evm *EVM, in []byte, contractAddr common.Address) ([]byte, error) {
 	return in, nil
 }
 
@@ -227,7 +243,7 @@ func (c *bigModExp) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return gas.Uint64()
 }
 
-func (c *bigModExp) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *bigModExp) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	var (
 		baseLen = new(big.Int).SetBytes(getData(input, 0, 32)).Uint64()
 		expLen  = new(big.Int).SetBytes(getData(input, 32, 32)).Uint64()
@@ -286,7 +302,7 @@ func (c *bn256Add) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.Bn256AddGasIstanbul
 }
 
-func (c *bn256Add) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *bn256Add) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	x, err := newCurvePoint(getData(input, 0, 64))
 	if err != nil {
 		return nil, err
@@ -312,7 +328,7 @@ func (c *bn256ScalarMul) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.Bn256ScalarMulGasIstanbul
 }
 
-func (c *bn256ScalarMul) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *bn256ScalarMul) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	p, err := newCurvePoint(getData(input, 0, 64))
 	if err != nil {
 		return nil, err
@@ -345,7 +361,7 @@ func (c *bn256Pairing) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.Bn256PairingBaseGasIstanbul + uint64(len(input)/192)*params.Bn256PairingPerPointGasIstanbul
 }
 
-func (c *bn256Pairing) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *bn256Pairing) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	// Handle some corner cases cheaply
 	if len(input)%192 > 0 {
 		return nil, errBadPairingInput
@@ -383,7 +399,7 @@ func (c *thetaBalance) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.ThetaBalanceGas
 }
 
-func (c *thetaBalance) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *thetaBalance) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	address := common.BytesToAddress(input)
 	thetaBalance := evm.StateDB.GetThetaBalance(address)
 	thetaBalanceBytes := thetaBalance.Bytes()
@@ -400,10 +416,32 @@ func (c *thetaStake) RequiredGas(input []byte, blockHeight uint64) uint64 {
 	return params.ThetaStakeGas
 }
 
-func (c *thetaStake) Run(evm *EVM, input []byte) ([]byte, error) {
+func (c *thetaStake) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
 	address := common.BytesToAddress(input)
 	thetaStake := evm.StateDB.GetThetaStake(address)
 	thetaStakeBytes := thetaStake.Bytes()
 	thetaStakeBytes32 := common.LeftPadBytes(thetaStakeBytes[:], 32) // easier to convert bytes32 into uint256 in smart contracts
 	return thetaStakeBytes32, nil
+}
+
+// transferTheta transfers the Theta token
+type transferTheta struct {
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *transferTheta) RequiredGas(input []byte, blockHeight uint64) uint64 {
+	return params.ThetaTransferGas
+}
+
+func (c *transferTheta) Run(evm *EVM, input []byte, contractAddr common.Address) ([]byte, error) {
+	recipient := common.BytesToAddress(getData(input, 0, 20))
+	thetaWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
+	if !CanTransferTheta(evm.StateDB, contractAddr, thetaWeiAmount) {
+		return common.Bytes{}, ErrInsufficientThetaBlance
+	}
+
+	// send Theta from the contract to the specified recipient
+	TransferTheta(evm.StateDB, contractAddr, recipient, thetaWeiAmount)
+
+	return common.Bytes{}, nil
 }
