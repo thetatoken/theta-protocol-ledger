@@ -28,6 +28,7 @@ func NewSplitRuleTxExecutor(state *st.LedgerState) *SplitRuleTxExecutor {
 }
 
 func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.SplitRuleTx)
 
 	res := tx.Initiator.ValidateBasic()
@@ -43,12 +44,11 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 
 	// Validate inputs and outputs, advanced
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(initiatorAccount, signBytes, tx.Initiator)
+	res = validateInputAdvanced(initiatorAccount, signBytes, tx.Initiator, blockHeight)
 	if res.IsError() {
 		return res
 	}
 
-	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
 			minTxFee).WithErrorCode(result.CodeInvalidFee)
