@@ -64,18 +64,21 @@ func TransferTheta(db StateDB, sender, recipient common.Address, amount *big.Int
 	db.AddThetaBalance(recipient, amount)
 }
 
+func getPrecompiledContracts(blockHeight uint64) map[common.Address]PrecompiledContract {
+	var precompiles map[common.Address]PrecompiledContract
+	if blockHeight < common.HeightSupportThetaTokenInSmartContract {
+		precompiles = PrecompiledContractsByzantium
+	} else {
+		precompiles = PrecompiledContractsThetaSupport
+	}
+	return precompiles
+}
+
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
 	if contract.CodeAddr != nil {
 		blockHeight := evm.StateDB.GetBlockHeight()
-
-		var precompiles map[common.Address]PrecompiledContract
-		if !SupportThetaTransferInEVM(blockHeight) {
-			precompiles = PrecompiledContractsByzantium
-		} else {
-			precompiles = PrecompiledContractsThetaSupport
-		}
-
+		precompiles := getPrecompiledContracts(blockHeight)
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			return RunPrecompiledContract(evm, p, input, contract)
 		}
@@ -218,13 +221,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	)
 	if !evm.StateDB.Exist(addr) {
 
-		var precompiles map[common.Address]PrecompiledContract
-		if !SupportThetaTransferInEVM(blockHeight) {
-			precompiles = PrecompiledContractsByzantium
-		} else {
-			precompiles = PrecompiledContractsThetaSupport
-		}
-
+		precompiles := getPrecompiledContracts(blockHeight)
 		if precompiles[addr] == nil && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
 			if evm.vmConfig.Debug && evm.depth == 0 {
@@ -234,7 +231,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			return nil, gas, nil
 		}
 
-		if !SupportThetaTransferInEVM(blockHeight) {
+		if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
 			evm.StateDB.CreateAccount(addr)
 		} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
 			if evm.StateDB.GetAccount(addr) == nil {
@@ -417,7 +414,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
 
-	if !SupportThetaTransferInEVM(blockHeight) {
+	if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
 		evm.StateDB.CreateAccount(address)
 	} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
 		if evm.StateDB.GetAccount(address) == nil {
