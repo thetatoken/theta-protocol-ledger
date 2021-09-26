@@ -234,11 +234,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
 			evm.StateDB.CreateAccount(addr)
 		} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
-			if evm.StateDB.GetAccount(addr) == nil {
-				evm.StateDB.CreateAccount(addr)
-			} else {
-				evm.StateDB.ResetAccountButRetainPreviousBlance(addr)
-			}
+			evm.StateDB.CreateAccountWithPreviousBalance(addr)
 		}
 	}
 	Transfer(evm.StateDB, caller.Address(), to.Address(), value)
@@ -417,11 +413,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
 		evm.StateDB.CreateAccount(address)
 	} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
-		if evm.StateDB.GetAccount(address) == nil {
-			evm.StateDB.CreateAccount(address)
-		} else {
-			evm.StateDB.ResetAccountButRetainPreviousBlance(address)
-		}
+		evm.StateDB.CreateAccountWithPreviousBalance(address)
 	}
 	Transfer(evm.StateDB, caller.Address(), address, value)
 

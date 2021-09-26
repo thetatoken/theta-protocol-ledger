@@ -27,7 +27,7 @@ import (
 type StateDB interface {
 	CreateAccount(common.Address)
 	GetAccount(common.Address) *types.Account
-	ResetAccountButRetainPreviousBlance(addr common.Address)
+	CreateAccountWithPreviousBalance(addr common.Address)
 
 	SubBalance(common.Address, *big.Int)
 	AddBalance(common.Address, *big.Int)

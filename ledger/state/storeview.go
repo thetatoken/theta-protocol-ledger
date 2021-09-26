@@ -448,7 +448,7 @@ func (sv *StoreView) GetOrCreateAccount(addr common.Address) *types.Account {
 	return types.NewAccount(addr)
 }
 
-func (sv *StoreView) ResetAccountButRetainPreviousBlance(addr common.Address) {
+func (sv *StoreView) CreateAccountWithPreviousBalance(addr common.Address) {
 	account := types.NewAccount(addr)
 
 	existingAccount := sv.GetAccount(addr)
