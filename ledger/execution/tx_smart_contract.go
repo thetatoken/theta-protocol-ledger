@@ -112,11 +112,21 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeFeeLimitTooHigh)
 	}
 
-	value := coins.TFuelWei // NoNil() already guarantees value is NOT nil
-	minimalBalance := types.Coins{
-		ThetaWei: zero,
-		TFuelWei: feeLimit.Add(feeLimit, value),
+	var minimalBalance types.Coins
+	value := coins.TFuelWei      // NoNil() already guarantees value is NOT nil
+	thetaValue := coins.ThetaWei // NoNil() already guarantees value is NOT nil
+	if !vm.SupportThetaTransferInEVM(blockHeight) {
+		minimalBalance = types.Coins{
+			ThetaWei: zero,
+			TFuelWei: feeLimit.Add(feeLimit, value),
+		}
+	} else {
+		minimalBalance = types.Coins{
+			ThetaWei: thetaValue,
+			TFuelWei: feeLimit.Add(feeLimit, value),
+		}
 	}
+
 	if !fromAccount.Balance.IsGTE(minimalBalance) {
 		logger.Infof(fmt.Sprintf("Source did not have enough balance %v", tx.From.Address.Hex()))
 		return result.Error("Source balance is %v, but required minimal balance is %v",
