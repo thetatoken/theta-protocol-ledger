@@ -858,6 +858,13 @@ func (e *ConsensusEngine) vote() {
 		shouldRepeatVote = true
 	}
 
+	// last finalized block is 12295800, tip is the +2 block
+	if tip.Height == 12295802 {
+		shouldRepeatVote = false
+		e.logger.Debugf("Force shouldRepeatVote = false for height %v", tip.Height)
+	}
+	e.logger.Debugf("shouldRepeatVote = %v", shouldRepeatVote)
+
 	if shouldRepeatVote {
 		block, err := e.chain.FindBlock(lastVote.Block)
 		if err != nil {
@@ -1025,6 +1032,10 @@ func (e *ConsensusEngine) GetTip(includePendingBlockingLeaf bool) *core.Extended
 	for len(stack) > 0 {
 		curr := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+
+		if curr.Block.BlockHeader.Hash().Hex() == "0x3d5faaf2f7aaf2cc6afd067c2c21f5af1545401deca26a0cd09e835837cfc29f" || curr.Block.BlockHeader.Hash().Hex() == "3d5faaf2f7aaf2cc6afd067c2c21f5af1545401deca26a0cd09e835837cfc29f" {
+			continue
+		}
 
 		if !curr.Status.IsValid() {
 			continue
