@@ -1220,6 +1220,12 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 	}
 	proposer := e.validatorManager.GetNextProposer(previousBlock, epoch)
 	if proposer.ID().Hex() != id {
+		e.logger.WithFields(log.Fields{
+			"expectedProposer": proposer.ID().Hex(),
+			"tip":              previousBlock,
+			"epoch":            epoch,
+		}).Debug("shouldProposeByID=false")
+
 		return false
 	}
 	return true
