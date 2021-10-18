@@ -1055,6 +1055,8 @@ type EthereumTxWrapperV2 struct {
 	Amount       *big.Int        `json:"value"    gencodec:"required"`
 	Payload      []byte          `json:"input"    gencodec:"required"`
 	ChainID      uint64          `json:"chainId"  gencodec:"required"`
+	EIP155Field1 uint
+	EIP155Field2 uint
 }
 
 func ChangeEthereumTxWrapper(origSignBytes common.Bytes, wrapperVersion uint) common.Bytes {
@@ -1073,6 +1075,8 @@ func ChangeEthereumTxWrapper(origSignBytes common.Bytes, wrapperVersion uint) co
 			Amount:       wrappedTx.Amount,
 			Payload:      wrappedTx.Payload,
 			ChainID:      uint64(1),
+			EIP155Field1: uint(0),
+			EIP155Field2: uint(0),
 		}
 		signBytes, err := rlp.EncodeToBytes(wrappedTx)
 		if err != nil {
