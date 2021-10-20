@@ -1222,7 +1222,7 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 	if proposer.ID().Hex() != id {
 		e.logger.WithFields(log.Fields{
 			"expectedProposer": proposer.ID().Hex(),
-			"tip":              previousBlock,
+			"tip":              previousBlock.Hex(),
 			"epoch":            epoch,
 		}).Debug("shouldProposeByID=false")
 
