@@ -1175,9 +1175,18 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 
 func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
 	if epoch <= tip.Epoch {
+		e.logger.WithFields(log.Fields{
+			"tip":       tip.Hash().Hex(),
+			"tip.Epoch": tip.Epoch,
+			"epoch":     epoch,
+		}).Debug("shouldPropose=false: epoch is behind")
 		return false
 	}
 	if !e.shouldProposeByID(tip.Hash(), epoch, e.ID()) {
+		e.logger.WithFields(log.Fields{
+			"tip":   tip.Hash().Hex(),
+			"epoch": epoch,
+		}).Debug("shouldPropose=false: not my turn")
 		return false
 	}
 	// Don't propose if majority has greater block height.
@@ -1193,7 +1202,13 @@ func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) b
 			votes.AddVote(v)
 		}
 	}
+
 	if validators.HasMajority(votes) {
+		e.logger.WithFields(log.Fields{
+			"tip":        tip.Hash().Hex(),
+			"tip.Height": tip.Height,
+			"votes":      votes.String(),
+		}).Debug("shouldPropose=false: tip height smaller than majority")
 		return false
 	}
 	return true
@@ -1205,6 +1220,12 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 	}
 	proposer := e.validatorManager.GetNextProposer(previousBlock, epoch)
 	if proposer.ID().Hex() != id {
+		e.logger.WithFields(log.Fields{
+			"expectedProposer": proposer.ID().Hex(),
+			"tip":              previousBlock.Hex(),
+			"epoch":            epoch,
+		}).Debug("shouldProposeByID=false")
+
 		return false
 	}
 	return true

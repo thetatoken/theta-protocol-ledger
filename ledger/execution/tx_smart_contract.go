@@ -45,7 +45,13 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 
 	// Check signatures
 	signBytes := tx.SignBytes(chainID)
-	if !tx.From.Signature.Verify(signBytes, tx.From.Address) {
+	nativeSignatureValid := tx.From.Signature.Verify(signBytes, tx.From.Address)
+	if blockHeight >= common.HeightTxWrapperExtension {
+		signBytesV2 := types.ChangeEthereumTxWrapper(signBytes, 2)
+		nativeSignatureValid = nativeSignatureValid || tx.From.Signature.Verify(signBytesV2, tx.From.Address)
+	}
+
+	if !nativeSignatureValid {
 		if blockHeight < common.HeightRPCCompatibility {
 			return result.Error("Signature verification failed, SignBytes: %v",
 				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)

@@ -454,6 +454,133 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 	return filename, nil
 }
 
+func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chain *blockchain.Chain, snapshotDir string, height uint64) (string, error) {
+	var lastFinalizedBlock *core.ExtendedBlock
+	if height != 0 {
+		blocks := chain.FindBlocksByHeight(height)
+		for _, block := range blocks {
+			if block.Status.IsDirectlyFinalized() {
+				lastFinalizedBlock = block
+				break
+			}
+		}
+		if lastFinalizedBlock == nil {
+			return "", fmt.Errorf("Can't find finalized block at height %v", height)
+		}
+	} else {
+		stub := consensus.GetSummary()
+		var err error
+		lastFinalizedBlock, err = chain.FindBlock(stub.LastFinalizedBlock)
+		if err != nil {
+			logger.Errorf("Failed to get block %v, %v", stub.LastFinalizedBlock, err)
+			return "", err
+		}
+	}
+	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+
+	currentTime := time.Now().UTC()
+	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
+	snapshotPath := path.Join(snapshotDir, filename)
+	file, err := os.Create(snapshotPath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	writer := bufio.NewWriter(file)
+
+	// --------------- Export the Header Section --------------- //
+
+	snapshotHeader := &core.SnapshotHeader{
+		Magic:   core.SnapshotHeaderMagic,
+		Version: 4,
+	}
+	err = core.WriteSnapshotHeader(writer, snapshotHeader)
+	if err != nil {
+		return "", err
+	}
+
+	// ------------ Export the Last Checkpoint Section ------------- //
+
+	lastFinalizedBlockHeight := lastFinalizedBlock.Height
+	lastCheckpointHeight := common.LastCheckPointHeight(lastFinalizedBlockHeight)
+	lastCheckpoint := &core.LastCheckpoint{}
+
+	currHeight := lastFinalizedBlockHeight
+	currBlock := lastFinalizedBlock
+	for currHeight > lastCheckpointHeight {
+		parentHash := currBlock.Parent
+		currBlock, err = chain.FindBlock(parentHash)
+		if err != nil {
+			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
+			return "", err
+		}
+		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
+		currHeight = currBlock.Height
+	}
+
+	lastCheckpointBlock := currBlock
+
+	lastCheckpoint.CheckpointHeader = lastCheckpointBlock.BlockHeader
+
+	err = core.WriteLastCheckpoint(writer, lastCheckpoint)
+	if err != nil {
+		return "", err
+	}
+
+	// -------------- Export the Metadata Section -------------- //
+
+	metadata := &core.SnapshotMetadata{}
+
+	parentBlock, err := chain.FindBlock(lastFinalizedBlock.Parent)
+	if err != nil {
+		return "", fmt.Errorf("Failed to find last finalized block's parent, %v", err)
+	}
+	childBlock, err := getAtLeastCommittedChild(lastFinalizedBlock, chain)
+	if err != nil {
+		return "", fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
+	}
+
+	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
+		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
+	}
+
+	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
+		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+	}
+
+	childVoteSet := chain.FindVotesByHash(childBlock.Hash())
+
+	vcpProof, err := proveVCP(parentBlock, db)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get VCP Proof")
+	}
+	metadata.TailTrio = core.SnapshotBlockTrio{
+		First:  core.SnapshotFirstBlock{Header: parentBlock.BlockHeader, Proof: *vcpProof},
+		Second: core.SnapshotSecondBlock{Header: lastFinalizedBlock.BlockHeader},
+		Third:  core.SnapshotThirdBlock{Header: childBlock.BlockHeader, VoteSet: childVoteSet},
+	}
+
+	err = core.WriteMetadata(writer, metadata)
+	if err != nil {
+		return "", err
+	}
+
+	// -------------- Export the StoreView Section -------------- //
+	// Last checkpoint storeview
+	if lastFinalizedBlock.Height != lastCheckpointHeight {
+		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
+		writeStoreViewV3(lastCheckpointSV, false, writer, db, common.Hash{})
+	}
+
+	// Parent block storeview
+	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	writeStoreViewV3(parentSV, false, writer, db, common.Hash{})
+
+	writeStoreViewV3(sv, true, writer, db, parentSV.Hash())
+
+	return filename, nil
+}
+
 func proveVCP(block *core.ExtendedBlock, db database.Database) (*core.VCPProof, error) {
 	sv := state.NewStoreView(block.Height, block.StateHash, db)
 	vcpKey := state.ValidatorCandidatePoolKey()
