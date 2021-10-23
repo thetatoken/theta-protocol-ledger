@@ -433,9 +433,9 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 			ledger.resetState(parentBlock)
 			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.DepositStakeTx); ok {
+		if dtx, ok := tx.(*types.DepositStakeTx); ok && dtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
-		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		} else if wtx, ok := tx.(*types.WithdrawStakeTx); ok && wtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
