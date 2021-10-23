@@ -1047,6 +1047,48 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 	return signBytes
 }
 
+type EthereumTxWrapperV2 struct {
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
+	GasLimit     uint64          `json:"gas"      gencodec:"required"`
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`
+	ChainID      uint64          `json:"chainId"  gencodec:"required"`
+	EIP155Field1 uint
+	EIP155Field2 uint
+}
+
+func ChangeEthereumTxWrapper(origSignBytes common.Bytes, wrapperVersion uint) common.Bytes {
+	wrappedTx := &EthereumTxWrapper{}
+	err := rlp.DecodeBytes(origSignBytes, wrappedTx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	if wrapperVersion == 2 {
+		wrappedTx := EthereumTxWrapperV2{
+			AccountNonce: wrappedTx.AccountNonce,
+			Price:        wrappedTx.Price,
+			GasLimit:     wrappedTx.GasLimit,
+			Recipient:    wrappedTx.Recipient,
+			Amount:       wrappedTx.Amount,
+			Payload:      wrappedTx.Payload,
+			ChainID:      uint64(1),
+			EIP155Field1: uint(0),
+			EIP155Field2: uint(0),
+		}
+		signBytes, err := rlp.EncodeToBytes(wrappedTx)
+		if err != nil {
+			log.Panic(err)
+		}
+		return signBytes
+	}
+
+	log.Panic(fmt.Errorf("invalid ethereum tx wrapper version"))
+	return common.Bytes{}
+}
+
 // For replay attack protection
 // https://chainid.network/
 const CHAIN_ID_OFFSET int64 = 360

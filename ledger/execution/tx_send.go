@@ -74,7 +74,7 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 
 	// Validate inputs and outputs, advanced
 	signBytes := tx.SignBytes(chainID)
-	inTotal, res := validateInputsAdvanced(accounts, signBytes, tx.Inputs)
+	inTotal, res := validateInputsAdvanced(accounts, signBytes, tx.Inputs, blockHeight)
 	if res.IsError() {
 		return res
 	}

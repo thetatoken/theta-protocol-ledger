@@ -24,6 +24,10 @@ const HeightEnableTheta3 uint64 = 10968061 // approximate time: 12pm June 30, 20
 // HeightRPCCompatibility specifies the block height to enable Ethereum compatible RPC support
 const HeightRPCCompatibility uint64 = 11354820 // approximate time: 12pm July 30, 2021 PT
 
+// HeightTxWrapperExtension specifies the block height to extend the Tx Wrapper
+const HeightTxWrapperExtension uint64 = 1000000000
+
+// HeightSupportThetaTokenInSmartContract specifies the block height to support Theta in smart contracts
 const HeightSupportThetaTokenInSmartContract uint64 = 9000000000
 
 // CheckpointInterval defines the interval between checkpoints.

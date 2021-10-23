@@ -134,12 +134,12 @@ func TestValidateInputsAdvanced(t *testing.T) {
 	signBytes := tx.SignBytes(et.chainID)
 
 	//test bad case, unsigned
-	totalCoins, res := validateInputsAdvanced(accMap, signBytes, tx.Inputs)
+	totalCoins, res := validateInputsAdvanced(accMap, signBytes, tx.Inputs, 1)
 	assert.True(res.IsError(), "validateInputsAdvanced: expected an error on an unsigned tx input")
 
 	//test good case sgined
 	et.signSendTx(tx, accIn1, accIn2, accIn3, et.accOut)
-	totalCoins, res = validateInputsAdvanced(accMap, signBytes, tx.Inputs)
+	totalCoins, res = validateInputsAdvanced(accMap, signBytes, tx.Inputs, 1)
 	assert.True(res.IsOK(), "validateInputsAdvanced: expected no error on good tx input. Error: %v", res.Message)
 
 	txTotalCoins := tx.Inputs[0].Coins.
@@ -161,25 +161,25 @@ func TestValidateInputAdvanced(t *testing.T) {
 	signBytes := tx.SignBytes(et.chainID)
 
 	//unsigned case
-	res := validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
+	res := validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0], 1)
 	assert.True(res.IsError(), "validateInputAdvanced: expected error on tx input without signature")
 
 	//good signed case
 	et.signSendTx(tx, et.accIn, et.accOut)
-	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
+	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0], 1)
 	assert.True(res.IsOK(), "validateInputAdvanced: expected no error on good tx input. Error: %v", res.Message)
 
 	//bad sequence case
 	et.accIn.Sequence = 1
 	et.signSendTx(tx, et.accIn, et.accOut)
-	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
+	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0], 1)
 	assert.Equal(result.CodeInvalidSequence, res.Code, "validateInputAdvanced: expected error on tx input with bad sequence")
 	et.accIn.Sequence = 0 //restore sequence
 
 	//bad balance case
 	et.accIn.Balance = types.NewCoins(2, 0)
 	et.signSendTx(tx, et.accIn, et.accOut)
-	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0])
+	res = validateInputAdvanced(&et.accIn.Account, signBytes, tx.Inputs[0], 1)
 	assert.Equal(result.CodeInsufficientFund, res.Code,
 		"validateInputAdvanced: expected error on tx input with insufficient funds %v", et.accIn.Sequence)
 }
