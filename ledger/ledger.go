@@ -248,7 +248,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
-func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorUpdateTxs bool) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.Height)
@@ -289,6 +289,17 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 		if err != nil {
 			continue
 		}
+
+		if !shouldIncludeValidatorUpdateTxs {
+			// Skip validator updating txs
+			if vtx, ok := tx.(*types.DepositStakeTx); ok && vtx.Purpose == core.StakeForValidator {
+				continue
+			}
+			if vtx, ok := tx.(*types.WithdrawStakeTx); ok && vtx.Purpose == core.StakeForValidator {
+				continue
+			}
+		}
+
 		_, res := ledger.executor.CheckTx(tx)
 		if res.IsError() {
 			logger.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
