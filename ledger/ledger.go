@@ -292,10 +292,10 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 
 		if !shouldIncludeValidatorUpdateTxs {
 			// Skip validator updating txs
-			if vtx, ok := tx.(*types.DepositStakeTx); ok && vtx.Purpose == core.StakeForValidator {
+			if _, ok := tx.(*types.DepositStakeTx); ok {
 				continue
 			}
-			if vtx, ok := tx.(*types.WithdrawStakeTx); ok && vtx.Purpose == core.StakeForValidator {
+			if _, ok := tx.(*types.WithdrawStakeTx); ok {
 				continue
 			}
 		}
