@@ -52,7 +52,7 @@ const HeightRPCCompatibility uint64 = 2 // approximate time: 12pm July 30, 2021 
 const HeightTxWrapperExtension uint64 = 2
 
 // HeightSupportThetaTokenInSmartContract specifies the block height to support Theta in smart contracts
-const HeightSupportThetaTokenInSmartContract uint64 = 9000000000
+const HeightSupportThetaTokenInSmartContract uint64 = 2
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
