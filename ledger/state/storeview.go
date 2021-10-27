@@ -448,6 +448,17 @@ func (sv *StoreView) GetOrCreateAccount(addr common.Address) *types.Account {
 	return types.NewAccount(addr)
 }
 
+func (sv *StoreView) CreateAccountWithPreviousBalance(addr common.Address) {
+	account := types.NewAccount(addr)
+
+	existingAccount := sv.GetAccount(addr)
+	if existingAccount != nil { // only copy over the account balance, reset other fields including the account sequence
+		account.Balance = existingAccount.Balance.NoNil()
+	}
+
+	sv.SetAccount(addr, account)
+}
+
 func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -473,6 +484,29 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 
 func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
 	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
+}
+
+func (sv *StoreView) SubThetaBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	account := sv.GetAccount(addr)
+	if account == nil {
+		panic(fmt.Sprintf("Account for %v does not exist!", addr))
+	}
+	account.Balance = account.Balance.NoNil()
+	account.Balance.ThetaWei.Sub(account.Balance.ThetaWei, amount)
+	sv.SetAccount(addr, account)
+}
+
+func (sv *StoreView) AddThetaBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	account := sv.GetOrCreateAccount(addr)
+	account.Balance = account.Balance.NoNil()
+	account.Balance.ThetaWei.Add(account.Balance.ThetaWei, amount)
+	sv.SetAccount(addr, account)
 }
 
 // GetThetaBalance returns the ThetaWei balance of the given address

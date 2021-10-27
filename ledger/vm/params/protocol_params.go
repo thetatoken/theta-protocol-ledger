@@ -94,8 +94,9 @@ const (
 	Bn256PairingBaseGasIstanbul     uint64 = 45000 // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGasIstanbul uint64 = 34000 // Per-point price for an elliptic curve pairing check
 
-	ThetaBalanceGas uint64 = 4   // Retrieve the Theta balance for an address
-	ThetaStakeGas   uint64 = 200 // Retrieve the total amount of staked Theta for an address
+	ThetaBalanceGas  uint64 = 4     // Retrieve the Theta balance for an address
+	ThetaStakeGas    uint64 = 200   // Retrieve the total amount of staked Theta for an address
+	ThetaTransferGas uint64 = 21000 // Transfer Theta balance
 )
 
 var (
