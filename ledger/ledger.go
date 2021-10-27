@@ -248,7 +248,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
-func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorUpdateTxs bool) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
 	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.Height)
@@ -289,6 +289,17 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 		if err != nil {
 			continue
 		}
+
+		if !shouldIncludeValidatorUpdateTxs {
+			// Skip validator updating txs
+			if _, ok := tx.(*types.DepositStakeTx); ok {
+				continue
+			}
+			if _, ok := tx.(*types.WithdrawStakeTx); ok {
+				continue
+			}
+		}
+
 		_, res := ledger.executor.CheckTx(tx)
 		if res.IsError() {
 			logger.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
@@ -352,9 +363,9 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 			ledger.resetState(parentBlock)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.DepositStakeTx); ok {
+		if dtx, ok := tx.(*types.DepositStakeTx); ok && dtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
-		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		} else if wtx, ok := tx.(*types.WithdrawStakeTx); ok && wtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
@@ -433,9 +444,9 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 			ledger.resetState(parentBlock)
 			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.DepositStakeTx); ok {
+		if dtx, ok := tx.(*types.DepositStakeTx); ok && dtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
-		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		} else if wtx, ok := tx.(*types.WithdrawStakeTx); ok && wtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)

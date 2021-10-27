@@ -46,7 +46,7 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 
 	// Validate inputs and outputs, advanced
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(stakeHolderAccount, signBytes, tx.Holder)
+	res = validateInputAdvanced(stakeHolderAccount, signBytes, tx.Holder, blockHeight)
 	if res.IsError() {
 		return res
 	}

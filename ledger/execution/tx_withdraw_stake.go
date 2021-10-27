@@ -29,6 +29,7 @@ func NewWithdrawStakeExecutor(state *st.LedgerState) *WithdrawStakeExecutor {
 }
 
 func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.WithdrawStakeTx)
 
 	res := tx.Source.ValidateBasic()
@@ -42,13 +43,12 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
+	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source, blockHeight)
 	if res.IsError() {
 		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 
-	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
 			minTxFee).WithErrorCode(result.CodeInvalidFee)

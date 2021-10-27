@@ -39,9 +39,13 @@ func (t *ThetaRPCService) BackupSnapshot(args *BackupSnapshotArgs, result *Backu
 		snapshotFile, err := snapshot.ExportSnapshotV2(db, consensus, chain, snapshotDir, args.Height)
 		result.SnapshotFile = snapshotFile
 		return err
+	} else if args.Version == 3 {
+		snapshotFile, err := snapshot.ExportSnapshotV3(db, consensus, chain, snapshotDir, args.Height)
+		result.SnapshotFile = snapshotFile
+		return err
 	}
 
-	snapshotFile, err := snapshot.ExportSnapshotV3(db, consensus, chain, snapshotDir, args.Height)
+	snapshotFile, err := snapshot.ExportSnapshotV4(db, consensus, chain, snapshotDir, args.Height)
 	result.SnapshotFile = snapshotFile
 	return err
 }

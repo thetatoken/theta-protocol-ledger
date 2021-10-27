@@ -249,7 +249,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 	}
 
 	var sv *state.StoreView
-	if snapshotHeader.Version == 3 {
+	if snapshotHeader.Version >= 3 {
 		err = loadStateV3(snapshotFile, db, fileSize, logStr)
 		if err != nil {
 			return nil, nil, err
@@ -265,8 +265,14 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 
 	// ----------------------------- Validity Checks -------------------------- //
 
-	if err = checkSnapshot(sv, &metadata, db); err != nil {
-		return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+	if snapshotVersion >= 4 {
+		if err = checkSnapshotV4(sv, &metadata, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+		}
+	} else {
+		if err = checkSnapshot(sv, &metadata, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+		}
 	}
 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
@@ -784,6 +790,34 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 	}
 
 	err = checkTailTrio(sv, provenValSet, tailTrio)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkSnapshotV4(sv *state.StoreView, metadata *core.SnapshotMetadata, db database.Database) error {
+	tailTrio := &metadata.TailTrio
+	secondBlock := tailTrio.Second.Header
+	expectedStateHash := sv.Hash()
+	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.StateHash.Bytes()) != 0 {
+		return fmt.Errorf("StateHash not matching: %v vs %s",
+			expectedStateHash.Hex(), secondBlock.StateHash.Hex())
+	}
+
+	var valSet *core.ValidatorSet
+	var err error
+
+	first := tailTrio.First
+	valSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+	}
+
+	logger.Infof("Validators of snapshost: %v", valSet)
+
+	err = checkTailTrio(sv, valSet, tailTrio)
 	if err != nil {
 		return err
 	}

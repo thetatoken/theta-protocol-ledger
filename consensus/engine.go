@@ -1175,12 +1175,25 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 
 func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
 	if epoch <= tip.Epoch {
+		e.logger.WithFields(log.Fields{
+			"tip":       tip.Hash().Hex(),
+			"tip.Epoch": tip.Epoch,
+			"epoch":     epoch,
+		}).Debug("shouldPropose=false: epoch is behind")
 		return false
 	}
 	if !e.shouldProposeByID(tip.Hash(), epoch, e.ID()) {
+		e.logger.WithFields(log.Fields{
+			"tip":   tip.Hash().Hex(),
+			"epoch": epoch,
+		}).Debug("shouldPropose=false: not my turn")
 		return false
 	}
-	// Don't propose if majority has greater block height.
+	return true
+}
+
+func (e *ConsensusEngine) shouldIncludeValidatorUpdateTxs(tip *core.ExtendedBlock) bool {
+	// Check if majority has greater block height.
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
 		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
@@ -1193,9 +1206,16 @@ func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) b
 			votes.AddVote(v)
 		}
 	}
+
 	if validators.HasMajority(votes) {
+		e.logger.WithFields(log.Fields{
+			"tip":        tip.Hash().Hex(),
+			"tip.Height": tip.Height,
+			"votes":      votes.String(),
+		}).Debug("shouldIncludeValidatorUpdateTxs=false: tip height smaller than majority")
 		return false
 	}
+
 	return true
 }
 
@@ -1205,12 +1225,18 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 	}
 	proposer := e.validatorManager.GetNextProposer(previousBlock, epoch)
 	if proposer.ID().Hex() != id {
+		e.logger.WithFields(log.Fields{
+			"expectedProposer": proposer.ID().Hex(),
+			"tip":              previousBlock.Hex(),
+			"epoch":            epoch,
+		}).Debug("shouldProposeByID=false")
+
 		return false
 	}
 	return true
 }
 
-func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
+func (e *ConsensusEngine) createProposal(shouldIncludeValidatorUpdateTxs bool) (core.Proposal, error) {
 	tip := e.GetTipToExtend()
 	//result := e.ledger.ResetState(tip.Height, tip.StateHash)
 	result := e.ledger.ResetState(tip.Block)
@@ -1245,7 +1271,7 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 	}
 
 	// Add Txs.
-	newRoot, txs, result := e.ledger.ProposeBlockTxs(block)
+	newRoot, txs, result := e.ledger.ProposeBlockTxs(block, shouldIncludeValidatorUpdateTxs)
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
 		return core.Proposal{}, err
@@ -1287,6 +1313,8 @@ func (e *ConsensusEngine) propose() {
 		return
 	}
 
+	shouldIncludeValidatorUpdateTxs := e.shouldIncludeValidatorUpdateTxs(tip)
+
 	var proposal core.Proposal
 	var err error
 	lastProposal := e.state.GetLastProposal()
@@ -1294,7 +1322,7 @@ func (e *ConsensusEngine) propose() {
 		proposal = lastProposal
 		e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Repeating proposal")
 	} else {
-		proposal, err = e.createProposal()
+		proposal, err = e.createProposal(shouldIncludeValidatorUpdateTxs)
 		if err != nil {
 			e.logger.WithFields(log.Fields{"error": err}).Error("Failed to create proposal")
 			return

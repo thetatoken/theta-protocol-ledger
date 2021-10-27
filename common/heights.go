@@ -46,7 +46,10 @@ const HeightJune2021FeeAdjustment uint64 = 2 // approximate time: 12pm June 11, 
 const HeightEnableTheta3 uint64 = 2 // approximate time: 12pm June 30, 2021 PT
 
 // HeightRPCCompatibility specifies the block height to enable Ethereum compatible RPC support
-const HeightRPCCompatibility uint64 = 2
+const HeightRPCCompatibility uint64 = 2 // approximate time: 12pm July 30, 2021 PT
+
+// HeightTxWrapperExtension specifies the block height to extend the Tx Wrapper
+const HeightTxWrapperExtension uint64 = 2
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
