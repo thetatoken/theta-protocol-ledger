@@ -474,7 +474,7 @@ func (tl *TestLedger) GetCurrentBlock() *core.Block {
 	return nil
 }
 
-func (tl *TestLedger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (tl *TestLedger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorUpdateTxs bool) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	return common.Hash{}, []common.Bytes{}, result.OK
 }
 
