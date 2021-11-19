@@ -402,15 +402,16 @@ type GetBlocksByRangeArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
-	if args.Start == 0 && args.End == 0 {
-		return errors.New("Starting block and ending block must be specified")
-	}
+	// if args.Start == 0 && args.End == 0 {
+	// 	return errors.New("Starting block and ending block must be specified")
+	// }
 
 	if args.Start > args.End {
 		return errors.New("Starting block must be less than ending block")
 	}
 
-	if args.End-args.Start > 100 {
+	maxBlockRange := common.JSONUint64(5000)
+	if args.End-args.Start > maxBlockRange {
 		return errors.New("Can't retrieve more than 100 blocks at a time")
 	}
 
@@ -442,6 +443,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 		blkInner.Status = block.Status
 		blkInner.HCC = block.HCC
 		blkInner.GuardianVotes = block.GuardianVotes
+		blkInner.EliteEdgeNodeVotes = block.EliteEdgeNodeVotes
 
 		blkInner.Hash = block.Hash()
 
