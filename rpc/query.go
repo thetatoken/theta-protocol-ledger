@@ -402,15 +402,33 @@ type GetBlocksByRangeArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
-	if args.Start == 0 && args.End == 0 {
-		return errors.New("Starting block and ending block must be specified")
+	// if args.Start == 0 && args.End == 0 {
+	// 	return errors.New("Starting block and ending block must be specified")
+	// }
+	genesisBlock := &GetBlockResultInner{}
+	var genesisHash common.Hash
+	if t.consensus.Chain().ChainID == core.MainnetChainID {
+		genesisHash = common.HexToHash(core.MainnetGenesisBlockHash)
+	} else {
+		genesisHash = common.HexToHash(viper.GetString(common.CfgGenesisHash))
+	}
+	genesisBlock.ChainID = t.consensus.Chain().ChainID
+	genesisBlock.Children = []common.Hash{}
+	genesisBlock.Status = core.BlockStatusDirectlyFinalized
+	genesisBlock.Timestamp = (*common.JSONBig)(big.NewInt(0))
+	genesisBlock.Hash = genesisHash
+
+	if args.End == 0 {
+		*result = append([]*GetBlockResultInner{genesisBlock}, *result...)
+		return
 	}
 
 	if args.Start > args.End {
 		return errors.New("Starting block must be less than ending block")
 	}
 
-	if args.End-args.Start > 100 {
+	maxBlockRange := common.JSONUint64(5000)
+	if args.End-args.Start > maxBlockRange {
 		return errors.New("Can't retrieve more than 100 blocks at a time")
 	}
 
@@ -428,7 +446,11 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 		return
 	}
 
-	for common.JSONUint64(block.Height) >= args.Start {
+	startBlockHeight := args.Start
+	if args.Start == 0 {
+		startBlockHeight = 1 // genesis block needs special handling
+	}
+	for common.JSONUint64(block.Height) >= startBlockHeight {
 		blkInner := &GetBlockResultInner{}
 		blkInner.ChainID = block.ChainID
 		blkInner.Epoch = common.JSONUint64(block.Epoch)
@@ -442,6 +464,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 		blkInner.Status = block.Status
 		blkInner.HCC = block.HCC
 		blkInner.GuardianVotes = block.GuardianVotes
+		blkInner.EliteEdgeNodeVotes = block.EliteEdgeNodeVotes
 
 		blkInner.Hash = block.Hash()
 
@@ -454,6 +477,10 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 			return err
 		}
 	}
+	if args.Start == 0 {
+		*result = append([]*GetBlockResultInner{genesisBlock}, *result...)
+	}
+
 	return
 }
 

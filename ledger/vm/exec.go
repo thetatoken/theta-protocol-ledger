@@ -35,6 +35,12 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 	if value == nil {
 		value = big.NewInt(0)
 	}
+
+	thetaValue := tx.From.Coins.ThetaWei
+	if thetaValue == nil {
+		thetaValue = big.NewInt(0)
+	}
+
 	gasLimit := tx.GasLimit
 	fromAddr := tx.From.Address
 	contractAddr = tx.To.Address
@@ -61,10 +67,10 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 	remainingGas := gasLimit - intrinsicGas
 	if createContract {
 		code := tx.Data
-		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, remainingGas, value)
+		evmRet, contractAddr, leftOverGas, evmErr = evm.Create(AccountRef(fromAddr), code, remainingGas, value, thetaValue)
 	} else {
 		input := tx.Data
-		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, remainingGas, value)
+		evmRet, leftOverGas, evmErr = evm.Call(AccountRef(fromAddr), contractAddr, input, remainingGas, value, thetaValue)
 	}
 
 	if leftOverGas > gasLimit { // should not happen
