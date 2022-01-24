@@ -180,6 +180,16 @@ func (dp *Dispatcher) PeerExists(peerID string) bool {
 	return false
 }
 
+// RegisterMessageHandler registers the message handler
+func (dp *Dispatcher) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		dp.p2pnet.RegisterMessageHandler(msgHandler)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		dp.p2plnet.RegisterMessageHandler(msgHandler)
+	}
+}
+
 // send delivers message directly to a list of peers.
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	messageOld := p2ptypes.Message{
