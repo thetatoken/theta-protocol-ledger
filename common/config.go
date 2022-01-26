@@ -160,7 +160,7 @@ func init() {
 	viper.SetDefault(CfgNodeType, 1) // 1: blockchain node, 2: edge node
 	viper.SetDefault(CfgForceValidateSnapshot, false)
 
-	viper.SetDefault(CfgConsensusMaxEpochLength, 20)
+	viper.SetDefault(CfgConsensusMaxEpochLength, 12)
 	viper.SetDefault(CfgConsensusMinBlockInterval, 6)
 	viper.SetDefault(CfgConsensusMessageQueueSize, 512)
 	viper.SetDefault(CfgConsensusEdgeNodeVoteQueueSize, 100000)
