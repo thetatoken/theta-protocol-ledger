@@ -792,7 +792,7 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := interpreter.evm.CallCode(contract, toAddr, args, gas, value)
+	ret, returnGas, err := interpreter.evm.CallCode(contract, toAddr, args, gas, value, new(big.Int)) // thetaValue set to 0: for now, we do not support Theta transfer in inter-contract calls
 	if err != nil {
 		stack.push(interpreter.intPool.getZero())
 	} else {

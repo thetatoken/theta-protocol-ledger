@@ -41,6 +41,10 @@ func SupportThetaTransferInEVM(blockHeight uint64) bool {
 	return blockHeight >= common.HeightSupportThetaTokenInSmartContract
 }
 
+func SupportWrappedTheta(blockHeight uint64) bool {
+	return blockHeight >= common.HeightSupportWrappedTheta
+}
+
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(db StateDB, addr common.Address, amount *big.Int) bool {
@@ -68,8 +72,10 @@ func getPrecompiledContracts(blockHeight uint64) map[common.Address]PrecompiledC
 	var precompiles map[common.Address]PrecompiledContract
 	if blockHeight < common.HeightSupportThetaTokenInSmartContract {
 		precompiles = PrecompiledContractsByzantium
-	} else {
+	} else if blockHeight < common.HeightSupportWrappedTheta {
 		precompiles = PrecompiledContractsThetaSupport
+	} else {
+		precompiles = PrecompiledContractsWrappedThetaSupport
 	}
 	return precompiles
 }
@@ -245,7 +251,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
-	contract := NewContract(caller, to, value, gas)
+	contract := NewContract(caller, to, value, thetaValue, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -269,7 +275,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 //
 // CallCode differs from Call in the sense that it executes the given address'
 // code with the caller as context.
-func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, thetaValue *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -283,6 +289,11 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		return nil, gas, ErrInsufficientBalance
 	}
 
+	blockHeight := evm.StateDB.GetBlockHeight()
+	if SupportWrappedTheta(blockHeight) && !CanTransferTheta(evm.StateDB, caller.Address(), thetaValue) {
+		return nil, gas, ErrInsufficientThetaBlance
+	}
+
 	var (
 		snapshot = evm.StateDB.Snapshot()
 		to       = AccountRef(caller.Address())
@@ -290,7 +301,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, to, value, gas)
+	contract := NewContract(caller, to, value, thetaValue, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -323,7 +334,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	)
 
 	// Initialise a new contract and make initialise the delegate values
-	contract := NewContract(caller, to, nil, gas).AsDelegate()
+	contract := NewContract(caller, to, nil, nil, gas).AsDelegate()
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -356,7 +367,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// Initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, to, new(big.Int), gas)
+	contract := NewContract(caller, to, new(big.Int), new(big.Int), gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	// When an error was returned by the EVM or when setting the creation code
@@ -424,7 +435,7 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, AccountRef(address), value, gas)
+	contract := NewContract(caller, AccountRef(address), value, thetaValue, gas)
 	contract.SetCodeOptionalHash(&address, codeAndHash)
 
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {

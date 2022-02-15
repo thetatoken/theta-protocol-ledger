@@ -57,12 +57,13 @@ type Contract struct {
 	CodeAddr *common.Address
 	Input    []byte
 
-	Gas   uint64
-	value *big.Int
+	Gas        uint64
+	value      *big.Int
+	thetaValue *big.Int
 }
 
 // NewContract returns a new contract environment for the execution of EVM.
-func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uint64) *Contract {
+func NewContract(caller ContractRef, object ContractRef, value *big.Int, thetaValue *big.Int, gas uint64) *Contract {
 	c := &Contract{CallerAddress: caller.Address(), caller: caller, self: object}
 
 	if parent, ok := caller.(*Contract); ok {
@@ -77,6 +78,7 @@ func NewContract(caller ContractRef, object ContractRef, value *big.Int, gas uin
 	c.Gas = gas
 	// ensures a value is set
 	c.value = value
+	c.thetaValue = thetaValue
 
 	return c
 }
@@ -122,6 +124,7 @@ func (c *Contract) AsDelegate() *Contract {
 	parent := c.caller.(*Contract)
 	c.CallerAddress = parent.CallerAddress
 	c.value = parent.value
+	c.thetaValue = parent.thetaValue
 
 	return c
 }
@@ -165,6 +168,11 @@ func (c *Contract) Address() common.Address {
 // Value returns the contracts value (sent to it from it's caller)
 func (c *Contract) Value() *big.Int {
 	return c.value
+}
+
+// ThetaValue returns the contracts theta value (sent to it from it's caller)
+func (c *Contract) ThetaValue() *big.Int {
+	return c.thetaValue
 }
 
 // SetCallCode sets the code of the contract and address of the backing data

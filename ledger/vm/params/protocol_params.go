@@ -97,6 +97,7 @@ const (
 	ThetaBalanceGas  uint64 = 4     // Retrieve the Theta balance for an address
 	ThetaStakeGas    uint64 = 200   // Retrieve the total amount of staked Theta for an address
 	ThetaTransferGas uint64 = 21000 // Transfer Theta balance
+	GetThetaValueGas uint64 = 10    // Get Theta value of a transaction
 )
 
 var (
