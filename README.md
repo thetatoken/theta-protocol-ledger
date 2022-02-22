@@ -62,6 +62,7 @@ make test_unit
 Theta provides full support for Turing-Complete smart contract, and is EVM compatible. To start developing on the Theta Blockchain, please check out the following links:
 
 * Smart contract and DApp development: [link here](https://docs.thetatoken.org/docs/turing-complete-smart-contract-support). And in particular, how to interact with the Theta blockchain with [Metamask](https://docs.thetatoken.org/docs/web3-stack-metamask), [Truffle](https://docs.thetatoken.org/docs/web3-stack-truffle), [Hardhat](https://docs.thetatoken.org/docs/web3-stack-hardhat), [web3.js](https://docs.thetatoken.org/docs/web3-stack-web3js), and [ethers.js](https://docs.thetatoken.org/docs/web3-stack-hardhat).
+* TNT20 Token (i.e. ERC20 on Theta) integration guide: [link here](https://docs.thetatoken.org/docs/theta-blockchain-tnt20-token-integration-guide).
 * Command line tools: [link here](https://docs.thetatoken.org/docs/command-line-tool).
 * Launching a local privatenet: [link here](https://docs.thetatoken.org/docs/launch-a-local-privatenet).
 * Connect to the [Testnet](https://docs.thetatoken.org/docs/connect-to-the-testnet), and the [Mainnet](https://docs.thetatoken.org/docs/connect-to-the-mainnet).
