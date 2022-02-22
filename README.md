@@ -10,8 +10,7 @@ To learn more about the Theta Network, please visit the Theta Documentation site
     - [On Mac OS X](#on-mac-os-x)
 - [Build and Install](#build-and-install)
 - [Run Unit Tests](#run-unit-tests)
-- [Launch a Local Private Net](#launch-a-local-private-net)
-
+- [Smart Contract and DApp Development on Theta](#smart-contract-and-dapp-development-on-theta)
 
 ## Setup
 
@@ -58,9 +57,9 @@ Run unit tests with the command below
 make test_unit
 ```
 
-## Developing DApps on the Theta Blockchain
+## Smart Contract and DApp Development on Theta
 
-To start developing on the Theta Blockchain, please check out the following links:
+Theta provides full support for Turing-Complete smart contract, and is EVM compatible. To start developing on the Theta Blockchain, please check out the following links:
 
 * Smart contract and DApp development: [link here](https://docs.thetatoken.org/docs/turing-complete-smart-contract-support). And in particular, how to interact with the Theta blockchain with [Metamask](https://docs.thetatoken.org/docs/web3-stack-metamask), [Truffle](https://docs.thetatoken.org/docs/web3-stack-truffle), [Hardhat](https://docs.thetatoken.org/docs/web3-stack-hardhat), [web3.js](https://docs.thetatoken.org/docs/web3-stack-web3js), and [ethers.js](https://docs.thetatoken.org/docs/web3-stack-hardhat).
 * Command line tools: [link here](https://docs.thetatoken.org/docs/command-line-tool).
