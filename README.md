@@ -7,14 +7,11 @@ To learn more about the Theta Network, please visit the Theta Documentation site
 
 ## Table of Contents
 - [Setup](#setup)
-    - [On Mac OS X](#on-mac-os-x)
-- [Build and Install](#build-and-install)
-- [Run Unit Tests](#run-unit-tests)
 - [Smart Contract and DApp Development on Theta](#smart-contract-and-dapp-development-on-theta)
 
 ## Setup
 
-### On macOS
+### Intall Go
 
 Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.14.2**. On macOS, install Go with the following command
 
@@ -23,7 +20,9 @@ brew install go@1.14.1
 brew link go@1.14.1 --force
 ```
 
-Clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
+### Build and Install
+
+Next, clone this repo into your `$GOPATH`. The path should look like this: `$GOPATH/src/github.com/thetatoken/theta`
 
 ```
 git clone https://github.com/thetatoken/theta-protocol-ledger.git $GOPATH/src/github.com/thetatoken/theta
@@ -31,8 +30,8 @@ export THETA_HOME=$GOPATH/src/github.com/thetatoken/theta
 cd $THETA_HOME
 ```
 
-## Build and Install
-This should build the binaries and copy them into your `$GOPATH/bin`. Two binaries `theta` and `thetacli` are generated. `theta` can be regarded as the launcher of the Theta Ledger node, and `thetacli` is a wallet with command line tools to interact with the ledger. 
+Now, execute the following commands to build the Theta binaries under `$GOPATH/bin`. Two binaries `theta` and `thetacli` are generated. `theta` can be regarded as the launcher of the Theta Ledger node, and `thetacli` is a wallet with command line tools to interact with the ledger.
+
 ```
 export GO111MODULE=on
 make install
@@ -61,10 +60,18 @@ make test_unit
 
 Theta provides full support for Turing-Complete smart contract, and is EVM compatible. To start developing on the Theta Blockchain, please check out the following links:
 
-* Smart contract and DApp development: [link here](https://docs.thetatoken.org/docs/turing-complete-smart-contract-support). And in particular, how to interact with the Theta blockchain with [Metamask](https://docs.thetatoken.org/docs/web3-stack-metamask), [Truffle](https://docs.thetatoken.org/docs/web3-stack-truffle), [Hardhat](https://docs.thetatoken.org/docs/web3-stack-hardhat), [web3.js](https://docs.thetatoken.org/docs/web3-stack-web3js), and [ethers.js](https://docs.thetatoken.org/docs/web3-stack-hardhat).
+### Smart Contracts
+* Smart contract and DApp development Overview: [link here](https://docs.thetatoken.org/docs/turing-complete-smart-contract-support). 
+* Tutorials on how to interact with the Theta blockchain through [Metamask](https://docs.thetatoken.org/docs/web3-stack-metamask), [Truffle](https://docs.thetatoken.org/docs/web3-stack-truffle), [Hardhat](https://docs.thetatoken.org/docs/web3-stack-hardhat), [web3.js](https://docs.thetatoken.org/docs/web3-stack-web3js), and [ethers.js](https://docs.thetatoken.org/docs/web3-stack-hardhat).
 * TNT20 Token (i.e. ERC20 on Theta) integration guide: [link here](https://docs.thetatoken.org/docs/theta-blockchain-tnt20-token-integration-guide).
-* Command line tools: [link here](https://docs.thetatoken.org/docs/command-line-tool).
+
+### Local Test Environment Setup
 * Launching a local privatenet: [link here](https://docs.thetatoken.org/docs/launch-a-local-privatenet).
+* Command line tools: [link here](https://docs.thetatoken.org/docs/command-line-tool).
 * Connect to the [Testnet](https://docs.thetatoken.org/docs/connect-to-the-testnet), and the [Mainnet](https://docs.thetatoken.org/docs/connect-to-the-mainnet).
-* Node configuration: [link here](https://docs.thetatoken.org/docs/theta-blockchain-node-configuration)
+* Node configuration: [link here](https://docs.thetatoken.org/docs/theta-blockchain-node-configuration).
+
+### API References
 * Native RPC API references: [link here](https://docs.thetatoken.org/docs/rpc-api-reference).
+* Ethereum RPC API support: [link here](https://docs.thetatoken.org/docs/web3-stack-eth-rpc-support).
+
