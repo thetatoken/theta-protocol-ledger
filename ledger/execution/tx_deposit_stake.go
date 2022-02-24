@@ -160,7 +160,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.ThetaWei
 		vcp := view.GetValidatorCandidatePool()
-		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
+		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount, blockHeight)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
