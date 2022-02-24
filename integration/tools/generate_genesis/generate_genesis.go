@@ -188,7 +188,7 @@ func performInitialStakeDeposit(stakeDepositFilePath string, genesisHeight uint6
 			panic(fmt.Sprintf("The source account %v does NOT have sufficient balance for stake deposit. ThetaWeiBalance = %v, StakeAmount = %v",
 				sourceAddress, sourceAccount.Balance.ThetaWei, stakeDeposit.Amount))
 		}
-		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
+		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount, genesisHeight)
 		if err != nil {
 			panic(fmt.Sprintf("Failed to deposit stake, err: %v", err))
 		}
