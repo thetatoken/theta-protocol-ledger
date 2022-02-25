@@ -81,9 +81,15 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	}
 
 	// Minimum stake deposit requirement to avoid spamming
-	if tx.Purpose == core.StakeForValidator && stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
-		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each validator deposit", core.MinValidatorStakeDeposit).
-			WithErrorCode(result.CodeInsufficientStake)
+	if tx.Purpose == core.StakeForValidator {
+		minValidatorStake := core.MinValidatorStakeDeposit
+		if blockHeight >= common.HeightValidatorStakeChangedTo200K {
+			minValidatorStake = core.MinValidatorStakeDeposit200K
+		}
+		if stake.ThetaWei.Cmp(minValidatorStake) < 0 {
+			return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each validator deposit", minValidatorStake).
+				WithErrorCode(result.CodeInsufficientStake)
+		}
 	}
 
 	if tx.Purpose == core.StakeForGuardian {
