@@ -97,7 +97,7 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 
 		for _, b := range blocks {
 			if b.Status.IsFinalized() {
-				stateRoot := b.StateHash
+				stateRoot := b.GetStateHash()
 				ledgerState := state.NewStoreView(height, stateRoot, db)
 				if ledgerState == nil { // might have been pruned
 					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
@@ -185,7 +185,7 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 		return nil
 	}
 	result.BlockHash = block.Hash()
-	result.BlockHeight = common.JSONUint64(block.Height)
+	result.BlockHeight = common.JSONUint64(block.GetHeight())
 
 	if block.Status.IsFinalized() {
 		result.Status = TxStatusFinalized
@@ -307,18 +307,18 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 	}
 
 	result.GetBlockResultInner = &GetBlockResultInner{}
-	result.ChainID = block.ChainID
-	result.Epoch = common.JSONUint64(block.Epoch)
-	result.Height = common.JSONUint64(block.Height)
-	result.Parent = block.Parent
-	result.TxHash = block.TxHash
-	result.StateHash = block.StateHash
-	result.Timestamp = (*common.JSONBig)(block.Timestamp)
-	result.Proposer = block.Proposer
+	result.ChainID = block.GetChainID()
+	result.Epoch = common.JSONUint64(block.GetEpoch())
+	result.Height = common.JSONUint64(block.GetHeight())
+	result.Parent = block.GetParent()
+	result.TxHash = block.GetTxHash()
+	result.StateHash = block.GetStateHash()
+	result.Timestamp = (*common.JSONBig)(block.GetTimestamp())
+	result.Proposer = block.GetProposer()
 	result.Children = block.Children
 	result.Status = block.Status
-	result.HCC = block.HCC
-	result.GuardianVotes = block.GuardianVotes
+	result.HCC = *block.GetHCC()
+	result.GuardianVotes = block.GetGuardianVotes()
 
 	result.Hash = block.Hash()
 
@@ -372,19 +372,19 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 	}
 
 	result.GetBlockResultInner = &GetBlockResultInner{}
-	result.ChainID = block.ChainID
-	result.Epoch = common.JSONUint64(block.Epoch)
-	result.Height = common.JSONUint64(block.Height)
-	result.Parent = block.Parent
-	result.TxHash = block.TxHash
-	result.StateHash = block.StateHash
-	result.Timestamp = (*common.JSONBig)(block.Timestamp)
-	result.Proposer = block.Proposer
+	result.ChainID = block.GetChainID()
+	result.Epoch = common.JSONUint64(block.GetEpoch())
+	result.Height = common.JSONUint64(block.GetHeight())
+	result.Parent = block.GetParent()
+	result.TxHash = block.GetTxHash()
+	result.StateHash = block.GetStateHash()
+	result.Timestamp = (*common.JSONBig)(block.GetTimestamp())
+	result.Proposer = block.GetProposer()
 	result.Children = block.Children
 	result.Status = block.Status
-	result.HCC = block.HCC
-	result.GuardianVotes = block.GuardianVotes
-	result.EliteEdgeNodeVotes = block.EliteEdgeNodeVotes
+	result.HCC = *block.GetHCC()
+	result.GuardianVotes = block.GetGuardianVotes()
+	result.EliteEdgeNodeVotes = block.GetEliteEdgeNodeVotes()
 
 	result.Hash = block.Hash()
 
@@ -450,21 +450,21 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 	if args.Start == 0 {
 		startBlockHeight = 1 // genesis block needs special handling
 	}
-	for common.JSONUint64(block.Height) >= startBlockHeight {
+	for common.JSONUint64(block.GetHeight()) >= startBlockHeight {
 		blkInner := &GetBlockResultInner{}
-		blkInner.ChainID = block.ChainID
-		blkInner.Epoch = common.JSONUint64(block.Epoch)
-		blkInner.Height = common.JSONUint64(block.Height)
-		blkInner.Parent = block.Parent
-		blkInner.TxHash = block.TxHash
-		blkInner.StateHash = block.StateHash
-		blkInner.Timestamp = (*common.JSONBig)(block.Timestamp)
-		blkInner.Proposer = block.Proposer
+		blkInner.ChainID = block.GetChainID()
+		blkInner.Epoch = common.JSONUint64(block.GetEpoch())
+		blkInner.Height = common.JSONUint64(block.GetHeight())
+		blkInner.Parent = block.GetParent()
+		blkInner.TxHash = block.GetTxHash()
+		blkInner.StateHash = block.GetStateHash()
+		blkInner.Timestamp = (*common.JSONBig)(block.GetTimestamp())
+		blkInner.Proposer = block.GetProposer()
 		blkInner.Children = block.Children
 		blkInner.Status = block.Status
-		blkInner.HCC = block.HCC
-		blkInner.GuardianVotes = block.GuardianVotes
-		blkInner.EliteEdgeNodeVotes = block.EliteEdgeNodeVotes
+		blkInner.HCC = *block.GetHCC()
+		blkInner.GuardianVotes = block.GetGuardianVotes()
+		blkInner.EliteEdgeNodeVotes = block.GetEliteEdgeNodeVotes()
 
 		blkInner.Hash = block.Hash()
 
@@ -472,7 +472,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 
 		*result = append([]*GetBlockResultInner{blkInner}, *result...)
 
-		block, err = t.chain.FindBlock(block.Parent)
+		block, err = t.chain.FindBlock(block.GetParent())
 		if err != nil {
 			return err
 		}
@@ -517,9 +517,9 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		if err != nil {
 			return err
 		}
-		result.LatestFinalizedBlockEpoch = common.JSONUint64(latestFinalizedBlock.Epoch)
-		result.LatestFinalizedBlockHeight = common.JSONUint64(latestFinalizedBlock.Height)
-		result.LatestFinalizedBlockTime = (*common.JSONBig)(latestFinalizedBlock.Timestamp)
+		result.LatestFinalizedBlockEpoch = common.JSONUint64(latestFinalizedBlock.GetEpoch())
+		result.LatestFinalizedBlockHeight = common.JSONUint64(latestFinalizedBlock.GetHeight())
+		result.LatestFinalizedBlockTime = (*common.JSONBig)(latestFinalizedBlock.GetTimestamp())
 	}
 	result.CurrentEpoch = common.JSONUint64(s.Epoch)
 	result.CurrentTime = (*common.JSONBig)(big.NewInt(time.Now().Unix()))
@@ -623,7 +623,7 @@ func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVc
 	blocks := t.chain.FindBlocksByHeight(height)
 	for _, b := range blocks {
 		blockHash := b.Hash()
-		stateRoot := b.StateHash
+		stateRoot := b.GetStateHash()
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the VCP for height %v does not exists, it might have been pruned", height)
@@ -670,7 +670,7 @@ func (t *ThetaRPCService) GetGcpByHeight(args *GetGcpByHeightArgs, result *GetGc
 	blocks := t.chain.FindBlocksByHeight(height)
 	for _, b := range blocks {
 		blockHash := b.Hash()
-		stateRoot := b.StateHash
+		stateRoot := b.GetStateHash()
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the GCP for height %v does not exists, it might have been pruned", height)
@@ -747,7 +747,7 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 	blocks := t.chain.FindBlocksByHeight(height)
 	for _, b := range blocks {
 		blockHash := b.Hash()
-		stateRoot := b.StateHash
+		stateRoot := b.GetStateHash()
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
@@ -796,7 +796,7 @@ func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
 	blocks := t.chain.FindBlocksByHeight(height)
 	for _, b := range blocks {
 		blockHash := b.Hash()
-		stateRoot := b.StateHash
+		stateRoot := b.GetStateHash()
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
 		if blockStoreView == nil { // might have been pruned
 			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
@@ -934,7 +934,7 @@ func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err
 
 		for _, b := range blocks {
 			if b.Status.IsFinalized() {
-				stateRoot := b.StateHash
+				stateRoot := b.GetStateHash()
 				ledgerState := state.NewStoreView(height, stateRoot, db)
 				if ledgerState == nil { // might have been pruned
 					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)
@@ -993,7 +993,7 @@ func (t *ThetaRPCService) GetStorageAt(args *GetStorageAtArgs, result *GetStorag
 
 		for _, b := range blocks {
 			if b.Status.IsFinalized() {
-				stateRoot := b.StateHash
+				stateRoot := b.GetStateHash()
 				ledgerState := state.NewStoreView(height, stateRoot, db)
 				if ledgerState == nil { // might have been pruned
 					return fmt.Errorf("the account details for height %v is not available, it might have been pruned", height)

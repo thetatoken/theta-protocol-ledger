@@ -45,9 +45,9 @@ func main() {
 	refDBPath := path.Join(configPath, "db", "ref")
 	db, _ := backend.NewLDBDatabase(mainDBPath, refDBPath, 256, 0)
 
-	root := core.NewBlock()
+	root := core.NewBlock(&core.ThetaBlockHeader{})
 	store := kvstore.NewKVStore(db)
-	chain := blockchain.NewChain(root.ChainID, store, root)
+	chain := blockchain.NewChain(root.GetChainID(), store, root)
 
 	if queryType == "block" {
 		if hashStr != "" {

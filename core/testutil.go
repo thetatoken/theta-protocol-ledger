@@ -51,28 +51,29 @@ func CreateTestBlock(name string, parent string) *Block {
 		return block
 	}
 
-	block = NewBlock()
-	block.ChainID = "testchain"
-	block.StateHash = common.HexToHash(name)
+	block = NewBlock(&ThetaBlockHeader{})
+	block.SetChainID("testchain")
+	block.SetStateHash(common.HexToHash(name))
 
 	var pBlock *Block
 	if parent != "" {
 		var ok bool
 		pBlock, ok = TestBlocks[parent]
-		block.Parent = pBlock.Hash()
-		block.Height = pBlock.Height + 1
+		block.SetParent(pBlock.Hash())
+		block.SetHeight(pBlock.GetHeight() + 1)
 		if !ok {
 			panic(fmt.Sprintf("Failed to find test block %v", parent))
 		}
 	}
 
 	epoch++
-	block.Epoch = epoch
-	block.HCC.BlockHash = block.Parent
-	block.Proposer = DefaultSigner.PublicKey().Address()
+	block.SetEpoch(epoch)
+	block.GetHCC().BlockHash = block.GetParent()
+	block.SetProposer(DefaultSigner.PublicKey().Address())
 	block.AddTxs([]common.Bytes{})
-	block.Timestamp = big.NewInt(time.Now().Unix())
-	block.Signature, _ = DefaultSigner.Sign(block.SignBytes())
+	block.SetTimestamp(big.NewInt(time.Now().Unix()))
+	signature, _ := DefaultSigner.Sign(block.SignBytes())
+	block.SetSignature(signature)
 
 	TestBlocksLock.Lock()
 	defer TestBlocksLock.Unlock()

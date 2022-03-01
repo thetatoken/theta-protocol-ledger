@@ -67,8 +67,8 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
-	if block.ChainID != ch.ChainID {
-		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, ch.ChainID)
+	if block.GetChainID() != ch.ChainID {
+		return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.GetChainID(), ch.ChainID)
 	}
 
 	val := &core.ExtendedBlock{}
@@ -80,8 +80,8 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 	}
 
 	// Update parent if present.
-	if !block.Parent.IsEmpty() && !isSnapshotRoot {
-		parentBlock, err := ch.findBlock(block.Parent)
+	if !block.GetParent().IsEmpty() && !isSnapshotRoot {
+		parentBlock, err := ch.findBlock(block.GetParent())
 		if err == nil {
 			parentBlock.Children = append(parentBlock.Children, hash)
 			err = ch.saveBlock(parentBlock)
@@ -94,10 +94,10 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 	extendedBlock := &core.ExtendedBlock{Block: block}
 
 	// Update children if present.
-	children := ch.findBlocksByHeight(block.Height + 1)
+	children := ch.findBlocksByHeight(block.GetHeight() + 1)
 	extendedBlock.Children = []common.Hash{}
 	for i := 0; i < len(children); i++ {
-		if children[i].Parent != block.Hash() {
+		if children[i].GetParent() != block.Hash() {
 			continue
 		}
 		extendedBlock.Children = append(extendedBlock.Children, children[i].Hash())
@@ -108,7 +108,7 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 		logger.Panic(err)
 	}
 
-	ch.AddBlockByHeightIndex(extendedBlock.Height, extendedBlock.Hash())
+	ch.AddBlockByHeightIndex(extendedBlock.GetHeight(), extendedBlock.Hash())
 	ch.AddTxsToIndex(extendedBlock, false)
 
 	return extendedBlock, nil
@@ -119,7 +119,7 @@ func (ch *Chain) FixBlockIndex(block *core.ExtendedBlock) {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
 
-	ch.AddBlockByHeightIndex(block.Height, block.Hash())
+	ch.AddBlockByHeightIndex(block.GetHeight(), block.Hash())
 	ch.AddTxsToIndex(block, false)
 }
 
@@ -294,13 +294,13 @@ func (ch *Chain) FinalizePreviousBlocks(hash common.Hash) error {
 		// duplicate TX in fork.
 		ch.AddTxsToIndex(block, true)
 
-		hash = block.Parent
+		hash = block.GetParent()
 	}
 	return nil
 }
 
 func (ch *Chain) IsOrphan(block *core.Block) bool {
-	_, err := ch.FindBlock(block.Parent)
+	_, err := ch.FindBlock(block.GetParent())
 	return err != nil
 }
 
@@ -342,7 +342,7 @@ func (ch *Chain) IsDescendant(ascendantHash common.Hash, descendantHash common.H
 		if err != nil {
 			return false
 		}
-		hash = currBlock.Parent
+		hash = currBlock.GetParent()
 	}
 	return false
 }
@@ -357,7 +357,7 @@ func (ch *Chain) PrintBranch(hash common.Hash) string {
 			break
 		}
 		ret = append(ret, hash.String())
-		hash = currBlock.Parent
+		hash = currBlock.GetParent()
 	}
 	return fmt.Sprintf("%v", ret)
 }

@@ -47,7 +47,7 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		chain:              chain,
 		highestCCBlock:     chain.Root().Hash(),
 		lastFinalizedBlock: chain.Root().Hash(),
-		epoch:              chain.Root().Epoch,
+		epoch:              chain.Root().GetEpoch(),
 	}
 	err := s.Load()
 	if err != nil {

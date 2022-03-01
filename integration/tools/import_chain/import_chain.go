@@ -47,14 +47,14 @@ func main() {
 
 	initConfig(configPath)
 
-	root := core.NewBlock()
+	root := core.NewBlock(&core.ThetaBlockHeader{})
 	if chainID == "" {
-		root.ChainID = core.MainnetChainID
+		root.SetChainID(core.MainnetChainID)
 	} else {
-		root.ChainID = chainID
+		root.SetChainID(chainID)
 	}
 	store := kvstore.NewKVStore(db)
-	chain := blockchain.NewChain(root.ChainID, store, root)
+	chain := blockchain.NewChain(root.GetChainID(), store, root)
 
 	_, err := snapshot.ValidateSnapshot(snapshotPath, chainImportDirPath, "")
 	if err != nil {

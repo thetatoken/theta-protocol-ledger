@@ -182,9 +182,9 @@ func (rdb *RollingDB) compact(height uint64) {
 				logger.Debugf("Found finalized block: %v", block.Hash().Hex())
 
 				for _, stateRoot := range sourceLayer.tag.StateRoots {
-					logger.Debugf("State root check, stateRoot: %v, block.StateHash: %v", stateRoot.Hex(), block.StateHash.Hex())
+					logger.Debugf("State root check, stateRoot: %v, block.StateHash: %v", stateRoot.Hex(), block.GetStateHash().Hex())
 
-					if stateRoot == block.StateHash {
+					if stateRoot == block.GetStateHash() {
 						logger.Infof("Moving finalized state hash=%v, source=%v, target=%v", stateRoot.Hex(), sourceLayer.name, targetLayer.name)
 						copyState(rdb, targetLayer.db.NewBatch(), stateRoot)
 

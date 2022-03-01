@@ -46,7 +46,7 @@ const (
 type PendingBlock struct {
 	hash       common.Hash
 	block      *core.Block
-	header     *core.BlockHeader
+	header     core.BlockHeader
 	peers      []string
 	lastUpdate time.Time
 	createdAt  time.Time
@@ -82,7 +82,7 @@ type HeaderHeap []*PendingBlock
 func (h HeaderHeap) Len() int { return len(h) }
 func (h HeaderHeap) Less(i, j int) bool {
 	if h[i].header != nil && h[j].header != nil {
-		return h[i].header.Height < h[j].header.Height
+		return h[i].header.GetHeight() < h[j].header.GetHeight()
 	}
 	return i < j
 }
@@ -264,9 +264,9 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 	step := 1
 
 	// Start at the top of the chain and work backwards.
-	for index := tip.Height; index > lfb.Height; index -= uint64(step) {
+	for index := tip.GetHeight(); index > lfb.GetHeight(); index -= uint64(step) {
 		// Push top 10 indexes first, then back off exponentially.
-		if tip.Height-index >= 10 {
+		if tip.GetHeight()-index >= 10 {
 			step *= 2
 		}
 		// Check overflow
@@ -308,7 +308,7 @@ func (rm *RequestManager) tryToDownload() {
 		if hasUndownloadedBlocks && rm.pendingBlocks.Len() > 1 {
 			fastSyncHeight := uint64(0)
 			if fastSyncTip, ok := rm.tip.Load().(*core.ExtendedBlock); ok {
-				fastSyncHeight = fastSyncTip.Height
+				fastSyncHeight = fastSyncTip.GetHeight()
 			}
 			rm.logger.WithFields(log.Fields{
 				"pending block hashes": rm.pendingBlocks.Len(),
@@ -400,7 +400,7 @@ func (rm *RequestManager) downloadBlockFromHash() {
 		hash := pendingBlock.hash.Hex()
 		height := uint64(0)
 		if pendingBlock.header != nil {
-			height = pendingBlock.header.Height
+			height = pendingBlock.header.GetHeight()
 		}
 		rm.logger.WithFields(log.Fields{
 			"block":        hash,
@@ -508,7 +508,7 @@ func (rm *RequestManager) downloadBlockFromHeader() {
 		hash := pendingBlock.hash.Hex()
 		height := uint64(0)
 		if pendingBlock.block != nil {
-			height = pendingBlock.block.Height
+			height = pendingBlock.block.GetHeight()
 		}
 		rm.logger.WithFields(log.Fields{
 			"block":        hash,
@@ -667,7 +667,7 @@ func (rm *RequestManager) IsGossipBlock(hash common.Hash) bool {
 	return pendingBlock.fromGossip
 }
 
-func (rm *RequestManager) AddHeader(header *core.BlockHeader, peerIDs []string) {
+func (rm *RequestManager) AddHeader(header core.BlockHeader, peerIDs []string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -734,7 +734,7 @@ func (rm *RequestManager) passReadyBlocks() {
 
 	for {
 		lfb := rm.syncMgr.consensus.GetLastFinalizedBlock()
-		height := lfb.Height + 1
+		height := lfb.GetHeight() + 1
 		parents := []*core.ExtendedBlock{lfb}
 
 		for {
@@ -752,7 +752,7 @@ func (rm *RequestManager) passReadyBlocks() {
 				// Check if block's parent has already been added to chain. If not, skip block
 				found := false
 				for _, parent := range parents {
-					if parent.Hash() == block.Parent && parent.Status.IsValid() {
+					if parent.Hash() == block.GetParent() && parent.Status.IsValid() {
 						found = true
 						break
 					}

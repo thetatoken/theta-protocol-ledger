@@ -28,7 +28,7 @@ func (ch *Chain) AddTxsToIndex(block *core.ExtendedBlock, force bool) {
 	for idx, tx := range block.Txs {
 		txIndexEntry := TxIndexEntry{
 			BlockHash:   block.Hash(),
-			BlockHeight: block.Height,
+			BlockHeight: block.GetHeight(),
 			Index:       uint64(idx),
 		}
 		txHash := crypto.Keccak256Hash(tx)
@@ -163,7 +163,7 @@ func CalcEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte) (common.Hash, e
 		return common.Hash{}, fmt.Errorf("not a smart contract transaction") // not a smart contract tx, skip ETH tx insertion
 	}
 
-	ethSigningHash := sctx.EthSigningHash(block.ChainID, block.Height)
+	ethSigningHash := sctx.EthSigningHash(block.GetChainID(), block.GetHeight())
 	err = crypto.ValidateEthSignature(sctx.From.Address, ethSigningHash, sctx.From.Signature)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("not an ETH smart contract transaction") // it is a Theta native smart contract transaction, no need to index it as an EthTxHash
@@ -175,7 +175,7 @@ func CalcEthTxHash(block *core.ExtendedBlock, rawTxBytes []byte) (common.Hash, e
 	}
 
 	r, s, v := crypto.DecodeSignature(sctx.From.Signature)
-	chainID := types.MapChainID(block.ChainID, block.Height)
+	chainID := types.MapChainID(block.GetChainID(), block.GetHeight())
 	vPrime := big.NewInt(1).Mul(chainID, big.NewInt(2))
 	vPrime = big.NewInt(0).Add(vPrime, big.NewInt(8))
 	vPrime = big.NewInt(0).Add(vPrime, v)

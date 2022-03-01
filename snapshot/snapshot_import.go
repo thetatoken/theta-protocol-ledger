@@ -55,7 +55,7 @@ func (s SVStack) peek() *state.StoreView {
 }
 
 // ImportSnapshot loads the snapshot into the given database
-func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader *core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
+func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (snapshotBlockHeader core.BlockHeader, lastCC *core.ExtendedBlock, err error) {
 	logger.Infof("Loading snapshot from: %v", snapshotFilePath)
 	snapshotBlockHeader, metadata, err := loadSnapshot(snapshotFilePath, db, "Importing Snapshot")
 	if err != nil {
@@ -92,7 +92,7 @@ func ImportSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath st
 }
 
 // ValidateSnapshot validates the snapshot using a temporary database
-func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string) (*core.BlockHeader, error) {
+func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath string) (core.BlockHeader, error) {
 	logger.Infof("Verifying snapshot: %v", snapshotFilePath)
 
 	tmpdbRoot, err := ioutil.TempDir("", "tmpdb")
@@ -140,7 +140,7 @@ func ValidateSnapshot(snapshotFilePath, chainImportDirPath, chainCorrectionPath 
 	return snapshotBlockHeader, nil
 }
 
-func LoadSnapshotCheckpointHeader(snapshotFilePath string) *core.BlockHeader {
+func LoadSnapshotCheckpointHeader(snapshotFilePath string) core.BlockHeader {
 	var err error
 
 	snapshotFile, err := os.Open(snapshotFilePath)
@@ -170,7 +170,7 @@ func LoadSnapshotCheckpointHeader(snapshotFilePath string) *core.BlockHeader {
 	return metadata.TailTrio.Second.Header
 }
 
-func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (core.BlockHeader, *core.SnapshotMetadata, error) {
 	var err error
 
 	snapshotFile, err := os.Open(snapshotFilePath)
@@ -255,7 +255,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 			return nil, nil, err
 		}
 		lfb := metadata.TailTrio.Second
-		sv = state.NewStoreView(lfb.Header.Height, lfb.Header.StateHash, db)
+		sv = state.NewStoreView(lfb.Header.GetHeight(), lfb.Header.GetStateHash(), db)
 	} else {
 		sv, _, err = loadStateV2(snapshotFile, db, fileSize, logStr)
 		if err != nil {
@@ -278,7 +278,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
 
 	for _, blockTrio := range metadata.ProofTrios {
-		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.Height, 10))
+		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(blockTrio.First.Header.GetHeight(), 10))
 		err = kvstore.Put(blockTrioKey, blockTrio)
 		if err != nil {
 			logger.Panicf("Failed to save ProofTrios: err: %v", err)
@@ -298,7 +298,7 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 	return secondBlockHeader, &metadata, nil
 }
 
-func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (headBlock, tailBlock *core.ExtendedBlock, err error) {
+func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database, ledger *ledger.Ledger) (headBlock, tailBlock *core.ExtendedBlock, err error) {
 	chainFile, err := os.Open(chainImportDirPath)
 	if err != nil {
 		return
@@ -315,8 +315,8 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 		_, err := core.ReadRecord(chainFile, backupBlock)
 		if err != nil {
 			if err == io.EOF {
-				if prevBlock.Height != snapshotBlockHeader.Height+1 {
-					return nil, nil, fmt.Errorf("Chain's head block height: %v, snapshot's height: %v", prevBlock.Height, snapshotBlockHeader.Height)
+				if prevBlock.GetHeight() != snapshotBlockHeader.GetHeight()+1 {
+					return nil, nil, fmt.Errorf("Chain's head block height: %v, snapshot's height: %v", prevBlock.GetHeight(), snapshotBlockHeader.GetHeight())
 				}
 				break
 			}
@@ -328,25 +328,25 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			tailBlock = block
 		}
 
-		if block.Height <= snapshotBlockHeader.Height {
-			return nil, nil, fmt.Errorf("Block height is %v, must be > than snapshot height %v", block.Height, snapshotBlockHeader.Height)
+		if block.GetHeight() <= snapshotBlockHeader.GetHeight() {
+			return nil, nil, fmt.Errorf("Block height is %v, must be > than snapshot height %v", block.GetHeight(), snapshotBlockHeader.GetHeight())
 		}
 
 		blockHash := block.Hash()
 
 		if prevBlock != nil {
 			// check chaining
-			if block.Height != prevBlock.Height-1 {
-				return nil, nil, fmt.Errorf("Block height: %v, prev block height: %v", block.Height, prevBlock.Height)
+			if block.GetHeight() != prevBlock.GetHeight()-1 {
+				return nil, nil, fmt.Errorf("Block height: %v, prev block height: %v", block.GetHeight(), prevBlock.GetHeight())
 			}
-			if prevBlock.Parent != blockHash {
-				return nil, nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.Height, prevBlock.Parent, blockHash)
+			if prevBlock.GetParent() != blockHash {
+				return nil, nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.GetHeight(), prevBlock.GetParent(), blockHash)
 			}
 		}
 
 		if chain != nil {
-			if block.ChainID != chain.ChainID {
-				return nil, nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			if block.GetChainID() != chain.ChainID {
+				return nil, nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.GetChainID(), chain.ChainID)
 			}
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
@@ -355,7 +355,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 				if err != nil {
 					return nil, nil, err
 				}
-				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddBlockByHeightIndex(block.GetHeight(), blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
 				existingBlock.Txs = block.Txs
@@ -364,7 +364,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 				if err != nil {
 					return nil, nil, err
 				}
-				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddBlockByHeightIndex(block.GetHeight(), blockHash)
 				chain.AddTxsToIndex(block, true)
 			}
 		}
@@ -382,7 +382,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 			}
 			block := blockStack[num-1]
 			blockStack = blockStack[:num-1]
-			parent, _ := chain.FindBlock(block.Parent)
+			parent, _ := chain.FindBlock(block.GetParent())
 
 			//result := ledger.ResetState(parent.Height, parent.StateHash)
 			result := ledger.ResetState(parent.Block)
@@ -401,7 +401,7 @@ func LoadChainCorrection(chainImportDirPath string, snapshotBlockHeader *core.Bl
 	return
 }
 
-func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
+func loadPrevChain(chainImportDirPath string, snapshotBlockHeader core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) error {
 	if len(chainImportDirPath) != 0 {
 		if _, err := os.Stat(chainImportDirPath); !os.IsNotExist(err) {
 			fileInfos, err := ioutil.ReadDir(chainImportDirPath)
@@ -424,10 +424,10 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 			var prevBlock *core.ExtendedBlock
 			for _, fileName := range chainFileNames {
 				start, end := getChainBoundary(fileName)
-				if start > snapshotBlockHeader.Height {
+				if start > snapshotBlockHeader.GetHeight() {
 					continue
 				}
-				if end < snapshotBlockHeader.Height {
+				if end < snapshotBlockHeader.GetHeight() {
 					if end != blockEnd {
 						return fmt.Errorf("Missing chain file ending at height %v", blockEnd)
 					}
@@ -442,8 +442,8 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 			}
 
 			start, _ := getChainBoundary(chainFileNames[len(chainFileNames)-1])
-			if prevBlock.Height != start {
-				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.Height, start)
+			if prevBlock.GetHeight() != start {
+				return fmt.Errorf("Chain loading started at height %v, but should start at height %v", prevBlock.GetHeight(), start)
 			}
 
 			logger.Infof("Chain loaded successfully.")
@@ -452,7 +452,7 @@ func loadPrevChain(chainImportDirPath string, snapshotBlockHeader *core.BlockHea
 	return nil
 }
 
-func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader *core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) (*core.ExtendedBlock, error) {
+func loadChainSegment(filePath string, start, end uint64, prevBlock *core.ExtendedBlock, snapshotBlockHeader core.BlockHeader, metadata *core.SnapshotMetadata, chain *blockchain.Chain, db database.Database) (*core.ExtendedBlock, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		return nil, err
@@ -475,19 +475,19 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		block := backupBlock.Block
 
 		if count == 0 {
-			if block.Height != end {
-				return nil, fmt.Errorf("Last block height doesn't match, %v : %v", block.Height, end)
+			if block.GetHeight() != end {
+				return nil, fmt.Errorf("Last block height doesn't match, %v : %v", block.GetHeight(), end)
 			}
 		}
 
-		if block.Height > snapshotBlockHeader.Height {
+		if block.GetHeight() > snapshotBlockHeader.GetHeight() {
 			count++
 			continue
 		}
 
 		// check block itself
 		var provenValSet *core.ValidatorSet
-		if block.Height == core.GenesisBlockHeight {
+		if block.GetHeight() == core.GenesisBlockHeight {
 			provenValSet, err = checkGenesisBlock(block.BlockHeader, db)
 			if err != nil {
 				return nil, err
@@ -495,13 +495,13 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		} else {
 			if chain != nil {
 				if res := block.Validate(chain.ChainID); res.IsError() {
-					return nil, fmt.Errorf("Block %v's header is invalid, %v", block.Height, res)
+					return nil, fmt.Errorf("Block %v's header is invalid, %v", block.GetHeight(), res)
 				}
 			}
 
 			for {
 				proofTrio = metadata.ProofTrios[len(metadata.ProofTrios)-1]
-				if proofTrio.First.Header.Height+2 <= block.Height || len(metadata.ProofTrios) == 1 {
+				if proofTrio.First.Header.GetHeight()+2 <= block.GetHeight() || len(metadata.ProofTrios) == 1 {
 					break
 				}
 				provenValSet = nil
@@ -510,10 +510,10 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 			}
 
 			if provenValSet == nil {
-				if proofTrio.First.Header.Height == core.GenesisBlockHeight {
+				if proofTrio.First.Header.GetHeight() == core.GenesisBlockHeight {
 					provenValSet, err = checkGenesisBlock(proofTrio.Second.Header, db)
 				} else {
-					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.StateHash, &proofTrio.First.Proof)
+					provenValSet, err = getValidatorSetFromVCPProof(proofTrio.First.Header.GetStateHash(), &proofTrio.First.Proof)
 				}
 				if err != nil {
 					return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
@@ -529,21 +529,21 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		blockHash := block.Hash()
 
 		// check against snapshot block
-		if block.Height == snapshotBlockHeader.Height {
+		if block.GetHeight() == snapshotBlockHeader.GetHeight() {
 			if blockHash != snapshotBlockHeader.Hash() {
 				return nil, fmt.Errorf("Chain loading reached snapshot block, but block hash doesn't match, %v : %v", blockHash, snapshotBlockHeader.Hash())
 			}
 		} else {
 			// check chaining
-			if block.Height != prevBlock.Height-1 {
-				return nil, fmt.Errorf("Block height missing at %v", prevBlock.Height-1)
+			if block.GetHeight() != prevBlock.GetHeight()-1 {
+				return nil, fmt.Errorf("Block height missing at %v", prevBlock.GetHeight()-1)
 			}
-			if prevBlock.Parent != blockHash {
-				return nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.Height, prevBlock.Parent, blockHash)
+			if prevBlock.GetParent() != blockHash {
+				return nil, fmt.Errorf("Block at height %v has invalid parent %v vs %v", prevBlock.GetHeight(), prevBlock.GetParent(), blockHash)
 			}
 
 			// check against genesis block
-			if block.Height == core.GenesisBlockHeight {
+			if block.GetHeight() == core.GenesisBlockHeight {
 				_, err := checkGenesisBlock(block.BlockHeader, db)
 				if err != nil {
 					return nil, err
@@ -552,8 +552,8 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 		}
 
 		if chain != nil {
-			if block.ChainID != chain.ChainID {
-				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.ChainID, chain.ChainID)
+			if block.GetChainID() != chain.ChainID {
+				return nil, errors.Errorf("ChainID mismatch: block.ChainID(%s) != %s", block.GetChainID(), chain.ChainID)
 			}
 			existingBlock := core.ExtendedBlock{}
 			if kvstore.Get(blockHash[:], &existingBlock) != nil {
@@ -561,17 +561,17 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 				if err != nil {
 					return nil, err
 				}
-				chain.AddBlockByHeightIndex(block.Height, blockHash)
+				chain.AddBlockByHeightIndex(block.GetHeight(), blockHash)
 				chain.AddTxsToIndex(block, true)
 			} else {
-				if block.Height == core.GenesisBlockHeight+1 || block.Height == snapshotBlockHeader.Height || block.Height == snapshotBlockHeader.Height-1 || block.Height == prevTrio.First.Header.Height {
+				if block.GetHeight() == core.GenesisBlockHeight+1 || block.GetHeight() == snapshotBlockHeader.GetHeight() || block.GetHeight() == snapshotBlockHeader.GetHeight()-1 || block.GetHeight() == prevTrio.First.Header.GetHeight() {
 					existingBlock.Txs = block.Txs
 					existingBlock.HasValidatorUpdate = true
 					err = kvstore.Put(blockHash[:], existingBlock)
 					if err != nil {
 						return nil, err
 					}
-					chain.AddBlockByHeightIndex(block.Height, blockHash)
+					chain.AddBlockByHeightIndex(block.GetHeight(), blockHash)
 					chain.AddTxsToIndex(block, true)
 				}
 			}
@@ -584,8 +584,8 @@ func loadChainSegment(filePath string, start, end uint64, prevBlock *core.Extend
 	if prevBlock == nil {
 		return nil, fmt.Errorf("Empty chain file for height %v to %v", start, end)
 	}
-	if prevBlock.Height != start {
-		return nil, fmt.Errorf("Chain file for height %v to %v has first block height %v", start, end, prevBlock.Height)
+	if prevBlock.GetHeight() != start {
+		return nil, fmt.Errorf("Chain file for height %v to %v has first block height %v", start, end, prevBlock.GetHeight())
 	}
 	if count != end-start+1 {
 		return nil, fmt.Errorf("Expect %v blocks, but actually got %v", end-start+1, count)
@@ -732,7 +732,7 @@ func loadStateV3(file *os.File, db database.Database, fileSize uint64, logStr st
 	return nil
 }
 
-func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
+func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
 	if snapshotBlockHeader == nil {
 		return fmt.Errorf("The snapshot block header is nil")
 	}
@@ -760,7 +760,7 @@ func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHea
 		if err != nil {
 			return fmt.Errorf("Failed to find block when verifying the last checkpoint, block hash: %v", hash.Hex())
 		}
-		hash = block.Parent
+		hash = block.GetParent()
 	}
 
 	if !isDescendent {
@@ -775,14 +775,14 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 	tailTrio := &metadata.TailTrio
 	secondBlock := tailTrio.Second.Header
 	expectedStateHash := sv.Hash()
-	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.StateHash.Bytes()) != 0 {
+	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.GetStateHash().Bytes()) != 0 {
 		return fmt.Errorf("StateHash not matching: %v vs %s",
-			expectedStateHash.Hex(), secondBlock.StateHash.Hex())
+			expectedStateHash.Hex(), secondBlock.GetStateHash().Hex())
 	}
 
 	var provenValSet *core.ValidatorSet
 	var err error
-	if secondBlock.Height != core.GenesisBlockHeight {
+	if secondBlock.GetHeight() != core.GenesisBlockHeight {
 		provenValSet, err = checkProofTrios(metadata.ProofTrios, db)
 		if err != nil {
 			return err
@@ -801,16 +801,16 @@ func checkSnapshotV4(sv *state.StoreView, metadata *core.SnapshotMetadata, db da
 	tailTrio := &metadata.TailTrio
 	secondBlock := tailTrio.Second.Header
 	expectedStateHash := sv.Hash()
-	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.StateHash.Bytes()) != 0 {
+	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.GetStateHash().Bytes()) != 0 {
 		return fmt.Errorf("StateHash not matching: %v vs %s",
-			expectedStateHash.Hex(), secondBlock.StateHash.Hex())
+			expectedStateHash.Hex(), secondBlock.GetStateHash().Hex())
 	}
 
 	var valSet *core.ValidatorSet
 	var err error
 
 	first := tailTrio.First
-	valSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
+	valSet, err = getValidatorSetFromVCPProof(first.Header.GetStateHash(), &first.Proof)
 	if err != nil {
 		return fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
 	}
@@ -841,26 +841,26 @@ func checkProofTrios(proofTrios []core.SnapshotBlockTrio, db database.Database) 
 				return nil, fmt.Errorf("Invalid genesis block: %v", err)
 			}
 		} else {
-			if second.Header.Parent != first.Header.Hash() || third.Header.Parent != second.Header.Hash() {
+			if second.Header.GetParent() != first.Header.Hash() || third.Header.GetParent() != second.Header.Hash() {
 				return nil, fmt.Errorf("block trio has invalid Parent link")
 			}
 
-			if second.Header.HCC.BlockHash != first.Header.Hash() || third.Header.HCC.BlockHash != second.Header.Hash() {
-				return nil, fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", first.Header.Hash(), second.Header.HCC.BlockHash,
-					second.Header.Hash(), third.Header.HCC.BlockHash)
+			if second.Header.GetHCC().BlockHash != first.Header.Hash() || third.Header.GetHCC().BlockHash != second.Header.Hash() {
+				return nil, fmt.Errorf("block trio has invalid HCC link: %v, %v; %v, %v", first.Header.Hash(), second.Header.GetHCC().BlockHash,
+					second.Header.Hash(), third.Header.GetHCC().BlockHash)
 			}
 
 			// third.Header.HCC.Votes contains the votes for the second block in the trio
-			if err := validateVotes(provenValSet, second.Header, third.Header.HCC.Votes); err != nil {
+			if err := validateVotes(provenValSet, second.Header, third.Header.GetHCC().Votes); err != nil {
 				return nil, fmt.Errorf("Failed to validate voteSet, %v", err)
 			}
-			provenValSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
+			provenValSet, err = getValidatorSetFromVCPProof(first.Header.GetStateHash(), &first.Proof)
 			if err != nil {
 				return nil, fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
 			}
 		}
 
-		logger.Debugf("Block height: %v, Currently proven validator set: %v", first.Header.Height, provenValSet)
+		logger.Debugf("Block height: %v, Currently proven validator set: %v", first.Header.GetHeight(), provenValSet)
 	}
 
 	return provenValSet, nil
@@ -870,7 +870,7 @@ func checkTailTrio(sv *state.StoreView, provenValSet *core.ValidatorSet, tailTri
 	second := &tailTrio.Second
 	third := &tailTrio.Third
 
-	if second.Header.Height == core.GenesisBlockHeight {
+	if second.Header.GetHeight() == core.GenesisBlockHeight {
 		_, err := checkGenesisBlock(second.Header, sv.GetDB())
 		if err != nil {
 			return err
@@ -886,13 +886,13 @@ func checkTailTrio(sv *state.StoreView, provenValSet *core.ValidatorSet, tailTri
 	return nil
 }
 
-func checkGenesisBlock(block *core.BlockHeader, db database.Database) (*core.ValidatorSet, error) {
-	if block.Height != core.GenesisBlockHeight {
-		return nil, fmt.Errorf("Invalid genesis block height: %v", block.Height)
+func checkGenesisBlock(block core.BlockHeader, db database.Database) (*core.ValidatorSet, error) {
+	if block.GetHeight() != core.GenesisBlockHeight {
+		return nil, fmt.Errorf("Invalid genesis block height: %v", block.GetHeight())
 	}
 
 	var expectedGenesisHash string
-	if block.ChainID == core.MainnetChainID {
+	if block.GetChainID() == core.MainnetChainID {
 		expectedGenesisHash = core.MainnetGenesisBlockHash
 	} else {
 		expectedGenesisHash = viper.GetString(common.CfgGenesisHash)
@@ -909,7 +909,7 @@ func checkGenesisBlock(block *core.BlockHeader, db database.Database) (*core.Val
 	// now that the block hash matches with the expected genesis block hash,
 	// the block and its state trie is considerred valid. We can retrieve the
 	// genesis validator set from its state trie
-	gsv := state.NewStoreView(block.Height, block.StateHash, db)
+	gsv := state.NewStoreView(block.GetHeight(), block.GetStateHash(), db)
 
 	genesisValidatorSet := getValidatorSetFromSV(gsv)
 
@@ -935,7 +935,7 @@ func getValidatorSetFromSV(sv *state.StoreView) *core.ValidatorSet {
 	return consensus.SelectTopStakeHoldersAsValidators(vcp)
 }
 
-func validateVotes(validatorSet *core.ValidatorSet, block *core.BlockHeader, voteSet *core.VoteSet) error {
+func validateVotes(validatorSet *core.ValidatorSet, block core.BlockHeader, voteSet *core.VoteSet) error {
 	if !validatorSet.HasMajority(voteSet) {
 		return fmt.Errorf("block doesn't have majority votes")
 	}
@@ -955,18 +955,18 @@ func validateVotes(validatorSet *core.ValidatorSet, block *core.BlockHeader, vot
 	return nil
 }
 
-func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstore store.Store) *core.BlockHeader {
+func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstore store.Store) core.BlockHeader {
 	tailBlockTrio := &metadata.TailTrio
 	firstBlock := core.Block{BlockHeader: tailBlockTrio.First.Header}
 	secondBlock := core.Block{BlockHeader: tailBlockTrio.Second.Header}
 	hl := sv.GetStakeTransactionHeightList()
 
-	if secondBlock.Height != core.GenesisBlockHeight {
+	if secondBlock.GetHeight() != core.GenesisBlockHeight {
 		firstExt := &core.ExtendedBlock{
 			Block:              &firstBlock,
 			Status:             core.BlockStatusTrusted, // HCC links between all three blocks
 			Children:           []common.Hash{secondBlock.Hash()},
-			HasValidatorUpdate: hl.Contains(firstBlock.Height),
+			HasValidatorUpdate: hl.Contains(firstBlock.GetHeight()),
 		}
 		firstBlockHash := firstBlock.BlockHeader.Hash()
 
@@ -984,7 +984,7 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		Block:              &secondBlock,
 		Status:             core.BlockStatusTrusted,
 		Children:           []common.Hash{},
-		HasValidatorUpdate: hl.Contains(secondBlock.Height),
+		HasValidatorUpdate: hl.Contains(secondBlock.GetHeight()),
 	}
 	secondBlockHash := secondBlock.BlockHeader.Hash()
 
@@ -997,10 +997,10 @@ func saveTailBlocks(metadata *core.SnapshotMetadata, sv *state.StoreView, kvstor
 		}
 	}
 
-	if secondExt.Height != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
+	if secondExt.GetHeight() != core.GenesisBlockHeight && secondExt.HasValidatorUpdate {
 		// TODO: this would lead to mismatch between the proven and retrieved validator set,
 		//       need to handle this case properly
-		logger.Warnf("The second block in the tail trio contains validator update, may cause valSet mismatch, height: %v", secondBlock.Height)
+		logger.Warnf("The second block in the tail trio contains validator update, may cause valSet mismatch, height: %v", secondBlock.GetHeight())
 	}
 
 	return secondBlock.BlockHeader

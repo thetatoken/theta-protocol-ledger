@@ -38,7 +38,7 @@ func ExportChainBackup(chain *blockchain.Chain, startHeight, endHeight uint64, b
 	}
 
 	currentTime := time.Now().UTC()
-	filename := "theta_chain-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(finalizedBlock.Height, 10) + "-" + currentTime.Format("2006-01-02")
+	filename := "theta_chain-" + strconv.FormatUint(startHeight, 10) + "-" + strconv.FormatUint(finalizedBlock.GetHeight(), 10) + "-" + currentTime.Format("2006-01-02")
 	backupPath := path.Join(backupDir, filename)
 	file, err := os.Create(backupPath)
 	if err != nil {
@@ -47,22 +47,22 @@ func ExportChainBackup(chain *blockchain.Chain, startHeight, endHeight uint64, b
 	defer file.Close()
 	writer := bufio.NewWriter(file)
 
-	actualEndHeight = finalizedBlock.Height
+	actualEndHeight = finalizedBlock.GetHeight()
 
 	for {
 		voteSet := chain.FindVotesByHash(finalizedBlock.Hash())
 		backupBlock := &core.BackupBlock{Block: finalizedBlock, Votes: voteSet}
 		writeBlock(writer, backupBlock)
 
-		if finalizedBlock.Height <= startHeight {
+		if finalizedBlock.GetHeight() <= startHeight {
 			break
 		}
-		parentBlock, err := chain.FindBlock(finalizedBlock.Parent)
+		parentBlock, err := chain.FindBlock(finalizedBlock.GetParent())
 		if err != nil {
-			filename = "theta_chain-" + strconv.FormatUint(finalizedBlock.Height, 10) + "-" + strconv.FormatUint(actualEndHeight, 10) + "-" + currentTime.Format("2006-01-02")
+			filename = "theta_chain-" + strconv.FormatUint(finalizedBlock.GetHeight(), 10) + "-" + strconv.FormatUint(actualEndHeight, 10) + "-" + currentTime.Format("2006-01-02")
 			actualBackupPath := path.Join(backupDir, filename)
 			os.Rename(backupPath, actualBackupPath)
-			return finalizedBlock.Height, actualEndHeight, filename, nil
+			return finalizedBlock.GetHeight(), actualEndHeight, filename, nil
 		}
 		finalizedBlock = parentBlock
 	}

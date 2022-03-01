@@ -41,12 +41,18 @@ func NewLedgerState(chainID string, db database.Database, tagger Tagger) *Ledger
 		dbTagger: tagger,
 	}
 	//s.ResetState(uint64(0), common.Hash{})
-	s.ResetState(&core.Block{
-		BlockHeader: &core.BlockHeader{
-			Height:    uint64(0),
-			StateHash: common.Hash{},
-		},
-	})
+
+	// s.ResetState(&core.Block{
+	// 	BlockHeader: &core.ThetaBlockHeader{
+	// 		Height:    uint64(0),
+	// 		StateHash: common.Hash{},
+	// 	},
+	// })
+
+	block := core.NewBlock(&core.ThetaBlockHeader{})
+	block.SetHeight(uint64(0))
+	block.SetStateHash(common.Hash{})
+
 	s.Finalize(uint64(0), common.Hash{})
 	return s
 }
@@ -56,8 +62,8 @@ func NewLedgerState(chainID string, db database.Database, tagger Tagger) *Ledger
 func (s *LedgerState) ResetState(block *core.Block) result.Result {
 	s.parentBlock = block
 
-	height := block.Height
-	stateRootHash := block.StateHash
+	height := block.GetHeight()
+	stateRootHash := block.GetStateHash()
 	storeview := NewStoreView(height, stateRootHash, s.db)
 	if storeview == nil {
 		return result.Error(fmt.Sprintf("Failed to set ledger state with state root hash: %v", stateRootHash))

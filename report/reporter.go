@@ -114,7 +114,7 @@ func (rp *Reporter) statusToString() string {
 	if !latestFinalizedHash.IsEmpty() {
 		block, err := rp.chain.FindBlock(latestFinalizedHash)
 		if err == nil {
-			addition = fmt.Sprintf(`,"LatestFinalizedBlockHeight":%d,"syncing":"%v"`, common.JSONUint64(block.Height), isSyncing(block))
+			addition = fmt.Sprintf(`,"LatestFinalizedBlockHeight":%d,"syncing":"%v"`, common.JSONUint64(block.GetHeight()), isSyncing(block))
 		}
 	}
 	result := fmt.Sprintf(`"version":"%s", "git_hash":"%s", "address":"%s", "chain_id":"%s", "OS":"%s"%s`, version.Version, version.GitHash, rp.consensus.ID(), rp.chain.ChainID, runtime.GOOS, addition)
@@ -165,6 +165,6 @@ func isSyncing(block *core.ExtendedBlock) bool {
 	currentTime := big.NewInt(time.Now().Unix())
 	maxDiff := new(big.Int).SetUint64(30) // thirty seconds, about 5 blocks
 	threshold := new(big.Int).Sub(currentTime, maxDiff)
-	isSyncing := block.Timestamp.Cmp(threshold) < 0
+	isSyncing := block.GetTimestamp().Cmp(threshold) < 0
 	return isSyncing
 }

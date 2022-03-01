@@ -87,8 +87,8 @@ func NewNode(params *Params) *Node {
 		params.NetworkOld.RegisterMessageHandler(txMsgHandler)
 	}
 
-	currentHeight := consensus.GetLastFinalizedBlock().Height
-	if currentHeight <= params.Root.Height {
+	currentHeight := consensus.GetLastFinalizedBlock().GetHeight()
+	if currentHeight <= params.Root.GetHeight() {
 		snapshotPath := params.SnapshotPath
 		chainImportDirPath := params.ChainImportDirPath
 		chainCorrectionPath := params.ChainCorrectionPath

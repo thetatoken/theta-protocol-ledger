@@ -42,7 +42,7 @@ func TestBlockEncoding(t *testing.T) {
 	require.Equal(b2raw1, b2raw2)
 
 	// Should be able to encode/decode blocks after Theta2.0 fork.
-	b2.Height = common.HeightEnableTheta2
+	b2.SetHeight(common.HeightEnableTheta2)
 	b2raw1, _ = rlp.EncodeToBytes(b2)
 	err = rlp.DecodeBytes(b2raw1, tmp)
 	require.Nil(err)
@@ -50,13 +50,13 @@ func TestBlockEncoding(t *testing.T) {
 	require.Equal(b2raw1, b2raw2)
 
 	// Decode with guardian votes.
-	b2.GuardianVotes = NewAggregateVotes(b2.Hash(), NewGuardianCandidatePool())
+	b2.SetGuardianVotes(NewAggregateVotes(b2.Hash(), NewGuardianCandidatePool()))
 	b2raw1, _ = rlp.EncodeToBytes(b2)
 	err = rlp.DecodeBytes(b2raw1, tmp)
 	require.Nil(err)
 	b2raw2, _ = rlp.EncodeToBytes(tmp)
 	require.Equal(b2raw1, b2raw2)
-	require.Equal(tmp.GuardianVotes.Block, b2.GuardianVotes.Block)
+	require.Equal(tmp.GuardianVotes().Block, b2.GuardianVotes().Block)
 
 	// Test ExtendedBlock encoding/decoding
 	eb := &ExtendedBlock{}
@@ -88,12 +88,9 @@ func TestBlockHash(t *testing.T) {
 	assert.Equal(eb.Hash(), common.Hash{})
 
 	eb = &ExtendedBlock{
-		Block: &Block{
-			BlockHeader: &BlockHeader{
-				Epoch: 1,
-			},
-		},
+		Block: NewBlock(&ThetaBlockHeader{}),
 	}
+	eb.SetEpoch(1)
 	assert.Equal("0x87a331c1e807476de260f2dc2e4d531dc42500764587605c7574179bc4cbd5bc", eb.Hash().Hex())
 }
 
@@ -119,12 +116,12 @@ func TestBlockBasicValidation(t *testing.T) {
 	require.True(res.IsError())
 	require.Equal("ChainID mismatch", res.Message)
 
-	oldTS := b1.Timestamp
-	b1.Timestamp = nil
+	oldTS := b1.Timestamp()
+	b1.SetTimestamp(nil)
 	res = b1.Validate("testchain")
 	require.True(res.IsError())
 	require.Equal("Timestamp is missing", res.Message)
-	b1.Timestamp = oldTS
+	b1.SetTimestamp(oldTS)
 
 	oldParent := b1.Parent
 	b1.Parent = common.Hash{}

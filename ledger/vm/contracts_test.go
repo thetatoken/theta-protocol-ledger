@@ -340,7 +340,7 @@ func testPrecompiled(addr string, test precompiledTest, t *testing.T) {
 	p := PrecompiledContractsByzantium[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.input)
 	contract := NewContract(AccountRef(common.HexToAddress("1337")),
-		nil, new(big.Int), p.RequiredGas(in))
+		nil, new(big.Int), p.RequiredGas(in, 0))
 	t.Run(fmt.Sprintf("%s-Gas=%d", test.name, contract.Gas), func(t *testing.T) {
 		if res, err := RunPrecompiledContract(nil, p, in, contract); err != nil {
 			t.Error(err)
@@ -356,7 +356,7 @@ func benchmarkPrecompiled(addr string, test precompiledTest, bench *testing.B) {
 	}
 	p := PrecompiledContractsByzantium[common.HexToAddress(addr)]
 	in := common.Hex2Bytes(test.input)
-	reqGas := p.RequiredGas(in)
+	reqGas := p.RequiredGas(in, 0)
 	contract := NewContract(AccountRef(common.HexToAddress("1337")),
 		nil, new(big.Int), reqGas)
 

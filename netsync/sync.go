@@ -30,7 +30,7 @@ type MessageConsumer interface {
 }
 
 type Headers struct {
-	HeaderArray []*core.BlockHeader
+	HeaderArray []core.BlockHeader
 }
 
 type Blocks struct {
@@ -226,7 +226,7 @@ func (m *SyncManager) locateStart(starts []string) common.Hash {
 func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string {
 	ret := []string{}
 
-	lfbHeight := m.consensus.GetLastFinalizedBlock().Height
+	lfbHeight := m.consensus.GetLastFinalizedBlock().GetHeight()
 	q := []common.Hash{start}
 	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize-1 {
 		curr := q[0]
@@ -243,7 +243,7 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 			break
 		}
 
-		if block.Height < lfbHeight {
+		if block.GetHeight() < lfbHeight {
 			// Enqueue finalized child.
 			for _, child := range block.Children {
 				block, err := m.chain.FindBlock(child)
@@ -277,9 +277,9 @@ func (m *SyncManager) collectBlocks(start common.Hash, end common.Hash) []string
 }
 
 func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers {
-	ret := []*core.BlockHeader{}
+	ret := []core.BlockHeader{}
 
-	lfbHeight := m.consensus.GetLastFinalizedBlock().Height
+	lfbHeight := m.consensus.GetLastFinalizedBlock().GetHeight()
 	q := []common.Hash{start}
 	for len(q) > 0 && len(ret) < dispatcher.MaxInventorySize-1 {
 		curr := q[0]
@@ -298,7 +298,7 @@ func (m *SyncManager) collectHeaders(start common.Hash, end common.Hash) Headers
 			break
 		}
 
-		if block.Height < lfbHeight {
+		if block.GetHeight() < lfbHeight {
 			// Enqueue finalized child.
 			for _, child := range block.Children {
 				block, err := m.chain.FindBlock(child)
@@ -499,7 +499,7 @@ func Fuzz(data []byte) int {
 		return -1
 	}
 	if data[0]%4 == 0 {
-		block := core.NewBlock()
+		block := core.NewBlock(&core.ThetaBlockHeader{})
 		err := rlp.DecodeBytes(data[1:], block)
 		if err != nil {
 			return 1
@@ -532,7 +532,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 	switch data.ChannelID {
 	case common.ChannelIDBlock:
 		maxReceivedHeight := uint64(0)
-		block := core.NewBlock()
+		block := core.NewBlock(&core.ThetaBlockHeader{})
 		err := rlp.DecodeBytes(data.Payload, block)
 		if err != nil {
 			//check if payload is blocks
@@ -550,24 +550,24 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			for _, block = range blocks.BlockArray {
 				m.logger.WithFields(log.Fields{
 					"block.Hash":   block.Hash().Hex(),
-					"block.Parent": block.Parent.Hex(),
-					"block.Height": block.Height,
+					"block.Parent": block.GetParent().Hex(),
+					"block.Height": block.GetHeight(),
 					"peer":         peerID,
 				}).Debug("Received block")
 				m.handleBlock(block)
-				if block.Height > maxReceivedHeight {
-					maxReceivedHeight = block.Height
+				if block.GetHeight() > maxReceivedHeight {
+					maxReceivedHeight = block.GetHeight()
 				}
 			}
 		} else {
 			m.logger.WithFields(log.Fields{
 				"block.Hash":   block.Hash().Hex(),
-				"block.Parent": block.Parent.Hex(),
-				"block.Height": block.Height,
+				"block.Parent": block.GetParent().Hex(),
+				"block.Height": block.GetHeight(),
 				"peer":         peerID,
 			}).Debug("Received block")
 			m.handleBlock(block)
-			maxReceivedHeight = block.Height
+			maxReceivedHeight = block.GetHeight()
 		}
 	case common.ChannelIDVote:
 		vote := core.Vote{}
@@ -674,8 +674,8 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 		for _, header := range headers.HeaderArray {
 			m.logger.WithFields(log.Fields{
 				"header.Hash":   header.Hash().Hex(),
-				"header.Parent": header.Parent.Hex(),
-				"header.Height": header.Height,
+				"header.Parent": header.GetParent().Hex(),
+				"header.Height": header.GetHeight(),
 				"peer":          peerID,
 			}).Debug("Received header")
 			m.handleHeader(header, []string{peerID})
@@ -696,28 +696,28 @@ func (sm *SyncManager) handleProposal(p *core.Proposal) {
 	sm.handleBlock(p.Block)
 }
 
-func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
+func (sm *SyncManager) handleHeader(header core.BlockHeader, peerID []string) {
 	if eb, err := sm.chain.FindBlock(header.Hash()); err == nil && !eb.Status.IsPending() {
 		sm.logger.WithFields(log.Fields{
 			"block hash":   header.Hash().String(),
-			"block height": header.Height,
+			"block height": header.GetHeight(),
 		}).Debug("Header/Block is already in chain")
 		return
 	}
 
-	if hash, ok := core.HardcodeBlockHashes[header.Height]; ok {
+	if hash, ok := core.HardcodeBlockHashes[header.GetHeight()]; ok {
 		if hash != header.Hash().Hex() {
 			sm.logger.WithFields(log.Fields{
 				"block hash":   header.Hash().String(),
-				"block height": header.Height,
+				"block height": header.GetHeight(),
 			}).Debug("hardcoded block")
 			return
 		}
 	}
 
-	lfbHeight := sm.consensus.GetLastFinalizedBlock().Height
-	tipHeight := sm.consensus.GetTip(true).Height
-	if header.Height > lfbHeight && header.Height <= tipHeight+dispatcher.MaxInventorySize+1 {
+	lfbHeight := sm.consensus.GetLastFinalizedBlock().GetHeight()
+	tipHeight := sm.consensus.GetTip(true).GetHeight()
+	if header.GetHeight() > lfbHeight && header.GetHeight() <= tipHeight+dispatcher.MaxInventorySize+1 {
 		sm.requestMgr.AddHeader(header, peerID)
 	}
 }
@@ -726,23 +726,23 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
 		sm.logger.WithFields(log.Fields{
 			"block hash":   block.Hash().String(),
-			"block height": block.Height,
+			"block height": block.GetHeight(),
 		}).Debug("block is already in chain")
 		return
 	}
 
-	if hash, ok := core.HardcodeBlockHashes[block.Height]; ok {
+	if hash, ok := core.HardcodeBlockHashes[block.GetHeight()]; ok {
 		if hash != block.Hash().Hex() {
 			sm.logger.WithFields(log.Fields{
 				"block hash":   block.Hash().String(),
-				"block height": block.Height,
+				"block height": block.GetHeight(),
 			}).Debug("hardcoded block")
 			return
 		}
 	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
 		sm.logger.WithFields(log.Fields{
 			"block hash":   block.Hash().String(),
-			"block height": block.Height,
+			"block height": block.GetHeight(),
 		}).Debug("chain ID is invalid")
 		return
 	}
@@ -759,13 +759,13 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 
 		// Gossip the block out using header
 		headers := Headers{
-			HeaderArray: []*core.BlockHeader{block.BlockHeader},
+			HeaderArray: []core.BlockHeader{block.BlockHeader},
 		}
 		payload, err := rlp.EncodeToBytes(headers)
 		if err != nil {
 			sm.logger.WithFields(log.Fields{
 				"block hash":   block.Hash().String(),
-				"block height": block.Height,
+				"block height": block.GetHeight(),
 				"err":          err.Error(),
 			}).Debug("failed to encode header")
 			return

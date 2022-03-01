@@ -95,8 +95,8 @@ func (exec *CoinbaseTxExecutor) sanityCheck(chainID string, view *st.StoreView, 
 	// check the reward amount
 	var expectedRewards map[string]types.Coins
 	currentBlock := exec.consensus.GetLedger().GetCurrentBlock()
-	guardianVotes := currentBlock.GuardianVotes
-	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
+	guardianVotes := currentBlock.GetGuardianVotes()
+	eliteEdgeNodeVotes := currentBlock.GetEliteEdgeNodeVotes()
 	guardianPool, eliteEdgeNodePool := RetrievePools(exec.consensus.GetLedger(), exec.chain, exec.db, tx.BlockHeight, guardianVotes, eliteEdgeNodeVotes)
 	expectedRewards = CalculateReward(exec.consensus.GetLedger(), view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
 
@@ -154,7 +154,7 @@ func RetrievePools(ledger core.Ledger, chain *blockchain.Chain, db database.Data
 			if err != nil {
 				logger.Panic(err)
 			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, db)
+			storeView := st.NewStoreView(guradianVoteBlock.GetHeight(), guradianVoteBlock.GetStateHash(), db)
 			guardianPool = storeView.GetGuardianCandidatePool()
 		}
 	} else { // blockHeight >= common.HeightEnableTheta3
@@ -165,7 +165,7 @@ func RetrievePools(ledger core.Ledger, chain *blockchain.Chain, db database.Data
 			if err != nil {
 				logger.Panic(err)
 			}
-			storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, db)
+			storeView := st.NewStoreView(guradianVoteBlock.GetHeight(), guradianVoteBlock.GetStateHash(), db)
 			guardianPool = storeView.GetGuardianCandidatePool()
 
 			if eliteEdgeNodeVotes != nil {

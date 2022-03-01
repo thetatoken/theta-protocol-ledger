@@ -6,11 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
-	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/rlp"
 	"github.com/thetatoken/theta/store/trie"
 )
@@ -27,13 +25,16 @@ var (
 
 // Block represents a block in chain.
 type Block struct {
-	*BlockHeader
+	BlockHeader
 	Txs []common.Bytes `json:"transactions"`
 }
 
 // NewBlock creates a new Block.
-func NewBlock() *Block {
-	return &Block{BlockHeader: &BlockHeader{}}
+func NewBlock(blockHeader BlockHeader) *Block {
+	if blockHeader == nil {
+		panic("blockHeader is nil")
+	}
+	return &Block{BlockHeader: blockHeader}
 }
 
 func (b *Block) String() string {
@@ -67,12 +68,10 @@ func (b *Block) DecodeRLP(stream *rlp.Stream) error {
 		return err
 	}
 
-	h := &BlockHeader{}
-	err = stream.Decode(h)
+	err = stream.Decode(b.BlockHeader)
 	if err != nil {
 		return err
 	}
-	b.BlockHeader = h
 
 	txs := []common.Bytes{}
 	err = stream.Decode(&txs)
@@ -92,8 +91,8 @@ func (b *Block) AddTxs(txs []common.Bytes) {
 
 // updateTxHash calculate transaction root hash.
 func (b *Block) updateTxHash() {
-	b.TxHash = CalculateRootHash(b.Txs)
-	b.ReceiptHash = EmptyRootHash
+	b.SetTxHash(CalculateRootHash(b.Txs))
+	b.SetReceiptHash(EmptyRootHash)
 }
 
 // Validate checks the block is legitimate.
@@ -102,7 +101,7 @@ func (b *Block) Validate(chainID string) result.Result {
 	if res.IsError() {
 		return res
 	}
-	if b.TxHash != CalculateRootHash(b.Txs) {
+	if b.GetTxHash() != CalculateRootHash(b.Txs) {
 		return result.Error("TxHash does not match")
 	}
 	return result.OK
@@ -117,271 +116,6 @@ func CalculateRootHash(items []common.Bytes) common.Hash {
 		trie.Update(keybuf.Bytes(), items[i])
 	}
 	return trie.Hash()
-}
-
-// BlockHeader contains the essential information of a block.
-type BlockHeader struct {
-	ChainID            string
-	Epoch              uint64
-	Height             uint64
-	Parent             common.Hash
-	HCC                CommitCertificate
-	GuardianVotes      *AggregatedVotes    `rlp:"nil"` // Added in Theta2.0 fork.
-	EliteEdgeNodeVotes *AggregatedEENVotes `rlp:"nil"` // Added in Theta3.0 fork.
-	TxHash             common.Hash
-	ReceiptHash        common.Hash `json:"-"`
-	Bloom              Bloom       `json:"-"`
-	StateHash          common.Hash
-	Timestamp          *big.Int
-	Proposer           common.Address
-	Signature          *crypto.Signature
-
-	hash common.Hash // Cache of calculated hash.
-}
-
-var _ rlp.Encoder = (*BlockHeader)(nil)
-
-// EncodeRLP implements RLP Encoder interface.
-func (h *BlockHeader) EncodeRLP(w io.Writer) error {
-	if h == nil {
-		return rlp.Encode(w, &BlockHeader{})
-	}
-	if h.Height < common.HeightEnableTheta2 {
-		return rlp.Encode(w, []interface{}{
-			h.ChainID,
-			h.Epoch,
-			h.Height,
-			h.Parent,
-			h.HCC,
-			h.TxHash,
-			h.ReceiptHash,
-			h.Bloom,
-			h.StateHash,
-			h.Timestamp,
-			h.Proposer,
-			h.Signature,
-		})
-	}
-
-	// Theta2.0 fork
-	if h.Height >= common.HeightEnableTheta2 && h.Height < common.HeightEnableTheta3 {
-		return rlp.Encode(w, []interface{}{
-			h.ChainID,
-			h.Epoch,
-			h.Height,
-			h.Parent,
-			h.HCC,
-			h.TxHash,
-			h.ReceiptHash,
-			h.Bloom,
-			h.StateHash,
-			h.Timestamp,
-			h.Proposer,
-			h.Signature,
-			h.GuardianVotes,
-		})
-	}
-
-	// Theta3.0 fork
-	return rlp.Encode(w, []interface{}{
-		h.ChainID,
-		h.Epoch,
-		h.Height,
-		h.Parent,
-		h.HCC,
-		h.TxHash,
-		h.ReceiptHash,
-		h.Bloom,
-		h.StateHash,
-		h.Timestamp,
-		h.Proposer,
-		h.Signature,
-		h.GuardianVotes,
-		h.EliteEdgeNodeVotes,
-	})
-}
-
-var _ rlp.Decoder = (*BlockHeader)(nil)
-
-// DecodeRLP implements RLP Decoder interface.
-func (h *BlockHeader) DecodeRLP(stream *rlp.Stream) error {
-	_, err := stream.List()
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.ChainID)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Epoch)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Height)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Parent)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.HCC)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.TxHash)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.ReceiptHash)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Bloom)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.StateHash)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Timestamp)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Proposer)
-	if err != nil {
-		return err
-	}
-
-	err = stream.Decode(&h.Signature)
-	if err != nil {
-		return err
-	}
-
-	// Theta2.0 fork
-	if h.Height >= common.HeightEnableTheta2 {
-		raw, err := stream.Raw()
-		if err != nil {
-			return err
-		}
-		if common.Bytes2Hex(raw) == "c0" {
-			h.GuardianVotes = nil
-		} else {
-			gvotes := &AggregatedVotes{}
-			// err = stream.Decode(gvotes)
-			rlp.DecodeBytes(raw, gvotes)
-			if err != nil {
-				return err
-			}
-			h.GuardianVotes = gvotes
-		}
-	}
-
-	// Theta3.0 fork
-	if h.Height >= common.HeightEnableTheta3 {
-		raw, err := stream.Raw()
-		if err != nil {
-			return err
-		}
-		if common.Bytes2Hex(raw) == "c0" {
-			h.EliteEdgeNodeVotes = nil
-		} else {
-			evotes := &AggregatedEENVotes{}
-			rlp.DecodeBytes(raw, evotes)
-			if err != nil {
-				return err
-			}
-			h.EliteEdgeNodeVotes = evotes
-		}
-	}
-
-	return stream.ListEnd()
-}
-
-// Hash of header.
-func (h *BlockHeader) Hash() common.Hash {
-	if h == nil {
-		return common.Hash{}
-	}
-	if h.hash.IsEmpty() {
-		h.hash = h.calculateHash()
-	}
-	return h.hash
-}
-
-// UpdateHash recalculate hash of header.
-func (h *BlockHeader) UpdateHash() common.Hash {
-	if h == nil {
-		return common.Hash{}
-	}
-	h.hash = h.calculateHash()
-	return h.hash
-}
-
-func (h *BlockHeader) calculateHash() common.Hash {
-	raw, _ := rlp.EncodeToBytes(h)
-	return crypto.Keccak256Hash(raw)
-}
-
-func (h *BlockHeader) CalculateHash() common.Hash {
-	return h.calculateHash()
-}
-
-func (h *BlockHeader) String() string {
-	return fmt.Sprintf("{ChainID: %v, Epoch: %d, Hash: %v. Parent: %v, HCC: %s, Height: %v, TxHash: %v, StateHash: %v, Timestamp: %v, Proposer: %s}",
-		h.ChainID, h.Epoch, h.Hash().Hex(), h.Parent.Hex(), h.HCC, h.Height, h.TxHash.Hex(), h.StateHash.Hex(), h.Timestamp, h.Proposer)
-}
-
-// SignBytes returns raw bytes to be signed.
-func (h *BlockHeader) SignBytes() common.Bytes {
-	old := h.Signature
-	h.Signature = nil
-	raw, _ := rlp.EncodeToBytes(h)
-	h.Signature = old
-	return raw
-}
-
-// SetSignature sets given signature in header.
-func (h *BlockHeader) SetSignature(sig *crypto.Signature) {
-	h.Signature = sig
-}
-
-// Validate checks the header is legitimate.
-func (h *BlockHeader) Validate(chainID string) result.Result {
-	if chainID != h.ChainID {
-		return result.Error("ChainID mismatch")
-	}
-	if h.Parent.IsEmpty() {
-		return result.Error("Parent is empty")
-	}
-	if h.HCC.BlockHash.IsEmpty() {
-		return result.Error("HCC is empty")
-	}
-	if h.Timestamp == nil {
-		return result.Error("Timestamp is missing")
-	}
-	if h.Proposer.IsEmpty() {
-		return result.Error("Proposer is not specified")
-	}
-	if h.Signature == nil || h.Signature.IsEmpty() {
-		return result.Error("Block is not signed")
-	}
-	if !h.Signature.Verify(h.SignBytes(), h.Proposer) {
-		return result.Error("Signature verification failed")
-	}
-	return result.OK
 }
 
 type BlockStatus byte
@@ -492,7 +226,7 @@ func (eb *ExtendedBlock) String() string {
 		children.WriteString(c.String())
 	}
 	children.WriteString("]")
-	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, Status: %v}", eb.Block, eb.Parent.String(), children, eb.Status)
+	return fmt.Sprintf("ExtendedBlock{Block: %v, Parent: %v, Children: %v, Status: %v}", eb.Block, eb.GetParent().String(), children, eb.Status)
 }
 
 // ShortString returns a short string describing the block.

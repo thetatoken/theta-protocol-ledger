@@ -44,7 +44,7 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 			return "", err
 		}
 	}
-	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+	sv := state.NewStoreView(lastFinalizedBlock.GetHeight(), lastFinalizedBlock.BlockHeader.GetStateHash(), db)
 
 	currentTime := time.Now().UTC()
 	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
@@ -69,21 +69,21 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	// ------------ Export the Last Checkpoint Section ------------- //
 
-	lastFinalizedBlockHeight := lastFinalizedBlock.Height
+	lastFinalizedBlockHeight := lastFinalizedBlock.GetHeight()
 	lastCheckpointHeight := common.LastCheckPointHeight(lastFinalizedBlockHeight)
 	lastCheckpoint := &core.LastCheckpoint{}
 
 	currHeight := lastFinalizedBlockHeight
 	currBlock := lastFinalizedBlock
 	for currHeight > lastCheckpointHeight {
-		parentHash := currBlock.Parent
+		parentHash := currBlock.GetParent()
 		currBlock, err = chain.FindBlock(parentHash)
 		if err != nil {
 			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
 			return "", err
 		}
 		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
-		currHeight = currBlock.Height
+		currHeight = currBlock.GetHeight()
 	}
 
 	lastCheckpointBlock := currBlock
@@ -97,7 +97,7 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 	// -------------- Export the Metadata Section -------------- //
 
 	metadata := &core.SnapshotMetadata{}
-	var genesisBlockHeader *core.BlockHeader
+	var genesisBlockHeader core.BlockHeader
 	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
@@ -134,13 +134,13 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 						return "", err
 					}
 					if b != nil {
-						child = *b.BlockHeader
+						child = b.BlockHeader
 						b, err = getFinalizedChild(b, chain)
 						if err != nil {
 							return "", err
 						}
 						if b != nil {
-							grandChild = *b.BlockHeader
+							grandChild = b.BlockHeader
 						} else {
 							return "", fmt.Errorf("Can't find finalized grandchild block. " +
 								"Likely the last finalized block also contains stake change transactions. " +
@@ -152,13 +152,13 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 							"Please try again in 30 seconds.")
 					}
 
-					if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
+					if child.GetHCC().BlockHash != block.Hash() || grandChild.GetHCC().BlockHash != child.Hash() {
 						return "", fmt.Errorf("Invalid block HCC link for validator set changes")
 					}
-					if grandChild.HCC.Votes.IsEmpty() {
+					if grandChild.GetHCC().Votes.IsEmpty() {
 						return "", fmt.Errorf("Missing block HCC votes for validator set changes")
 					}
-					for _, vote := range grandChild.HCC.Votes.Votes() {
+					for _, vote := range grandChild.GetHCC().Votes.Votes() {
 						if vote.Block != child.Hash() {
 							return "", fmt.Errorf("Invalid block HCC votes for validator set changes")
 						}
@@ -171,8 +171,8 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 					metadata.ProofTrios = append(metadata.ProofTrios,
 						core.SnapshotBlockTrio{
 							First:  core.SnapshotFirstBlock{Header: block.BlockHeader, Proof: *vcpProof},
-							Second: core.SnapshotSecondBlock{Header: &child},
-							Third:  core.SnapshotThirdBlock{Header: &grandChild},
+							Second: core.SnapshotSecondBlock{Header: child},
+							Third:  core.SnapshotThirdBlock{Header: grandChild},
 						})
 					foundDirectlyFinalizedBlock = true
 					break
@@ -184,7 +184,7 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 		}
 	}
 
-	parentBlock, err := chain.FindBlock(lastFinalizedBlock.Parent)
+	parentBlock, err := chain.FindBlock(lastFinalizedBlock.GetParent())
 	if err != nil {
 		return "", fmt.Errorf("Failed to find last finalized block's parent, %v", err)
 	}
@@ -193,12 +193,12 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 		return "", fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
-	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
-		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
+	if lastFinalizedBlock.GetHCC().BlockHash != parentBlock.Hash() {
+		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.GetHCC().BlockHash, parentBlock.Hash())
 	}
 
-	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
-		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+	if childBlock.GetHCC().BlockHash != lastFinalizedBlock.Hash() {
+		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.GetHCC().BlockHash, lastFinalizedBlock.Hash())
 	}
 
 	childVoteSet := chain.FindVotesByHash(childBlock.Hash())
@@ -221,17 +221,17 @@ func ExportSnapshotV2(db database.Database, consensus *cns.ConsensusEngine, chai
 	// -------------- Export the StoreView Section -------------- //
 
 	// Genesis storeview
-	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
+	genesisSV := state.NewStoreView(genesisBlockHeader.GetHeight(), genesisBlockHeader.GetStateHash(), db)
 	writeStoreView(genesisSV, false, writer, db)
 
 	// Last checkpoint storeview
-	if lastFinalizedBlock.Height != lastCheckpointHeight {
-		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
+	if lastFinalizedBlock.GetHeight() != lastCheckpointHeight {
+		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.GetHeight(), lastCheckpointBlock.GetStateHash(), db)
 		writeStoreView(lastCheckpointSV, true, writer, db)
 	}
 
 	// Parent block storeview
-	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	parentSV := state.NewStoreView(parentBlock.GetHeight(), parentBlock.GetStateHash(), db)
 	writeStoreView(parentSV, true, writer, db)
 	writeStoreView(sv, true, writer, db)
 
@@ -260,7 +260,7 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 			return "", err
 		}
 	}
-	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+	sv := state.NewStoreView(lastFinalizedBlock.GetHeight(), lastFinalizedBlock.BlockHeader.GetStateHash(), db)
 
 	currentTime := time.Now().UTC()
 	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
@@ -285,21 +285,21 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	// ------------ Export the Last Checkpoint Section ------------- //
 
-	lastFinalizedBlockHeight := lastFinalizedBlock.Height
+	lastFinalizedBlockHeight := lastFinalizedBlock.GetHeight()
 	lastCheckpointHeight := common.LastCheckPointHeight(lastFinalizedBlockHeight)
 	lastCheckpoint := &core.LastCheckpoint{}
 
 	currHeight := lastFinalizedBlockHeight
 	currBlock := lastFinalizedBlock
 	for currHeight > lastCheckpointHeight {
-		parentHash := currBlock.Parent
+		parentHash := currBlock.GetParent()
 		currBlock, err = chain.FindBlock(parentHash)
 		if err != nil {
 			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
 			return "", err
 		}
 		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
-		currHeight = currBlock.Height
+		currHeight = currBlock.GetHeight()
 	}
 
 	lastCheckpointBlock := currBlock
@@ -313,7 +313,7 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 	// -------------- Export the Metadata Section -------------- //
 
 	metadata := &core.SnapshotMetadata{}
-	var genesisBlockHeader *core.BlockHeader
+	var genesisBlockHeader core.BlockHeader
 	kvStore := kvstore.NewKVStore(db)
 	hl := sv.GetStakeTransactionHeightList().Heights
 	for _, height := range hl {
@@ -350,13 +350,13 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 						return "", err
 					}
 					if b != nil {
-						child = *b.BlockHeader
+						child = b.BlockHeader
 						b, err = getFinalizedChild(b, chain)
 						if err != nil {
 							return "", err
 						}
 						if b != nil {
-							grandChild = *b.BlockHeader
+							grandChild = b.BlockHeader
 						} else {
 							return "", fmt.Errorf("Can't find finalized grandchild block. " +
 								"Likely the last finalized block also contains stake change transactions. " +
@@ -368,13 +368,13 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 							"Please try again in 30 seconds.")
 					}
 
-					if child.HCC.BlockHash != block.Hash() || grandChild.HCC.BlockHash != child.Hash() {
+					if child.GetHCC().BlockHash != block.Hash() || grandChild.GetHCC().BlockHash != child.Hash() {
 						return "", fmt.Errorf("Invalid block HCC link for validator set changes")
 					}
-					if grandChild.HCC.Votes.IsEmpty() {
+					if grandChild.GetHCC().Votes.IsEmpty() {
 						return "", fmt.Errorf("Missing block HCC votes for validator set changes")
 					}
-					for _, vote := range grandChild.HCC.Votes.Votes() {
+					for _, vote := range grandChild.GetHCC().Votes.Votes() {
 						if vote.Block != child.Hash() {
 							return "", fmt.Errorf("Invalid block HCC votes for validator set changes")
 						}
@@ -387,8 +387,8 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 					metadata.ProofTrios = append(metadata.ProofTrios,
 						core.SnapshotBlockTrio{
 							First:  core.SnapshotFirstBlock{Header: block.BlockHeader, Proof: *vcpProof},
-							Second: core.SnapshotSecondBlock{Header: &child},
-							Third:  core.SnapshotThirdBlock{Header: &grandChild},
+							Second: core.SnapshotSecondBlock{Header: child},
+							Third:  core.SnapshotThirdBlock{Header: grandChild},
 						})
 					foundDirectlyFinalizedBlock = true
 					break
@@ -400,7 +400,7 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 		}
 	}
 
-	parentBlock, err := chain.FindBlock(lastFinalizedBlock.Parent)
+	parentBlock, err := chain.FindBlock(lastFinalizedBlock.GetParent())
 	if err != nil {
 		return "", fmt.Errorf("Failed to find last finalized block's parent, %v", err)
 	}
@@ -409,12 +409,12 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 		return "", fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
-	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
-		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
+	if lastFinalizedBlock.GetHCC().BlockHash != parentBlock.Hash() {
+		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.GetHCC().BlockHash, parentBlock.Hash())
 	}
 
-	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
-		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+	if childBlock.GetHCC().BlockHash != lastFinalizedBlock.Hash() {
+		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.GetHCC().BlockHash, lastFinalizedBlock.Hash())
 	}
 
 	childVoteSet := chain.FindVotesByHash(childBlock.Hash())
@@ -437,17 +437,17 @@ func ExportSnapshotV3(db database.Database, consensus *cns.ConsensusEngine, chai
 	// -------------- Export the StoreView Section -------------- //
 
 	// Genesis storeview
-	genesisSV := state.NewStoreView(genesisBlockHeader.Height, genesisBlockHeader.StateHash, db)
+	genesisSV := state.NewStoreView(genesisBlockHeader.GetHeight(), genesisBlockHeader.GetStateHash(), db)
 	writeStoreViewV3(genesisSV, false, writer, db, common.Hash{})
 
 	// Last checkpoint storeview
-	if lastFinalizedBlock.Height != lastCheckpointHeight {
-		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
+	if lastFinalizedBlock.GetHeight() != lastCheckpointHeight {
+		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.GetHeight(), lastCheckpointBlock.GetStateHash(), db)
 		writeStoreViewV3(lastCheckpointSV, false, writer, db, genesisSV.Hash())
 	}
 
 	// Parent block storeview
-	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	parentSV := state.NewStoreView(parentBlock.GetHeight(), parentBlock.GetStateHash(), db)
 	writeStoreViewV3(parentSV, false, writer, db, genesisSV.Hash())
 	writeStoreViewV3(sv, true, writer, db, parentSV.Hash())
 
@@ -476,7 +476,7 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 			return "", err
 		}
 	}
-	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+	sv := state.NewStoreView(lastFinalizedBlock.GetHeight(), lastFinalizedBlock.BlockHeader.GetStateHash(), db)
 
 	currentTime := time.Now().UTC()
 	filename := "theta_snapshot-" + strconv.FormatUint(sv.Height(), 10) + "-" + sv.Hash().String() + "-" + currentTime.Format("2006-01-02")
@@ -501,21 +501,21 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	// ------------ Export the Last Checkpoint Section ------------- //
 
-	lastFinalizedBlockHeight := lastFinalizedBlock.Height
+	lastFinalizedBlockHeight := lastFinalizedBlock.GetHeight()
 	lastCheckpointHeight := common.LastCheckPointHeight(lastFinalizedBlockHeight)
 	lastCheckpoint := &core.LastCheckpoint{}
 
 	currHeight := lastFinalizedBlockHeight
 	currBlock := lastFinalizedBlock
 	for currHeight > lastCheckpointHeight {
-		parentHash := currBlock.Parent
+		parentHash := currBlock.GetParent()
 		currBlock, err = chain.FindBlock(parentHash)
 		if err != nil {
 			logger.Errorf("Failed to get intermediate block %v, %v", parentHash.Hex(), err)
 			return "", err
 		}
 		lastCheckpoint.IntermediateHeaders = append(lastCheckpoint.IntermediateHeaders, currBlock.Block.BlockHeader)
-		currHeight = currBlock.Height
+		currHeight = currBlock.GetHeight()
 	}
 
 	lastCheckpointBlock := currBlock
@@ -531,7 +531,7 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	metadata := &core.SnapshotMetadata{}
 
-	parentBlock, err := chain.FindBlock(lastFinalizedBlock.Parent)
+	parentBlock, err := chain.FindBlock(lastFinalizedBlock.GetParent())
 	if err != nil {
 		return "", fmt.Errorf("Failed to find last finalized block's parent, %v", err)
 	}
@@ -540,12 +540,12 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 		return "", fmt.Errorf("Failed to find last finalized block's committed child, %v", err)
 	}
 
-	if lastFinalizedBlock.HCC.BlockHash != parentBlock.Hash() {
-		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.HCC.BlockHash, parentBlock.Hash())
+	if lastFinalizedBlock.GetHCC().BlockHash != parentBlock.Hash() {
+		return "", fmt.Errorf("Parent block hash mismatch: %v vs %v", lastFinalizedBlock.GetHCC().BlockHash, parentBlock.Hash())
 	}
 
-	if childBlock.HCC.BlockHash != lastFinalizedBlock.Hash() {
-		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.HCC.BlockHash, lastFinalizedBlock.Hash())
+	if childBlock.GetHCC().BlockHash != lastFinalizedBlock.Hash() {
+		return "", fmt.Errorf("Finalized block hash mismatch: %v vs %v", childBlock.GetHCC().BlockHash, lastFinalizedBlock.Hash())
 	}
 
 	childVoteSet := chain.FindVotesByHash(childBlock.Hash())
@@ -567,13 +567,13 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 
 	// -------------- Export the StoreView Section -------------- //
 	// Last checkpoint storeview
-	if lastFinalizedBlock.Height != lastCheckpointHeight {
-		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.Height, lastCheckpointBlock.StateHash, db)
+	if lastFinalizedBlock.GetHeight() != lastCheckpointHeight {
+		lastCheckpointSV := state.NewStoreView(lastCheckpointBlock.GetHeight(), lastCheckpointBlock.GetStateHash(), db)
 		writeStoreViewV3(lastCheckpointSV, false, writer, db, common.Hash{})
 	}
 
 	// Parent block storeview
-	parentSV := state.NewStoreView(parentBlock.Height, parentBlock.StateHash, db)
+	parentSV := state.NewStoreView(parentBlock.GetHeight(), parentBlock.GetStateHash(), db)
 	writeStoreViewV3(parentSV, false, writer, db, common.Hash{})
 
 	writeStoreViewV3(sv, true, writer, db, parentSV.Hash())
@@ -582,7 +582,7 @@ func ExportSnapshotV4(db database.Database, consensus *cns.ConsensusEngine, chai
 }
 
 func proveVCP(block *core.ExtendedBlock, db database.Database) (*core.VCPProof, error) {
-	sv := state.NewStoreView(block.Height, block.StateHash, db)
+	sv := state.NewStoreView(block.GetHeight(), block.GetStateHash(), db)
 	vcpKey := state.ValidatorCandidatePoolKey()
 	vp := &core.VCPProof{}
 	err := sv.ProveVCP(vcpKey, vp)

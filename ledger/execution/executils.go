@@ -40,7 +40,7 @@ func getValidatorSet(ledger core.Ledger, valMgr core.ValidatorManager) *core.Val
 	if currentBlock == nil {
 		panic("ledger.currentBlock is nil")
 	}
-	parentBlkHash := currentBlock.Parent
+	parentBlkHash := currentBlock.GetParent()
 	validatorSet := valMgr.GetNextValidatorSet(parentBlkHash)
 	return validatorSet
 }

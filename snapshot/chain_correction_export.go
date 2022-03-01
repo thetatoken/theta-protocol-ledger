@@ -51,11 +51,11 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		return "", nil, fmt.Errorf("End Block %v is not finalized yet", endBlockHash)
 	}
 
-	if snapshotHeight >= block.Height {
+	if snapshotHeight >= block.GetHeight() {
 		return "", nil, errors.New("Start height must be < end height")
 	}
 
-	backupFile = "theta_chain_correction-" + strconv.FormatUint(snapshotHeight, 10) + "-" + strconv.FormatUint(block.Height, 10)
+	backupFile = "theta_chain_correction-" + strconv.FormatUint(snapshotHeight, 10) + "-" + strconv.FormatUint(block.GetHeight(), 10)
 	backupPath := path.Join(backupDir, backupFile)
 	file, err := os.Create(backupPath)
 	if err != nil {
@@ -73,14 +73,14 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 
 	for {
 		block.Txs = ExcludeTxs(block.Txs, exclusionTxMap, chain)
-		block.TxHash = core.CalculateRootHash(block.Txs)
+		block.SetTxHash(core.CalculateRootHash(block.Txs))
 		block.UpdateHash()
 		stack = append(stack, block)
 
-		if block.Height <= snapshotHeight+1 {
+		if block.GetHeight() <= snapshotHeight+1 {
 			break
 		}
-		parentBlock, err := chain.FindBlock(block.Parent)
+		parentBlock, err := chain.FindBlock(block.GetParent())
 		if err != nil {
 			return "", nil, fmt.Errorf("Can't find block for %v", block.Hash())
 		}
@@ -99,8 +99,8 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 	}
 	for i := len(stack) - 1; i >= 0; i-- {
 		block = stack[i]
-		block.Parent = parent.Hash()
-		block.HCC.BlockHash = snapshot.Hash()
+		block.SetParent(parent.Hash())
+		block.GetHCC().BlockHash = snapshot.Hash()
 		block.Children = []common.Hash{}
 
 		//result := ledger.ResetState(parent.Height, parent.StateHash)
@@ -113,7 +113,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		if result.IsError() {
 			return "", nil, fmt.Errorf("%v", result.String())
 		}
-		block.StateHash = hash
+		block.SetStateHash(hash)
 		block.UpdateHash()
 
 		parent.Children = []common.Hash{block.Hash()}
@@ -128,7 +128,7 @@ func ExportChainCorrection(chain *blockchain.Chain, ledger core.Ledger, snapshot
 		backupBlock := &core.BackupBlock{Block: block}
 		writeBlock(writer, backupBlock)
 
-		blockHashMap[block.Height] = block.Hash().Hex()
+		blockHashMap[block.GetHeight()] = block.Hash().Hex()
 	}
 
 	return

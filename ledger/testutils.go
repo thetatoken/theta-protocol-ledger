@@ -40,7 +40,7 @@ type execSim struct {
 }
 
 func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, valPrivAcc *types.PrivAccount) *execSim {
-	initHeight := snapshot.block.Height
+	initHeight := snapshot.block.GetHeight()
 
 	sv := state.NewStoreView(initHeight, common.Hash{}, db)
 	sv.UpdateValidatorCandidatePool(snapshot.vcp)
@@ -173,9 +173,9 @@ func genSimSnapshot(chainID string, db database.Database) (snapshot mockSnapshot
 
 	initStateHash := sv.Save()
 
-	initBlock := core.NewBlock()
-	initBlock.ChainID = chainID
-	initBlock.BlockHeader.StateHash = initStateHash
+	initBlock := core.NewBlock(&core.ThetaBlockHeader{})
+	initBlock.SetChainID(chainID)
+	initBlock.BlockHeader.SetStateHash(initStateHash)
 
 	snapshot = mockSnapshot{
 		block: initBlock,
@@ -209,13 +209,19 @@ func newTestLedger() (chainID string, ledger *Ledger, mempool *mp.Mempool) {
 	initHeight := uint64(1)
 	initRootHash := common.Hash{}
 
-	initBlock := &core.Block{
-		BlockHeader: &core.BlockHeader{
-			ChainID:   chainID,
-			Height:    initHeight,
-			StateHash: initRootHash,
-		},
-	}
+	// initBlock := &core.Block{
+	// 	BlockHeader: &core.BlockHeader{
+	// 		ChainID:   chainID,
+	// 		Height:    initHeight,
+	// 		StateHash: initRootHash,
+	// 	},
+	// }
+	blockHeader := &core.ThetaBlockHeader{}
+	blockHeader.SetChainID(chainID)
+	blockHeader.SetHeight(initHeight)
+	blockHeader.SetStateHash(initRootHash)
+	initBlock := &core.Block{BlockHeader: blockHeader}
+
 	//ledger.ResetState(initHeight, initRootHash)
 	ledger.ResetState(initBlock)
 

@@ -101,13 +101,20 @@ func (et *execTest) reset() {
 	chainID := "test_chain_id"
 	initHeight := uint64(1)
 	initRootHash := common.Hash{}
-	initBlock := &core.Block{
-		BlockHeader: &core.BlockHeader{
-			ChainID:   chainID,
-			Height:    initHeight,
-			StateHash: initRootHash,
-		},
-	}
+
+	// initBlock := &core.Block{
+	// 	BlockHeader: &core.BlockHeader{
+	// 		ChainID:   chainID,
+	// 		Height:    initHeight,
+	// 		StateHash: initRootHash,
+	// 	},
+	// }
+	blockHeader := &core.ThetaBlockHeader{}
+	blockHeader.SetChainID(chainID)
+	blockHeader.SetHeight(initHeight)
+	blockHeader.SetStateHash(initRootHash)
+	initBlock := &core.Block{BlockHeader: blockHeader}
+
 	db := backend.NewMemDatabase()
 	ledgerState := st.NewLedgerState(chainID, db, nil)
 	//ledgerState.ResetState(initHeight, initRootHash)
@@ -133,12 +140,17 @@ func (et *execTest) fastforwardBy(heightIncrement uint64) bool {
 	height := et.executor.state.Height()
 	incrementedHeight := height + heightIncrement - 1
 	rootHash := et.executor.state.Commit()
-	block := &core.Block{
-		BlockHeader: &core.BlockHeader{
-			Height:    incrementedHeight,
-			StateHash: rootHash,
-		},
-	}
+	// block := &core.Block{
+	// 	BlockHeader: &core.BlockHeader{
+	// 		Height:    incrementedHeight,
+	// 		StateHash: rootHash,
+	// 	},
+	// }
+	blockHeader := &core.ThetaBlockHeader{}
+	blockHeader.SetHeight(incrementedHeight)
+	blockHeader.SetStateHash(rootHash)
+	block := &core.Block{BlockHeader: blockHeader}
+
 	//et.executor.state.ResetState(height+heightIncrement-1, rootHash)
 	et.executor.state.ResetState(block)
 	return true
@@ -150,12 +162,17 @@ func (et *execTest) fastforwardTo(targetHeight uint64) bool {
 	if targetHeight < height+1 {
 		return false
 	}
-	block := &core.Block{
-		BlockHeader: &core.BlockHeader{
-			Height:    targetHeight,
-			StateHash: rootHash,
-		},
-	}
+	// block := &core.Block{
+	// 	BlockHeader: &core.BlockHeader{
+	// 		Height:    targetHeight,
+	// 		StateHash: rootHash,
+	// 	},
+	// }
+	blockHeader := &core.ThetaBlockHeader{}
+	blockHeader.SetHeight(targetHeight)
+	blockHeader.SetStateHash(rootHash)
+	block := &core.Block{BlockHeader: blockHeader}
+
 	//et.executor.state.ResetState(targetHeight, rootHash)
 	et.executor.state.ResetState(block)
 	return true

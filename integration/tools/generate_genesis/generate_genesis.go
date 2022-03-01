@@ -95,13 +95,13 @@ func generateGenesisSnapshot(chainID, erc20SnapshotJSONFilePath, stakeDepositFil
 
 	stateHash := sv.Hash()
 
-	genesisBlock := core.NewBlock()
-	genesisBlock.ChainID = chainID
-	genesisBlock.Height = genesisHeight
-	genesisBlock.Epoch = genesisBlock.Height
-	genesisBlock.Parent = common.Hash{}
-	genesisBlock.StateHash = stateHash
-	genesisBlock.Timestamp = big.NewInt(time.Now().Unix())
+	genesisBlock := core.NewBlock(&core.ThetaBlockHeader{})
+	genesisBlock.SetChainID(chainID)
+	genesisBlock.SetHeight(genesisHeight)
+	genesisBlock.SetEpoch(genesisBlock.GetHeight())
+	genesisBlock.SetParent(common.Hash{})
+	genesisBlock.SetStateHash(stateHash)
+	genesisBlock.SetTimestamp(big.NewInt(time.Now().Unix()))
 
 	metadata.TailTrio = core.SnapshotBlockTrio{
 		First:  core.SnapshotFirstBlock{},

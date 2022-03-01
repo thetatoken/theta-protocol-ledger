@@ -56,9 +56,9 @@ func main() {
 		sv = state.NewStoreView(0, stateHash, db)
 		filename = "theta_storeview-" + stateHashStr + ".json"
 	} else {
-		root := core.NewBlock()
+		root := core.NewBlock(&core.ThetaBlockHeader{})
 		store := kvstore.NewKVStore(db)
-		chain := blockchain.NewChain(root.ChainID, store, root)
+		chain := blockchain.NewChain(root.GetChainID(), store, root)
 
 		var finalizedBlock *core.ExtendedBlock
 		blocks := chain.FindBlocksByHeight(height)
@@ -72,7 +72,7 @@ func main() {
 			handleError(fmt.Errorf("Finalized block not found for height %v", height))
 		}
 
-		sv = state.NewStoreView(finalizedBlock.Height, finalizedBlock.StateHash, db)
+		sv = state.NewStoreView(finalizedBlock.GetHeight(), finalizedBlock.GetStateHash(), db)
 		filename = "theta_storeview-" + heightStr + ".json"
 	}
 

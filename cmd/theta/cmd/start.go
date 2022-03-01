@@ -77,8 +77,8 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	var root *core.Block
-	var snapshotBlockHeader *core.BlockHeader
-	dbSnapshotHeader := &core.BlockHeader{}
+	var snapshotBlockHeader core.BlockHeader
+	dbSnapshotHeader := &core.ThetaBlockHeader{}
 	skipLoadSnapshot := false
 
 	// Read last verified snapshot header from db and compare with current snapshot
@@ -112,7 +112,7 @@ func runStart(cmd *cobra.Command, args []string) {
 
 	root = &core.Block{BlockHeader: snapshotBlockHeader}
 
-	viper.Set(common.CfgGenesisChainID, root.ChainID)
+	viper.Set(common.CfgGenesisChainID, root.GetChainID())
 
 	// Parse seeds and filter out empty item.
 	f := func(c rune) bool {
@@ -136,7 +136,7 @@ func runStart(cmd *cobra.Command, args []string) {
 	}
 
 	params := &node.Params{
-		ChainID:             root.ChainID,
+		ChainID:             root.GetChainID(),
 		PrivateKey:          privKey,
 		Root:                root,
 		NetworkOld:          networkOld,

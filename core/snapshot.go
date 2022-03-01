@@ -26,16 +26,16 @@ type SnapshotTrieRecord struct {
 }
 
 type SnapshotFirstBlock struct {
-	Header *BlockHeader
+	Header BlockHeader
 	Proof  VCPProof
 }
 
 type SnapshotSecondBlock struct {
-	Header *BlockHeader
+	Header BlockHeader
 }
 
 type SnapshotThirdBlock struct {
-	Header  *BlockHeader
+	Header  BlockHeader
 	VoteSet *VoteSet
 }
 
@@ -56,8 +56,8 @@ type SnapshotMetadata struct {
 }
 
 type LastCheckpoint struct {
-	CheckpointHeader    *BlockHeader
-	IntermediateHeaders []*BlockHeader
+	CheckpointHeader    BlockHeader
+	IntermediateHeaders []BlockHeader
 }
 
 func WriteSnapshotHeader(writer *bufio.Writer, snapshotHeader *SnapshotHeader) error {

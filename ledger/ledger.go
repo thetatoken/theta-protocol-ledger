@@ -119,22 +119,22 @@ func (ledger *Ledger) GetFinalizedValidatorCandidatePool(blockHash common.Hash, 
 		}
 
 		// Grandparent or root block.
-		if i == 0 || block.HCC.BlockHash.IsEmpty() || block.Status.IsTrusted() {
-			stateRoot := block.BlockHeader.StateHash
-			storeView := st.NewStoreView(block.Height, stateRoot, db)
+		if i == 0 || block.GetHCC().BlockHash.IsEmpty() || block.Status.IsTrusted() {
+			stateRoot := block.BlockHeader.GetStateHash()
+			storeView := st.NewStoreView(block.GetHeight(), stateRoot, db)
 			if storeView == nil {
 				logger.WithFields(log.Fields{
 					"block.Hash":                  blockHash.Hex(),
-					"block.Height":                block.Height,
-					"block.HCC.BlockHash":         block.HCC.BlockHash.Hex(),
-					"block.BlockHeader.StateHash": block.BlockHeader.StateHash.Hex(),
+					"block.Height":                block.GetHeight(),
+					"block.HCC.BlockHash":         block.GetHCC().BlockHash.Hex(),
+					"block.BlockHeader.StateHash": block.BlockHeader.GetStateHash().Hex(),
 					"block.Status.IsTrusted()":    block.Status.IsTrusted(),
 				}).Panic("Failed to load state for validator pool")
 			}
 			vcp := storeView.GetValidatorCandidatePool()
 			return vcp, nil
 		}
-		blockHash = block.HCC.BlockHash
+		blockHash = block.GetHCC().BlockHash
 	}
 
 	return nil, fmt.Errorf("Failed to find a directly finalized ancestor block for %v", blockHash)
@@ -152,19 +152,19 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 	}
 	blockHash = block.Hash()
 	for {
-		logger.Debugf("Ledger.GetGuardianCandidatePool, block.height = %v", block.Height)
+		logger.Debugf("Ledger.GetGuardianCandidatePool, block.height = %v", block.GetHeight())
 
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
 		}
-		if common.IsCheckPointHeight(block.Height) {
-			stateRoot := block.BlockHeader.StateHash
-			storeView := st.NewStoreView(block.Height, stateRoot, db)
+		if common.IsCheckPointHeight(block.GetHeight()) {
+			stateRoot := block.BlockHeader.GetStateHash()
+			storeView := st.NewStoreView(block.GetHeight(), stateRoot, db)
 			gcp := storeView.GetGuardianCandidatePool()
 			return gcp, nil
 		}
-		blockHash = block.Parent
+		blockHash = block.GetParent()
 	}
 }
 
@@ -180,19 +180,19 @@ func (ledger *Ledger) GetEliteEdgeNodePoolOfLastCheckpoint(blockHash common.Hash
 	}
 	blockHash = block.Hash()
 	for {
-		logger.Debugf("Ledger.GetEliteEdgeNodePoolOfLastCheckpoint, block.height = %v", block.Height)
+		logger.Debugf("Ledger.GetEliteEdgeNodePoolOfLastCheckpoint, block.height = %v", block.GetHeight())
 
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
 		}
-		if common.IsCheckPointHeight(block.Height) {
-			stateRoot := block.BlockHeader.StateHash
-			storeView := st.NewStoreView(block.Height, stateRoot, db)
+		if common.IsCheckPointHeight(block.GetHeight()) {
+			stateRoot := block.BlockHeader.GetStateHash()
+			storeView := st.NewStoreView(block.GetHeight(), stateRoot, db)
 			eenp := state.NewEliteEdgeNodePool(storeView, true)
 			return eenp, nil
 		}
-		blockHash = block.Parent
+		blockHash = block.GetParent()
 	}
 }
 
@@ -251,7 +251,7 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorUpdateTxs bool) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
-	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.Height)
+	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.GetHeight())
 	start := time.Now()
 
 	ledger.mempool.Lock()
@@ -265,7 +265,7 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 
 	view := ledger.state.Checked()
 
-	logger.Debugf("ProposeBlockTxs: Start adding block transactions, block.height = %v", block.Height)
+	logger.Debugf("ProposeBlockTxs: Start adding block transactions, block.height = %v", block.GetHeight())
 	preparationTime := time.Since(start)
 	start = time.Now()
 
@@ -279,7 +279,7 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 		rawTxCandidates = append(rawTxCandidates, regularRawTx)
 	}
 
-	logger.Debugf("ProposeBlockTxs: block transactions added, block.height = %v", block.Height)
+	logger.Debugf("ProposeBlockTxs: block transactions added, block.height = %v", block.GetHeight())
 	addTxsTime := time.Since(start)
 	start = time.Now()
 
@@ -308,7 +308,7 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
-	logger.Debugf("ProposeBlockTxs: block transactions executed, block.height = %v", block.Height)
+	logger.Debugf("ProposeBlockTxs: block transactions executed, block.height = %v", block.GetHeight())
 	execTxsTime := time.Since(start)
 	start = time.Now()
 
@@ -316,11 +316,11 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 
 	stateRootHash = view.Hash()
 
-	logger.Debugf("ProposeBlockTxs: delay update handled, block.height = %v", block.Height)
+	logger.Debugf("ProposeBlockTxs: delay update handled, block.height = %v", block.GetHeight())
 	handleDelayedUpdateTime := time.Since(start)
 
 	logger.Debugf("ProposeBlockTxs: Done, block.height = %v, preparationTime = %v, addTxsTime = %v, execTxsTime = %v, handleDelayedUpdateTime = %v",
-		block.Height, preparationTime, addTxsTime, execTxsTime, handleDelayedUpdateTime)
+		block.GetHeight(), preparationTime, addTxsTime, execTxsTime, handleDelayedUpdateTime)
 
 	return stateRootHash, blockRawTxs, result.OK
 }
@@ -331,7 +331,7 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorU
 func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
-	logger.Debugf("ApplyBlockTxs: Apply block transactions, block.height = %v", block.Height)
+	logger.Debugf("ApplyBlockTxs: Apply block transactions, block.height = %v", block.GetHeight())
 
 	ledger.mu.Lock()
 	defer ledger.mu.Unlock()
@@ -340,18 +340,18 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	defer func() { ledger.currentBlock = nil }()
 
 	blockRawTxs := ledger.currentBlock.Txs
-	expectedStateRoot := ledger.currentBlock.StateHash
+	expectedStateRoot := ledger.currentBlock.GetStateHash()
 
 	view := ledger.state.Delivered()
 
 	// currHeight := view.Height()
 	// currStateRoot := view.Hash()
-	extParentBlock, err := ledger.chain.FindBlock(block.Parent)
+	extParentBlock, err := ledger.chain.FindBlock(block.GetParent())
 	if extParentBlock == nil || err != nil {
-		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.Parent.Hex(), err))
+		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.GetParent().Hex(), err))
 	}
 	parentBlock := extParentBlock.Block
-	logger.Debugf("ApplyBlockTxs: Start applying block transactions, block.height = %v", block.Height)
+	logger.Debugf("ApplyBlockTxs: Start applying block transactions, block.height = %v", block.GetHeight())
 
 	hasValidatorUpdate := false
 	txProcessTime := []time.Duration{}
@@ -377,7 +377,7 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		txProcessTime = append(txProcessTime, time.Since(start))
 	}
 
-	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height=%v, txProcessTime=%v", block.Height, txProcessTime)
+	logger.Debugf("ApplyBlockTxs: Finish applying block transactions, block.height=%v, txProcessTime=%v", block.GetHeight(), txProcessTime)
 
 	start := time.Now()
 	ledger.handleDelayedStateUpdates(view)
@@ -396,7 +396,7 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 	ledger.state.Commit() // commit to persistent storage
 	commitTime := time.Since(start)
 
-	logger.Debugf("ApplyBlockTxs: Committed state change, block.height = %v", block.Height)
+	logger.Debugf("ApplyBlockTxs: Committed state change, block.height = %v", block.GetHeight())
 
 	go func() {
 		ledger.mempool.Lock()
@@ -405,10 +405,10 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 		ledger.mempool.UpdateUnsafe(blockRawTxs) // clear txs from the mempool
 	}()
 
-	logger.Debugf("ApplyBlockTxs: Cleared mempool transactions, block.height = %v", block.Height)
+	logger.Debugf("ApplyBlockTxs: Cleared mempool transactions, block.height = %v", block.GetHeight())
 
 	logger.Debugf("ApplyBlockTxs: Done, block.height = %v, txProcessTime = %v, handleDelayedUpdateTime = %v, commitTime = %v",
-		block.Height, txProcessTime, handleDelayedUpdateTime, commitTime)
+		block.GetHeight(), txProcessTime, handleDelayedUpdateTime, commitTime)
 
 	return result.OKWith(result.Info{"hasValidatorUpdate": hasValidatorUpdate})
 }
@@ -430,9 +430,9 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 
 	//currHeight := view.Height()
 	//currStateRoot := view.Hash()
-	extParentBlock, err := ledger.chain.FindBlock(block.Parent)
+	extParentBlock, err := ledger.chain.FindBlock(block.GetParent())
 	if extParentBlock == nil || err != nil {
-		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.Parent.Hex(), err))
+		panic(fmt.Sprintf("Failed to find the parent block: %v, err: %v", block.GetParent().Hex(), err))
 	}
 	parentBlock := extParentBlock.Block
 
@@ -520,7 +520,7 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 	chain := ledger.chain
 	lastFinalizedBlock := consensus.GetLastFinalizedBlock()
 
-	sv := state.NewStoreView(lastFinalizedBlock.Height, lastFinalizedBlock.BlockHeader.StateHash, db)
+	sv := state.NewStoreView(lastFinalizedBlock.GetHeight(), lastFinalizedBlock.BlockHeader.GetStateHash(), db)
 
 	stateHashMap := make(map[string]bool)
 	kvStore := kvstore.NewKVStore(db)
@@ -531,19 +531,19 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 		blockTrioKey := []byte(core.BlockTrioStoreKeyPrefix + strconv.FormatUint(height, 10))
 		err := kvStore.Get(blockTrioKey, blockTrio)
 		if err == nil {
-			stateHashMap[blockTrio.First.Header.StateHash.String()] = true
+			stateHashMap[blockTrio.First.Header.GetStateHash().String()] = true
 			continue
 		}
 
 		if height == core.GenesisBlockHeight {
 			blocks := chain.FindBlocksByHeight(core.GenesisBlockHeight)
 			genesisBlock := blocks[0]
-			stateHashMap[genesisBlock.StateHash.String()] = true
+			stateHashMap[genesisBlock.GetStateHash().String()] = true
 		} else {
 			blocks := chain.FindBlocksByHeight(height)
 			for _, block := range blocks {
 				if block.Status.IsDirectlyFinalized() {
-					stateHashMap[block.StateHash.String()] = true
+					stateHashMap[block.GetStateHash().String()] = true
 					break
 				}
 			}
@@ -557,7 +557,7 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 		}
 		blocks := chain.FindBlocksByHeight(height)
 		for idx, block := range blocks {
-			if _, ok := stateHashMap[block.StateHash.String()]; !ok {
+			if _, ok := stateHashMap[block.GetStateHash().String()]; !ok {
 				if block.HasValidatorUpdate {
 					continue
 				}
@@ -568,14 +568,15 @@ func (ledger *Ledger) pruneStateForRange(startHeight, endHeight uint64) error {
 					// is stored in the chain, but its state trie is not saved
 				}
 
-				logger.Infof("Prune state, idx: %v, height: %v, StateHash: %v", idx, height, block.StateHash.Hex())
-				_, err := db.Get(block.StateHash[:])
+				stateHash := block.GetStateHash()
+				logger.Infof("Prune state, idx: %v, height: %v, StateHash: %v", idx, height, stateHash.Hex())
+				_, err := db.Get(stateHash[:])
 				if err != nil {
-					logger.Errorf("StateRoot %v not found, skip pruning", block.StateHash.Hex())
+					logger.Errorf("StateRoot %v not found, skip pruning", stateHash.Hex())
 					continue
 				}
 
-				sv := state.NewStoreView(height, block.StateHash, db)
+				sv := state.NewStoreView(height, stateHash, db)
 				err = sv.Prune()
 				if err != nil {
 					return fmt.Errorf("Failed to prune storeview at height %v, %v", height, err)
@@ -614,8 +615,8 @@ func (ledger *Ledger) FinalizeState(height uint64, rootHash common.Hash) result.
 // resetState sets the ledger state with the designated root
 //func (ledger *Ledger) resetState(height uint64, rootHash common.Hash) result.Result
 func (ledger *Ledger) resetState(block *core.Block) result.Result {
-	height := block.Height
-	rootHash := block.StateHash
+	height := block.GetHeight()
+	rootHash := block.GetStateHash()
 	logger.Debugf("Reseting state to height %v, hash %v\n", height, rootHash.Hex())
 
 	//res := ledger.state.ResetState(height, rootHash)
@@ -761,8 +762,8 @@ func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreVi
 	// Note 1: Should call GetNextProposer() with the hash of the parent block, since the current block is not fully assembled yet
 	// Note 2: GetNextProposer() should use the current epoch instead of the parent's epoch, since different epochs might have different proposers
 	// Note 3: Similarly, should call GetNextValidatorSet() on the hash of the parent block
-	parentBlkHash := block.Parent
-	proposer := ledger.valMgr.GetNextProposer(parentBlkHash, block.Epoch)
+	parentBlkHash := block.GetParent()
+	proposer := ledger.valMgr.GetNextProposer(parentBlkHash, block.GetEpoch())
 	validatorSet := ledger.valMgr.GetNextValidatorSet(parentBlkHash)
 
 	ledger.addCoinbaseTx(view, &proposer, validatorSet, rawTxs)
@@ -778,10 +779,10 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 	}
 
 	var accountRewardMap map[string]types.Coins
-	ch := ledger.GetCurrentBlock().Height
+	ch := ledger.GetCurrentBlock().GetHeight()
 	currentBlock := ledger.GetCurrentBlock()
-	guardianVotes := currentBlock.GuardianVotes
-	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
+	guardianVotes := currentBlock.GetGuardianVotes()
+	eliteEdgeNodeVotes := currentBlock.GetEliteEdgeNodeVotes()
 
 	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
 		guardianPool, eliteEdgeNodePool := exec.RetrievePools(ledger, ledger.chain, ledger.db, ch, guardianVotes, eliteEdgeNodeVotes)

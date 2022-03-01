@@ -30,8 +30,8 @@ type SendArgs struct {
 }
 
 type SendResult struct {
-	TxHash string            `json:"hash"`
-	Block  *core.BlockHeader `json:"block",rlp:"nil"`
+	TxHash string           `json:"hash"`
+	Block  core.BlockHeader `json:"block",rlp:"nil"`
 }
 
 func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error) {

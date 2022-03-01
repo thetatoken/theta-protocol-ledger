@@ -20,11 +20,11 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 		Origin:      tx.From.Address,
 		GasPrice:    tx.GasPrice,
 		GasLimit:    tx.GasLimit,
-		BlockNumber: new(big.Int).SetUint64(parentBlock.Height + 1),
-		Time:        parentBlock.Timestamp,
+		BlockNumber: new(big.Int).SetUint64(parentBlock.GetHeight() + 1),
+		Time:        parentBlock.GetTimestamp(),
 		Difficulty:  new(big.Int).SetInt64(0),
 	}
-	chainIDBigInt := types.MapChainID(parentBlock.ChainID, context.BlockNumber.Uint64())
+	chainIDBigInt := types.MapChainID(parentBlock.GetChainID(), context.BlockNumber.Uint64())
 	chainConfig := &params.ChainConfig{
 		ChainID: chainIDBigInt,
 	}

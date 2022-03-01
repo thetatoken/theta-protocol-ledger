@@ -102,7 +102,7 @@ func (t *ThetaRPCService) txCallback() {
 			logger.Infof("ctx.Done()")
 			return
 		case block := <-t.consensus.FinalizedBlocks():
-			logger.Infof("Processing finalized block, height=%v", block.Height)
+			logger.Infof("Processing finalized block, height=%v", block.GetHeight())
 
 			for _, tx := range block.Txs {
 				txHash := crypto.Keccak256Hash(tx)
@@ -112,7 +112,7 @@ func (t *ThetaRPCService) txCallback() {
 				}
 			}
 
-			logger.Infof("Done processing finalized block, height=%v", block.Height)
+			logger.Infof("Done processing finalized block, height=%v", block.GetHeight())
 		case <-timer.C:
 			logger.Debugf("txCallbackManager.Trim()")
 
@@ -130,8 +130,8 @@ type BroadcastRawTransactionArgs struct {
 }
 
 type BroadcastRawTransactionResult struct {
-	TxHash string            `json:"hash"`
-	Block  *core.BlockHeader `json:"block",rlp:"nil"`
+	TxHash string           `json:"hash"`
+	Block  core.BlockHeader `json:"block",rlp:"nil"`
 }
 
 func (t *ThetaRPCService) BroadcastRawTransaction(
