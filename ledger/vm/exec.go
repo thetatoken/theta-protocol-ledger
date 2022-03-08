@@ -5,14 +5,26 @@ import (
 	"math/big"
 
 	"github.com/thetatoken/theta/common"
-	"github.com/thetatoken/theta/core"
-	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm/params"
 )
 
+type BlockInfo struct {
+	Height    uint64
+	Timestamp *big.Int
+	ChainID   string
+}
+
+func NewBlockInfo(height uint64, timestamp *big.Int, chainID string) *BlockInfo {
+	return &BlockInfo{
+		Height:    height,
+		Timestamp: timestamp,
+		ChainID:   chainID,
+	}
+}
+
 // Execute executes the given smart contract
-func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *state.StoreView) (evmRet common.Bytes,
+func Execute(parentBlockInfo *BlockInfo, tx *types.SmartContractTx, statedb StateDB) (evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	context := Context{
 		CanTransfer: CanTransfer,
@@ -20,16 +32,16 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 		Origin:      tx.From.Address,
 		GasPrice:    tx.GasPrice,
 		GasLimit:    tx.GasLimit,
-		BlockNumber: new(big.Int).SetUint64(parentBlock.Height + 1),
-		Time:        parentBlock.Timestamp,
+		BlockNumber: new(big.Int).SetUint64(parentBlockInfo.Height + 1),
+		Time:        parentBlockInfo.Timestamp,
 		Difficulty:  new(big.Int).SetInt64(0),
 	}
-	chainIDBigInt := types.MapChainID(parentBlock.ChainID, context.BlockNumber.Uint64())
+	chainIDBigInt := types.MapChainID(parentBlockInfo.ChainID, context.BlockNumber.Uint64())
 	chainConfig := &params.ChainConfig{
 		ChainID: chainIDBigInt,
 	}
 	config := Config{}
-	evm := NewEVM(context, storeView, chainConfig, config)
+	evm := NewEVM(context, statedb, chainConfig, config)
 
 	value := tx.From.Coins.TFuelWei
 	if value == nil {
@@ -49,7 +61,10 @@ func Execute(parentBlock *core.Block, tx *types.SmartContractTx, storeView *stat
 	// if gasLimit > maxGasLimit {
 	// 	return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
 	// }
-	blockHeight := storeView.Height() + 1
+
+	// blockHeight := storeView.Height() + 1
+	blockHeight := statedb.GetBlockHeight() // GetBlockHeight() returns storeView.Height() + 1 so it is equivalent to the above commented line
+
 	maxGasLimit := types.GetMaxGasLimit(blockHeight)
 	if new(big.Int).SetUint64(gasLimit).Cmp(maxGasLimit) > 0 {
 		return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit

@@ -52,8 +52,9 @@ func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result 
 		return fmt.Errorf("Failed to parse SmartContractTx: %v", args.SctxBytes)
 	}
 
-	parentBlock := t.ledger.State().ParentBlock()
-	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(parentBlock, sctx, ledgerState)
+	pb := t.ledger.State().ParentBlock()
+	parentBlockInfo := vm.NewBlockInfo(pb.Height, pb.Timestamp, pb.ChainID)
+	vmRet, contractAddr, gasUsed, vmErr := vm.Execute(parentBlockInfo, sctx, ledgerState)
 	ledgerState.Save()
 
 	result.VmReturn = hex.EncodeToString(vmRet)
