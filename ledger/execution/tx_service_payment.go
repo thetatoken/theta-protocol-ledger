@@ -27,7 +27,7 @@ func NewServicePaymentTxExecutor(state *st.LedgerState) *ServicePaymentTxExecuto
 	}
 }
 
-func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	res := tx.Source.ValidateBasic()
@@ -99,7 +99,7 @@ func (exec *ServicePaymentTxExecutor) sanityCheck(chainID string, view *st.Store
 	return result.OK
 }
 
-func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ServicePaymentTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ServicePaymentTx)
 
 	sourceAddress := tx.Source.Address

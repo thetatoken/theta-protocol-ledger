@@ -49,7 +49,6 @@ type Ledger struct {
 // NewLedger creates an instance of Ledger
 func NewLedger(chainID string, db database.Database, tagger st.Tagger, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
 	state := st.NewLedgerState(chainID, db, tagger)
-	executor := exec.NewExecutor(db, chain, state, consensus, valMgr)
 	ledger := &Ledger{
 		db:        db,
 		chain:     chain,
@@ -58,9 +57,15 @@ func NewLedger(chainID string, db database.Database, tagger st.Tagger, chain *bl
 		mempool:   mempool,
 		mu:        &sync.RWMutex{},
 		state:     state,
-		executor:  executor,
 	}
+	executor := exec.NewExecutor(db, chain, state, consensus, valMgr, ledger)
+	ledger.SetExecutor(executor)
 	return ledger
+}
+
+// SetExecutor sets the executor for the ledger
+func (ledger *Ledger) SetExecutor(executor *exec.Executor) {
+	ledger.executor = executor
 }
 
 // State returns the state of the ledger
