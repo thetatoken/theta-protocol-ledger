@@ -5,6 +5,8 @@ type ErrorCode int
 const (
 	CodeOK ErrorCode = 0
 
+	CodeUndecided ErrorCode = 2
+
 	// Common Errors
 	CodeGenericError             ErrorCode = 100000
 	CodeInvalidSignature         ErrorCode = 100001
