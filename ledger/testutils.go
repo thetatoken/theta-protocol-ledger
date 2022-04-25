@@ -63,16 +63,16 @@ func newExecSim(chainID string, db database.Database, snapshot mockSnapshot, val
 	//ledgerState.ResetState(initHeight, snapshot.block.StateHash)
 	ledgerState.ResetState(snapshot.block)
 
-	executor := exec.NewExecutor(db, chain, ledgerState, consensus, valMgr)
-
 	ledger := &Ledger{
 		consensus: consensus,
 		valMgr:    valMgr,
 		mempool:   mempool,
 		mu:        &sync.RWMutex{},
 		state:     ledgerState,
-		executor:  executor,
 	}
+	executor := exec.NewExecutor(db, chain, ledgerState, consensus, valMgr, ledger)
+	ledger.SetExecutor(executor)
+
 	consensus.SetLedger(ledger)
 
 	es := &execSim{
@@ -149,10 +149,10 @@ func genSimSnapshot(chainID string, db database.Database) (snapshot mockSnapshot
 	stakeAmount4 := new(big.Int).Mul(new(big.Int).SetUint64(4), core.MinValidatorStakeDeposit)
 
 	vcp := &core.ValidatorCandidatePool{}
-	vcp.DepositStake(src1Acc.Address, val1Acc.Address, stakeAmount1)
-	vcp.DepositStake(src2Acc.Address, val2Acc.Address, stakeAmount2)
-	vcp.DepositStake(src3Acc.Address, val3Acc.Address, stakeAmount3)
-	vcp.DepositStake(src4Acc.Address, val4Acc.Address, stakeAmount4)
+	vcp.DepositStake(src1Acc.Address, val1Acc.Address, stakeAmount1, 0)
+	vcp.DepositStake(src2Acc.Address, val2Acc.Address, stakeAmount2, 0)
+	vcp.DepositStake(src3Acc.Address, val3Acc.Address, stakeAmount3, 0)
+	vcp.DepositStake(src4Acc.Address, val4Acc.Address, stakeAmount4, 0)
 
 	sv := state.NewStoreView(initHeight, common.Hash{}, db)
 	sv.UpdateValidatorCandidatePool(vcp)

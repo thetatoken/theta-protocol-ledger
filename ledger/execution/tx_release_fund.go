@@ -27,7 +27,7 @@ func NewReleaseFundTxExecutor(state *st.LedgerState) *ReleaseFundTxExecutor {
 	}
 }
 
-func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.ReleaseFundTx)
 
@@ -73,7 +73,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	return result.OK
 }
 
-func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReleaseFundTx)
 
 	sourceInputs := []types.TxInput{tx.Source}

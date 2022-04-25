@@ -28,7 +28,7 @@ func NewDepositStakeExecutor(state *st.LedgerState) *DepositStakeExecutor {
 	}
 }
 
-func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	// Feature block height check
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	if _, ok := transaction.(*types.DepositStakeTxV2); ok && blockHeight < common.HeightEnableTheta2 {
@@ -81,9 +81,15 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	}
 
 	// Minimum stake deposit requirement to avoid spamming
-	if tx.Purpose == core.StakeForValidator && stake.ThetaWei.Cmp(core.MinValidatorStakeDeposit) < 0 {
-		return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each validator deposit", core.MinValidatorStakeDeposit).
-			WithErrorCode(result.CodeInsufficientStake)
+	if tx.Purpose == core.StakeForValidator {
+		minValidatorStake := core.MinValidatorStakeDeposit
+		if blockHeight >= common.HeightValidatorStakeChangedTo200K {
+			minValidatorStake = core.MinValidatorStakeDeposit200K
+		}
+		if stake.ThetaWei.Cmp(minValidatorStake) < 0 {
+			return result.Error("Insufficient amount of stake, at least %v ThetaWei is required for each validator deposit", minValidatorStake).
+				WithErrorCode(result.CodeInsufficientStake)
+		}
 	}
 
 	if tx.Purpose == core.StakeForGuardian {
@@ -134,7 +140,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	return result.OK
 }
 
-func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 
 	tx := exec.castTx(transaction)
@@ -160,7 +166,7 @@ func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, tr
 		sourceAccount.Balance = sourceAccount.Balance.Minus(stake)
 		stakeAmount := stake.ThetaWei
 		vcp := view.GetValidatorCandidatePool()
-		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount)
+		err := vcp.DepositStake(sourceAddress, holderAddress, stakeAmount, blockHeight)
 		if err != nil {
 			return common.Hash{}, result.Error("Failed to deposit stake, err: %v", err)
 		}
