@@ -483,9 +483,10 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 	sv.SetAccount(addr, account)
 
 	sv.addBalanceChange(&types.BalanceChange{
-		Address: addr,
-		Token:   1,
-		Delta:   new(big.Int).Neg(amount),
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: true,
+		Delta:      amount,
 	})
 }
 
@@ -499,9 +500,10 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 	sv.SetAccount(addr, account)
 
 	sv.addBalanceChange(&types.BalanceChange{
-		Address: addr,
-		Token:   1,
-		Delta:   amount,
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: false,
+		Delta:      amount,
 	})
 }
 
@@ -522,9 +524,10 @@ func (sv *StoreView) SubThetaBalance(addr common.Address, amount *big.Int) {
 	sv.SetAccount(addr, account)
 
 	sv.addBalanceChange(&types.BalanceChange{
-		Address: addr,
-		Token:   0,
-		Delta:   new(big.Int).Neg(amount),
+		Address:    addr,
+		TokenType:  0,
+		IsNegative: true,
+		Delta:      amount,
 	})
 }
 
@@ -538,9 +541,10 @@ func (sv *StoreView) AddThetaBalance(addr common.Address, amount *big.Int) {
 	sv.SetAccount(addr, account)
 
 	sv.addBalanceChange(&types.BalanceChange{
-		Address: addr,
-		Token:   0,
-		Delta:   amount,
+		Address:    addr,
+		TokenType:  0,
+		IsNegative: false,
+		Delta:      amount,
 	})
 }
 
