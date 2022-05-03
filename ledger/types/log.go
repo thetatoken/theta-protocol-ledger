@@ -64,7 +64,7 @@ type BalanceChange struct {
 	// address of the account
 	Address common.Address `json:"address"`
 	// type of token changes. theta=0, tfuel=1
-	Token int `json:"token"`
+	Token int `json:"token_type"`
 	// amount changed.
 	Delta *big.Int `json:"delta"`
 }
