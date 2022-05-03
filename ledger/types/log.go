@@ -18,6 +18,7 @@ package types
 
 import (
 	"io"
+	"math/big"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/rlp"
@@ -56,4 +57,24 @@ func (l *Log) DecodeRLP(s *rlp.Stream) error {
 		l.Address, l.Topics, l.Data = dec.Address, dec.Topics, dec.Data
 	}
 	return err
+}
+
+// BalanceChange represents a contract balance transfer event.
+type BalanceChange struct {
+	// address of the account
+	Address common.Address `json:"address"`
+	// type of token changes. theta=0, tfuel=1
+	Token int `json:"token"`
+	// amount changed.
+	Delta *big.Int `json:"delta"`
+}
+
+// EncodeRLP implements rlp.Encoder.
+func (b *BalanceChange) EncodeRLP(w io.Writer) error {
+	return rlp.Encode(w, b)
+}
+
+// DecodeRLP implements rlp.Decoder.
+func (b *BalanceChange) DecodeRLP(s *rlp.Stream) error {
+	return s.Decode(b)
 }
