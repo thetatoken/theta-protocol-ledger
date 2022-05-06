@@ -486,7 +486,7 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 		Address:    addr,
 		TokenType:  1,
 		IsNegative: true,
-		Delta:      amount,
+		Delta:      new(big.Int).Set(amount),
 	})
 }
 
@@ -503,7 +503,7 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 		Address:    addr,
 		TokenType:  1,
 		IsNegative: false,
-		Delta:      amount,
+		Delta:      new(big.Int).Set(amount),
 	})
 }
 
@@ -527,7 +527,7 @@ func (sv *StoreView) SubThetaBalance(addr common.Address, amount *big.Int) {
 		Address:    addr,
 		TokenType:  0,
 		IsNegative: true,
-		Delta:      amount,
+		Delta:      new(big.Int).Set(amount),
 	})
 }
 
@@ -544,7 +544,7 @@ func (sv *StoreView) AddThetaBalance(addr common.Address, amount *big.Int) {
 		Address:    addr,
 		TokenType:  0,
 		IsNegative: false,
-		Delta:      amount,
+		Delta:      new(big.Int).Set(amount),
 	})
 }
 
@@ -723,6 +723,14 @@ func (sv *StoreView) Suicide(addr common.Address) bool {
 		return false
 	}
 	account.CodeHash = core.SuicidedCodeHash
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: true,
+		Delta:      new(big.Int).Set(account.Balance.TFuelWei),
+	})
+
 	account.Balance.TFuelWei = big.NewInt(0)
 	sv.SetAccount(addr, account)
 	return true
