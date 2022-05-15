@@ -91,6 +91,7 @@ var PrecompiledContractsWrappedThetaSupport = map[common.Address]PrecompiledCont
 	common.BytesToAddress([]byte{202}): &thetaStake{},
 	common.BytesToAddress([]byte{203}): &transferTheta{},
 	common.BytesToAddress([]byte{204}): &getThetaValue{},
+	common.BytesToAddress([]byte{205}): &stakeToGuardian{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -476,4 +477,26 @@ func (c *getThetaValue) Run(evm *EVM, input []byte, callerAddr common.Address, c
 	thetaValueBytes := thetaValue.Bytes()
 	thetaValueBytes32 := common.LeftPadBytes(thetaValueBytes[:], 32) // easier to convert bytes32 into uint256 in smart contracts
 	return thetaValueBytes32, nil
+}
+
+// stakeToGuardian stake Theta to Guardian node
+type stakeToGuardian struct {
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *stakeToGuardian) RequiredGas(input []byte, blockHeight uint64) uint64 {
+	return params.StakeToGuardianGas
+}
+
+func (c *stakeToGuardian) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
+	guardianSummary := getData(input, 0, 458)
+	thetaWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
+	if !CanStakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount) {
+		return common.Bytes{}, ErrInvalidStakeOperation
+	}
+
+	// send Theta from the contract to the specified guardian
+	StakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount)
+
+	return common.Bytes{}, nil
 }

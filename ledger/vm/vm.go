@@ -22,7 +22,10 @@ import (
 	"time"
 
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/core"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/crypto/bls"
+	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm/params"
 )
@@ -66,6 +69,103 @@ func Transfer(db StateDB, sender, recipient common.Address, amount *big.Int) {
 func TransferTheta(db StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.SubThetaBalance(sender, amount)
 	db.AddThetaBalance(recipient, amount)
+}
+
+// CanStakeToGuardian checks whether the staking amount is valid.
+func CanStakeToGuardian(db StateDB, addr common.Address, guardianSummary []byte, amount *big.Int) bool {
+	if amount.Cmp(core.MinGuardianStakeDeposit) < 0 {
+		return false
+	}
+	if db.GetThetaBalance(addr).Cmp(amount) < 0 {
+		return false
+	}
+
+	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(guardianSummary)
+	if !ok {
+		return false
+	}
+
+	view := db.(*state.StoreView)
+	gcp := view.GetGuardianCandidatePool()
+	if !gcp.Contains(guardianAddr) {
+		if !checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr) {
+			return false
+		}
+	}
+
+	return true
+}
+
+func parseBLSSummary(summary []byte) (holderAddress common.Address, blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, ok bool) {
+	if len(summary) != 458 {
+		return
+	}
+
+	holderAddress = common.BytesToAddress(summary[:20])
+	blsPubkey, err := bls.PublicKeyFromBytes(summary[20:68])
+	if err != nil {
+		return
+	}
+	blsPop, err = bls.SignatureFromBytes(summary[68:164])
+	if err != nil {
+		return
+	}
+	holderSig, err = crypto.SignatureFromBytes(summary[164:])
+	if err != nil {
+		return
+	}
+
+	ok = true
+	return
+}
+
+func CheckBLSSummary(summary []byte) bool {
+	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(summary)
+	if !ok {
+		return false
+	}
+
+	return checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr)
+}
+
+func checkBlsSummary(blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, guardianAddr common.Address) bool {
+	if blsPubkey.IsEmpty() {
+		return false
+	}
+	if blsPop.IsEmpty() {
+		return false
+	}
+	if holderSig == nil || holderSig.IsEmpty() {
+		return false
+	}
+
+	if !holderSig.Verify(blsPop.ToBytes(), guardianAddr) {
+		return false
+	}
+
+	if !blsPop.PopVerify(blsPubkey) {
+		return false
+	}
+
+	return true
+}
+
+// StakeToGuardian stake Theta to given guardian node.
+func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, amount *big.Int) {
+	view := db.(*state.StoreView)
+
+	gcp := view.GetGuardianCandidatePool()
+
+	guardianAddr, blsPubkey, _, _, _ := parseBLSSummary(guardianSummary)
+
+	db.SubBalance(sender, amount)
+
+	err := gcp.DepositStake(sender, guardianAddr, amount, blsPubkey, view.GetBlockHeight())
+	if err != nil {
+		return
+	}
+
+	view.UpdateGuardianCandidatePool(gcp)
 }
 
 func getPrecompiledContracts(blockHeight uint64) map[common.Address]PrecompiledContract {

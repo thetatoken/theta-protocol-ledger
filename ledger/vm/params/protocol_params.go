@@ -98,6 +98,11 @@ const (
 	ThetaStakeGas    uint64 = 200   // Retrieve the total amount of staked Theta for an address
 	ThetaTransferGas uint64 = 21000 // Transfer Theta balance
 	GetThetaValueGas uint64 = 10    // Get Theta value of a transaction
+
+	StakeToGuardianGas     uint64 = 21000 // Stake to Guardian
+	UnstakeFromGuardianGas uint64 = 21000 // Unstake from Guardian
+	StakeToEENGas          uint64 = 21000 // Stake to EEN
+	UnstakeFromEENGas      uint64 = 21000 // Unstake from EEN
 )
 
 var (
