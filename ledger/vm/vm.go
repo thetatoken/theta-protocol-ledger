@@ -71,31 +71,6 @@ func TransferTheta(db StateDB, sender, recipient common.Address, amount *big.Int
 	db.AddThetaBalance(recipient, amount)
 }
 
-// CanStakeToGuardian checks whether the staking amount is valid.
-func CanStakeToGuardian(db StateDB, addr common.Address, guardianSummary []byte, amount *big.Int) bool {
-	if amount.Cmp(core.MinGuardianStakeDeposit) < 0 {
-		return false
-	}
-	if db.GetThetaBalance(addr).Cmp(amount) < 0 {
-		return false
-	}
-
-	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(guardianSummary)
-	if !ok {
-		return false
-	}
-
-	view := db.(*state.StoreView)
-	gcp := view.GetGuardianCandidatePool()
-	if !gcp.Contains(guardianAddr) {
-		if !checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr) {
-			return false
-		}
-	}
-
-	return true
-}
-
 func parseBLSSummary(summary []byte) (holderAddress common.Address, blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, ok bool) {
 	if len(summary) != 458 {
 		return
@@ -151,21 +126,120 @@ func checkBlsSummary(blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig 
 }
 
 // StakeToGuardian stake Theta to given guardian node.
-func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, amount *big.Int) {
+func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, amount *big.Int) bool {
+	if amount.Cmp(core.MinGuardianStakeDeposit) < 0 {
+		return false
+	}
+	if db.GetThetaBalance(sender).Cmp(amount) < 0 {
+		return false
+	}
+
+	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(guardianSummary)
+	if !ok {
+		return false
+	}
+
 	view := db.(*state.StoreView)
-
 	gcp := view.GetGuardianCandidatePool()
-
-	guardianAddr, blsPubkey, _, _, _ := parseBLSSummary(guardianSummary)
+	if !gcp.Contains(guardianAddr) {
+		if !checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr) {
+			return false
+		}
+	}
 
 	db.SubBalance(sender, amount)
 
 	err := gcp.DepositStake(sender, guardianAddr, amount, blsPubkey, view.GetBlockHeight())
 	if err != nil {
-		return
+		return false
 	}
 
 	view.UpdateGuardianCandidatePool(gcp)
+
+	return true
+}
+
+// UnstakeFromGuardian unstake from Guardians.
+func UnstakeFromGuardian(db StateDB, addr common.Address, guardianAddr common.Address) bool {
+	view := db.(*state.StoreView)
+	gcp := view.GetGuardianCandidatePool()
+	currentHeight := view.GetBlockHeight()
+	err := gcp.WithdrawStake(addr, guardianAddr, currentHeight)
+	if err != nil {
+		return false
+	}
+
+	view.UpdateGuardianCandidatePool(gcp)
+	return true
+}
+
+// StakeToEEN stake to given EEN node.
+func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.Int) bool {
+	minEliteEdgeNodeStake := core.MinEliteEdgeNodeStakeDeposit
+	maxEliteEdgeNodeStake := core.MaxEliteEdgeNodeStakeDeposit
+
+	if amount.Cmp(minEliteEdgeNodeStake) < 0 {
+		return false
+	}
+
+	eenAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(summary)
+	if !ok {
+		return false
+	}
+
+	view := db.(*state.StoreView)
+
+	currentStake := big.NewInt(0)
+
+	eenp := state.NewEliteEdgeNodePool(view, true)
+	een := eenp.Get(eenAddr)
+	if een != nil {
+		currentStake = een.TotalStake()
+	}
+
+	expectedStake := big.NewInt(0).Add(currentStake, amount)
+	if expectedStake.Cmp(maxEliteEdgeNodeStake) > 0 {
+		return false
+	}
+
+	if db.GetBalance(sender).Cmp(amount) < 0 {
+		return false
+	}
+
+	if !checkBlsSummary(blsPubkey, blsPop, holderSig, eenAddr) {
+		return false
+	}
+
+	err := eenp.DepositStake(sender, eenAddr, amount, blsPubkey, view.GetBlockHeight())
+	if err != nil {
+		return false
+	}
+
+	return true
+}
+
+// UnstakeFromEEN unstake from EEN.
+func UnstakeFromEEN(db StateDB, addr common.Address, eenAddr common.Address) bool {
+	view := db.(*state.StoreView)
+
+	eenp := state.NewEliteEdgeNodePool(view, true)
+
+	currentHeight := view.GetBlockHeight()
+
+	withdrawnStake, err := eenp.WithdrawStake(addr, eenAddr, currentHeight)
+	if err != nil || withdrawnStake == nil {
+		return false
+	}
+
+	returnHeight := withdrawnStake.ReturnHeight
+	stakesToBeReturned := view.GetEliteEdgeNodeStakeReturns(returnHeight)
+	stakesToBeReturned = append(stakesToBeReturned, state.StakeWithHolder{
+		Holder: eenAddr,
+		Stake:  *withdrawnStake,
+	})
+	view.SetEliteEdgeNodeStakeReturns(returnHeight, stakesToBeReturned)
+
+	return true
 }
 
 func getPrecompiledContracts(blockHeight uint64) map[common.Address]PrecompiledContract {

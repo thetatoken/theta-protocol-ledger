@@ -92,6 +92,9 @@ var PrecompiledContractsWrappedThetaSupport = map[common.Address]PrecompiledCont
 	common.BytesToAddress([]byte{203}): &transferTheta{},
 	common.BytesToAddress([]byte{204}): &getThetaValue{},
 	common.BytesToAddress([]byte{205}): &stakeToGuardian{},
+	common.BytesToAddress([]byte{206}): &unstakeFromGuardian{},
+	common.BytesToAddress([]byte{207}): &stakeToEEN{},
+	common.BytesToAddress([]byte{208}): &unstakeFromEEN{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -491,12 +494,67 @@ func (c *stakeToGuardian) RequiredGas(input []byte, blockHeight uint64) uint64 {
 func (c *stakeToGuardian) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
 	guardianSummary := getData(input, 0, 458)
 	thetaWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
-	if !CanStakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount) {
+
+	ok := StakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount)
+	if !ok {
 		return common.Bytes{}, ErrInvalidStakeOperation
 	}
 
-	// send Theta from the contract to the specified guardian
-	StakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount)
+	return common.Bytes{}, nil
+}
 
+// unstakeFromGuardian unstake Theta from Guardian node
+type unstakeFromGuardian struct {
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *unstakeFromGuardian) RequiredGas(input []byte, blockHeight uint64) uint64 {
+	return params.UnstakeFromGuardianGas
+}
+
+func (c *unstakeFromGuardian) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
+	guardianAddr := common.BytesToAddress(input)
+	ok := UnstakeFromGuardian(evm.StateDB, callerAddr, guardianAddr)
+	if !ok {
+		return common.Bytes{}, ErrInvalidStakeOperation
+	}
+	return common.Bytes{}, nil
+}
+
+// stakeToEEN stake TFuel to EEN
+type stakeToEEN struct {
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *stakeToEEN) RequiredGas(input []byte, blockHeight uint64) uint64 {
+	return params.StakeToGuardianGas
+}
+
+func (c *stakeToEEN) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
+	summary := getData(input, 0, 458)
+	tfuelWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
+	ok := StakeToEEN(evm.StateDB, callerAddr, summary, tfuelWeiAmount)
+	if !ok {
+		return common.Bytes{}, ErrInvalidStakeOperation
+	}
+
+	return common.Bytes{}, nil
+}
+
+// unstakeFromEEN unstake from EEN
+type unstakeFromEEN struct {
+}
+
+// RequiredGas returns the gas required to execute the pre-compiled contract.
+func (c *unstakeFromEEN) RequiredGas(input []byte, blockHeight uint64) uint64 {
+	return params.UnstakeFromGuardianGas
+}
+
+func (c *unstakeFromEEN) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
+	eenAddr := common.BytesToAddress(input)
+	ok := UnstakeFromEEN(evm.StateDB, callerAddr, eenAddr)
+	if !ok {
+		return common.Bytes{}, ErrInvalidStakeOperation
+	}
 	return common.Bytes{}, nil
 }
