@@ -123,7 +123,7 @@ func (et *execTest) reset() {
 	valMgr := NewTestValidatorManager(propser, valSet)
 
 	chain := blockchain.CreateTestChain()
-	executor := NewExecutor(db, chain, ledgerState, consensus, valMgr)
+	executor := NewExecutor(db, chain, ledgerState, consensus, valMgr, nil)
 
 	et.chainID = chainID
 	et.executor = executor
@@ -282,9 +282,9 @@ func setupForServicePayment(ast *assert.Assertions) (et *execTest, resourceID st
 		Duration:    1000,
 	}
 	reserveFundTx.Source.Signature = alice.Sign(reserveFundTx.SignBytes(et.chainID))
-	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), reserveFundTx)
+	res := et.executor.getTxExecutor(reserveFundTx).sanityCheck(et.chainID, et.state().Delivered(), core.DeliveredView, reserveFundTx)
 	ast.True(res.IsOK(), res.String())
-	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), reserveFundTx)
+	_, res = et.executor.getTxExecutor(reserveFundTx).process(et.chainID, et.state().Delivered(), core.DeliveredView, reserveFundTx)
 	ast.True(res.IsOK(), res.String())
 
 	return et, resourceID, alice, bob, carol, aliceInitBalance, bobInitBalance, carolInitBalance

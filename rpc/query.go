@@ -208,7 +208,8 @@ func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTr
 	result.TxHash = canonicalTxHash
 
 	// Add receipt
-	receipt, found := t.chain.FindTxReceiptByHash(canonicalTxHash)
+	blockHash := block.Hash()
+	receipt, found := t.chain.FindTxReceiptByHash(blockHash, canonicalTxHash)
 	if found {
 		result.Receipt = receipt
 	}
@@ -1019,7 +1020,8 @@ func (t *ThetaRPCService) gatherTxs(block *core.ExtendedBlock, txs *[]interface{
 			return err
 		}
 		hash := crypto.Keccak256Hash(txBytes)
-		receipt, found := t.chain.FindTxReceiptByHash(hash)
+		blockHash := block.Hash()
+		receipt, found := t.chain.FindTxReceiptByHash(blockHash, hash)
 		if !found {
 			receipt = nil
 		}

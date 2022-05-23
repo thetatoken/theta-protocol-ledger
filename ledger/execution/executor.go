@@ -18,8 +18,8 @@ var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
 // TxExecutor defines the interface of the transaction executors
 //
 type TxExecutor interface {
-	sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result
-	process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result)
+	sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result
+	process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result)
 	getTxInfo(transaction types.Tx) *core.TxInfo
 }
 
@@ -32,6 +32,7 @@ type Executor struct {
 	state     *st.LedgerState
 	consensus core.ConsensusEngine
 	valMgr    core.ValidatorManager
+	ledger    core.Ledger
 
 	coinbaseTxExec *CoinbaseTxExecutor
 	// slashTxExec          *SlashTxExecutor
@@ -49,7 +50,7 @@ type Executor struct {
 }
 
 // NewExecutor creates a new instance of Executor
-func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager) *Executor {
+func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.LedgerState, consensus core.ConsensusEngine, valMgr core.ValidatorManager, ledger core.Ledger) *Executor {
 	executor := &Executor{
 		db:             db,
 		chain:          chain,
@@ -63,7 +64,7 @@ func NewExecutor(db database.Database, chain *blockchain.Chain, state *st.Ledger
 		releaseFundTxExec:             NewReleaseFundTxExecutor(state),
 		servicePaymentTxExec:          NewServicePaymentTxExecutor(state),
 		splitRuleTxExec:               NewSplitRuleTxExecutor(state),
-		smartContractTxExec:           NewSmartContractTxExecutor(chain, state),
+		smartContractTxExec:           NewSmartContractTxExecutor(chain, state, ledger),
 		depositStakeTxExec:            NewDepositStakeExecutor(state),
 		withdrawStakeTxExec:           NewWithdrawStakeExecutor(state),
 		stakeRewardDistributionTxExec: NewStakeRewardDistributionTxExecutor(state),
@@ -118,16 +119,16 @@ func (exec *Executor) processTx(tx types.Tx, viewSel core.ViewSelector) (common.
 		view = exec.state.Screened()
 	}
 
-	sanityCheckResult := exec.sanityCheck(chainID, view, tx)
+	sanityCheckResult := exec.sanityCheck(chainID, view, viewSel, tx)
 	if sanityCheckResult.IsError() {
 		return common.Hash{}, sanityCheckResult
 	}
 
-	txHash, processResult := exec.process(chainID, view, tx)
+	txHash, processResult := exec.process(chainID, view, viewSel, tx)
 	return txHash, processResult
 }
 
-func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.Tx) result.Result {
+func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, tx types.Tx) result.Result {
 	if exec.skipSanityCheck { // Skip checks, e.g. while replaying commmitted blocks.
 		return result.OK
 	}
@@ -139,7 +140,7 @@ func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.T
 	var sanityCheckResult result.Result
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
-		sanityCheckResult = txExecutor.sanityCheck(chainID, view, tx)
+		sanityCheckResult = txExecutor.sanityCheck(chainID, view, viewSel, tx)
 	} else {
 		sanityCheckResult = result.Error("Unknown tx type")
 	}
@@ -147,7 +148,7 @@ func (exec *Executor) sanityCheck(chainID string, view *st.StoreView, tx types.T
 	return sanityCheckResult
 }
 
-func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (common.Hash, result.Result) {
+func (exec *Executor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, tx types.Tx) (common.Hash, result.Result) {
 	var processResult result.Result
 	var txHash common.Hash
 
@@ -157,7 +158,7 @@ func (exec *Executor) process(chainID string, view *st.StoreView, tx types.Tx) (
 
 	txExecutor := exec.getTxExecutor(tx)
 	if txExecutor != nil {
-		txHash, processResult = txExecutor.process(chainID, view, tx)
+		txHash, processResult = txExecutor.process(chainID, view, viewSel, tx)
 		if processResult.IsError() {
 			logger.Warnf("Tx processing error: %v", processResult.Message)
 		}

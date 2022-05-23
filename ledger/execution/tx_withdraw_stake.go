@@ -28,7 +28,7 @@ func NewWithdrawStakeExecutor(state *st.LedgerState) *WithdrawStakeExecutor {
 	}
 }
 
-func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.WithdrawStakeTx)
 
@@ -72,7 +72,7 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 // NOTE: WithdrawStakeExecutor.process() does NOT return the stake to the source. Instead, it updates
 //       the ReturnHeight of the withdrawn stake. The stake will be returned to the source when
 //       the block height reaches the ReturnHeigth
-func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.WithdrawStakeTx)
 
 	sourceAccount, success := getInput(view, tx.Source)
