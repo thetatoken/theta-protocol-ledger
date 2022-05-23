@@ -28,7 +28,7 @@ func NewStakeRewardDistributionTxExecutor(state *st.LedgerState) *StakeRewardDis
 	}
 }
 
-func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 
 	tx := transaction.(*types.StakeRewardDistributionTx)
@@ -113,7 +113,7 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 	return result.OK
 }
 
-func (exec *StakeRewardDistributionTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *StakeRewardDistributionTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.StakeRewardDistributionTx)
 
 	stakeHolderAccount, res := getInput(view, tx.Holder)

@@ -89,9 +89,18 @@ func (ch *Chain) FindTxByHash(hash common.Hash) (tx common.Bytes, block *core.Ex
 
 // ---------------- Tx Receipts ---------------
 
-// txReceiptKey constructs the DB key for the given transaction hash.
-func txReceiptKey(hash common.Hash) common.Bytes {
-	return append(common.Bytes("txr/"), hash[:]...)
+// txReceiptKeyV1 constructs the DB key for the given transaction hash.
+func txReceiptKeyV1(txHash common.Hash) common.Bytes {
+	return append(common.Bytes("txr/"), txHash[:]...)
+}
+
+// the same tx might be executed multiple times when there is a temporary fork
+// so we need to record the tx receipt for each execution, indexed by (blockHash, txHash)
+func txReceiptKeyV2(blockHash common.Hash, txHash common.Hash) common.Bytes {
+	key := append(common.Bytes("txr/v2/"), blockHash[:]...)
+	key = append(key, '/')
+	key = append(key, txHash[:]...)
+	return key
 }
 
 // TxReceiptEntry records smart contract Tx execution result.
@@ -105,7 +114,7 @@ type TxReceiptEntry struct {
 }
 
 // AddTxReceipt adds transaction receipt.
-func (ch *Chain) AddTxReceipt(tx types.Tx, logs []*types.Log, evmRet common.Bytes,
+func (ch *Chain) AddTxReceipt(block *core.Block, tx types.Tx, logs []*types.Log, evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	raw, err := types.TxToBytes(tx)
 	if err != nil {
@@ -125,21 +134,39 @@ func (ch *Chain) AddTxReceipt(tx types.Tx, logs []*types.Log, evmRet common.Byte
 		GasUsed:         gasUsed,
 		EvmErr:          errStr,
 	}
-	key := txReceiptKey(txHash)
 
-	err = ch.store.Put(key, txReceiptEntry)
+	if block == nil { // Should never happen
+		logger.Panic("AddTxReceipt: block is nil")
+	}
+	blockHash := block.Hash()
+	keyV2 := txReceiptKeyV2(blockHash, txHash)
+	err = ch.store.Put(keyV2, txReceiptEntry)
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	keyV1 := txReceiptKeyV1(txHash)
+	err = ch.store.Put(keyV1, txReceiptEntry)
 	if err != nil {
 		logger.Panic(err)
 	}
 }
 
 // FindTxReceiptByHash looks up transaction receipt by hash.
-func (ch *Chain) FindTxReceiptByHash(hash common.Hash) (*TxReceiptEntry, bool) {
+func (ch *Chain) FindTxReceiptByHash(blockHash common.Hash, txHash common.Hash) (*TxReceiptEntry, bool) {
 	txReceiptEntry := &TxReceiptEntry{}
 
-	key := txReceiptKey(hash)
+	keyV2 := txReceiptKeyV2(blockHash, txHash)
+	err := ch.store.Get(keyV2, txReceiptEntry)
+	if err == nil {
+		return txReceiptEntry, true
+	}
 
-	err := ch.store.Get(key, txReceiptEntry)
+	// for backward compatibility
+	if err == store.ErrKeyNotFound {
+		keyV1 := txReceiptKeyV1(txHash)
+		err = ch.store.Get(keyV1, txReceiptEntry)
+	}
 
 	if err != nil {
 		if err != store.ErrKeyNotFound {

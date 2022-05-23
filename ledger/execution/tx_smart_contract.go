@@ -21,19 +21,21 @@ var _ TxExecutor = (*SmartContractTxExecutor)(nil)
 
 // SmartContractTxExecutor implements the TxExecutor interface
 type SmartContractTxExecutor struct {
-	state *st.LedgerState
-	chain *blockchain.Chain
+	state  *st.LedgerState
+	chain  *blockchain.Chain
+	ledger core.Ledger
 }
 
 // NewSmartContractTxExecutor creates a new instance of SmartContractTxExecutor
-func NewSmartContractTxExecutor(chain *blockchain.Chain, state *st.LedgerState) *SmartContractTxExecutor {
+func NewSmartContractTxExecutor(chain *blockchain.Chain, state *st.LedgerState, ledger core.Ledger) *SmartContractTxExecutor {
 	return &SmartContractTxExecutor{
-		state: state,
-		chain: chain,
+		state:  state,
+		chain:  chain,
+		ledger: ledger,
 	}
 }
 
-func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	blockHeight := getBlockHeight(exec.state)
 	tx := transaction.(*types.SmartContractTx)
 
@@ -142,7 +144,7 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 	return result.OK
 }
 
-func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SmartContractTx)
 
 	view.ResetLogs()
@@ -183,7 +185,10 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 		// Do not record events if transaction is reverted
 		logs = nil
 	}
-	exec.chain.AddTxReceipt(tx, logs, evmRet, contractAddr, gasUsed, evmErr)
+
+	if viewSel == core.DeliveredView { // only record the receipt for the delivered views
+		exec.chain.AddTxReceipt(exec.ledger.GetCurrentBlock(), tx, logs, evmRet, contractAddr, gasUsed, evmErr)
+	}
 
 	return txHash, result.OK
 }
