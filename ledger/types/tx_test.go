@@ -18,6 +18,95 @@ import (
 
 var chainID string = "test_chain"
 
+func TestChainID(t *testing.T) {
+
+	//
+	// The IDs for the main chains
+	//
+
+	chainIDStrMainnet := "mainnet"
+	chainIDStr := chainIDStrMainnet
+	chainID := MapChainID(chainIDStr, common.HeightRPCCompatibility+1)
+	assert.True(t, chainID.Cmp(big.NewInt(361)) == 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	chainIDStrTestnet := "testnet"
+	chainIDStr = chainIDStrTestnet
+	chainID = MapChainID(chainIDStr, common.HeightRPCCompatibility+1)
+	assert.True(t, chainID.Cmp(big.NewInt(365)) == 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	chainIDStrPrivatenet := "privatenet"
+	chainIDStr = chainIDStrPrivatenet
+	chainID = MapChainID(chainIDStr, common.HeightRPCCompatibility+1)
+	assert.True(t, chainID.Cmp(big.NewInt(366)) == 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	//
+	// Invalid subchain IDs
+	//
+
+	var err error
+	invalidSubchainID1 := "ts_881"
+	chainIDStr = invalidSubchainID1
+	chainID, err = extractSubchainID(chainIDStr)
+	assert.True(t, err != nil, "should be an invalid subchain ID: %v", chainIDStr)
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(881)) != 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	invalidSubchainID2 := "tsub_09998" // leading digit should not be 0
+	chainIDStr = invalidSubchainID2
+	chainID, err = extractSubchainID(chainIDStr)
+	assert.True(t, err != nil, "should be an invalid subchain ID: %v", chainIDStr)
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(9998)) != 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	invalidSubchainID3 := "tsub_abc9" // hex not allowed in chainID
+	chainIDStr = invalidSubchainID3
+	chainID, err = extractSubchainID(chainIDStr)
+	assert.True(t, err != nil, "should be an invalid subchain ID: %v", chainIDStr)
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(43977)) != 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	invalidSubchainID4 := "tsub_999" // subchain ID needs to be at least 1000
+	chainIDStr = invalidSubchainID4
+	chainID, err = extractSubchainID(chainIDStr)
+	assert.True(t, err != nil, "should be an invalid subchain ID: %v", chainIDStr)
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(999)) != 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	invalidSubchainID5 := "tsub_34535873957238957239573985728957283957923528357238572893572983457238957238495893" // subchain ID needs to be smaller than uint64.max
+	chainIDStr = invalidSubchainID5
+	chainID, err = extractSubchainID(chainIDStr)
+	assert.True(t, err != nil, "should be an invalid subchain ID: %v", chainIDStr)
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	cid, _ := big.NewInt(0).SetString("34535873957238957239573985728957283957923528357238572893572983457238957238495893", 10)
+	assert.True(t, chainID.Cmp(cid) != 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	//
+	// Valid subchain IDs
+	//
+
+	validSubchainID1 := "tsub_1991"
+	chainIDStr = validSubchainID1
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(1991)) == 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	validSubchainID2 := "tsub_4546325235"
+	chainIDStr = validSubchainID2
+	chainID = MapChainID(chainIDStr, common.HeightEnableMetachainSupport+1)
+	assert.True(t, chainID.Cmp(big.NewInt(4546325235)) == 0, "mapped chainID for %v is %v", chainIDStr, chainID)
+	fmt.Printf("extracted chainID for %v: %v\n", chainIDStr, chainID)
+
+	// assert.True(t, false)
+}
+
 func TestCoinbaseTxSignable(t *testing.T) {
 	chainID := "test_chain_id"
 	va1PrivAcc := PrivAccountFromSecret("validator1")
