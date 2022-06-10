@@ -90,11 +90,10 @@ var PrecompiledContractsWrappedThetaSupport = map[common.Address]PrecompiledCont
 	common.BytesToAddress([]byte{201}): &thetaBalance{},
 	common.BytesToAddress([]byte{202}): &thetaStake{},
 	common.BytesToAddress([]byte{203}): &transferTheta{},
-	common.BytesToAddress([]byte{204}): &getThetaValue{},
-	common.BytesToAddress([]byte{205}): &stakeToGuardian{},
-	common.BytesToAddress([]byte{206}): &unstakeFromGuardian{},
-	common.BytesToAddress([]byte{207}): &stakeToEEN{},
-	common.BytesToAddress([]byte{208}): &unstakeFromEEN{},
+	common.BytesToAddress([]byte{204}): &stakeToGuardian{},
+	common.BytesToAddress([]byte{205}): &unstakeFromGuardian{},
+	common.BytesToAddress([]byte{206}): &stakeToEEN{},
+	common.BytesToAddress([]byte{207}): &unstakeFromEEN{},
 }
 
 // RunPrecompiledContract runs and evaluates the output of a precompiled contract.
@@ -464,22 +463,6 @@ func (c *transferTheta) Run(evm *EVM, input []byte, callerAddr common.Address, c
 	TransferTheta(evm.StateDB, callerAddr, recipient, thetaWeiAmount)
 
 	return common.Bytes{}, nil
-}
-
-// getThetaValue returns the theta value of the transaction
-type getThetaValue struct {
-}
-
-// RequiredGas returns the gas required to execute the pre-compiled contract.
-func (c *getThetaValue) RequiredGas(input []byte, blockHeight uint64) uint64 {
-	return params.GetThetaValueGas
-}
-
-func (c *getThetaValue) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
-	thetaValue := contract.thetaValue
-	thetaValueBytes := thetaValue.Bytes()
-	thetaValueBytes32 := common.LeftPadBytes(thetaValueBytes[:], 32) // easier to convert bytes32 into uint256 in smart contracts
-	return thetaValueBytes32, nil
 }
 
 // stakeToGuardian stake Theta to Guardian node
