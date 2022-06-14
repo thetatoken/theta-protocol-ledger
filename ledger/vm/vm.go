@@ -72,7 +72,7 @@ func TransferTheta(db StateDB, sender, recipient common.Address, amount *big.Int
 }
 
 func parseBLSSummary(summary []byte) (holderAddress common.Address, blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, ok bool) {
-	if len(summary) != 458 {
+	if len(summary) != 229 && len(summary) != 261 {
 		return
 	}
 
@@ -147,7 +147,7 @@ func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, 
 		}
 	}
 
-	db.SubBalance(sender, amount)
+	db.SubThetaBalance(sender, amount)
 
 	err := gcp.DepositStake(sender, guardianAddr, amount, blsPubkey, view.GetBlockHeight())
 	if err != nil {
@@ -191,7 +191,7 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 
 	currentStake := big.NewInt(0)
 
-	eenp := state.NewEliteEdgeNodePool(view, true)
+	eenp := state.NewEliteEdgeNodePool(view, false)
 	een := eenp.Get(eenAddr)
 	if een != nil {
 		currentStake = een.TotalStake()
@@ -222,7 +222,7 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 func UnstakeFromEEN(db StateDB, addr common.Address, eenAddr common.Address) bool {
 	view := db.(*state.StoreView)
 
-	eenp := state.NewEliteEdgeNodePool(view, true)
+	eenp := state.NewEliteEdgeNodePool(view, false)
 
 	currentHeight := view.GetBlockHeight()
 

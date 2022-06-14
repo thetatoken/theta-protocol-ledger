@@ -475,8 +475,8 @@ func (c *stakeToGuardian) RequiredGas(input []byte, blockHeight uint64) uint64 {
 }
 
 func (c *stakeToGuardian) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
-	guardianSummary := getData(input, 0, 458)
-	thetaWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
+	guardianSummary := getData(input, 0, 229)
+	thetaWeiAmount := new(big.Int).SetBytes(getData(input, 229, 32))
 
 	ok := StakeToGuardian(evm.StateDB, callerAddr, guardianSummary, thetaWeiAmount)
 	if !ok {
@@ -514,8 +514,8 @@ func (c *stakeToEEN) RequiredGas(input []byte, blockHeight uint64) uint64 {
 }
 
 func (c *stakeToEEN) Run(evm *EVM, input []byte, callerAddr common.Address, contract *Contract) ([]byte, error) {
-	summary := getData(input, 0, 458)
-	tfuelWeiAmount := new(big.Int).SetBytes(getData(input, 20, 32))
+	summary := getData(input, 0, 229)
+	tfuelWeiAmount := new(big.Int).SetBytes(getData(input, 261, 32))
 	ok := StakeToEEN(evm.StateDB, callerAddr, summary, tfuelWeiAmount)
 	if !ok {
 		return common.Bytes{}, ErrInvalidStakeOperation
