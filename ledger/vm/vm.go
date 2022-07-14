@@ -163,7 +163,7 @@ func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, 
 func UnstakeFromGuardian(db StateDB, addr common.Address, guardianAddr common.Address) bool {
 	view := db.(*state.StoreView)
 	gcp := view.GetGuardianCandidatePool()
-	currentHeight := view.GetBlockHeight()
+	currentHeight := view.Height()
 	err := gcp.WithdrawStake(addr, guardianAddr, currentHeight)
 	if err != nil {
 		return false
@@ -206,7 +206,7 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 		return false
 	}
 
-	if !checkBlsSummary(blsPubkey, blsPop, holderSig, eenAddr) {
+	if een == nil && !checkBlsSummary(blsPubkey, blsPop, holderSig, eenAddr) {
 		return false
 	}
 
@@ -224,7 +224,7 @@ func UnstakeFromEEN(db StateDB, addr common.Address, eenAddr common.Address) boo
 
 	eenp := state.NewEliteEdgeNodePool(view, false)
 
-	currentHeight := view.GetBlockHeight()
+	currentHeight := view.Height()
 
 	withdrawnStake, err := eenp.WithdrawStake(addr, eenAddr, currentHeight)
 	if err != nil || withdrawnStake == nil {
