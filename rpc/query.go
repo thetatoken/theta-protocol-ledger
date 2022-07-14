@@ -502,6 +502,8 @@ type GetStatusResult struct {
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
 	GenesisBlockHash           common.Hash       `json:"genesis_block_hash"`
+	SnapshotBlockHeight        common.JSONUint64 `json:"snapshot_block_height"`
+	SnapshotBlockHash          common.Hash       `json:"snapshot_block_hash"`
 }
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
@@ -548,6 +550,8 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		genesisHash = common.HexToHash(viper.GetString(common.CfgGenesisHash))
 	}
 	result.GenesisBlockHash = genesisHash
+	result.SnapshotBlockHeight = common.JSONUint64(t.chain.Root().Block.BlockHeader.Height)
+	result.SnapshotBlockHash = t.chain.Root().Block.BlockHeader.Hash()
 
 	return
 }
