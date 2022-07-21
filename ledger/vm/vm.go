@@ -146,14 +146,13 @@ func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, 
 		}
 	}
 
-	db.SubThetaBalance(sender, amount)
-
 	err := gcp.DepositStake(sender, guardianAddr, amount, blsPubkey, view.GetBlockHeight())
 	if err != nil {
 		return false
 	}
 
 	view.UpdateGuardianCandidatePool(gcp)
+	db.SubThetaBalance(sender, amount)
 
 	return true
 }
@@ -201,8 +200,6 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 	// 	return false
 	// }
 
-	db.SubBalance(sender, amount)
-
 	if db.GetBalance(sender).Cmp(amount) < 0 {
 		return false
 	}
@@ -215,6 +212,8 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 	if err != nil {
 		return false
 	}
+
+	db.SubBalance(sender, amount)
 
 	return true
 }
