@@ -201,6 +201,8 @@ func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.I
 	// 	return false
 	// }
 
+	db.SubBalance(sender, amount)
+
 	if db.GetBalance(sender).Cmp(amount) < 0 {
 		return false
 	}
