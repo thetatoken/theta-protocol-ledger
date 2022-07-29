@@ -13,7 +13,8 @@ const (
 	StakeForGuardian      uint8 = 1
 	StakeForEliteEdgeNode uint8 = 2
 
-	ReturnLockingPeriod uint64 = 28800      // number of blocks, approximately 2 days with 6 second block time
+	// ReturnLockingPeriod uint64 = 28800      // number of blocks, approximately 2 days with 6 second block time
+	ReturnLockingPeriod uint64 = 1000       // number of blocks, 1000 blocks for the private testnet
 	InvalidReturnHeight uint64 = ^uint64(0) // max uint64
 )
 

@@ -27,7 +27,7 @@ func NewSlashTxExecutor(consensus core.ConsensusEngine, valMgr core.ValidatorMan
 	}
 }
 
-func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SlashTx)
 
 	validatorSet := getValidatorSet(exec.consensus.GetLedger(), exec.valMgr)
@@ -89,7 +89,7 @@ func (exec *SlashTxExecutor) sanityCheck(chainID string, view *st.StoreView, tra
 	return result.OK
 }
 
-func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SlashTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SlashTx)
 
 	slashedAddress := tx.SlashedAddress

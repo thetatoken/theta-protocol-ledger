@@ -27,7 +27,7 @@ func NewSplitRuleTxExecutor(state *st.LedgerState) *SplitRuleTxExecutor {
 	}
 }
 
-func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.SplitRuleTx)
 
@@ -94,7 +94,7 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 	return result.OK
 }
 
-func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SplitRuleTx)
 
 	initiatorAccount, res := getInput(view, tx.Initiator)
