@@ -111,6 +111,14 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidGasLimit)
 	}
 
+	if vm.SupportWrappedTheta(blockHeight) {
+		err := exec.checkIntrinsicGas(tx)
+		if err != nil {
+			return result.Error("Intrinsic gas check failed: %v", err).
+				WithErrorCode(result.CodeInvalidGasLimit)
+		}
+	}
+
 	zero := big.NewInt(0)
 	feeLimit := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(tx.GasLimit))
 	if feeLimit.BitLen() > 255 || feeLimit.Cmp(zero) < 0 {
@@ -192,6 +200,22 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	}
 
 	return txHash, result.OK
+}
+
+func (exec *SmartContractTxExecutor) checkIntrinsicGas(tx *types.SmartContractTx) error {
+	contractAddr := tx.To.Address
+	createContract := (contractAddr == common.Address{})
+	intrinsicGas, err := vm.CalculateIntrinsicGas(tx.Data, createContract)
+	if err != nil {
+		return err
+	}
+
+	gasLimit := tx.GasLimit
+	if intrinsicGas > gasLimit {
+		return vm.ErrOutOfGas
+	}
+
+	return nil
 }
 
 func (exec *SmartContractTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
