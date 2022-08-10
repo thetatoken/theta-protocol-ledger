@@ -582,7 +582,13 @@ func opGasLimit(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 
 // opChainID implements CHAINID opcode
 func opChainID(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	chainID := interpreter.evm.chainConfig.ChainID
+	var chainID *big.Int
+	if !SupportWrappedTheta(interpreter.evm.StateDB.GetBlockHeight()) {
+		chainID = interpreter.evm.chainConfig.ChainID
+	} else {
+		chainID = big.NewInt(0).Set(interpreter.evm.chainConfig.ChainID)
+	}
+
 	stack.push(chainID)
 	return nil, nil
 }
