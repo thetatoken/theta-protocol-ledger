@@ -58,7 +58,7 @@ const HeightSupportThetaTokenInSmartContract uint64 = 2 // approximate time: 5pm
 const HeightValidatorStakeChangedTo200K uint64 = 2
 
 // HeightSupportWrappedTheta specifies the block height to support wrapped Theta
-const HeightSupportWrappedTheta uint64 = 1000000000
+const HeightSupportWrappedTheta uint64 = 2
 
 // HeightEnableMetachainSupport specifies the block height to enable Theta Metachain support (i.e. Mainnet 4.0)
 const HeightEnableMetachainSupport uint64 = 0
