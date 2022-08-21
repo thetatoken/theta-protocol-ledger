@@ -7,7 +7,7 @@ const (
 
 	GenesisBlockHeight = uint64(0)
 
-	SubchainChainIDPrefix = "tsub_"
+	SubchainChainIDPrefix = "tsub"
 
 	MinSubchainID = 1000
 )
