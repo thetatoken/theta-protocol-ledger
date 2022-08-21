@@ -1107,7 +1107,7 @@ func MapChainID(chainIDStr string, blockHeight uint64) *big.Int {
 	if blockHeight < common.HeightEnableMetachainSupport {
 		return chainID
 	} else {
-		// attempt to extract the IDs for subchains. ChainID in the form of tsub_[1-9][0-9]* is considered as a Theta Subchain
+		// attempt to extract the IDs for subchains. ChainID in the form of tsub[1-9][0-9]* is considered as a Theta Subchain
 		subchainID, err := extractSubchainID(chainIDStr) // no need to add offset to the subchainIDs
 		if err == nil {
 			// this is a subchain chainID
@@ -1136,22 +1136,22 @@ func mapChainIDWithoutOffset(chainIDStr string) *big.Int {
 	return chainIDBigInt
 }
 
-// Subchain chainID should have the form tsub_[1-9][0-9]*
+// Subchain chainID should have the form tsub[1-9][0-9]*
 func extractSubchainID(chainIDStr string) (*big.Int, error) {
 	if !strings.HasPrefix(chainIDStr, core.SubchainChainIDPrefix) {
 		return nil, fmt.Errorf("invalid subchain ID prefix: %v", chainIDStr)
 	}
 
-	if len(chainIDStr) < 6 {
+	if len(chainIDStr) < 5 {
 		return nil, fmt.Errorf("subchain ID too short: %v", chainIDStr)
 	}
 
-	leadingDigit := chainIDStr[5]
+	leadingDigit := chainIDStr[4]
 	if leadingDigit == byte('0') {
 		return nil, fmt.Errorf("the leading digit of the subchain ID should not be zero: %v", chainIDStr)
 	}
 
-	chainIDIntStr := chainIDStr[5:]
+	chainIDIntStr := chainIDStr[4:]
 	chainID, err := strconv.Atoi(chainIDIntStr)
 	if err != nil {
 		return nil, err
