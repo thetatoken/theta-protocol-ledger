@@ -78,7 +78,7 @@ type CallContext interface {
 	// Call another contract
 	Call(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
 	// Take another's contract code and execute within our own context
-	CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int) ([]byte, error)
+	CallCode(env *EVM, me ContractRef, addr common.Address, data []byte, gas, value *big.Int, thetaValue *big.Int) ([]byte, error)
 	// Same as CallCode except sender and value is propagated from parent to child scope
 	DelegateCall(env *EVM, me ContractRef, addr common.Address, data []byte, gas *big.Int) ([]byte, error)
 	// Create a new contract

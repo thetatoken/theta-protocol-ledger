@@ -70,7 +70,7 @@ func Execute(parentBlockInfo *BlockInfo, tx *types.SmartContractTx, statedb Stat
 		return common.Bytes{}, common.Address{}, 0, ErrInvalidGasLimit
 	}
 
-	intrinsicGas, err := calculateIntrinsicGas(tx.Data, createContract)
+	intrinsicGas, err := CalculateIntrinsicGas(tx.Data, createContract)
 	if err != nil {
 		return common.Bytes{}, common.Address{}, 0, err
 	}
@@ -97,8 +97,8 @@ func Execute(parentBlockInfo *BlockInfo, tx *types.SmartContractTx, statedb Stat
 	return evmRet, contractAddr, gasUsed, evmErr
 }
 
-// calculateIntrinsicGas computes the 'intrinsic gas' for a message with the given data.
-func calculateIntrinsicGas(data []byte, createContract bool) (uint64, error) {
+// CalculateIntrinsicGas computes the 'intrinsic gas' for a message with the given data.
+func CalculateIntrinsicGas(data []byte, createContract bool) (uint64, error) {
 	// Set the starting gas for the raw transaction
 	var gas uint64
 	if createContract {

@@ -33,6 +33,9 @@ const HeightSupportThetaTokenInSmartContract uint64 = 13123789 // approximate ti
 // HeightValidatorStakeChangedTo200K specifies the block height to lower the validator stake to 200,000 Theta
 const HeightValidatorStakeChangedTo200K uint64 = 14526120 // approximate time: 12pm Mar 14, 2022 PT
 
+// HeightSupportWrappedTheta specifies the block height to support wrapped Theta
+const HeightSupportWrappedTheta uint64 = 1000000000
+
 // HeightEnableMetachainSupport specifies the block height to enable Theta Metachain support (i.e. Mainnet 4.0)
 const HeightEnableMetachainSupport uint64 = 1000000000
 
