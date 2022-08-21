@@ -31,11 +31,12 @@ const (
 	CodeUnauthorizedToUpdateSplitRule ErrorCode = 104001
 
 	// SmartContract Errors
-	CodeEVMError               ErrorCode = 105001
-	CodeInvalidValueToTransfer ErrorCode = 105002
-	CodeInvalidGasPrice        ErrorCode = 105003
-	CodeFeeLimitTooHigh        ErrorCode = 105004
-	CodeInvalidGasLimit        ErrorCode = 105005
+	CodeEVMError                          ErrorCode = 105001
+	CodeInvalidValueToTransfer            ErrorCode = 105002
+	CodeInvalidGasPrice                   ErrorCode = 105003
+	CodeFeeLimitTooHigh                   ErrorCode = 105004
+	CodeInvalidGasLimit                   ErrorCode = 105005
+	CodeDoNotSupportNativeThetaInSubchain ErrorCode = 105006
 
 	// Stake Deposit/Withdrawal Errors
 	CodeInvalidStakePurpose     ErrorCode = 106001
