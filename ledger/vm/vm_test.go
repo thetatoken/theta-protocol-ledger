@@ -61,6 +61,7 @@ func TestVMStore(t *testing.T) {
 		AccountRef(common.HexToAddress("1133")),
 		AccountRef(common.HexToAddress("2266")),
 		new(big.Int),
+		new(big.Int),
 		math.MaxUint64)
 	contract.Code = code
 	ret, err := evm.interpreter.Run(contract, []byte{}, false)

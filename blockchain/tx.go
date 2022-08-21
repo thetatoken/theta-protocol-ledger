@@ -103,6 +103,15 @@ func txReceiptKeyV2(blockHash common.Hash, txHash common.Hash) common.Bytes {
 	return key
 }
 
+// the same tx might be executed multiple times when there is a temporary fork
+// so we need to record the tx balance changes for each execution, indexed by (blockHash, txHash)
+func txBalanceChangesKey(blockHash common.Hash, txHash common.Hash) common.Bytes {
+	key := append(common.Bytes("txb/"), blockHash[:]...)
+	key = append(key, '/')
+	key = append(key, txHash[:]...)
+	return key
+}
+
 // TxReceiptEntry records smart contract Tx execution result.
 type TxReceiptEntry struct {
 	TxHash          common.Hash
@@ -113,8 +122,18 @@ type TxReceiptEntry struct {
 	EvmErr          string
 }
 
+// TxBalanceChangesEntry records smart contract Tx execution result.
+type TxBalanceChangesEntry struct {
+	TxHash          common.Hash
+	BalanceChanges  []*types.BalanceChange
+	EvmRet          common.Bytes
+	ContractAddress common.Address
+	GasUsed         uint64
+	EvmErr          string
+}
+
 // AddTxReceipt adds transaction receipt.
-func (ch *Chain) AddTxReceipt(block *core.Block, tx types.Tx, logs []*types.Log, evmRet common.Bytes,
+func (ch *Chain) AddTxReceipt(block *core.Block, tx types.Tx, logs []*types.Log, balanceChanges []*types.BalanceChange, evmRet common.Bytes,
 	contractAddr common.Address, gasUsed uint64, evmErr error) {
 	raw, err := types.TxToBytes(tx)
 	if err != nil {
@@ -134,11 +153,20 @@ func (ch *Chain) AddTxReceipt(block *core.Block, tx types.Tx, logs []*types.Log,
 		GasUsed:         gasUsed,
 		EvmErr:          errStr,
 	}
+	txBalanceChangesEntry := TxBalanceChangesEntry{
+		TxHash:          txHash,
+		BalanceChanges:  balanceChanges,
+		EvmRet:          evmRet,
+		ContractAddress: contractAddr,
+		GasUsed:         gasUsed,
+		EvmErr:          errStr,
+	}
 
 	if block == nil { // Should never happen
 		logger.Panic("AddTxReceipt: block is nil")
 	}
 	blockHash := block.Hash()
+
 	keyV2 := txReceiptKeyV2(blockHash, txHash)
 	err = ch.store.Put(keyV2, txReceiptEntry)
 	if err != nil {
@@ -147,6 +175,12 @@ func (ch *Chain) AddTxReceipt(block *core.Block, tx types.Tx, logs []*types.Log,
 
 	keyV1 := txReceiptKeyV1(txHash)
 	err = ch.store.Put(keyV1, txReceiptEntry)
+	if err != nil {
+		logger.Panic(err)
+	}
+
+	balanceChangesKey := txBalanceChangesKey(blockHash, txHash)
+	err = ch.store.Put(balanceChangesKey, txBalanceChangesEntry)
 	if err != nil {
 		logger.Panic(err)
 	}
@@ -175,6 +209,21 @@ func (ch *Chain) FindTxReceiptByHash(blockHash common.Hash, txHash common.Hash) 
 		return nil, false
 	}
 	return txReceiptEntry, true
+}
+
+// FindTxBalanceChangesByHash looks up transaction balance changes by hash.
+func (ch *Chain) FindTxBalanceChangesByHash(blockHash common.Hash, txHash common.Hash) (*TxBalanceChangesEntry, bool) {
+	txBalanceChanges := &TxBalanceChangesEntry{}
+
+	key := txBalanceChangesKey(blockHash, txHash)
+	err := ch.store.Get(key, txBalanceChanges)
+	if err != nil {
+		if err != store.ErrKeyNotFound {
+			logger.Error(err)
+		}
+		return nil, false
+	}
+	return txBalanceChanges, true
 }
 
 // ---------------- Utils ---------------

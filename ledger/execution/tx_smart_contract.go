@@ -111,6 +111,14 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 			WithErrorCode(result.CodeInvalidGasLimit)
 	}
 
+	if vm.SupportWrappedTheta(blockHeight) {
+		err := exec.checkIntrinsicGas(tx)
+		if err != nil {
+			return result.Error("Intrinsic gas check failed: %v", err).
+				WithErrorCode(result.CodeInvalidGasLimit)
+		}
+	}
+
 	zero := big.NewInt(0)
 	feeLimit := new(big.Int).Mul(tx.GasPrice, new(big.Int).SetUint64(tx.GasLimit))
 	if feeLimit.BitLen() > 255 || feeLimit.Cmp(zero) < 0 {
@@ -148,6 +156,7 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	tx := transaction.(*types.SmartContractTx)
 
 	view.ResetLogs()
+	view.ResetBalanceChanges()
 
 	// Note: for contract deployment, vm.Execute() might transfer coins from the fromAccount to the
 	//       deployed smart contract. Thus, we should call vm.Execute() before calling getInput().
@@ -181,16 +190,34 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 
 	// TODO: Add tx receipt: status and events
 	logs := view.PopLogs()
+	balanceChanges := view.PopBalanceChanges()
 	if evmErr != nil {
 		// Do not record events if transaction is reverted
 		logs = nil
+		balanceChanges = nil
 	}
 
 	if viewSel == core.DeliveredView { // only record the receipt for the delivered views
-		exec.chain.AddTxReceipt(exec.ledger.GetCurrentBlock(), tx, logs, evmRet, contractAddr, gasUsed, evmErr)
+		exec.chain.AddTxReceipt(exec.ledger.GetCurrentBlock(), tx, logs, balanceChanges, evmRet, contractAddr, gasUsed, evmErr)
 	}
 
 	return txHash, result.OK
+}
+
+func (exec *SmartContractTxExecutor) checkIntrinsicGas(tx *types.SmartContractTx) error {
+	contractAddr := tx.To.Address
+	createContract := (contractAddr == common.Address{})
+	intrinsicGas, err := vm.CalculateIntrinsicGas(tx.Data, createContract)
+	if err != nil {
+		return err
+	}
+
+	gasLimit := tx.GasLimit
+	if intrinsicGas > gasLimit {
+		return vm.ErrOutOfGas
+	}
+
+	return nil
 }
 
 func (exec *SmartContractTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {

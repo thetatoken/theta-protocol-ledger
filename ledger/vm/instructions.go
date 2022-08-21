@@ -582,7 +582,13 @@ func opGasLimit(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 
 // opChainID implements CHAINID opcode
 func opChainID(pc *uint64, interpreter *EVMInterpreter, contract *Contract, memory *Memory, stack *Stack) ([]byte, error) {
-	chainID := interpreter.evm.chainConfig.ChainID
+	var chainID *big.Int
+	if !SupportWrappedTheta(interpreter.evm.StateDB.GetBlockHeight()) {
+		chainID = interpreter.evm.chainConfig.ChainID
+	} else {
+		chainID = big.NewInt(0).Set(interpreter.evm.chainConfig.ChainID)
+	}
+
 	stack.push(chainID)
 	return nil, nil
 }
@@ -792,7 +798,7 @@ func opCallCode(pc *uint64, interpreter *EVMInterpreter, contract *Contract, mem
 	if value.Sign() != 0 {
 		gas += params.CallStipend
 	}
-	ret, returnGas, err := interpreter.evm.CallCode(contract, toAddr, args, gas, value)
+	ret, returnGas, err := interpreter.evm.CallCode(contract, toAddr, args, gas, value, new(big.Int)) // thetaValue set to 0: for now, we do not support Theta transfer in inter-contract calls
 	if err != nil {
 		stack.push(interpreter.intPool.getZero())
 	} else {
