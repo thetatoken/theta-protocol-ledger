@@ -193,6 +193,21 @@ func (eenp *EliteEdgeNodePool) GetAll(withstake bool) []*core.EliteEdgeNode {
 	return eenList
 }
 
+func (eenp *EliteEdgeNodePool) GetStake(source common.Address, holder common.Address, withdrawnOnly bool) (stake *core.Stake, err error) {
+	een := eenp.Get(holder)
+	if een == nil {
+		err = fmt.Errorf("Can't find EENP stake for: %v", holder)
+	} else {
+		if een.Holder != holder {
+			log.Panicf("EliteEdgeNodePool.GetStake: holder mismatch, een.Holder = %v, holder = %v",
+				een.Holder.Hex(), holder.Hex())
+		}
+
+		stake, err = een.GetStake(source, withdrawnOnly)
+	}
+	return
+}
+
 func (eenp *EliteEdgeNodePool) DepositStake(source common.Address, holder common.Address, amount *big.Int, pubkey *bls.PublicKey, blockHeight uint64) (err error) {
 	if eenp.readOnly {
 		log.Panicf("EliteEdgeNodePool.DepositStake: the pool is read-only")

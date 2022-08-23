@@ -116,6 +116,17 @@ func (sh *StakeHolder) TotalStake() *big.Int {
 	return totalAmount
 }
 
+func (sh *StakeHolder) getStake(source common.Address, withdrawnOnly bool) (*Stake, error) {
+	for _, stake := range sh.Stakes {
+		if stake.Source == source {
+			if !withdrawnOnly || stake.Withdrawn {
+				return stake, nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("Cannot get stake for: %v", source)
+}
+
 func (sh *StakeHolder) depositStake(source common.Address, amount *big.Int) error {
 	if amount.Cmp(Zero) < 0 {
 		return fmt.Errorf("Invalid stake: %v", amount)

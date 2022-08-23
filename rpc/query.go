@@ -777,6 +777,48 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 	return nil
 }
 
+// ------------------------------ GetEenpStake -----------------------------------
+
+type GetEenpStakeByHeightArgs struct {
+	Height        common.JSONUint64 `json:"height"`
+	Source        common.Address    `json:"source"`
+	Holder        common.Address    `json:"holder"`
+	WithdrawnOnly bool              `json:"withdrawn_only"`
+}
+
+type GetEenpStakeResult struct {
+	Stake core.Stake `json:"stake"`
+}
+
+func (t *ThetaRPCService) GetEenpStakeByHeight(args *GetEenpStakeByHeightArgs, result *GetEenpStakeResult) (err error) {
+	deliveredView, err := t.ledger.GetDeliveredSnapshot()
+	if err != nil {
+		return err
+	}
+
+	db := deliveredView.GetDB()
+	height := uint64(args.Height)
+
+	var stake *core.Stake
+	blocks := t.chain.FindBlocksByHeight(height)
+	for _, b := range blocks {
+		stateRoot := b.StateHash
+		blockStoreView := state.NewStoreView(height, stateRoot, db)
+		if blockStoreView == nil { // might have been pruned
+			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+		}
+		eenp := state.NewEliteEdgeNodePool(blockStoreView, true)
+		stake, err = eenp.GetStake(args.Source, args.Holder, args.WithdrawnOnly)
+		if err != nil {
+			return err
+		}
+	}
+
+	result.Stake = *stake
+
+	return nil
+}
+
 // ------------------------------ GetStakeRewardDistributionRuleSetByHeight -----------------------------------
 
 type GetStakeRewardDistributionRuleSetByHeightArgs struct {
