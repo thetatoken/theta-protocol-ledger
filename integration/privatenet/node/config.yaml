@@ -1,7 +1,12 @@
 # Theta configuration
 genesis:
   hash: "0x45c579eb4d435ffcd37f0f76beaa772072cea146c4ecec2e52066904b80f4e0a"
+consensus:
+  minBlockInterval: 6
 p2p:
   port: 12000
+log:
+  levels: "*:info"
+  #levels: "*:debug"
 rpc:
   enabled: true
