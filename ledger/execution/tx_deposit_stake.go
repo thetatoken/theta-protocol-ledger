@@ -28,7 +28,7 @@ func NewDepositStakeExecutor(state *st.LedgerState) *DepositStakeExecutor {
 	}
 }
 
-func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	// Feature block height check
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	if _, ok := transaction.(*types.DepositStakeTxV2); ok && blockHeight < common.HeightEnableTheta2 {
@@ -140,7 +140,7 @@ func (exec *DepositStakeExecutor) sanityCheck(chainID string, view *st.StoreView
 	return result.OK
 }
 
-func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *DepositStakeExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 
 	tx := exec.castTx(transaction)

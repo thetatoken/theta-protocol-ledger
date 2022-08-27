@@ -33,6 +33,9 @@ const HeightSupportThetaTokenInSmartContract uint64 = 13323750
 // HeightValidatorStakeChangedTo200K specifies the block height to lower the validator stake to 200,000 Theta
 const HeightValidatorStakeChangedTo200K uint64 = 14710234
 
+// HeightSupportWrappedTheta specifies the block height to support wrapped Theta
+const HeightSupportWrappedTheta uint64 = 17323521
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 

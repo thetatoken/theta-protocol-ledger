@@ -8,7 +8,7 @@ import (
 	"github.com/thetatoken/theta/rlp"
 )
 
-const maxTxSize = 1024 * 1024
+const maxTxSize = 8 * 1024 * 1024
 
 // ----------------- Common -------------------
 
