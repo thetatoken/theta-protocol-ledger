@@ -216,8 +216,7 @@ func (ch *Chain) FindBestBlockByHeight(height uint64) *core.ExtendedBlock {
 	for _, b := range blocks {
 		switch b.Status {
 		case core.BlockStatusDirectlyFinalized, core.BlockStatusIndirectlyFinalized, core.BlockStatusTrusted:
-			candidate = b
-			break
+			return b
 		case core.BlockStatusCommitted, core.BlockStatusValid, core.BlockStatusPending:
 			if candidate == nil || b.Status > candidate.Status {
 				candidate = b
