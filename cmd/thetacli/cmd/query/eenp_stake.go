@@ -48,7 +48,7 @@ func doEenpStakeCmd(cmd *cobra.Command, args []string) {
 func init() {
 	eenpStakeCmd.Flags().StringVar(&sourceFlag, "source", "", "Source of the stake")
 	eenpStakeCmd.Flags().StringVar(&holderFlag, "holder", "", "Holder of the stake")
-	eenpStakeCmd.Flags().BoolVar(&withdrawnOnlyFlag, "withdrawn_only", true, "Only want withdrawn stake")
+	eenpStakeCmd.Flags().BoolVar(&withdrawnOnlyFlag, "withdrawn_only", false, "Only want withdrawn stake")
 	eenpStakeCmd.Flags().Uint64Var(&heightFlag, "height", uint64(0), "height of the block")
 	eenpStakeCmd.MarkFlagRequired("source")
 	eenpStakeCmd.MarkFlagRequired("holder")

@@ -756,8 +756,8 @@ func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *Get
 	height := uint64(args.Height)
 
 	blockHashEenpPairs := []BlockHashEenpPair{}
-	blocks := t.chain.FindBlocksByHeight(height)
-	for _, b := range blocks {
+	b := t.chain.FindBestBlockByHeight(height)
+	if b != nil {
 		blockHash := b.Hash()
 		stateRoot := b.StateHash
 		blockStoreView := state.NewStoreView(height, stateRoot, db)
@@ -800,18 +800,20 @@ func (t *ThetaRPCService) GetEenpStakeByHeight(args *GetEenpStakeByHeightArgs, r
 	height := uint64(args.Height)
 
 	var stake *core.Stake
-	blocks := t.chain.FindBlocksByHeight(height)
-	for _, b := range blocks {
-		stateRoot := b.StateHash
-		blockStoreView := state.NewStoreView(height, stateRoot, db)
-		if blockStoreView == nil { // might have been pruned
-			return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
-		}
-		eenp := state.NewEliteEdgeNodePool(blockStoreView, true)
-		stake, err = eenp.GetStake(args.Source, args.Holder, args.WithdrawnOnly)
-		if err != nil {
-			return err
-		}
+	b := t.chain.FindBestBlockByHeight(height)
+	if b == nil {
+		return fmt.Errorf("Can't find block for height %v", height)
+	}
+
+	stateRoot := b.StateHash
+	blockStoreView := state.NewStoreView(height, stateRoot, db)
+	if blockStoreView == nil { // might have been pruned
+		return fmt.Errorf("the EENP for height %v does not exists, it might have been pruned", height)
+	}
+	eenp := state.NewEliteEdgeNodePool(blockStoreView, true)
+	stake, err = eenp.GetStake(args.Source, args.Holder, args.WithdrawnOnly)
+	if err != nil {
+		return err
 	}
 
 	result.Stake = *stake
