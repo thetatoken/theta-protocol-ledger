@@ -34,7 +34,7 @@ const HeightSupportThetaTokenInSmartContract uint64 = 13123789 // approximate ti
 const HeightValidatorStakeChangedTo200K uint64 = 14526120 // approximate time: 12pm Mar 14, 2022 PT
 
 // HeightSupportWrappedTheta specifies the block height to support wrapped Theta
-const HeightSupportWrappedTheta uint64 = 1000000000
+const HeightSupportWrappedTheta uint64 = 17285755 // approximate time: 7pm Sep 28, 2022 PT
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
