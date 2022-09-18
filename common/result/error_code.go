@@ -5,6 +5,8 @@ type ErrorCode int
 const (
 	CodeOK ErrorCode = 0
 
+	CodeUndecided ErrorCode = 2
+
 	// Common Errors
 	CodeGenericError             ErrorCode = 100000
 	CodeInvalidSignature         ErrorCode = 100001
@@ -29,11 +31,12 @@ const (
 	CodeUnauthorizedToUpdateSplitRule ErrorCode = 104001
 
 	// SmartContract Errors
-	CodeEVMError               ErrorCode = 105001
-	CodeInvalidValueToTransfer ErrorCode = 105002
-	CodeInvalidGasPrice        ErrorCode = 105003
-	CodeFeeLimitTooHigh        ErrorCode = 105004
-	CodeInvalidGasLimit        ErrorCode = 105005
+	CodeEVMError                          ErrorCode = 105001
+	CodeInvalidValueToTransfer            ErrorCode = 105002
+	CodeInvalidGasPrice                   ErrorCode = 105003
+	CodeFeeLimitTooHigh                   ErrorCode = 105004
+	CodeInvalidGasLimit                   ErrorCode = 105005
+	CodeDoNotSupportNativeThetaInSubchain ErrorCode = 105006
 
 	// Stake Deposit/Withdrawal Errors
 	CodeInvalidStakePurpose     ErrorCode = 106001
