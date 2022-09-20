@@ -161,7 +161,9 @@ func (exec *SmartContractTxExecutor) process(chainID string, view *st.StoreView,
 	// Note: for contract deployment, vm.Execute() might transfer coins from the fromAccount to the
 	//       deployed smart contract. Thus, we should call vm.Execute() before calling getInput().
 	//       Otherwise, the fromAccount returned by getInput() will have incorrect balance.
-	evmRet, contractAddr, gasUsed, evmErr := vm.Execute(exec.state.ParentBlock(), tx, view)
+	pb := exec.state.ParentBlock()
+	parentBlockInfo := vm.NewBlockInfo(pb.Height, pb.Timestamp, pb.ChainID)
+	evmRet, contractAddr, gasUsed, evmErr := vm.Execute(parentBlockInfo, tx, view)
 
 	fromAddress := tx.From.Address
 	fromAccount, success := getInput(view, tx.From)

@@ -16,6 +16,11 @@ func (res Result) IsOK() bool {
 	return res.Code == CodeOK
 }
 
+// IsUndecided indicates if the execution succeeded
+func (res Result) IsUndecided() bool {
+	return res.Code == CodeUndecided
+}
+
 // IsError indicates if the execution results in an error
 func (res Result) IsError() bool {
 	return res.Code != CodeOK
@@ -50,6 +55,18 @@ var OK = Result{
 func OKWith(info Info) Result {
 	res := Result{
 		Code: CodeOK,
+		Info: make(Info),
+	}
+	for k, v := range info {
+		res.Info[k] = v
+	}
+	return res
+}
+
+// UndecidedWith returns a success result with extra information
+func UndecidedWith(info Info) Result {
+	res := Result{
+		Code: CodeUndecided,
 		Info: make(Info),
 	}
 	for k, v := range info {
