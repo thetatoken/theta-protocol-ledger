@@ -15,6 +15,9 @@ var (
 	endFlag              uint64
 	skipEdgeNodeFlag     bool
 	includeEthTxHashFlag bool
+	sourceFlag           string
+	holderFlag           string
+	withdrawnOnlyFlag    bool
 )
 
 // QueryCmd represents the query command

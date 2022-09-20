@@ -280,6 +280,10 @@ func (een *EliteEdgeNode) String() string {
 	return fmt.Sprintf("{holder: %v, pubkey: %v, stakes :%v}", een.Holder, een.Pubkey.String(), een.Stakes)
 }
 
+func (een *EliteEdgeNode) GetStake(source common.Address, withdrawnOnly bool) (*Stake, error) {
+	return een.StakeHolder.getStake(source, withdrawnOnly)
+}
+
 func (een *EliteEdgeNode) DepositStake(source common.Address, amount *big.Int) error {
 	return een.StakeHolder.depositStake(source, amount)
 }

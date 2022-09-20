@@ -207,6 +207,25 @@ func (ch *Chain) findBlocksByHeight(height uint64) []*core.ExtendedBlock {
 	return ret
 }
 
+func (ch *Chain) FindBestBlockByHeight(height uint64) *core.ExtendedBlock {
+	ch.mu.RLock()
+	defer ch.mu.RUnlock()
+	blocks := ch.findBlocksByHeight(height)
+
+	var candidate *core.ExtendedBlock
+	for _, b := range blocks {
+		switch b.Status {
+		case core.BlockStatusDirectlyFinalized, core.BlockStatusIndirectlyFinalized, core.BlockStatusTrusted:
+			return b
+		case core.BlockStatusCommitted, core.BlockStatusValid, core.BlockStatusPending:
+			if candidate == nil || b.Status > candidate.Status {
+				candidate = b
+			}
+		}
+	}
+	return candidate
+}
+
 func (ch *Chain) MarkBlockValid(hash common.Hash) *core.ExtendedBlock {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
