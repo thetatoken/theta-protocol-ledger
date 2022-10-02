@@ -37,7 +37,7 @@ const HeightValidatorStakeChangedTo200K uint64 = 14526120 // approximate time: 1
 const HeightSupportWrappedTheta uint64 = 17285755 // approximate time: 7pm Sep 28, 2022 PT
 
 // HeightEnableMetachainSupport specifies the block height to enable Theta Metachain support (i.e. Mainnet 4.0)
-const HeightEnableMetachainSupport uint64 = 1000000000
+const HeightEnableMetachainSupport uint64 = 17285755
 
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
