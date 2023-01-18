@@ -11,9 +11,7 @@ import (
 
 const MaxValidatorCount int = 31
 
-//
 // -------------------------------- FixedValidatorManager ----------------------------------
-//
 var _ core.ValidatorManager = &FixedValidatorManager{}
 
 // FixedValidatorManager is an implementation of ValidatorManager interface that selects a fixed validator as the proposer.
@@ -64,9 +62,7 @@ func (m *FixedValidatorManager) GetNextValidatorSet(blockHash common.Hash) *core
 	return valSet
 }
 
-//
 // -------------------------------- RotatingValidatorManager ----------------------------------
-//
 var _ core.ValidatorManager = &RotatingValidatorManager{}
 
 // RotatingValidatorManager is an implementation of ValidatorManager interface that selects a random validator as
@@ -163,7 +159,7 @@ func selectTopStakeHoldersAsValidatorsForBlock(consensus core.ConsensusEngine, b
 		log.Panicf("Failed to get the validator candidate pool, blockHash: %v, isNext: %v, err: %v", blockHash.Hex(), isNext, err)
 	}
 	if vcp == nil {
-		log.Panic("Failed to retrieve the validator candidate pool")
+		log.Panic("Failed to retrieve the validator candidate pool, blockHash: %v, isNext: %v", blockHash.Hex(), isNext)
 	}
 
 	return SelectTopStakeHoldersAsValidators(vcp)
