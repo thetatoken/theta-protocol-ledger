@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -232,6 +233,7 @@ func (h *timeoutHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go func() {
 		defer func() {
 			if p := recover(); p != nil {
+				logger.Errorf("Panicked when processing http request: %v", string(debug.Stack()))
 				panicChan <- p
 			}
 		}()
