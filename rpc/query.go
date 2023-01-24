@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"math/rand"
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/blockchain"
@@ -111,6 +111,11 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 			}
 		}
 
+	}
+
+	if result.Account == nil {
+		log.Debugf("Account with address %v at height %v is not found", address.Hex(), height)
+		return fmt.Errorf("Account with address %v at height %v is not found", address.Hex(), height)
 	}
 
 	return nil
