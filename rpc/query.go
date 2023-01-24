@@ -86,7 +86,7 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 		blocks := t.chain.FindBlocksByHeight(height)
 		if len(blocks) == 0 {
 			result.Account = nil
-			return nil
+			return fmt.Errorf("Historical data at given height is not available on current node")
 		}
 
 		deliveredView, err := t.ledger.GetDeliveredSnapshot()
