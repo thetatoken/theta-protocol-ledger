@@ -617,9 +617,9 @@ func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
 	if codeHash == core.SuicidedCodeHash {
 		return nil
 	}
-	if (codeHash == common.Hash{}) {
-		return []byte{}
-	}
+	// if (codeHash == common.Hash{}) {
+	// 	return []byte{}
+	// }
 	codeKey := CodeKey(codeHash[:])
 	return sv.Get(codeKey)
 }
