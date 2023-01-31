@@ -1,4 +1,4 @@
-FROM golang:1.11
+FROM --platform=linux/amd64 golang:1.19
 
 VOLUME ["/go"]
 

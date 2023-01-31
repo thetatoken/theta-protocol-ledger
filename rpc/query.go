@@ -4,12 +4,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"math/rand"
 	"strings"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/thetatoken/theta/blockchain"
@@ -86,7 +86,7 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 		blocks := t.chain.FindBlocksByHeight(height)
 		if len(blocks) == 0 {
 			result.Account = nil
-			return nil
+			return fmt.Errorf("Historical data at given height is not available on current node")
 		}
 
 		deliveredView, err := t.ledger.GetDeliveredSnapshot()
@@ -111,6 +111,11 @@ func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountRes
 			}
 		}
 
+	}
+
+	if result.Account == nil {
+		log.Debugf("Account with address %v at height %v is not found", address.Hex(), height)
+		return fmt.Errorf("Account with address %v at height %v is not found", address.Hex(), height)
 	}
 
 	return nil
@@ -982,11 +987,12 @@ func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err
 			return nil
 		}
 
-		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		// deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		view, err := t.ledger.GetScreenedSnapshot()
 		if err != nil {
 			return err
 		}
-		db := deliveredView.GetDB()
+		db := view.GetDB()
 
 		for _, b := range blocks {
 			if b.Status.IsFinalized() {
