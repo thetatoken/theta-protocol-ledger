@@ -987,11 +987,12 @@ func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err
 			return nil
 		}
 
-		deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		// deliveredView, err := t.ledger.GetDeliveredSnapshot()
+		view, err := t.ledger.GetScreenedSnapshot()
 		if err != nil {
 			return err
 		}
-		db := deliveredView.GetDB()
+		db := view.GetDB()
 
 		for _, b := range blocks {
 			if b.Status.IsFinalized() {
