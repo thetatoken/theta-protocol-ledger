@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/blockchain"
 	"github.com/thetatoken/theta/common"
+	"github.com/thetatoken/theta/common/timer"
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/consensus"
 	"github.com/thetatoken/theta/dispatcher"
@@ -38,6 +39,10 @@ type ThetaRPCService struct {
 	dispatcher *dispatcher.Dispatcher
 	chain      *blockchain.Chain
 	consensus  *consensus.ConsensusEngine
+
+	pendingHeavyGetBlocksCounter           uint64
+	pendingHeavyGetBlocksCounterLock       *sync.Mutex
+	pendingHeavyGetBlocksCounterResetTimer *timer.RepeatTimer
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -62,8 +67,13 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatch
 	t := &ThetaRPCServer{
 		ThetaRPCService: &ThetaRPCService{
 			wg: &sync.WaitGroup{},
+
+			pendingHeavyGetBlocksCounter:           0,
+			pendingHeavyGetBlocksCounterLock:       &sync.Mutex{},
+			pendingHeavyGetBlocksCounterResetTimer: timer.NewRepeatTimer("pendingHeavyGetBlocksCounterReset", 30*time.Minute),
 		},
 	}
+	t.pendingHeavyGetBlocksCounterResetTimer.Reset()
 
 	t.mempool = mempool
 	t.ledger = ledger
@@ -102,6 +112,9 @@ func (t *ThetaRPCServer) Start(ctx context.Context) {
 	go t.mainLoop()
 
 	t.wg.Add(1)
+	go t.heavyQueryCounterLoop()
+
+	t.wg.Add(1)
 	go t.txCallback()
 }
 
@@ -113,6 +126,22 @@ func (t *ThetaRPCServer) mainLoop() {
 	<-t.ctx.Done()
 	t.stopped = true
 	t.server.Shutdown(t.ctx)
+}
+
+func (t *ThetaRPCServer) heavyQueryCounterLoop() {
+	defer t.wg.Done()
+
+	for {
+		select {
+		case <-t.pendingHeavyGetBlocksCounterResetTimer.Ch:
+			t.pendingHeavyGetBlocksCounterLock.Lock()
+			t.pendingHeavyGetBlocksCounter = 0 // reset the counter to zero at a fixed time interval, otherwise the counter could get stuck if some pending queries never return
+			t.pendingHeavyGetBlocksCounterLock.Unlock()
+		case <-t.ctx.Done():
+			t.stopped = true
+			return
+		}
+	}
 }
 
 func (t *ThetaRPCServer) serve() {

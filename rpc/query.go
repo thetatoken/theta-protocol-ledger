@@ -437,12 +437,41 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 	}
 
 	if args.Start > args.End {
-		return errors.New("Starting block must be less than ending block")
+		return errors.New("starting block must be less than ending block")
 	}
 
 	maxBlockRange := common.JSONUint64(5000)
-	if args.End-args.Start > maxBlockRange {
-		return errors.New("Can't retrieve more than 100 blocks at a time")
+	blockStart := args.Start
+	blockEnd := args.End
+	queryBlockRange := blockEnd - blockStart
+	if queryBlockRange > maxBlockRange {
+		return errors.New("can't retrieve more than 100 blocks at a time")
+	}
+
+	heavyQueryThreshold := viper.GetUint64(common.CfgRPCGetBlocksHeavyQueryThreshold)
+	isHeavyQuery := uint64(queryBlockRange) > heavyQueryThreshold
+	if isHeavyQuery {
+		t.pendingHeavyGetBlocksCounterLock.Lock()
+		hasTooManyPendingHeavyQueries := t.pendingHeavyGetBlocksCounter > viper.GetUint64(common.CfgRPCMaxHeavyGetBlocksQueryCount)
+		t.pendingHeavyGetBlocksCounterLock.Unlock()
+
+		if hasTooManyPendingHeavyQueries {
+			warningMsg := fmt.Sprintf("too many pending heavy getBlocksByRange queries, rejecting getBlocksByRange query from block %v to %v", blockStart, blockEnd)
+			logger.Warnf(warningMsg)
+			return fmt.Errorf(warningMsg)
+		}
+
+		t.pendingHeavyGetBlocksCounterLock.Lock()
+		t.pendingHeavyGetBlocksCounter += 1
+		t.pendingHeavyGetBlocksCounterLock.Unlock()
+
+		defer func() { // the heavy query has now been processed
+			t.pendingHeavyGetBlocksCounterLock.Lock()
+			if t.pendingHeavyGetBlocksCounter > 0 {
+				t.pendingHeavyGetBlocksCounter -= 1
+			}
+			t.pendingHeavyGetBlocksCounterLock.Unlock()
+		}()
 	}
 
 	blocks := t.chain.FindBlocksByHeight(uint64(args.End))
