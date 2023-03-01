@@ -445,7 +445,7 @@ func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *G
 	blockEnd := args.End
 	queryBlockRange := blockEnd - blockStart
 	if queryBlockRange > maxBlockRange {
-		return errors.New("can't retrieve more than 100 blocks at a time")
+		return fmt.Errorf("can't retrieve more than %v blocks at a time", maxBlockRange)
 	}
 
 	heavyQueryThreshold := viper.GetUint64(common.CfgRPCGetBlocksHeavyQueryThreshold)
