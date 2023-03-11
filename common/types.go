@@ -409,6 +409,12 @@ const (
 
 	// ChannelIDAggregatedEliteEdgeNodeVotes indicates the channel for Elite Edge Node aggregated vote messages
 	ChannelIDAggregatedEliteEdgeNodeVotes
+
+	// ChannelIDEdgeStoreNetworkStorage indicates the channel for the network storage messages for EdgeStore
+	ChannelIDEdgeStoreNetworkStorage
+
+	// ChannelIDEdgeStoreNetworkStorage indicates the channel for the data sync messages for EdgeStore
+	ChannelIDEdgeStoreDataSync
 )
 
 // P2POptEnum defines the p2p network
