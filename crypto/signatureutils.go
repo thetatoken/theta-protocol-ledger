@@ -24,8 +24,8 @@ import (
 	"crypto/elliptic"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/thetatoken/theta/common/math"
-	"github.com/thetatoken/theta/crypto/secp256k1"
 )
 
 const SignatureLength = 64 + 1 // 64 bytes ECDSA signature + 1 byte recovery id

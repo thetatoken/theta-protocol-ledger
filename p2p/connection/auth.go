@@ -34,10 +34,10 @@ import (
 	mrand "math/rand"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/golang/snappy"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/crypto/ecies"
-	"github.com/thetatoken/theta/crypto/secp256k1"
 	"github.com/thetatoken/theta/crypto/sha3"
 	"github.com/thetatoken/theta/rlp"
 )
