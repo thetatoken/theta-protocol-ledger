@@ -95,7 +95,7 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatch
 
 	t.server = &http.Server{
 		Handler: t.router,
-		IdleTimeout: viper.GetDuration(common.CfgRPCTimeoutSecs)*time.Second,
+		IdleTimeout: viper.GetDuration(common.CfgRPCIdleTimeoutSecs)*time.Second,
 	}
 
 	logger = util.GetLoggerForModule("rpc")
