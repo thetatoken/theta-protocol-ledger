@@ -123,6 +123,7 @@ const (
 	CfgRPCTimeoutSecs                  = "rpc.timeoutSecs"
 	CfgRPCGetBlocksHeavyQueryThreshold = "rpc.getBlocksHeavyQueryThreshold"
 	CfgRPCMaxHeavyGetBlocksQueryCount  = "rpc.maxHeavyGetBlocksQueryCount"
+	CfgRPCIdleTimeoutSecs              = "rpc.idleTimeoutSecs"
 
 	// CfgLogLevels sets the log level.
 	CfgLogLevels = "log.levels"
@@ -209,6 +210,7 @@ func init() {
 	viper.SetDefault(CfgRPCTimeoutSecs, 60)
 	viper.SetDefault(CfgRPCGetBlocksHeavyQueryThreshold, 500)
 	viper.SetDefault(CfgRPCMaxHeavyGetBlocksQueryCount, 30)
+	viper.SetDefault(CfgRPCIdleTimeoutSecs, 1)
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
