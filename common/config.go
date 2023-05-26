@@ -120,7 +120,10 @@ const (
 	// CfgRPCMaxConnections limits concurrent connections accepted by RPC server.
 	CfgRPCMaxConnections = "rpc.maxConnections"
 	// CfgRPCTimeoutSecs set a timeout for RPC.
-	CfgRPCTimeoutSecs = "rpc.timeoutSecs"
+	CfgRPCTimeoutSecs                  = "rpc.timeoutSecs"
+	CfgRPCGetBlocksHeavyQueryThreshold = "rpc.getBlocksHeavyQueryThreshold"
+	CfgRPCMaxHeavyGetBlocksQueryCount  = "rpc.maxHeavyGetBlocksQueryCount"
+	CfgRPCIdleTimeoutSecs              = "rpc.idleTimeoutSecs"
 
 	// CfgLogLevels sets the log level.
 	CfgLogLevels = "log.levels"
@@ -205,6 +208,9 @@ func init() {
 	viper.SetDefault(CfgRPCPort, "16888")
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 	viper.SetDefault(CfgRPCTimeoutSecs, 60)
+	viper.SetDefault(CfgRPCGetBlocksHeavyQueryThreshold, 500)
+	viper.SetDefault(CfgRPCMaxHeavyGetBlocksQueryCount, 30)
+	viper.SetDefault(CfgRPCIdleTimeoutSecs, 1)
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)
