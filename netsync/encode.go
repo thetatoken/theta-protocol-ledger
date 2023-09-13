@@ -74,3 +74,13 @@ func decodeMessage(raw common.Bytes) (interface{}, error) {
 		return nil, fmt.Errorf("Unknown message ID: %v", msgID)
 	}
 }
+
+// EncodeMessage encodes the message into raw bytes
+func EncodeMessage(message interface{}) (common.Bytes, error) {
+	return encodeMessage(message)
+}
+
+// DecodeMessage decodes the raw message
+func DecodeMessage(raw common.Bytes) (interface{}, error) {
+	return decodeMessage(raw)
+}

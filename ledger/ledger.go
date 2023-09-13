@@ -47,9 +47,8 @@ type Ledger struct {
 }
 
 // NewLedger creates an instance of Ledger
-func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
-	state := st.NewLedgerState(chainID, db)
-	executor := exec.NewExecutor(db, chain, state, consensus, valMgr)
+func NewLedger(chainID string, db database.Database, tagger st.Tagger, chain *blockchain.Chain, consensus core.ConsensusEngine, valMgr core.ValidatorManager, mempool *mp.Mempool) *Ledger {
+	state := st.NewLedgerState(chainID, db, tagger)
 	ledger := &Ledger{
 		db:        db,
 		chain:     chain,
@@ -58,9 +57,15 @@ func NewLedger(chainID string, db database.Database, chain *blockchain.Chain, co
 		mempool:   mempool,
 		mu:        &sync.RWMutex{},
 		state:     state,
-		executor:  executor,
 	}
+	executor := exec.NewExecutor(db, chain, state, consensus, valMgr, ledger)
+	ledger.SetExecutor(executor)
 	return ledger
+}
+
+// SetExecutor sets the executor for the ledger
+func (ledger *Ledger) SetExecutor(executor *exec.Executor) {
+	ledger.executor = executor
 }
 
 // State returns the state of the ledger
@@ -152,6 +157,8 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 	}
 	blockHash = block.Hash()
 	for {
+		logger.Debugf("Ledger.GetGuardianCandidatePool, block.height = %v", block.Height)
+
 		block, err := findBlock(store, blockHash)
 		if err != nil {
 			return nil, err
@@ -161,6 +168,34 @@ func (ledger *Ledger) GetGuardianCandidatePool(blockHash common.Hash) (*core.Gua
 			storeView := st.NewStoreView(block.Height, stateRoot, db)
 			gcp := storeView.GetGuardianCandidatePool()
 			return gcp, nil
+		}
+		blockHash = block.Parent
+	}
+}
+
+// GetEliteEdgeNodePoolOfLastCheckpoint returns the elite edge node pool of the given block.
+func (ledger *Ledger) GetEliteEdgeNodePoolOfLastCheckpoint(blockHash common.Hash) (core.EliteEdgeNodePool, error) {
+	db := ledger.state.DB()
+	store := kvstore.NewKVStore(db)
+
+	// Find last checkpoint and retrieve EENP.
+	block, err := findBlock(store, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	blockHash = block.Hash()
+	for {
+		logger.Debugf("Ledger.GetEliteEdgeNodePoolOfLastCheckpoint, block.height = %v", block.Height)
+
+		block, err := findBlock(store, blockHash)
+		if err != nil {
+			return nil, err
+		}
+		if common.IsCheckPointHeight(block.Height) {
+			stateRoot := block.BlockHeader.StateHash
+			storeView := st.NewStoreView(block.Height, stateRoot, db)
+			eenp := state.NewEliteEdgeNodePool(storeView, true)
+			return eenp, nil
 		}
 		blockHash = block.Parent
 	}
@@ -218,9 +253,12 @@ func (ledger *Ledger) ScreenTx(rawTx common.Bytes) (txInfo *core.TxInfo, res res
 
 // ProposeBlockTxs collects and executes a list of transactions, which will be used to assemble the next blockl
 // It also clears these transactions from the mempool.
-func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
+func (ledger *Ledger) ProposeBlockTxs(block *core.Block, shouldIncludeValidatorUpdateTxs bool) (stateRootHash common.Hash, blockRawTxs []common.Bytes, res result.Result) {
 	// Must always acquire locks in following order to avoid deadlock: mempool, ledger.
 	// Otherwise, could cause deadlock since mempool.InsertTransaction() also first acquires the mempool, and then the ledger lock
+	logger.Debugf("ProposeBlockTxs: Propose block transactions, block.height = %v", block.Height)
+	start := time.Now()
+
 	ledger.mempool.Lock()
 	defer ledger.mempool.Unlock()
 
@@ -232,6 +270,10 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 
 	view := ledger.state.Checked()
 
+	logger.Debugf("ProposeBlockTxs: Start adding block transactions, block.height = %v", block.Height)
+	preparationTime := time.Since(start)
+	start = time.Now()
+
 	// Add special transactions
 	rawTxCandidates := []common.Bytes{}
 	ledger.addSpecialTransactions(block, view, &rawTxCandidates)
@@ -242,12 +284,27 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 		rawTxCandidates = append(rawTxCandidates, regularRawTx)
 	}
 
+	logger.Debugf("ProposeBlockTxs: block transactions added, block.height = %v", block.Height)
+	addTxsTime := time.Since(start)
+	start = time.Now()
+
 	blockRawTxs = []common.Bytes{}
 	for _, rawTxCandidate := range rawTxCandidates {
 		tx, err := types.TxFromBytes(rawTxCandidate)
 		if err != nil {
 			continue
 		}
+
+		if !shouldIncludeValidatorUpdateTxs {
+			// Skip validator updating txs
+			if _, ok := tx.(*types.DepositStakeTx); ok {
+				continue
+			}
+			if _, ok := tx.(*types.WithdrawStakeTx); ok {
+				continue
+			}
+		}
+
 		_, res := ledger.executor.CheckTx(tx)
 		if res.IsError() {
 			logger.Errorf("Transaction check failed: errMsg = %v, tx = %v", res.Message, tx)
@@ -256,9 +313,19 @@ func (ledger *Ledger) ProposeBlockTxs(block *core.Block) (stateRootHash common.H
 		blockRawTxs = append(blockRawTxs, rawTxCandidate)
 	}
 
+	logger.Debugf("ProposeBlockTxs: block transactions executed, block.height = %v", block.Height)
+	execTxsTime := time.Since(start)
+	start = time.Now()
+
 	ledger.handleDelayedStateUpdates(view)
 
 	stateRootHash = view.Hash()
+
+	logger.Debugf("ProposeBlockTxs: delay update handled, block.height = %v", block.Height)
+	handleDelayedUpdateTime := time.Since(start)
+
+	logger.Debugf("ProposeBlockTxs: Done, block.height = %v, preparationTime = %v, addTxsTime = %v, execTxsTime = %v, handleDelayedUpdateTime = %v",
+		block.Height, preparationTime, addTxsTime, execTxsTime, handleDelayedUpdateTime)
 
 	return stateRootHash, blockRawTxs, result.OK
 }
@@ -301,9 +368,9 @@ func (ledger *Ledger) ApplyBlockTxs(block *core.Block) result.Result {
 			ledger.resetState(parentBlock)
 			return result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.DepositStakeTx); ok {
+		if dtx, ok := tx.(*types.DepositStakeTx); ok && dtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
-		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		} else if wtx, ok := tx.(*types.WithdrawStakeTx); ok && wtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
@@ -382,9 +449,9 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 			ledger.resetState(parentBlock)
 			return common.Hash{}, result.Error("Failed to parse transaction: %v", hex.EncodeToString(rawTx))
 		}
-		if _, ok := tx.(*types.DepositStakeTx); ok {
+		if dtx, ok := tx.(*types.DepositStakeTx); ok && dtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
-		} else if _, ok := tx.(*types.WithdrawStakeTx); ok {
+		} else if wtx, ok := tx.(*types.WithdrawStakeTx); ok && wtx.Purpose == core.StakeForValidator {
 			hasValidatorUpdate = true
 		}
 		_, res := ledger.executor.ExecuteTx(tx)
@@ -404,46 +471,49 @@ func (ledger *Ledger) ApplyBlockTxsForChainCorrection(block *core.Block) (common
 
 // PruneState attempts to prune the state up to the targetEndHeight
 func (ledger *Ledger) PruneState(targetEndHeight uint64) error {
-	var processedHeight uint64
-	db := ledger.State().DB()
-	kvStore := kvstore.NewKVStore(db)
-	err := kvStore.Get(state.StatePruningProgressKey(), &processedHeight)
-	if err != nil {
-		processedHeight = ledger.chain.Root().Height
-	}
-
-	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
-	maxHeightsToPrune := 3 * pruneInterval // prune too many heights at once could cause hang, should catchup gradually
-	endHeight := processedHeight + maxHeightsToPrune
-	if endHeight > targetEndHeight {
-		endHeight = targetEndHeight
-	}
-
-	startHeight := processedHeight + 1
-	if endHeight < startHeight {
-		errMsg := fmt.Sprintf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
-		logger.Warnf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-
-	lastFinalizedBlock := ledger.consensus.GetLastFinalizedBlock()
-	if endHeight >= lastFinalizedBlock.Height {
-		errMsg := fmt.Sprintf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
-		logger.Warnf(errMsg)
-		return fmt.Errorf(errMsg)
-	}
-
-	// Need to save the progress before pruning -- in case the program exits during pruning (e.g. Ctrl+C),
-	// the states that are already pruned do not get pruned again
-	kvStore.Put(state.StatePruningProgressKey(), endHeight)
-
-	err = ledger.pruneStateForRange(startHeight, endHeight)
-	if err != nil {
-		logger.Warnf("Unable to pruning state: %v", err)
-		return err
-	}
-
+	// Permanently disabled
 	return nil
+
+	// var processedHeight uint64
+	// db := ledger.State().DB()
+	// kvStore := kvstore.NewKVStore(db)
+	// err := kvStore.Get(state.StatePruningProgressKey(), &processedHeight)
+	// if err != nil {
+	// 	processedHeight = ledger.chain.Root().Height
+	// }
+
+	// pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
+	// maxHeightsToPrune := 3 * pruneInterval // prune too many heights at once could cause hang, should catchup gradually
+	// endHeight := processedHeight + maxHeightsToPrune
+	// if endHeight > targetEndHeight {
+	// 	endHeight = targetEndHeight
+	// }
+
+	// startHeight := processedHeight + 1
+	// if endHeight < startHeight {
+	// 	errMsg := fmt.Sprintf("endHeight (%v) < startHeight (%v)", endHeight, startHeight)
+	// 	logger.Warnf(errMsg)
+	// 	return fmt.Errorf(errMsg)
+	// }
+
+	// lastFinalizedBlock := ledger.consensus.GetLastFinalizedBlock()
+	// if endHeight >= lastFinalizedBlock.Height {
+	// 	errMsg := fmt.Sprintf("Can't prune at height >= %v yet", lastFinalizedBlock.Height)
+	// 	logger.Warnf(errMsg)
+	// 	return fmt.Errorf(errMsg)
+	// }
+
+	// // Need to save the progress before pruning -- in case the program exits during pruning (e.g. Ctrl+C),
+	// // the states that are already pruned do not get pruned again
+	// kvStore.Put(state.StatePruningProgressKey(), endHeight)
+
+	// err = ledger.pruneStateForRange(startHeight, endHeight)
+	// if err != nil {
+	// 	logger.Warnf("Unable to pruning state: %v", err)
+	// 	return err
+	// }
+
+	// return nil
 }
 
 // pruneStateForRange prunes states from startHeight to endHeight (inclusive for both end)
@@ -580,6 +650,11 @@ func (ledger *Ledger) shouldSkipCheckTx(tx types.Tx) bool {
 func (ledger *Ledger) handleDelayedStateUpdates(view *st.StoreView) {
 	ledger.handleValidatorStakeReturn(view)
 	ledger.handleGuardianStakeReturn(view)
+
+	blockHeight := view.Height() + 1
+	if blockHeight >= common.HeightEnableTheta3 {
+		ledger.handleEliteEdgeNodeStakeReturns(view)
+	}
 }
 
 func (ledger *Ledger) handleValidatorStakeReturn(view *st.StoreView) {
@@ -640,6 +715,47 @@ func (ledger *Ledger) handleGuardianStakeReturn(view *st.StoreView) {
 	view.UpdateGuardianCandidatePool(gcp)
 }
 
+func (ledger *Ledger) handleEliteEdgeNodeStakeReturns(view *st.StoreView) {
+	currentHeight := view.Height()
+	returnedStakesWithHolders := view.GetEliteEdgeNodeStakeReturns(currentHeight)
+	if len(returnedStakesWithHolders) == 0 {
+		return // no need to call view.RemoveEliteEdgeNodeStakeReturns()
+	}
+
+	eenp := state.NewEliteEdgeNodePool(view, false)
+	for _, returnedStakeWithHolder := range returnedStakesWithHolders {
+		returnedStake := returnedStakeWithHolder.Stake
+		eenAddress := returnedStakeWithHolder.Holder
+		if !returnedStake.Withdrawn || currentHeight < returnedStake.ReturnHeight {
+			log.Panicf("Cannot return stake: withdrawn = %v, returnHeight = %v, currentHeight = %v",
+				returnedStake.Withdrawn, returnedStake.ReturnHeight, currentHeight)
+		}
+		sourceAddress := returnedStake.Source
+		sourceAccount := view.GetAccount(sourceAddress)
+		if sourceAccount == nil {
+			log.Panicf("Failed to retrieve source account for stake return: %v", sourceAddress)
+		}
+		returnedCoins := types.Coins{ // Important: Elite edge nodes deposit/withdraw TFuel stake, NOT Theta
+			ThetaWei: types.Zero,
+			TFuelWei: returnedStake.Amount,
+		}
+		sourceAccount.Balance = sourceAccount.Balance.Plus(returnedCoins)
+		view.SetAccount(sourceAddress, sourceAccount)
+
+		// TODO: potentially O(m*n) runtime complexity, but the number of stakes on an EEN is bounded
+		err := eenp.ReturnStake(currentHeight, eenAddress, returnedStake)
+		if err != nil {
+			log.Panicf("Failed to return stake: currentHeight = %v, eenAddress = %v, returnedStake = %v, err = %v",
+				currentHeight, eenAddress, returnedStake, err)
+		}
+
+		logger.Infof("Stake returned: eenAddress = %v, source = %v, amount = %v",
+			eenAddress, returnedStake.Source, returnedStake.Amount)
+	}
+
+	view.RemoveEliteEdgeNodeStakeReturns(currentHeight)
+}
+
 // addSpecialTransactions adds special transactions (e.g. coinbase transaction, slash transaction) to the block
 func (ledger *Ledger) addSpecialTransactions(block *core.Block, view *st.StoreView, rawTxs *[]common.Bytes) {
 	if block == nil {
@@ -668,19 +784,15 @@ func (ledger *Ledger) addCoinbaseTx(view *st.StoreView, proposer *core.Validator
 
 	var accountRewardMap map[string]types.Coins
 	ch := ledger.GetCurrentBlock().Height
-	guardianVotes := ledger.GetCurrentBlock().GuardianVotes
+	currentBlock := ledger.GetCurrentBlock()
+	guardianVotes := currentBlock.GuardianVotes
+	eliteEdgeNodeVotes := currentBlock.EliteEdgeNodeVotes
 
 	if guardianVotes != nil && ch >= common.HeightEnableTheta2 && common.IsCheckPointHeight(ch) {
-		guradianVoteBlock, err := ledger.chain.FindBlock(guardianVotes.Block)
-		if err != nil {
-			logger.Panic(err)
-		}
-		storeView := st.NewStoreView(guradianVoteBlock.Height, guradianVoteBlock.StateHash, ledger.db)
-		guardianCandidatePool := storeView.GetGuardianCandidatePool()
-
-		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianCandidatePool)
-	} else {
-		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil)
+		guardianPool, eliteEdgeNodePool := exec.RetrievePools(ledger, ledger.chain, ledger.db, ch, guardianVotes, eliteEdgeNodeVotes)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, guardianVotes, guardianPool, eliteEdgeNodeVotes, eliteEdgeNodePool)
+	} else { // for compatibility with lower versions (e.g. blockHeight < common.HeightEnableValidatorReward)
+		accountRewardMap = exec.CalculateReward(ledger, view, validatorSet, nil, nil, nil, nil)
 	}
 
 	coinbaseTxOutputs := []types.TxOutput{}

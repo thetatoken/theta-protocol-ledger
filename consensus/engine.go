@@ -39,6 +39,7 @@ type ConsensusEngine struct {
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
 	guardian         *GuardianEngine
+	eliteEdgeNode    *EliteEdgeNodeEngine
 
 	incoming        chan interface{}
 	finalizedBlocks chan *core.Block
@@ -51,9 +52,12 @@ type ConsensusEngine struct {
 	stopped bool
 
 	mu            *sync.Mutex
+	voteTimer     *time.Timer
 	epochTimer    *time.Timer
-	proposalTimer *time.Timer
 	guardianTimer *time.Ticker
+
+	voteTimerReady bool
+	blockProcessed bool
 
 	state *State
 }
@@ -75,6 +79,9 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		state: NewState(db, chain),
 
 		validatorManager: validatorManager,
+
+		voteTimerReady: false,
+		blockProcessed: false,
 	}
 
 	logger = util.GetLoggerForModule("consensus")
@@ -85,6 +92,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		e.logger.Panic(err)
 	}
 	e.guardian = NewGuardianEngine(e, blsKey)
+	e.eliteEdgeNode = NewEliteEdgeNodeEngine(e, blsKey)
 
 	e.logger.WithFields(log.Fields{"state": e.state}).Info("Starting state")
 
@@ -132,10 +140,10 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 	e.cancel = cancel
 
 	// Verify configurations
-	if viper.GetInt(common.CfgConsensusMaxEpochLength) <= viper.GetInt(common.CfgConsensusMinProposalWait) {
+	if viper.GetInt(common.CfgConsensusMaxEpochLength) <= viper.GetInt(common.CfgConsensusMinBlockInterval) {
 		log.WithFields(log.Fields{
-			"CfgConsensusMaxEpochLength":  viper.GetInt(common.CfgConsensusMaxEpochLength),
-			"CfgConsensusMinProposalWait": viper.GetInt(common.CfgConsensusMinProposalWait),
+			"CfgConsensusMaxEpochLength":   viper.GetInt(common.CfgConsensusMaxEpochLength),
+			"CfgConsensusMinBlockInterval": viper.GetInt(common.CfgConsensusMinBlockInterval),
 		}).Fatal("Invalid configuration: max epoch length must be larger than minimal proposal wait")
 	}
 
@@ -146,6 +154,7 @@ func (e *ConsensusEngine) Start(ctx context.Context) {
 
 	e.resetGuardianTimer()
 	e.guardian.Start(e.ctx)
+	e.eliteEdgeNode.Start(e.ctx)
 
 	e.checkSyncStatus()
 
@@ -252,6 +261,7 @@ func (e *ConsensusEngine) mainLoop() {
 
 	for {
 		e.enterEpoch()
+		e.propose()
 	Epoch:
 		for {
 			select {
@@ -263,12 +273,15 @@ func (e *ConsensusEngine) mainLoop() {
 				if endEpoch {
 					break Epoch
 				}
+			case <-e.voteTimer.C:
+				e.voteTimerReady = true
+				if e.blockProcessed {
+					e.vote()
+				}
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
 				break Epoch
-			case <-e.proposalTimer.C:
-				e.propose()
 			case <-e.guardianTimer.C:
 				v := e.guardian.GetVoteToBroadcast()
 
@@ -277,6 +290,14 @@ func (e *ConsensusEngine) mainLoop() {
 					e.broadcastGuardianVote(v)
 				}
 				e.guardian.StartNewRound()
+
+				eenv := e.eliteEdgeNode.GetVoteToBroadcast()
+
+				if eenv != nil {
+					e.eliteEdgeNode.logger.WithFields(log.Fields{"vote": eenv}).Debug("Broadcasting aggregated elite edge node vote")
+					e.broadcastAggregatedEliteEdgeNodeVotes(eenv)
+				}
+				e.eliteEdgeNode.StartNewRound()
 			}
 		}
 	}
@@ -284,16 +305,21 @@ func (e *ConsensusEngine) mainLoop() {
 
 // enterEpoch is called when engine enters a new epoch.
 func (e *ConsensusEngine) enterEpoch() {
+	logger.Debugf("Enter epoch %v", e.GetEpoch())
+
 	// Reset timers.
 	if e.epochTimer != nil {
 		e.epochTimer.Stop()
 	}
 	e.epochTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMaxEpochLength)) * time.Second)
 
-	if e.proposalTimer != nil {
-		e.proposalTimer.Stop()
+	if e.voteTimer != nil {
+		e.voteTimer.Stop()
 	}
-	e.proposalTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinProposalWait)) * time.Second)
+	e.voteTimer = time.NewTimer(time.Duration(viper.GetInt(common.CfgConsensusMinBlockInterval)) * time.Second)
+
+	e.voteTimerReady = false
+	e.blockProcessed = false
 }
 
 // GetChannelIDs implements the p2p.MessageHandler interface.
@@ -323,8 +349,14 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 		}).Debug("Received block")
 		e.handleBlock(m)
 	case *core.AggregatedVotes:
-		e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
+		// e.logger.WithFields(log.Fields{"guardian vote": m}).Debug("Received guardian vote")
 		e.handleGuardianVote(m)
+	case *core.EENVote:
+		// e.logger.WithFields(log.Fields{"elite edge node vote": m}).Debug("Received elite edge node vote")
+		e.handleEliteEdgeNodeVote(m)
+	case *core.AggregatedEENVotes:
+		// e.logger.WithFields(log.Fields{"aggregated elite edge node vote": m}).Debug("Received agggregated elite edge node vote")
+		e.handleAggregatedEliteEdgeNodeVote(m)
 	default:
 		// Should not happen.
 		log.Errorf("Unknown message type: %v", m)
@@ -478,35 +510,40 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 	// We allow checkpoint blocs to have nil guardian votes.
 	if block.GuardianVotes != nil && block.Height >= common.HeightEnableTheta2 && common.IsCheckPointHeight(block.Height) {
 		// Voted block must exist.
-		lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
-		if err != nil {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"error":               err.Error(),
-			}).Warn("Guardian votes refers to non-existing block")
-			return result.Error("Block in guardian votes cannot be found")
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.GuardianVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"error":               err.Error(),
+				}).Warn("Guardian votes refers to non-existing block")
+				return result.Error("Block in guardian votes cannot be found")
+			}
+
+			// // Voted block must be at previous checkpoint height.
+			// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
+			// 	e.logger.WithFields(log.Fields{
+			// 		"block.Hash":          block.Hash().Hex(),
+			// 		"block.Height":        block.Height,
+			// 		"block.GuardianVotes": block.GuardianVotes.String(),
+			// 	}).Warn("Voted block must be at previous checkpoint height")
+			// 	return result.Error("Voted block must be at previous checkpoint height")
+			// }
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":          block.Hash().Hex(),
+					"block.Height":        block.Height,
+					"block.GuardianVotes": block.GuardianVotes.String(),
+					"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in guardian votes")
+			}
 		}
-		// // Voted block must be at previous checkpoint height.
-		// if block.Height-lastCheckpoint.Height != uint64(common.CheckpointInterval) {
-		// 	e.logger.WithFields(log.Fields{
-		// 		"block.Hash":          block.Hash().Hex(),
-		// 		"block.Height":        block.Height,
-		// 		"block.GuardianVotes": block.GuardianVotes.String(),
-		// 	}).Warn("Voted block must be at previous checkpoint height")
-		// 	return result.Error("Voted block must be at previous checkpoint height")
-		// }
-		// Voted block must be ascendant.
-		if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
-			e.logger.WithFields(log.Fields{
-				"block.Hash":          block.Hash().Hex(),
-				"block.Height":        block.Height,
-				"block.GuardianVotes": block.GuardianVotes.String(),
-				"lastCheckpoint":      lastCheckpoint.Hash().Hex(),
-			}).Warn("Block is not descendant of checkpoint")
-			return result.Error("Block is not descendant of checkpoint in guardian votes")
-		}
+
 		// Guardian votes must be valid.
 		gcp, err := e.ledger.GetGuardianCandidatePool(block.GuardianVotes.Block)
 		if err != nil {
@@ -537,6 +574,68 @@ func (e *ConsensusEngine) validateBlock(block *core.Block, parent *core.Extended
 				"block.GuardianVotes": block.GuardianVotes.String(),
 			}).Warn("Guardian votes in non-checkpoint block")
 			return result.Error("Non-checkpoint block should not have guardian votes")
+		}
+	}
+
+	// Validate Elite Edge Node Votes.
+	// We allow checkpoint blocks to have nil elite edge node votes.
+	if block.EliteEdgeNodeVotes != nil && block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		// Voted block must exist.
+		padding := uint64(20)
+		if e.chain.Root().Height+padding*uint64(common.CheckpointInterval) < block.Height {
+			lastCheckpoint, err := e.chain.FindBlock(block.EliteEdgeNodeVotes.Block)
+			if err != nil {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"error":                    err.Error(),
+				}).Warn("Elite Edge Node votes refers to non-existing block")
+				return result.Error("Block in elite edge node votes cannot be found")
+			}
+
+			// Voted block must be ascendant.
+			if !e.chain.IsDescendant(lastCheckpoint.Hash(), block.Hash()) {
+				e.logger.WithFields(log.Fields{
+					"block.Hash":               block.Hash().Hex(),
+					"block.Height":             block.Height,
+					"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+					"lastCheckpoint":           lastCheckpoint.Hash().Hex(),
+				}).Warn("Block is not descendant of checkpoint")
+				return result.Error("Block is not descendant of checkpoint in elite edge node votes")
+			}
+		}
+
+		// Elite Edge node votes must be valid.
+		eenp, err := e.ledger.GetEliteEdgeNodePoolOfLastCheckpoint(block.EliteEdgeNodeVotes.Block)
+		if err != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    err.Error(),
+			}).Warn("Failed to load elite edge node pool")
+			return result.Error("Failed to load elite edge node pool")
+		}
+		if res := block.EliteEdgeNodeVotes.Validate(eenp); res.IsError() {
+			e.logger.WithFields(log.Fields{
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+				"error":                    res.String(),
+			}).Warn("Failed to validate elite edge node votes attached to the block")
+			return result.Error("Elite Edge Node votes are not valid")
+		}
+	} else {
+		if block.EliteEdgeNodeVotes != nil {
+			e.logger.WithFields(log.Fields{
+				"block.Epoch":              block.Epoch,
+				"block.proposer":           block.Proposer.Hex(),
+				"block.Hash":               block.Hash().Hex(),
+				"block.Height":             block.Height,
+				"block.EliteEdgeNodeVotes": block.EliteEdgeNodeVotes.String(),
+			}).Warn("Elite Edge Node votes in non-checkpoint block")
+			return result.Error("Non-checkpoint block should not have elite edge node votes")
 		}
 	}
 
@@ -695,7 +794,10 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	// Allow block with one epoch behind since votes are processed first and might advance epoch
 	// before block is processed.
 	if localEpoch := e.GetEpoch(); block.Epoch == localEpoch-1 || block.Epoch == localEpoch {
-		e.vote()
+		e.blockProcessed = true
+		if e.voteTimerReady {
+			e.vote()
+		}
 	} else {
 		e.logger.WithFields(log.Fields{
 			"block.Epoch": block.Epoch,
@@ -972,6 +1074,27 @@ func (e *ConsensusEngine) broadcastGuardianVote(vote *core.AggregatedVotes) {
 	e.dispatcher.SendData([]string{}, voteMsg)
 }
 
+func (e *ConsensusEngine) handleEliteEdgeNodeVote(v *core.EENVote) {
+	e.eliteEdgeNode.HandleVote(v)
+}
+
+func (e *ConsensusEngine) handleAggregatedEliteEdgeNodeVote(v *core.AggregatedEENVotes) {
+	e.eliteEdgeNode.HandleAggregatedVote(v)
+}
+
+func (e *ConsensusEngine) broadcastAggregatedEliteEdgeNodeVotes(vote *core.AggregatedEENVotes) {
+	payload, err := rlp.EncodeToBytes(vote)
+	if err != nil {
+		e.logger.WithFields(log.Fields{"elite edge node vote": vote}).Error("Failed to encode vote")
+		return
+	}
+	voteMsg := dispatcher.DataResponse{
+		ChannelID: common.ChannelIDAggregatedEliteEdgeNodeVotes,
+		Payload:   payload,
+	}
+	e.dispatcher.SendData([]string{}, voteMsg)
+}
+
 // GetSummary returns a summary of consensus state.
 func (e *ConsensusEngine) GetSummary() *StateStub {
 	return e.state.GetSummary()
@@ -1037,9 +1160,10 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 	// duplicate TX in fork.
 	e.chain.AddTxsToIndex(block, true)
 
-	// Guardians to vote for checkpoint blocks.
+	// Guardians and Elite Edge Nodes to vote for checkpoint blocks.
 	if common.IsCheckPointHeight(block.Height) {
 		e.guardian.StartNewBlock(block.Hash())
+		e.eliteEdgeNode.StartNewBlock(block.Hash())
 		e.resetGuardianTimer()
 	}
 
@@ -1054,12 +1178,25 @@ func (e *ConsensusEngine) finalizeBlock(block *core.ExtendedBlock) error {
 
 func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) bool {
 	if epoch <= tip.Epoch {
+		e.logger.WithFields(log.Fields{
+			"tip":       tip.Hash().Hex(),
+			"tip.Epoch": tip.Epoch,
+			"epoch":     epoch,
+		}).Debug("shouldPropose=false: epoch is behind")
 		return false
 	}
 	if !e.shouldProposeByID(tip.Hash(), epoch, e.ID()) {
+		e.logger.WithFields(log.Fields{
+			"tip":   tip.Hash().Hex(),
+			"epoch": epoch,
+		}).Debug("shouldPropose=false: not my turn")
 		return false
 	}
-	// Don't propose if majority has greater block height.
+	return true
+}
+
+func (e *ConsensusEngine) shouldIncludeValidatorUpdateTxs(tip *core.ExtendedBlock) bool {
+	// Check if majority has greater block height.
 	epochVotes, err := e.state.GetEpochVotes()
 	if err != nil {
 		e.logger.WithFields(log.Fields{"error": err}).Warn("Failed to load epoch votes")
@@ -1072,9 +1209,16 @@ func (e *ConsensusEngine) shouldPropose(tip *core.ExtendedBlock, epoch uint64) b
 			votes.AddVote(v)
 		}
 	}
+
 	if validators.HasMajority(votes) {
+		e.logger.WithFields(log.Fields{
+			"tip":        tip.Hash().Hex(),
+			"tip.Height": tip.Height,
+			"votes":      votes.String(),
+		}).Debug("shouldIncludeValidatorUpdateTxs=false: tip height smaller than majority")
 		return false
 	}
+
 	return true
 }
 
@@ -1084,12 +1228,18 @@ func (e *ConsensusEngine) shouldProposeByID(previousBlock common.Hash, epoch uin
 	}
 	proposer := e.validatorManager.GetNextProposer(previousBlock, epoch)
 	if proposer.ID().Hex() != id {
+		e.logger.WithFields(log.Fields{
+			"expectedProposer": proposer.ID().Hex(),
+			"tip":              previousBlock.Hex(),
+			"epoch":            epoch,
+		}).Debug("shouldProposeByID=false")
+
 		return false
 	}
 	return true
 }
 
-func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
+func (e *ConsensusEngine) createProposal(shouldIncludeValidatorUpdateTxs bool) (core.Proposal, error) {
 	tip := e.GetTipToExtend()
 	//result := e.ledger.ResetState(tip.Height, tip.StateHash)
 	result := e.ledger.ResetState(tip.Block)
@@ -1118,8 +1268,13 @@ func (e *ConsensusEngine) createProposal() (core.Proposal, error) {
 		block.GuardianVotes = e.guardian.GetBestVote()
 	}
 
+	// Add elite edge node votes.
+	if block.Height >= common.HeightEnableTheta3 && common.IsCheckPointHeight(block.Height) {
+		block.EliteEdgeNodeVotes = e.eliteEdgeNode.GetBestVote()
+	}
+
 	// Add Txs.
-	newRoot, txs, result := e.ledger.ProposeBlockTxs(block)
+	newRoot, txs, result := e.ledger.ProposeBlockTxs(block, shouldIncludeValidatorUpdateTxs)
 	if result.IsError() {
 		err := fmt.Errorf("Failed to collect Txs for block proposal: %v", result.String())
 		return core.Proposal{}, err
@@ -1161,6 +1316,8 @@ func (e *ConsensusEngine) propose() {
 		return
 	}
 
+	shouldIncludeValidatorUpdateTxs := e.shouldIncludeValidatorUpdateTxs(tip)
+
 	var proposal core.Proposal
 	var err error
 	lastProposal := e.state.GetLastProposal()
@@ -1168,7 +1325,7 @@ func (e *ConsensusEngine) propose() {
 		proposal = lastProposal
 		e.logger.WithFields(log.Fields{"proposal": proposal}).Info("Repeating proposal")
 	} else {
-		proposal, err = e.createProposal()
+		proposal, err = e.createProposal(shouldIncludeValidatorUpdateTxs)
 		if err != nil {
 			e.logger.WithFields(log.Fields{"error": err}).Error("Failed to create proposal")
 			return
@@ -1200,22 +1357,25 @@ func (e *ConsensusEngine) propose() {
 }
 
 func (e *ConsensusEngine) pruneState(currentBlockHeight uint64) {
-	if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
-		return
-	}
+	// Permanently disabled
+	return
 
-	pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
-	if currentBlockHeight%pruneInterval != 0 {
-		return
-	}
+	// if !viper.GetBool(common.CfgStorageStatePruningEnabled) {
+	// 	return
+	// }
 
-	minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
-	if currentBlockHeight <= minimumNumBlocksToRetain+1 {
-		return
-	}
+	// pruneInterval := uint64(viper.GetInt(common.CfgStorageStatePruningInterval))
+	// if currentBlockHeight%pruneInterval != 0 {
+	// 	return
+	// }
 
-	endHeight := currentBlockHeight - minimumNumBlocksToRetain
-	e.ledger.PruneState(endHeight)
+	// minimumNumBlocksToRetain := uint64(viper.GetInt(common.CfgStorageStatePruningRetainedBlocks))
+	// if currentBlockHeight <= minimumNumBlocksToRetain+1 {
+	// 	return
+	// }
+
+	// endHeight := currentBlockHeight - minimumNumBlocksToRetain
+	// e.ledger.PruneState(endHeight)
 }
 
 func (e *ConsensusEngine) State() *State {

@@ -27,7 +27,8 @@ func NewSplitRuleTxExecutor(state *st.LedgerState) *SplitRuleTxExecutor {
 	}
 }
 
-func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.SplitRuleTx)
 
 	res := tx.Initiator.ValidateBasic()
@@ -43,14 +44,14 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 
 	// Validate inputs and outputs, advanced
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(initiatorAccount, signBytes, tx.Initiator)
+	res = validateInputAdvanced(initiatorAccount, signBytes, tx.Initiator, blockHeight)
 	if res.IsError() {
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -93,7 +94,7 @@ func (exec *SplitRuleTxExecutor) sanityCheck(chainID string, view *st.StoreView,
 	return result.OK
 }
 
-func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SplitRuleTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SplitRuleTx)
 
 	initiatorAccount, res := getInput(view, tx.Initiator)
@@ -154,7 +155,7 @@ func (exec *SplitRuleTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo {
 func (exec *SplitRuleTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.SplitRuleTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasSplitRuleTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

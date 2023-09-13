@@ -29,6 +29,9 @@ func (m MempoolError) Error() string {
 }
 
 const DuplicateTxError = MempoolError("Transaction already seen")
+const FastsyncSkipTxError = MempoolError("Skip tx during fastsync")
+
+const MaxMempoolTxCount int = 25600
 
 //
 // mempoolTransaction implements the pqueue.Element interface
@@ -185,6 +188,11 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		return DuplicateTxError
 	}
 
+	// if mp.size >= MaxMempoolTxCount {
+	// 	logger.Debugf("Mempool is full")
+	// 	return errors.New("mempool is full, please submit your transaction again later")
+	// }
+
 	var txInfo *core.TxInfo
 	var checkTxRes result.Result
 
@@ -213,18 +221,13 @@ func (mp *Mempool) InsertTransaction(rawTx common.Bytes) error {
 		}
 		mp.candidateTxs.Push(txGroup)
 		logger.Debugf("rawTx: %v, txInfo: %v", hex.EncodeToString(rawTx), txInfo)
-	} else {
-		// Record tx during sync for gossiping purpose
-		mp.txBookeepper.record(rawTx)
+		logger.Infof("Insert tx, tx.hash: 0x%v", getTransactionHash(rawTx))
+		mp.size++
 
-		logger.Debug("Skipping tx vefification during sync")
+		return nil
 	}
 
-	logger.Infof("Insert tx, tx.hash: 0x%v", getTransactionHash(rawTx))
-
-	mp.newTxs.PushBack(rawTx)
-	mp.size++
-	return nil
+	return FastsyncSkipTxError
 }
 
 // Start needs to be called when the Mempool starts

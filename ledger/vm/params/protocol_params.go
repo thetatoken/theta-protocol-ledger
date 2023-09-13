@@ -69,25 +69,40 @@ const (
 	MemoryGas        uint64 = 3     // Times the address of the (highest referenced byte in memory + 1). NOTE: referencing happens on read, write and in instructions such as RETURN and CALL.
 	TxDataNonZeroGas uint64 = 68    // Per byte of data attached to a transaction that is not equal to zero. NOTE: Not payable on data of calls between transactions.
 
-	MaxCodeSize = 24576 // Maximum bytecode to permit for a contract
+	MaxCodeSize             = 24576 // Maximum bytecode to permit for a contract
+	MaxCodeSizeForMetachain = 49152 // Maximum bytecode to permit for a contract
 
 	// Precompiled contract gas prices
 
-	EcrecoverGas            uint64 = 3000   // Elliptic curve sender recovery gas price
-	Sha256BaseGas           uint64 = 60     // Base price for a SHA256 operation
-	Sha256PerWordGas        uint64 = 12     // Per-word price for a SHA256 operation
-	Ripemd160BaseGas        uint64 = 600    // Base price for a RIPEMD160 operation
-	Ripemd160PerWordGas     uint64 = 120    // Per-word price for a RIPEMD160 operation
-	IdentityBaseGas         uint64 = 15     // Base price for a data copy operation
-	IdentityPerWordGas      uint64 = 3      // Per-work price for a data copy operation
-	ModExpQuadCoeffDiv      uint64 = 20     // Divisor for the quadratic particle of the big int modular exponentiation
+	EcrecoverGas        uint64 = 3000 // Elliptic curve sender recovery gas price
+	Sha256BaseGas       uint64 = 60   // Base price for a SHA256 operation
+	Sha256PerWordGas    uint64 = 12   // Per-word price for a SHA256 operation
+	Ripemd160BaseGas    uint64 = 600  // Base price for a RIPEMD160 operation
+	Ripemd160PerWordGas uint64 = 120  // Per-word price for a RIPEMD160 operation
+	IdentityBaseGas     uint64 = 15   // Base price for a data copy operation
+	IdentityPerWordGas  uint64 = 3    // Per-work price for a data copy operation
+	ModExpQuadCoeffDiv  uint64 = 20   // Divisor for the quadratic particle of the big int modular exponentiation
+
+	// Ethereum Byzantium fork
 	Bn256AddGas             uint64 = 500    // Gas needed for an elliptic curve addition
 	Bn256ScalarMulGas       uint64 = 40000  // Gas needed for an elliptic curve scalar multiplication
 	Bn256PairingBaseGas     uint64 = 100000 // Base price for an elliptic curve pairing check
 	Bn256PairingPerPointGas uint64 = 80000  // Per-point price for an elliptic curve pairing check
 
-	ThetaBalanceGas uint64 = 4   // Retrieve the Theta balance for an address
-	ThetaStakeGas   uint64 = 200 // Retrieve the total amount of staked Theta for an address
+	// Ethereum Istanbul fork
+	Bn256AddGasIstanbul             uint64 = 150   // Gas needed for an elliptic curve addition
+	Bn256ScalarMulGasIstanbul       uint64 = 6000  // Gas needed for an elliptic curve scalar multiplication
+	Bn256PairingBaseGasIstanbul     uint64 = 45000 // Base price for an elliptic curve pairing check
+	Bn256PairingPerPointGasIstanbul uint64 = 34000 // Per-point price for an elliptic curve pairing check
+
+	ThetaBalanceGas  uint64 = 4     // Retrieve the Theta balance for an address
+	ThetaStakeGas    uint64 = 200   // Retrieve the total amount of staked Theta for an address
+	ThetaTransferGas uint64 = 21000 // Transfer Theta balance
+
+	StakeToGuardianGas     uint64 = 21000 // Stake to Guardian
+	UnstakeFromGuardianGas uint64 = 21000 // Unstake from Guardian
+	StakeToEENGas          uint64 = 21000 // Stake to EEN
+	UnstakeFromEENGas      uint64 = 21000 // Unstake from EEN
 )
 
 var (

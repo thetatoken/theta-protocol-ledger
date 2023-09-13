@@ -17,14 +17,17 @@ var _ TxExecutor = (*SendTxExecutor)(nil)
 
 // SendTxExecutor implements the TxExecutor interface
 type SendTxExecutor struct {
+	state *st.LedgerState
 }
 
 // NewSendTxExecutor creates a new instance of SendTxExecutor
-func NewSendTxExecutor() *SendTxExecutor {
-	return &SendTxExecutor{}
+func NewSendTxExecutor(state *st.LedgerState) *SendTxExecutor {
+	return &SendTxExecutor{
+		state: state,
+	}
 }
 
-func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
 	tx := transaction.(*types.SendTx)
 
 	// Validate inputs and outputs, basic
@@ -71,14 +74,14 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 
 	// Validate inputs and outputs, advanced
 	signBytes := tx.SignBytes(chainID)
-	inTotal, res := validateInputsAdvanced(accounts, signBytes, tx.Inputs)
+	inTotal, res := validateInputsAdvanced(accounts, signBytes, tx.Inputs, blockHeight)
 	if res.IsError() {
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForSendTxFee(tx.Fee, numAccountsAffected, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	outTotal := sumOutputs(tx.Outputs)
@@ -91,7 +94,7 @@ func (exec *SendTxExecutor) sanityCheck(chainID string, view *st.StoreView, tran
 	return result.OK
 }
 
-func (exec *SendTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *SendTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.SendTx)
 
 	accounts, res := getInputs(view, tx.Inputs)
@@ -124,9 +127,11 @@ func (exec *SendTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *bi
 	tx := transaction.(*types.SendTx)
 	fee := tx.Fee
 	numAccountsAffected := uint64(len(tx.Inputs) + len(tx.Outputs))
-	gasUint64 := types.GasSendTxPerAccount * numAccountsAffected
-	if gasUint64 < 2*types.GasSendTxPerAccount {
-		gasUint64 = 2 * types.GasSendTxPerAccount // to prevent spamming with invalid transactions, e.g. empty inputs/outputs
+
+	gasSendTxPerAccount := getRegularTxGas(exec.state) / 2
+	gasUint64 := gasSendTxPerAccount * numAccountsAffected
+	if gasUint64 < 2*gasSendTxPerAccount {
+		gasUint64 = 2 * gasSendTxPerAccount // to prevent spamming with invalid transactions, e.g. empty inputs/outputs
 	}
 	gas := new(big.Int).SetUint64(gasUint64)
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)

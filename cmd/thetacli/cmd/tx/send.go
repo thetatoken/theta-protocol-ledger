@@ -46,7 +46,7 @@ func doSendCmd(cmd *cobra.Command, args []string) {
 		return
 	}
 
-	wallet, fromAddress, err := walletUnlockWithPath(cmd, fromFlag, pathFlag)
+	wallet, fromAddress, err := walletUnlockWithPath(cmd, fromFlag, pathFlag, passwordFlag)
 	if err != nil || wallet == nil {
 		return
 	}
@@ -135,9 +135,10 @@ func init() {
 	sendCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	sendCmd.Flags().StringVar(&thetaAmountFlag, "theta", "0", "Theta amount")
 	sendCmd.Flags().StringVar(&tfuelAmountFlag, "tfuel", "0", "TFuel amount")
-	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
+	sendCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWeiJune2021), "Fee")
 	sendCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano|trezor)")
 	sendCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")
+	sendCmd.Flags().StringVar(&passwordFlag, "password", "", "password to unlock the wallet")
 
 	sendCmd.MarkFlagRequired("chain")
 	//sendCmd.MarkFlagRequired("from")

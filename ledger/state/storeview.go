@@ -27,8 +27,9 @@ type StoreView struct {
 
 	coinbaseTransactinProcessed bool
 	slashIntents                []types.SlashIntent
-	refund                      uint64       // Gas refund during smart contract execution
-	logs                        []*types.Log // Temporary store of events during smart contract execution
+	refund                      uint64                 // Gas refund during smart contract execution
+	logs                        []*types.Log           // Temporary store of events during smart contract execution
+	balanceChanges              []*types.BalanceChange // Temporary store of balance changes during smart contract execution
 }
 
 // NewStoreView creates an instance of the StoreView
@@ -98,6 +99,12 @@ func (sv *StoreView) Save() common.Hash {
 func (sv *StoreView) Get(key common.Bytes) common.Bytes {
 	value := sv.store.Get(key)
 	return value
+}
+
+// Traverse traverses the trie and calls cb callback func on every key/value pair
+// with key having prefix
+func (sv *StoreView) Traverse(prefix common.Bytes, cb func(k, v common.Bytes) bool) bool {
+	return sv.store.Traverse(prefix, cb)
 }
 
 func (sv *StoreView) ProveVCP(vcpKey []byte, vp *core.VCPProof) error {
@@ -313,7 +320,7 @@ func (sv *StoreView) UpdateValidatorCandidatePool(vcp *core.ValidatorCandidatePo
 	sv.Set(ValidatorCandidatePoolKey(), vcpBytes)
 }
 
-// GetGuradianCandidatePool gets the guardian candidate pool.
+// GetGuardianCandidatePool gets the guardian candidate pool.
 func (sv *StoreView) GetGuardianCandidatePool() *core.GuardianCandidatePool {
 	data := sv.Get(GuardianCandidatePoolKey())
 	if data == nil || len(data) == 0 {
@@ -322,7 +329,7 @@ func (sv *StoreView) GetGuardianCandidatePool() *core.GuardianCandidatePool {
 	gcp := &core.GuardianCandidatePool{}
 	err := types.FromBytes(data, gcp)
 	if err != nil {
-		log.Panicf("Error reading validator candidate pool %X, error: %v",
+		log.Panicf("Error reading guardian candidate pool %X, error: %v",
 			data, err.Error())
 	}
 	return gcp
@@ -364,6 +371,53 @@ func (sv *StoreView) UpdateStakeTransactionHeightList(hl *types.HeightList) {
 	sv.Set(StakeTransactionHeightListKey(), hlBytes)
 }
 
+type StakeWithHolder struct {
+	Holder common.Address
+	Stake  core.Stake
+}
+
+// GetEliteEdgeNodeStakeReturns gets the elite edge node stake returns
+func (sv *StoreView) GetEliteEdgeNodeStakeReturns(height uint64) []StakeWithHolder {
+	data := sv.Get(EliteEdgeNodeStakeReturnsKey(height))
+	if data == nil || len(data) == 0 {
+		return []StakeWithHolder{}
+	}
+
+	returnedStakes := []StakeWithHolder{}
+	err := types.FromBytes(data, &returnedStakes)
+	if err != nil {
+		log.Panicf("Error reading elite edge stake returns %v, error: %v",
+			data, err.Error())
+	}
+	return returnedStakes
+}
+
+// GetEliteEdgeNodeStakeReturns saves the elite edge node stake returns for the given height
+func (sv *StoreView) SetEliteEdgeNodeStakeReturns(height uint64, stakeReturns []StakeWithHolder) {
+	returnedStakesBytes, err := types.ToBytes(stakeReturns)
+	if err != nil {
+		log.Panicf("Error writing elite edge stake returns %v, error: %v",
+			stakeReturns, err)
+	}
+	sv.Set(EliteEdgeNodeStakeReturnsKey(height), returnedStakesBytes)
+}
+
+// RemoveEliteEdgeNodeStakeReturns removes the elite edge node stake returns for the given height
+func (sv *StoreView) RemoveEliteEdgeNodeStakeReturns(height uint64) {
+	sv.Delete(EliteEdgeNodeStakeReturnsKey(height))
+}
+
+// GetTotalEENStake retrives the total active EEN stakes
+func (sv *StoreView) GetTotalEENStake() *big.Int {
+	raw := sv.Get(EliteEdgeNodesTotalActiveStakeKey())
+	return new(big.Int).SetBytes(raw)
+}
+
+// SetTotalEENStake sets the total active EEN stakes
+func (sv *StoreView) SetTotalEENStake(amount *big.Int) {
+	sv.Set(EliteEdgeNodesTotalActiveStakeKey(), amount.Bytes())
+}
+
 func (sv *StoreView) GetStore() *treestore.TreeStore {
 	return sv.store
 }
@@ -375,6 +429,16 @@ func (sv *StoreView) ResetLogs() {
 func (sv *StoreView) PopLogs() []*types.Log {
 	ret := sv.logs
 	sv.ResetLogs()
+	return ret
+}
+
+func (sv *StoreView) ResetBalanceChanges() {
+	sv.balanceChanges = []*types.BalanceChange{}
+}
+
+func (sv *StoreView) PopBalanceChanges() []*types.BalanceChange {
+	ret := sv.balanceChanges
+	sv.ResetBalanceChanges()
 	return ret
 }
 
@@ -395,6 +459,17 @@ func (sv *StoreView) GetOrCreateAccount(addr common.Address) *types.Account {
 	return types.NewAccount(addr)
 }
 
+func (sv *StoreView) CreateAccountWithPreviousBalance(addr common.Address) {
+	account := types.NewAccount(addr)
+
+	existingAccount := sv.GetAccount(addr)
+	if existingAccount != nil { // only copy over the account balance, reset other fields including the account sequence
+		account.Balance = existingAccount.Balance.NoNil()
+	}
+
+	sv.SetAccount(addr, account)
+}
+
 func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 	if amount.Sign() == 0 {
 		return
@@ -406,6 +481,13 @@ func (sv *StoreView) SubBalance(addr common.Address, amount *big.Int) {
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Sub(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: true,
+		Delta:      new(big.Int).Set(amount),
+	})
 }
 
 func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
@@ -416,10 +498,54 @@ func (sv *StoreView) AddBalance(addr common.Address, amount *big.Int) {
 	account.Balance = account.Balance.NoNil()
 	account.Balance.TFuelWei.Add(account.Balance.TFuelWei, amount)
 	sv.SetAccount(addr, account)
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: false,
+		Delta:      new(big.Int).Set(amount),
+	})
 }
 
 func (sv *StoreView) GetBalance(addr common.Address) *big.Int {
 	return sv.GetOrCreateAccount(addr).Balance.TFuelWei
+}
+
+func (sv *StoreView) SubThetaBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	account := sv.GetAccount(addr)
+	if account == nil {
+		panic(fmt.Sprintf("Account for %v does not exist!", addr))
+	}
+	account.Balance = account.Balance.NoNil()
+	account.Balance.ThetaWei.Sub(account.Balance.ThetaWei, amount)
+	sv.SetAccount(addr, account)
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  0,
+		IsNegative: true,
+		Delta:      new(big.Int).Set(amount),
+	})
+}
+
+func (sv *StoreView) AddThetaBalance(addr common.Address, amount *big.Int) {
+	if amount.Sign() == 0 {
+		return
+	}
+	account := sv.GetOrCreateAccount(addr)
+	account.Balance = account.Balance.NoNil()
+	account.Balance.ThetaWei.Add(account.Balance.ThetaWei, amount)
+	sv.SetAccount(addr, account)
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  0,
+		IsNegative: false,
+		Delta:      new(big.Int).Set(amount),
+	})
 }
 
 // GetThetaBalance returns the ThetaWei balance of the given address
@@ -491,6 +617,9 @@ func (sv *StoreView) GetCodeByHash(codeHash common.Hash) []byte {
 	if codeHash == core.SuicidedCodeHash {
 		return nil
 	}
+	// if (codeHash == common.Hash{}) {
+	// 	return []byte{}
+	// }
 	codeKey := CodeKey(codeHash[:])
 	return sv.Get(codeKey)
 }
@@ -524,6 +653,11 @@ func (sv *StoreView) GetRefund() uint64 {
 
 func (sv *StoreView) ResetRefund() {
 	sv.refund = 0
+}
+
+func (sv *StoreView) GetBlockHeight() uint64 {
+	blockHeight := sv.height + 1
+	return blockHeight
 }
 
 func (sv *StoreView) GetCommittedState(addr common.Address, key common.Hash) common.Hash {
@@ -592,6 +726,14 @@ func (sv *StoreView) Suicide(addr common.Address) bool {
 		return false
 	}
 	account.CodeHash = core.SuicidedCodeHash
+
+	sv.addBalanceChange(&types.BalanceChange{
+		Address:    addr,
+		TokenType:  1,
+		IsNegative: true,
+		Delta:      new(big.Int).Set(account.Balance.TFuelWei),
+	})
+
 	account.Balance.TFuelWei = big.NewInt(0)
 	sv.SetAccount(addr, account)
 	return true
@@ -666,4 +808,8 @@ func (sv *StoreView) Prune() error {
 
 func (sv *StoreView) AddLog(l *types.Log) {
 	sv.logs = append(sv.logs, l)
+}
+
+func (sv *StoreView) addBalanceChange(bc *types.BalanceChange) {
+	sv.balanceChanges = append(sv.balanceChanges, bc)
 }

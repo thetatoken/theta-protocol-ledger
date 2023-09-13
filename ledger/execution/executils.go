@@ -162,14 +162,14 @@ func validateInputsBasic(ins []types.TxInput) result.Result {
 }
 
 // Validate inputs and compute total amount of coins
-func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte, ins []types.TxInput) (total types.Coins, res result.Result) {
+func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte, ins []types.TxInput, blockHeight uint64) (total types.Coins, res result.Result) {
 	total = types.NewCoins(0, 0)
 	for _, in := range ins {
 		acc := accounts[string(in.Address[:])]
 		if acc == nil {
 			panic("validateInputsAdvanced() expects account in accounts")
 		}
-		res = validateInputAdvanced(acc, signBytes, in)
+		res = validateInputAdvanced(acc, signBytes, in, blockHeight)
 		if res.IsError() {
 			return
 		}
@@ -179,7 +179,7 @@ func validateInputsAdvanced(accounts map[string]*types.Account, signBytes []byte
 	return total, result.OK
 }
 
-func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInput) result.Result {
+func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInput, blockHeight uint64) result.Result {
 	// Check sequence/coins
 	seq, balance := acc.Sequence, acc.Balance
 	if seq+1 != in.Sequence {
@@ -194,7 +194,13 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	}
 
 	// Check signatures
-	if !in.Signature.Verify(signBytes, acc.Address) {
+	signatureValid := in.Signature.Verify(signBytes, acc.Address)
+	if blockHeight >= common.HeightTxWrapperExtension {
+		signBytesV2 := types.ChangeEthereumTxWrapper(signBytes, 2)
+		signatureValid = signatureValid || in.Signature.Verify(signBytesV2, acc.Address)
+	}
+
+	if !signatureValid {
 		return result.Error("Signature verification failed, SignBytes: %v",
 			hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
 	}
@@ -248,12 +254,12 @@ func adjustByOutputs(view *state.StoreView, accounts map[string]*types.Account, 
 	}
 }
 
-func sanityCheckForGasPrice(gasPrice *big.Int) bool {
+func sanityCheckForGasPrice(gasPrice *big.Int, blockHeight uint64) bool {
 	if gasPrice == nil {
 		return false
 	}
 
-	minimumGasPrice := new(big.Int).SetUint64(types.MinimumGasPrice)
+	minimumGasPrice := types.GetMinimumGasPrice(blockHeight)
 	if gasPrice.Cmp(minimumGasPrice) < 0 {
 		return false
 	}
@@ -261,10 +267,20 @@ func sanityCheckForGasPrice(gasPrice *big.Int) bool {
 	return true
 }
 
-func sanityCheckForFee(fee types.Coins) bool {
+func sanityCheckForFee(fee types.Coins, blockHeight uint64) (minimumFee *big.Int, success bool) {
 	fee = fee.NoNil()
-	minimumFee := new(big.Int).SetUint64(types.MinimumTransactionFeeTFuelWei)
-	return fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0
+	minimumFee = types.GetMinimumTransactionFeeTFuelWei(blockHeight)
+	success = (fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0)
+
+	return minimumFee, success
+}
+
+func sanityCheckForSendTxFee(fee types.Coins, numAccountsAffected uint64, blockHeight uint64) (minimumFee *big.Int, success bool) {
+	fee = fee.NoNil()
+	minimumFee = types.GetSendTxMinimumTransactionFeeTFuelWei(numAccountsAffected, blockHeight)
+	success = (fee.ThetaWei.Cmp(types.Zero) == 0 && fee.TFuelWei.Cmp(minimumFee) >= 0)
+
+	return minimumFee, success
 }
 
 func chargeFee(account *types.Account, fee types.Coins) bool {
@@ -274,4 +290,17 @@ func chargeFee(account *types.Account, fee types.Coins) bool {
 
 	account.Balance = account.Balance.Minus(fee)
 	return true
+}
+
+func getBlockHeight(ledgerState *state.LedgerState) uint64 {
+	blockHeight := ledgerState.Height() + 1
+	return blockHeight
+}
+
+func getRegularTxGas(ledgerState *state.LedgerState) uint64 {
+	blockHeight := getBlockHeight(ledgerState)
+	if blockHeight < common.HeightJune2021FeeAdjustment {
+		return types.GasRegularTx
+	}
+	return types.GasRegularTxJune2021
 }

@@ -157,7 +157,7 @@ func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
 				"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
 				"g.nextVote.Block":      g.nextVote.Block.Hex(),
 				"error":                 err.Error(),
-			}).Info("Failed to pick guardian vote")
+			}).Debug("Failed to pick guardian vote")
 		}
 		if candidate == g.nextVote {
 			// Incoming vote is not better than the current nextVote.
@@ -180,7 +180,7 @@ func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
 				"g.nextVote.GCP":        g.nextVote.Gcp.Hex(),
 				"g.nextVote.Block":      g.nextVote.Block.Hex(),
 				"error":                 err.Error(),
-			}).Info("Failed to merge guardian vote")
+			}).Debug("Failed to merge guardian vote")
 		}
 		if candidate == nil {
 			// Incoming vote is subset of the current nextVote.
@@ -199,7 +199,7 @@ func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
 			"vote.block":            vote.Block.Hex(),
 			"vote.Mutiplies":        vote.Multiplies,
 			"local.vote.Multiplies": g.nextVote.Multiplies,
-		}).Info("Skipping vote: candidate vote overflows")
+		}).Debug("Skipping vote: candidate vote overflows")
 		return
 	}
 
@@ -209,7 +209,7 @@ func (g *GuardianEngine) processVote(vote *core.AggregatedVotes) {
 		"local.block":           g.block.Hex(),
 		"local.round":           g.round,
 		"local.vote.Multiplies": g.nextVote.Multiplies,
-	}).Info("New guardian vote")
+	}).Debug("New guardian vote")
 }
 
 func (g *GuardianEngine) HandleVote(vote *core.AggregatedVotes) {

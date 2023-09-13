@@ -4,8 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math/big"
+	"strconv"
+	"strings"
+	"sync"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
@@ -13,34 +17,43 @@ import (
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/crypto/bls"
 	"github.com/thetatoken/theta/rlp"
+	"golang.org/x/crypto/sha3"
 )
+
+var logger *log.Entry = log.WithFields(log.Fields{"prefix": "ledger"})
 
 /*
 Tx (Transaction) is an atomic operation on the ledger state.
 
 Transaction Types:
- - CoinbaseTx           Coinbase transaction for block rewards
- - SlashTx     			Transaction for slashing dishonest user
- - SendTx               Send coins to address
- - ReserveFundTx        Reserve fund for subsequence service payments
- - ReleaseFundTx        Release fund reserved for service payments
- - ServicePaymentTx     Payments for service
- - SplitRuleTx          Payment split rule
- - DepositStakeTx       Deposit stake to a target address (e.g. a validator)
- - WithdrawStakeTx      Withdraw stake from a target address (e.g. a validator)
- - SmartContractTx      Execute smart contract
+ - CoinbaseTx              Coinbase transaction for block rewards
+ - SlashTx     			   Transaction for slashing dishonest user
+ - SendTx                  Send coins to address
+ - ReserveFundTx           Reserve fund for subsequence service payments
+ - ReleaseFundTx           Release fund reserved for service payments
+ - ServicePaymentTx        Payments for service
+ - SplitRuleTx             Payment split rule
+ - DepositStakeTx          Deposit stake to a target address (e.g. a validator)
+ - WithdrawStakeTx         Withdraw stake from a target address (e.g. a validator)
+ - SmartContractTx         Execute smart contract
+ - StakeRewardDistribution Defines how stake reward is distributed
 */
 
 // Gas of regular transactions
+// const (
+// 	GasSendTxPerAccount   uint64 = 5000
+// 	GasReserveFundTx      uint64 = 10000
+// 	GasReleaseFundTx      uint64 = 10000
+// 	GasServicePaymentTx   uint64 = 10000
+// 	GasSplitRuleTx        uint64 = 10000
+// 	GasUpdateValidatorsTx uint64 = 10000
+// 	GasDepositStakeTx     uint64 = 10000
+// 	GasWidthdrawStakeTx   uint64 = 10000
+// )
+
 const (
-	GasSendTxPerAccount   uint64 = 5000
-	GasReserveFundTx      uint64 = 10000
-	GasReleaseFundTx      uint64 = 10000
-	GasServicePaymentTx   uint64 = 10000
-	GasSplitRuleTx        uint64 = 10000
-	GasUpdateValidatorsTx uint64 = 10000
-	GasDepositStakeTx     uint64 = 10000
-	GasWidthdrawStakeTx   uint64 = 10000
+	GasRegularTx         uint64 = 10000
+	GasRegularTxJune2021 uint64 = 80000
 )
 
 type Tx interface {
@@ -784,6 +797,44 @@ func (tx *SmartContractTx) SignBytes(chainID string) []byte {
 	return signBytes
 }
 
+// For ETH compatibility
+
+// hasherPool holds LegacyKeccak256 hashers for rlpHash.
+var hasherPool = sync.Pool{
+	New: func() interface{} { return sha3.NewLegacyKeccak256() },
+}
+
+// RLPHash encodes x and hashes the encoded bytes.
+func RLPHash(x interface{}) (h common.Hash) {
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
+}
+
+func (tx *SmartContractTx) EthSigningHash(chainID string, blockHeight uint64) common.Hash {
+	ethChainID := MapChainID(chainID, blockHeight)
+
+	var toAddress *common.Address
+	if (tx.To.Address != common.Address{}) {
+		toAddress = &tx.To.Address
+	}
+
+	ethSigningHash := RLPHash([]interface{}{
+		tx.From.Sequence - 1, // off-by-one, ETH tx nonce starts from 0, while Theta tx sequence starts from 1
+		tx.GasPrice,
+		tx.GasLimit,
+		toAddress,
+		tx.From.Coins.NoNil().TFuelWei,
+		tx.Data,
+		ethChainID, uint(0), uint(0),
+	})
+
+	return ethSigningHash
+}
+
 func (tx *SmartContractTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
 	if tx.From.Address == addr {
 		tx.From.Signature = sig
@@ -837,7 +888,7 @@ type DepositStakeTxV2 struct {
 	Fee     Coins    `json:"fee"`     // Fee
 	Source  TxInput  `json:"source"`  // source staker account
 	Holder  TxOutput `json:"holder"`  // stake holder account
-	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian/elit edge node
 
 	BlsPubkey *bls.PublicKey    `rlp:"nil"`
 	BlsPop    *bls.Signature    `rlp:"nil"`
@@ -859,6 +910,8 @@ func (tx *DepositStakeTxV2) SignBytes(chainID string) []byte {
 		}
 		txBytes, _ = TxToBytes(tmp)
 	} else if tx.Purpose == core.StakeForGuardian {
+		txBytes, _ = TxToBytes(tx)
+	} else if tx.Purpose == core.StakeForEliteEdgeNode {
 		txBytes, _ = TxToBytes(tx)
 	}
 
@@ -889,7 +942,7 @@ type WithdrawStakeTx struct {
 	Fee     Coins    `json:"fee"`     // Fee
 	Source  TxInput  `json:"source"`  // source staker account
 	Holder  TxOutput `json:"holder"`  // stake holder account
-	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian
+	Purpose uint8    `json:"purpose"` // purpose e.g. stake for validator/guardian/elite edge node
 }
 
 func (_ *WithdrawStakeTx) AssertIsTx() {}
@@ -915,8 +968,56 @@ func (tx *WithdrawStakeTx) SetSignature(addr common.Address, sig *crypto.Signatu
 }
 
 func (tx *WithdrawStakeTx) String() string {
-	return fmt.Sprintf("DepositStakeTx{%v <- %v, stake: %v, purpose: %v}",
+	return fmt.Sprintf("WithdrawStakeTx{%v <- %v, stake: %v, purpose: %v}",
 		tx.Source.Address, tx.Holder.Address, tx.Source.Coins.ThetaWei, tx.Purpose)
+}
+
+//-----------------------------------------------------------------------------
+
+//
+// StakeRewardDistributionTx needs to be signed and submitted by the "stake holders", i.e. a guardian or an elite edge node.
+// It allows the stake holder to specify a "beneficiary" to receive a fraction of the Theta/TFuel staking reward. The split fraction
+// is defined by SplitBasisPoint/10000. The remainder of the staking reward goes back to the staker wallet.
+//
+// The purpose of this transaction is to allow guardian/elite edge node operators to charge a fee for the hosting service.
+// The service fee (i.e. split fraction) can be specified by the guardian/elite edge node operators via the SplitBasisPoint parameter.
+// The stakers can choose whether to stake to a node based on the fee it charges. Note that an operator can change the fee anytime, and
+// as a response, a staker might choose to deposit/withdraw stake depending if he/she thinks the fee is fair. This thus creates
+// a free market for guardian/elite edge node hosting service.
+//
+type StakeRewardDistributionTx struct {
+	Fee             Coins    `json:"fee"`               // transction fee, NOT the hosting service fee
+	Holder          TxInput  `json:"holder"`            // stake holder account, i.e., a guardian or an elite edge node
+	Beneficiary     TxOutput `json:"beneficiary"`       // the beneficiary to split the reward as the hosting service fee
+	SplitBasisPoint uint     `json:"split_basis_point"` // An integer between 0 and 10000, representing the fraction of the reward the beneficiary should get (in terms of 1/10000), https://en.wikipedia.org/wiki/Basis_point
+	//Purpose         uint8    `json:"purpose"`           // purpose e.g. stake for guardian/elite edge node
+}
+
+func (_ *StakeRewardDistributionTx) AssertIsTx() {}
+
+func (tx *StakeRewardDistributionTx) SignBytes(chainID string) []byte {
+	signBytes := encodeToBytes(chainID)
+	sig := tx.Holder.Signature
+	tx.Holder.Signature = nil
+	txBytes, _ := TxToBytes(tx)
+	signBytes = append(signBytes, txBytes...)
+	signBytes = addPrefixForSignBytes(signBytes)
+
+	tx.Holder.Signature = sig
+	return signBytes
+}
+
+func (tx *StakeRewardDistributionTx) SetSignature(addr common.Address, sig *crypto.Signature) bool {
+	if tx.Holder.Address == addr {
+		tx.Holder.Signature = sig
+		return true
+	}
+	return false
+}
+
+func (tx *StakeRewardDistributionTx) String() string {
+	return fmt.Sprintf("StakeRewardDistributionTx{holder: %v, beneficiary: %v, split_basis_point: %v}",
+		tx.Holder.Address, tx.Beneficiary.Address, tx.SplitBasisPoint)
 }
 
 // --------------- Utils --------------- //
@@ -946,4 +1047,120 @@ func addPrefixForSignBytes(signBytes common.Bytes) common.Bytes {
 		log.Panic(err)
 	}
 	return signBytes
+}
+
+type EthereumTxWrapperV2 struct {
+	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
+	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
+	GasLimit     uint64          `json:"gas"      gencodec:"required"`
+	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
+	Amount       *big.Int        `json:"value"    gencodec:"required"`
+	Payload      []byte          `json:"input"    gencodec:"required"`
+	ChainID      uint64          `json:"chainId"  gencodec:"required"`
+	EIP155Field1 uint
+	EIP155Field2 uint
+}
+
+func ChangeEthereumTxWrapper(origSignBytes common.Bytes, wrapperVersion uint) common.Bytes {
+	wrappedTx := &EthereumTxWrapper{}
+	err := rlp.DecodeBytes(origSignBytes, wrappedTx)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	if wrapperVersion == 2 {
+		wrappedTx := EthereumTxWrapperV2{
+			AccountNonce: wrappedTx.AccountNonce,
+			Price:        wrappedTx.Price,
+			GasLimit:     wrappedTx.GasLimit,
+			Recipient:    wrappedTx.Recipient,
+			Amount:       wrappedTx.Amount,
+			Payload:      wrappedTx.Payload,
+			ChainID:      uint64(1),
+			EIP155Field1: uint(0),
+			EIP155Field2: uint(0),
+		}
+		signBytes, err := rlp.EncodeToBytes(wrappedTx)
+		if err != nil {
+			log.Panic(err)
+		}
+		return signBytes
+	}
+
+	log.Panic(fmt.Errorf("invalid ethereum tx wrapper version"))
+	return common.Bytes{}
+}
+
+// For replay attack protection
+// https://chainid.network/
+const CHAIN_ID_OFFSET int64 = 360
+
+func MapChainID(chainIDStr string, blockHeight uint64) *big.Int {
+	chainIDWithoutOffset := mapChainIDWithoutOffset(chainIDStr)
+	if blockHeight < common.HeightRPCCompatibility {
+		return chainIDWithoutOffset
+	}
+
+	// For replay attack protection, should NOT use the same chainID as Ethereum
+	chainID := big.NewInt(1).Add(big.NewInt(CHAIN_ID_OFFSET), chainIDWithoutOffset)
+
+	if blockHeight < common.HeightEnableMetachainSupport {
+		return chainID
+	} else {
+		// attempt to extract the IDs for subchains. ChainID in the form of tsub[1-9][0-9]* is considered as a Theta Subchain
+		subchainID, err := extractSubchainID(chainIDStr) // no need to add offset to the subchainIDs
+		if err == nil {
+			// this is a subchain chainID
+			return subchainID
+		} else {
+			// fallback
+			return chainID
+		}
+	}
+}
+
+func mapChainIDWithoutOffset(chainIDStr string) *big.Int {
+	if chainIDStr == "mainnet" { // correspond to the Ethereum mainnet
+		return big.NewInt(1)
+	} else if chainIDStr == "testnet_sapphire" { // correspond to Ropsten
+		return big.NewInt(3)
+	} else if chainIDStr == "testnet_amber" { // correspond to Rinkeby
+		return big.NewInt(4)
+	} else if chainIDStr == "testnet" {
+		return big.NewInt(5)
+	} else if chainIDStr == "privatenet" {
+		return big.NewInt(6)
+	}
+
+	chainIDBigInt := new(big.Int).Abs(crypto.Keccak256Hash(common.Bytes(chainIDStr)).Big()) // all other chainIDs
+	return chainIDBigInt
+}
+
+// Subchain chainID should have the form tsub[1-9][0-9]*
+func extractSubchainID(chainIDStr string) (*big.Int, error) {
+	if !strings.HasPrefix(chainIDStr, core.SubchainChainIDPrefix) {
+		return nil, fmt.Errorf("invalid subchain ID prefix: %v", chainIDStr)
+	}
+
+	if len(chainIDStr) < 5 {
+		return nil, fmt.Errorf("subchain ID too short: %v", chainIDStr)
+	}
+
+	leadingDigit := chainIDStr[4]
+	if leadingDigit == byte('0') {
+		return nil, fmt.Errorf("the leading digit of the subchain ID should not be zero: %v", chainIDStr)
+	}
+
+	chainIDIntStr := chainIDStr[4:]
+	chainID, err := strconv.Atoi(chainIDIntStr)
+	if err != nil {
+		return nil, err
+	}
+
+	// we require subchain ID to be at least core.MinSubchainID, so it doesn't overlap with the ID of the mainchain
+	if chainID < core.MinSubchainID {
+		return nil, fmt.Errorf("subchain ID too small: %v", chainIDStr)
+	}
+
+	return big.NewInt(int64(chainID)), nil
 }

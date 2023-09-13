@@ -23,6 +23,8 @@ import (
 
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
+	"github.com/thetatoken/theta/crypto/bls"
+	"github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 	"github.com/thetatoken/theta/ledger/vm/params"
 )
@@ -37,10 +39,23 @@ type (
 	GetHashFunc func(uint64) common.Hash
 )
 
+func SupportThetaTransferInEVM(blockHeight uint64) bool {
+	return blockHeight >= common.HeightSupportThetaTokenInSmartContract
+}
+
+func SupportWrappedTheta(blockHeight uint64) bool {
+	return blockHeight >= common.HeightSupportWrappedTheta
+}
+
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
 func CanTransfer(db StateDB, addr common.Address, amount *big.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
+}
+
+// CanTransferTheta checks whether there are enough funds in the address' account to make a Theta transfer.
+func CanTransferTheta(db StateDB, addr common.Address, amount *big.Int) bool {
+	return db.GetThetaBalance(addr).Cmp(amount) >= 0
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
@@ -49,10 +64,201 @@ func Transfer(db StateDB, sender, recipient common.Address, amount *big.Int) {
 	db.AddBalance(recipient, amount)
 }
 
+// TransferTheta subtracts the given amount of Theta from sender and adds amount to recipient using the given Db
+func TransferTheta(db StateDB, sender, recipient common.Address, amount *big.Int) {
+	db.SubThetaBalance(sender, amount)
+	db.AddThetaBalance(recipient, amount)
+}
+
+func parseBLSSummary(summary []byte) (holderAddress common.Address, blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, ok bool) {
+	if len(summary) != 229 && len(summary) != 261 {
+		return
+	}
+
+	holderAddress = common.BytesToAddress(summary[:20])
+	blsPubkey, err := bls.PublicKeyFromBytes(summary[20:68])
+	if err != nil {
+		return
+	}
+	blsPop, err = bls.SignatureFromBytes(summary[68:164])
+	if err != nil {
+		return
+	}
+	holderSig, err = crypto.SignatureFromBytes(summary[164:])
+	if err != nil {
+		return
+	}
+
+	ok = true
+	return
+}
+
+func CheckBLSSummary(summary []byte) bool {
+	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(summary)
+	if !ok {
+		return false
+	}
+
+	return checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr)
+}
+
+func checkBlsSummary(blsPubkey *bls.PublicKey, blsPop *bls.Signature, holderSig *crypto.Signature, guardianAddr common.Address) bool {
+	if blsPubkey.IsEmpty() {
+		return false
+	}
+	if blsPop.IsEmpty() {
+		return false
+	}
+	if holderSig == nil || holderSig.IsEmpty() {
+		return false
+	}
+
+	if !holderSig.Verify(blsPop.ToBytes(), guardianAddr) {
+		return false
+	}
+
+	if !blsPop.PopVerify(blsPubkey) {
+		return false
+	}
+
+	return true
+}
+
+// StakeToGuardian stake Theta to given guardian node.
+func StakeToGuardian(db StateDB, sender common.Address, guardianSummary []byte, amount *big.Int) bool {
+	// if amount.Cmp(core.MinGuardianStakeDeposit) < 0 {
+	// 	return false
+	// }
+	if db.GetThetaBalance(sender).Cmp(amount) < 0 {
+		return false
+	}
+
+	guardianAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(guardianSummary)
+	if !ok {
+		return false
+	}
+
+	view := db.(*state.StoreView)
+	gcp := view.GetGuardianCandidatePool()
+	if !gcp.Contains(guardianAddr) {
+		if !checkBlsSummary(blsPubkey, blsPop, holderSig, guardianAddr) {
+			return false
+		}
+	}
+
+	err := gcp.DepositStake(sender, guardianAddr, amount, blsPubkey, view.GetBlockHeight())
+	if err != nil {
+		return false
+	}
+
+	view.UpdateGuardianCandidatePool(gcp)
+	db.SubThetaBalance(sender, amount)
+
+	return true
+}
+
+// UnstakeFromGuardian unstake from Guardians.
+func UnstakeFromGuardian(db StateDB, addr common.Address, guardianAddr common.Address) bool {
+	view := db.(*state.StoreView)
+	gcp := view.GetGuardianCandidatePool()
+	currentHeight := view.Height()
+	err := gcp.WithdrawStake(addr, guardianAddr, currentHeight)
+	if err != nil {
+		return false
+	}
+
+	view.UpdateGuardianCandidatePool(gcp)
+	return true
+}
+
+// StakeToEEN stake to given EEN node.
+func StakeToEEN(db StateDB, sender common.Address, summary []byte, amount *big.Int) bool {
+	// minEliteEdgeNodeStake := core.MinEliteEdgeNodeStakeDeposit
+	// maxEliteEdgeNodeStake := core.MaxEliteEdgeNodeStakeDeposit
+
+	// if amount.Cmp(minEliteEdgeNodeStake) < 0 {
+	// 	return false
+	// }
+
+	eenAddr, blsPubkey, blsPop, holderSig, ok := parseBLSSummary(summary)
+	if !ok {
+		return false
+	}
+
+	view := db.(*state.StoreView)
+
+	// currentStake := big.NewInt(0)
+
+	eenp := state.NewEliteEdgeNodePool(view, false)
+	een := eenp.Get(eenAddr)
+	// if een != nil {
+	// 	currentStake = een.TotalStake()
+	// }
+
+	// expectedStake := big.NewInt(0).Add(currentStake, amount)
+	// if expectedStake.Cmp(maxEliteEdgeNodeStake) > 0 {
+	// 	return false
+	// }
+
+	if db.GetBalance(sender).Cmp(amount) < 0 {
+		return false
+	}
+
+	if een == nil && !checkBlsSummary(blsPubkey, blsPop, holderSig, eenAddr) {
+		return false
+	}
+
+	err := eenp.DepositStake(sender, eenAddr, amount, blsPubkey, view.GetBlockHeight())
+	if err != nil {
+		return false
+	}
+
+	db.SubBalance(sender, amount)
+
+	return true
+}
+
+// UnstakeFromEEN unstake from EEN.
+func UnstakeFromEEN(db StateDB, addr common.Address, eenAddr common.Address) bool {
+	view := db.(*state.StoreView)
+
+	eenp := state.NewEliteEdgeNodePool(view, false)
+
+	currentHeight := view.Height()
+
+	withdrawnStake, err := eenp.WithdrawStake(addr, eenAddr, currentHeight)
+	if err != nil || withdrawnStake == nil {
+		return false
+	}
+
+	returnHeight := withdrawnStake.ReturnHeight
+	stakesToBeReturned := view.GetEliteEdgeNodeStakeReturns(returnHeight)
+	stakesToBeReturned = append(stakesToBeReturned, state.StakeWithHolder{
+		Holder: eenAddr,
+		Stake:  *withdrawnStake,
+	})
+	view.SetEliteEdgeNodeStakeReturns(returnHeight, stakesToBeReturned)
+
+	return true
+}
+
+func getPrecompiledContracts(blockHeight uint64) map[common.Address]PrecompiledContract {
+	var precompiles map[common.Address]PrecompiledContract
+	if blockHeight < common.HeightSupportThetaTokenInSmartContract {
+		precompiles = PrecompiledContractsByzantium
+	} else if blockHeight < common.HeightSupportWrappedTheta {
+		precompiles = PrecompiledContractsThetaSupport
+	} else {
+		precompiles = PrecompiledContractsWrappedThetaSupport
+	}
+	return precompiles
+}
+
 // run runs the given contract and takes care of running precompiles with a fallback to the byte code interpreter.
 func run(evm *EVM, contract *Contract, input []byte, readOnly bool) ([]byte, error) {
 	if contract.CodeAddr != nil {
-		precompiles := PrecompiledContractsByzantium
+		blockHeight := evm.StateDB.GetBlockHeight()
+		precompiles := getPrecompiledContracts(blockHeight)
 		if p := precompiles[*contract.CodeAddr]; p != nil {
 			return RunPrecompiledContract(evm, p, input, contract)
 		}
@@ -168,7 +374,7 @@ func (evm *EVM) Interpreter() Interpreter {
 // parameters. It also handles any necessary value transfer required and takes
 // the necessary steps to create accounts and reverses the state in case of an
 // execution error or failed value transfer.
-func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, thetaValue *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -177,9 +383,16 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	if evm.depth > int(params.CallCreateDepth) {
 		return nil, gas, ErrDepth
 	}
+
+	blockHeight := evm.StateDB.GetBlockHeight()
+
 	// Fail if we're trying to transfer more than the available balance
 	if !CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, gas, ErrInsufficientBalance
+	}
+
+	if SupportThetaTransferInEVM(blockHeight) && !CanTransferTheta(evm.StateDB, caller.Address(), thetaValue) {
+		return nil, gas, ErrInsufficientThetaBlance
 	}
 
 	var (
@@ -187,7 +400,8 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 		snapshot = evm.StateDB.Snapshot()
 	)
 	if !evm.StateDB.Exist(addr) {
-		precompiles := PrecompiledContractsByzantium
+
+		precompiles := getPrecompiledContracts(blockHeight)
 		if precompiles[addr] == nil && value.Sign() == 0 {
 			// Calling a non existing account, don't do anything, but ping the tracer
 			if evm.vmConfig.Debug && evm.depth == 0 {
@@ -196,12 +410,22 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 			}
 			return nil, gas, nil
 		}
-		evm.StateDB.CreateAccount(addr)
+
+		if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
+			evm.StateDB.CreateAccount(addr)
+		} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
+			evm.StateDB.CreateAccountWithPreviousBalance(addr)
+		}
 	}
 	Transfer(evm.StateDB, caller.Address(), to.Address(), value)
+
+	if SupportThetaTransferInEVM(blockHeight) {
+		TransferTheta(evm.StateDB, caller.Address(), to.Address(), thetaValue)
+	}
+
 	// Initialise a new contract and set the code that is to be used by the EVM.
 	// The contract is a scoped environment for this execution context only.
-	contract := NewContract(caller, to, value, gas)
+	contract := NewContract(caller, to, value, thetaValue, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -225,7 +449,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 //
 // CallCode differs from Call in the sense that it executes the given address'
 // code with the caller as context.
-func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int) (ret []byte, leftOverGas uint64, err error) {
+func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, gas uint64, value *big.Int, thetaValue *big.Int) (ret []byte, leftOverGas uint64, err error) {
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
 		return nil, gas, nil
 	}
@@ -239,6 +463,11 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 		return nil, gas, ErrInsufficientBalance
 	}
 
+	blockHeight := evm.StateDB.GetBlockHeight()
+	if SupportWrappedTheta(blockHeight) && !CanTransferTheta(evm.StateDB, caller.Address(), thetaValue) {
+		return nil, gas, ErrInsufficientThetaBlance
+	}
+
 	var (
 		snapshot = evm.StateDB.Snapshot()
 		to       = AccountRef(caller.Address())
@@ -246,7 +475,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, to, value, gas)
+	contract := NewContract(caller, to, value, thetaValue, gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -279,7 +508,7 @@ func (evm *EVM) DelegateCall(caller ContractRef, addr common.Address, input []by
 	)
 
 	// Initialise a new contract and make initialise the delegate values
-	contract := NewContract(caller, to, nil, gas).AsDelegate()
+	contract := NewContract(caller, to, nil, nil, gas).AsDelegate()
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	ret, err = run(evm, contract, input, false)
@@ -312,7 +541,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	// Initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, to, new(big.Int), gas)
+	contract := NewContract(caller, to, new(big.Int), new(big.Int), gas)
 	contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 
 	// When an error was returned by the EVM or when setting the creation code
@@ -341,7 +570,7 @@ func (c *codeAndHash) Hash() common.Hash {
 }
 
 // create creates a new contract using code as deployment code.
-func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, address common.Address) ([]byte, common.Address, uint64, error) {
+func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64, value *big.Int, thetaValue *big.Int, address common.Address) ([]byte, common.Address, uint64, error) {
 	// Depth check execution. Fail if we're trying to execute above the
 	// limit.
 	if evm.depth > int(params.CallCreateDepth) {
@@ -349,6 +578,11 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	if !CanTransfer(evm.StateDB, caller.Address(), value) {
 		return nil, common.Address{}, gas, ErrInsufficientBalance
+	}
+
+	blockHeight := evm.StateDB.GetBlockHeight()
+	if SupportThetaTransferInEVM(blockHeight) && !CanTransferTheta(evm.StateDB, caller.Address(), thetaValue) {
+		return nil, common.Address{}, gas, ErrInsufficientThetaBlance
 	}
 	nonce := evm.StateDB.GetNonce(caller.Address())
 	evm.StateDB.SetNonce(caller.Address(), nonce+1)
@@ -360,13 +594,22 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	}
 	// Create a new account on the state
 	snapshot := evm.StateDB.Snapshot()
-	evm.StateDB.CreateAccount(address)
+
+	if !SupportThetaTransferInEVM(blockHeight) { // just for backward compatibility
+		evm.StateDB.CreateAccount(address)
+	} else { // should not wipe out the Theta/TFuel balance sent to the contract address prior to contract creation
+		evm.StateDB.CreateAccountWithPreviousBalance(address)
+	}
 	Transfer(evm.StateDB, caller.Address(), address, value)
+
+	if SupportThetaTransferInEVM(blockHeight) {
+		TransferTheta(evm.StateDB, caller.Address(), address, thetaValue)
+	}
 
 	// initialise a new contract and set the code that is to be used by the
 	// EVM. The contract is a scoped environment for this execution context
 	// only.
-	contract := NewContract(caller, AccountRef(address), value, gas)
+	contract := NewContract(caller, AccountRef(address), value, thetaValue, gas)
 	contract.SetCodeOptionalHash(&address, codeAndHash)
 
 	if evm.vmConfig.NoRecursion && evm.depth > 0 {
@@ -381,7 +624,12 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 	ret, err := run(evm, contract, nil, false)
 
 	// check whether the max code size has been exceeded
-	maxCodeSizeExceeded := len(ret) > params.MaxCodeSize
+	maxCodeSize := params.MaxCodeSize
+	if blockHeight >= common.HeightEnableMetachainSupport {
+		maxCodeSize = params.MaxCodeSizeForMetachain
+	}
+
+	maxCodeSizeExceeded := len(ret) > maxCodeSize
 	// if the contract creation ran successfully and no errors were returned
 	// calculate the gas required to store the code. If the code could not
 	// be stored due to not enough gas set an error and let it be handled
@@ -416,19 +664,19 @@ func (evm *EVM) create(caller ContractRef, codeAndHash *codeAndHash, gas uint64,
 }
 
 // Create creates a new contract using code as deployment code.
-func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.Int, thetaValue *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	contractAddr = crypto.CreateAddress(caller.Address(), evm.StateDB.GetNonce(caller.Address()))
-	return evm.create(caller, &codeAndHash{code: code}, gas, value, contractAddr)
+	return evm.create(caller, &codeAndHash{code: code}, gas, value, thetaValue, contractAddr)
 }
 
 // Create2 creates a new contract using code as deployment code.
 //
 // The different between Create2 with Create is Create2 uses sha3(0xff ++ msg.sender ++ salt ++ sha3(init_code))[12:]
 // instead of the usual sender-and-nonce-hash as the address where the contract is initialized at.
-func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, salt *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
+func (evm *EVM) Create2(caller ContractRef, code []byte, gas uint64, endowment *big.Int, thetaEndowment *big.Int, salt *big.Int) (ret []byte, contractAddr common.Address, leftOverGas uint64, err error) {
 	codeAndHash := &codeAndHash{code: code}
 	contractAddr = crypto.CreateAddress2(caller.Address(), common.BigToHash(salt), codeAndHash.Hash().Bytes())
-	return evm.create(caller, codeAndHash, gas, endowment, contractAddr)
+	return evm.create(caller, codeAndHash, gas, endowment, thetaEndowment, contractAddr)
 }
 
 // ChainConfig returns the environment's chain configuration

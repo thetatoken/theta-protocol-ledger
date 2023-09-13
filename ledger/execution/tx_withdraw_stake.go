@@ -7,6 +7,7 @@ import (
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/result"
 	"github.com/thetatoken/theta/core"
+	"github.com/thetatoken/theta/ledger/state"
 	st "github.com/thetatoken/theta/ledger/state"
 	"github.com/thetatoken/theta/ledger/types"
 )
@@ -27,7 +28,8 @@ func NewWithdrawStakeExecutor(state *st.LedgerState) *WithdrawStakeExecutor {
 	}
 }
 
-func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.WithdrawStakeTx)
 
 	res := tx.Source.ValidateBasic()
@@ -41,18 +43,18 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 	}
 
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
+	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source, blockHeight)
 	if res.IsError() {
 		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
-	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian) {
+	if !(tx.Purpose == core.StakeForValidator || tx.Purpose == core.StakeForGuardian || tx.Purpose == core.StakeForEliteEdgeNode) {
 		return result.Error("Invalid stake purpose!").
 			WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -70,7 +72,7 @@ func (exec *WithdrawStakeExecutor) sanityCheck(chainID string, view *st.StoreVie
 // NOTE: WithdrawStakeExecutor.process() does NOT return the stake to the source. Instead, it updates
 //       the ReturnHeight of the withdrawn stake. The stake will be returned to the source when
 //       the block height reaches the ReturnHeigth
-func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.WithdrawStakeTx)
 
 	sourceAccount, success := getInput(view, tx.Source)
@@ -101,6 +103,14 @@ func (exec *WithdrawStakeExecutor) process(chainID string, view *st.StoreView, t
 			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
 		}
 		view.UpdateGuardianCandidatePool(gcp)
+	} else if tx.Purpose == core.StakeForEliteEdgeNode {
+		eenp := state.NewEliteEdgeNodePool(view, false)
+		currentHeight := exec.state.Height()
+		withdrawnStake, err := eenp.WithdrawStake(sourceAddress, holderAddress, currentHeight)
+		if err != nil || withdrawnStake == nil {
+			return common.Hash{}, result.Error("Failed to withdraw stake, err: %v", err)
+		}
+		updateEliteEdgeNodeStakeReturns(view, holderAddress, *withdrawnStake)
 	} else {
 		return common.Hash{}, result.Error("Invalid staking purpose").WithErrorCode(result.CodeInvalidStakePurpose)
 	}
@@ -135,7 +145,17 @@ func (exec *WithdrawStakeExecutor) getTxInfo(transaction types.Tx) *core.TxInfo 
 func (exec *WithdrawStakeExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.WithdrawStakeTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasWidthdrawStakeTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
+}
+
+func updateEliteEdgeNodeStakeReturns(view *st.StoreView, eenAddress common.Address, withdrawnStake core.Stake) {
+	returnHeight := withdrawnStake.ReturnHeight
+	stakesToBeReturned := view.GetEliteEdgeNodeStakeReturns(returnHeight)
+	stakesToBeReturned = append(stakesToBeReturned, state.StakeWithHolder{
+		Holder: eenAddress,
+		Stake:  withdrawnStake,
+	})
+	view.SetEliteEdgeNodeStakeReturns(returnHeight, stakesToBeReturned)
 }

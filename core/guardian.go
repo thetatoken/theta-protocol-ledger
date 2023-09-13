@@ -247,6 +247,16 @@ func (gcp *GuardianCandidatePool) WithStake() *GuardianCandidatePool {
 	return ret
 }
 
+// GetWithHolderAddress returns the guardian node correspond to the stake holder in the pool. Returns nil if not found.
+func (gcp *GuardianCandidatePool) GetWithHolderAddress(addr common.Address) *Guardian {
+	for _, g := range gcp.SortedGuardians {
+		if g.Holder == addr {
+			return g
+		}
+	}
+	return nil
+}
+
 // Index returns index of a public key in the pool. Returns -1 if not found.
 func (gcp *GuardianCandidatePool) Index(pubkey *bls.PublicKey) int {
 	for i, g := range gcp.SortedGuardians {
@@ -310,7 +320,7 @@ func (gcp *GuardianCandidatePool) DepositStake(source common.Address, holder com
 
 	if !matchedHolderFound {
 		newGuardian := &Guardian{
-			StakeHolder: newStakeHolder(holder, []*Stake{newStake(source, amount)}),
+			StakeHolder: NewStakeHolder(holder, []*Stake{NewStake(source, amount)}),
 			Pubkey:      pubkey,
 		}
 		gcp.Add(newGuardian)
@@ -323,7 +333,7 @@ func (gcp *GuardianCandidatePool) WithdrawStake(source common.Address, holder co
 	for _, g := range gcp.SortedGuardians {
 		if g.Holder == holder {
 			matchedHolderFound = true
-			err := g.withdrawStake(source, currentHeight)
+			_, err := g.withdrawStake(source, currentHeight)
 			if err != nil {
 				return err
 			}

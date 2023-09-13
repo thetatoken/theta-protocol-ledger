@@ -27,7 +27,8 @@ func NewReleaseFundTxExecutor(state *st.LedgerState) *ReleaseFundTxExecutor {
 	}
 }
 
-func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, transaction types.Tx) result.Result {
+func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) result.Result {
+	blockHeight := view.Height() + 1 // the view points to the parent of the current block
 	tx := transaction.(*types.ReleaseFundTx)
 
 	// Validate source, basic
@@ -44,15 +45,15 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 
 	// Validate input, advanced
 	signBytes := tx.SignBytes(chainID)
-	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source)
+	res = validateInputAdvanced(sourceAccount, signBytes, tx.Source, blockHeight)
 	if res.IsError() {
 		logger.Debugf(fmt.Sprintf("validateSourceAdvanced failed on %v: %v", tx.Source.Address.Hex(), res))
 		return res
 	}
 
-	if !sanityCheckForFee(tx.Fee) {
+	if minTxFee, success := sanityCheckForFee(tx.Fee, blockHeight); !success {
 		return result.Error("Insufficient fee. Transaction fee needs to be at least %v TFuelWei",
-			types.MinimumTransactionFeeTFuelWei).WithErrorCode(result.CodeInvalidFee)
+			minTxFee).WithErrorCode(result.CodeInvalidFee)
 	}
 
 	minimalBalance := tx.Fee
@@ -72,7 +73,7 @@ func (exec *ReleaseFundTxExecutor) sanityCheck(chainID string, view *st.StoreVie
 	return result.OK
 }
 
-func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, transaction types.Tx) (common.Hash, result.Result) {
+func (exec *ReleaseFundTxExecutor) process(chainID string, view *st.StoreView, viewSel core.ViewSelector, transaction types.Tx) (common.Hash, result.Result) {
 	tx := transaction.(*types.ReleaseFundTx)
 
 	sourceInputs := []types.TxInput{tx.Source}
@@ -111,7 +112,7 @@ func (exec *ReleaseFundTxExecutor) getTxInfo(transaction types.Tx) *core.TxInfo 
 func (exec *ReleaseFundTxExecutor) calculateEffectiveGasPrice(transaction types.Tx) *big.Int {
 	tx := transaction.(*types.ReleaseFundTx)
 	fee := tx.Fee
-	gas := new(big.Int).SetUint64(types.GasReleaseFundTx)
+	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
 }

@@ -171,6 +171,8 @@ func LoadSnapshotCheckpointHeader(snapshotFilePath string) *core.BlockHeader {
 }
 
 func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) (*core.BlockHeader, *core.SnapshotMetadata, error) {
+	var err error
+
 	snapshotFile, err := os.Open(snapshotFilePath)
 	if err != nil {
 		return nil, nil, err
@@ -246,15 +248,31 @@ func loadSnapshot(snapshotFilePath string, db database.Database, logStr string) 
 		fileSize = uint64(fileInfo.Size()) / 100
 	}
 
-	sv, _, err := loadState(snapshotFile, db, fileSize, logStr)
-	if err != nil {
-		return nil, nil, err
+	var sv *state.StoreView
+	if snapshotHeader.Version >= 3 {
+		err = loadStateV3(snapshotFile, db, fileSize, logStr)
+		if err != nil {
+			return nil, nil, err
+		}
+		lfb := metadata.TailTrio.Second
+		sv = state.NewStoreView(lfb.Header.Height, lfb.Header.StateHash, db)
+	} else {
+		sv, _, err = loadStateV2(snapshotFile, db, fileSize, logStr)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	// ----------------------------- Validity Checks -------------------------- //
 
-	if err = checkSnapshot(sv, &metadata, db); err != nil {
-		return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+	if snapshotVersion >= 4 {
+		if err = checkSnapshotV4(sv, &metadata, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+		}
+	} else {
+		if err = checkSnapshot(sv, &metadata, db); err != nil {
+			return nil, nil, fmt.Errorf("Snapshot state validation failed: %v", err)
+		}
 	}
 
 	// --------------------- Save Proofs and Tail Blocks  --------------------- //
@@ -587,7 +605,7 @@ func getChainBoundary(filename string) (start, end uint64) {
 	return
 }
 
-func loadState(file *os.File, db database.Database, fileSize uint64, logStr string) (*state.StoreView, common.Hash, error) {
+func loadStateV2(file *os.File, db database.Database, fileSize uint64, logStr string) (*state.StoreView, common.Hash, error) {
 	var hash common.Hash
 	var sv *state.StoreView
 	var account *types.Account
@@ -663,6 +681,57 @@ func loadState(file *os.File, db database.Database, fileSize uint64, logStr stri
 	return sv, hash, nil
 }
 
+func loadStateV3(file *os.File, db database.Database, fileSize uint64, logStr string) error {
+	var progress, curSize uint64
+	batch := db.NewBatch()
+	record := core.SnapshotTrieRecord{}
+	for {
+		recordSize, err := core.ReadRecord(file, &record)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return fmt.Errorf("Failed to read snapshot record, %v", err)
+		}
+
+		if fileSize > 0 {
+			curSize += recordSize
+			percentage := curSize / fileSize
+			if percentage > progress && percentage <= 100 && percentage%5 == 0 {
+				logger.Infof("%s, %v%% done.", logStr, percentage)
+				progress = percentage
+			}
+		}
+
+		err = batch.Put(record.K, record.V)
+		if err != nil {
+			return fmt.Errorf("Failed to write snapshot record, %v", err)
+		}
+
+		// Set the ref count to 3 to be conservative as we have 3 state tries in the snapshot
+		for i := 0; i < 3; i++ {
+			err = batch.Reference(record.K)
+			if err != nil {
+				return fmt.Errorf("Failed to create reference of snapshot record, %v", err)
+			}
+		}
+
+		if batch.ValueSize() > database.IdealBatchSize {
+			if err := batch.Write(); err != nil {
+				return err
+			}
+			batch.Reset()
+		}
+	}
+	if err := batch.Write(); err != nil {
+		return err
+	}
+
+	logger.Infof("%s, 100%% done.", logStr)
+
+	return nil
+}
+
 func checkLastCheckpoint(sv *state.StoreView, snapshotBlockHeader *core.BlockHeader, lastCheckpoint *core.LastCheckpoint, db database.Database) error {
 	if snapshotBlockHeader == nil {
 		return fmt.Errorf("The snapshot block header is nil")
@@ -721,6 +790,34 @@ func checkSnapshot(sv *state.StoreView, metadata *core.SnapshotMetadata, db data
 	}
 
 	err = checkTailTrio(sv, provenValSet, tailTrio)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkSnapshotV4(sv *state.StoreView, metadata *core.SnapshotMetadata, db database.Database) error {
+	tailTrio := &metadata.TailTrio
+	secondBlock := tailTrio.Second.Header
+	expectedStateHash := sv.Hash()
+	if bytes.Compare(expectedStateHash.Bytes(), secondBlock.StateHash.Bytes()) != 0 {
+		return fmt.Errorf("StateHash not matching: %v vs %s",
+			expectedStateHash.Hex(), secondBlock.StateHash.Hex())
+	}
+
+	var valSet *core.ValidatorSet
+	var err error
+
+	first := tailTrio.First
+	valSet, err = getValidatorSetFromVCPProof(first.Header.StateHash, &first.Proof)
+	if err != nil {
+		return fmt.Errorf("Failed to retrieve validator set from VCP proof: %v", err)
+	}
+
+	logger.Infof("Validators of snapshost: %v", valSet)
+
+	err = checkTailTrio(sv, valSet, tailTrio)
 	if err != nil {
 		return err
 	}

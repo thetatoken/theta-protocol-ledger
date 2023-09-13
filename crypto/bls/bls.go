@@ -299,6 +299,9 @@ func AggregateSignaturesVec(s []*Signature, vec []uint32) *Signature {
 	}
 	newSig := NewAggregateSignature()
 	for i, sig := range s {
+		if vec[i] == 0 {
+			continue // performance improvement
+		}
 		newSig.Aggregate(sigExp(sig, vec[i]))
 	}
 	return newSig
@@ -320,6 +323,9 @@ func AggregatePublicKeysVec(p []*PublicKey, vec []uint32) *PublicKey {
 	}
 	newPub := NewAggregatePubkey()
 	for i, pub := range p {
+		if vec[i] == 0 {
+			continue // performance improvement
+		}
 		newPub.Aggregate(pubkeyExp(pub, vec[i]))
 	}
 	return newPub

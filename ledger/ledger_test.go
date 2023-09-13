@@ -66,7 +66,7 @@ func TestLedgerProposerBlockTxs(t *testing.T) {
 	startTime := time.Now()
 
 	// Propose block transactions
-	_, blockTxs, res := ledger.ProposeBlockTxs(nil)
+	_, blockTxs, res := ledger.ProposeBlockTxs(nil, true)
 
 	endTime := time.Now()
 	elapsed := endTime.Sub(startTime)
@@ -330,7 +330,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta1; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil, true) // nil skips adding the CoinbaseTx, but it is OK for our test
 	blockX := &core.Block{BlockHeader: &core.BlockHeader{
 		Height:    es.state.Height() + 1,
 		StateHash: expectedStateHash,
@@ -348,7 +348,7 @@ func TestValidatorStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta2; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil, true) // nil skips adding the CoinbaseTx, but it is OK for our test
 	blockY := &core.Block{BlockHeader: &core.BlockHeader{
 		Height:    es.state.Height() + 1,
 		StateHash: expectedStateHash,
@@ -641,7 +641,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta1; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	expectedStateHash, _, res := es.consensus.GetLedger().ProposeBlockTxs(nil, true) // nil skips adding the CoinbaseTx, but it is OK for our test
 	blockX := &core.Block{BlockHeader: &core.BlockHeader{
 		Height:    es.state.Height() + 1,
 		StateHash: expectedStateHash,
@@ -659,7 +659,7 @@ func TestGuardianStakeUpdate(t *testing.T) {
 	for h := uint64(0); h < heightDelta2; h++ {
 		es.state.Commit() // increment height
 	}
-	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil) // nil skips adding the CoinbaseTx, but it is OK for our test
+	expectedStateHash, _, res = es.consensus.GetLedger().ProposeBlockTxs(nil, true) // nil skips adding the CoinbaseTx, but it is OK for our test
 	blockY := &core.Block{BlockHeader: &core.BlockHeader{
 		Height:    es.state.Height() + 1,
 		StateHash: expectedStateHash,

@@ -28,4 +28,6 @@ var (
 	ErrContractAddressCollision = errors.New("contract address collision")
 	ErrNoCompatibleInterpreter  = errors.New("no compatible interpreter")
 	ErrInvalidGasLimit          = errors.New("invalid gas limit")
+	ErrInsufficientThetaBlance  = errors.New("insufficient Theta balance for transfer")
+	ErrInvalidStakeOperation    = errors.New("invalid stake operation")
 )

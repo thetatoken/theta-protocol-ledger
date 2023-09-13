@@ -196,19 +196,24 @@ func (pt *PeerTable) PeerAddrExists(addr *nu.NetAddress) bool {
 }
 
 // GetAllPeers returns all the peers
-func (pt *PeerTable) GetAllPeers() *([]*Peer) {
+func (pt *PeerTable) GetAllPeers(skipEdgeNode bool) *([]*Peer) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	ret := make([]*Peer, len(pt.peers))
-	for i, p := range pt.peers {
-		ret[i] = p
+	//ret := make([]*Peer, len(pt.peers))
+	var ret []*Peer
+	for _, p := range pt.peers {
+		if skipEdgeNode && p.NodeType() == common.NodeTypeEdgeNode {
+			continue
+		}
+		//ret[i] = p
+		ret = append(ret, p)
 	}
 	return &ret
 }
 
 // GetSelection randomly selects some peers. Suitable for peer-exchange protocols.
-func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
+func (pt *PeerTable) GetSelection(skipEdgeNode bool) (peerIDAddrs []PeerIDAddress) {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
@@ -235,6 +240,9 @@ func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
 	// slice off the limit we are willing to share.
 	peers = peers[:numPeers]
 	for _, peer := range peers {
+		if skipEdgeNode && peer.NodeType() == common.NodeTypeEdgeNode {
+			continue
+		}
 		peerIDAddr := PeerIDAddress{
 			ID:   peer.ID(),
 			Addr: peer.netAddress,
@@ -245,11 +253,23 @@ func (pt *PeerTable) GetSelection() (peerIDAddrs []PeerIDAddress) {
 }
 
 // GetTotalNumPeers returns the total number of peers in the PeerTable
-func (pt *PeerTable) GetTotalNumPeers() uint {
+func (pt *PeerTable) GetTotalNumPeers(skipEdgeNode bool) uint {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
 
-	return uint(len(pt.peers))
+	var numPeers uint
+	if !skipEdgeNode {
+		numPeers = uint(len(pt.peers))
+	} else {
+		for _, peer := range pt.peers {
+			if peer.NodeType() == common.NodeTypeEdgeNode {
+				continue
+			}
+			numPeers = numPeers + 1
+		}
+	}
+
+	return numPeers
 }
 
 func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {

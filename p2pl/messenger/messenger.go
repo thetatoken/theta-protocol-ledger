@@ -273,7 +273,7 @@ func (msgr *Messenger) isSeedPeer(pid pr.ID) bool {
 func (msgr *Messenger) processLoop(ctx context.Context) {
 	defer func() {
 		// Clean up go routines.
-		allPeers := msgr.peerTable.GetAllPeers()
+		allPeers := msgr.peerTable.GetAllPeers(false) // should clean up all peers, including edge nodes
 		for _, peer := range *allPeers {
 			peer.Stop()
 			msgr.peerTable.DeletePeer(peer.ID())
@@ -296,7 +296,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 				}
 			}
 
-			if int(msgr.peerTable.GetTotalNumPeers()) >= viper.GetInt(common.CfgP2PMaxNumPeers) {
+			if int(msgr.peerTable.GetTotalNumPeers(true)) >= viper.GetInt(common.CfgP2PMaxNumPeers) { // only account for blockchain nodes
 				msgr.host.Network().ClosePeer(pid)
 				continue
 			}
@@ -402,7 +402,7 @@ func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 }
 
 func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
-	diff := viper.GetInt(common.CfgP2PMinNumPeers) - int(msgr.peerTable.GetTotalNumPeers())
+	diff := viper.GetInt(common.CfgP2PMinNumPeers) - int(msgr.peerTable.GetTotalNumPeers(true)) // only account for blockchain nodes
 	if diff > 0 {
 		var connections []*pr.AddrInfo
 		for _, seed := range msgr.seedPeers {
@@ -572,15 +572,17 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 }
 
 // Broadcast broadcasts the given message to all the connected peers
-func (msgr *Messenger) Broadcast(message p2ptypes.Message) (successes chan bool) {
+func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (successes chan bool) {
+	// TODO: support skipEdgeNode
 	logger.Debugf("Broadcasting messages...")
 	msgr.Publish(message)
 	return make(chan bool)
 }
 
 // BroadcastToNeighbors broadcasts the given message to neighbors
-func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int) (successes chan bool) {
-	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast)
+func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeersToBroadcast int, skipEdgeNode bool) (successes chan bool) {
+	// TODO: support skipEdgeNode
+	sampledPIDs := msgr.samplePeers(maxNumPeersToBroadcast, skipEdgeNode)
 	for _, pid := range sampledPIDs {
 		go func(pid string) {
 			msgr.Send(pid, message)
@@ -590,7 +592,9 @@ func (msgr *Messenger) BroadcastToNeighbors(message p2ptypes.Message, maxNumPeer
 }
 
 // samplePeers randomly sample a subset of peers
-func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
+func (msgr *Messenger) samplePeers(maxNumSampledPeers int, skipEdgeNode bool) []string {
+	// TODO: support skipEdgeNode
+
 	// Prioritize seed peers
 	sampledPIDs, idx := []string{}, 0
 	for seedPID := range msgr.seedPeers {
@@ -603,7 +607,7 @@ func (msgr *Messenger) samplePeers(maxNumSampledPeers int) []string {
 	}
 
 	// Randomly sample the remaining peers
-	neighbors := *msgr.peerTable.GetAllPeers()
+	neighbors := *msgr.peerTable.GetAllPeers(skipEdgeNode)
 	neighborPIDs := []string{}
 	for _, peer := range neighbors {
 		pid := peer.ID()
@@ -642,14 +646,25 @@ func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 }
 
 // Peers returns the IDs of all peers
-func (msgr *Messenger) Peers() []string {
-	allPeers := msgr.peerTable.GetAllPeers()
+func (msgr *Messenger) Peers(skipEdgeNode bool) []string {
+	// TODO: support skipEdgeNode
+	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
 	peerIDs := []string{}
 	for _, peer := range *allPeers {
 		peerID := peer.ID().Pretty()
 		peerIDs = append(peerIDs, peerID)
 	}
 	return peerIDs
+}
+
+// PeerURLs returns the URLs of all peers
+func (msgr *Messenger) PeerURLs(skipEdgeNode bool) []string {
+	allPeers := msgr.peerTable.GetAllPeers(skipEdgeNode)
+	peerURLs := []string{}
+	for _, peer := range *allPeers {
+		peerURLs = append(peerURLs, peer.AddrInfo().String())
+	}
+	return peerURLs
 }
 
 // PeerExists indicates if the given peerID is a neighboring peer
@@ -682,7 +697,7 @@ func (msgr *Messenger) printStats() {
 	defer msgr.statsLock.Unlock()
 
 	ret := "Received bytes:"
-	for k := byte(0); k <= byte(common.ChannelIDGuardian); k++ {
+	for k := byte(0); k <= byte(common.ChannelIDAggregatedEliteEdgeNodeVotes); k++ {
 		v, ok := msgr.statsCounter[common.ChannelIDEnum(k)]
 		if !ok {
 			continue

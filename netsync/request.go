@@ -562,7 +562,7 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 		targetSize += 2
 	}
 	if len(peersToRequest) < targetSize { // resample
-		allPeers := rm.syncMgr.dispatcher.Peers()
+		allPeers := rm.syncMgr.dispatcher.Peers(true) // skip edge nodes
 		samples := util.Sample(allPeers, targetSize)
 		for _, sample := range samples {
 			duplicate := false
@@ -752,7 +752,7 @@ func (rm *RequestManager) passReadyBlocks() {
 				// Check if block's parent has already been added to chain. If not, skip block
 				found := false
 				for _, parent := range parents {
-					if parent.Hash() == block.Parent {
+					if parent.Hash() == block.Parent && parent.Status.IsValid() {
 						found = true
 						break
 					}

@@ -18,18 +18,18 @@ import (
 
 const HARDENED_FLAG = 1 << 31
 
-func walletUnlock(cmd *cobra.Command, addressStr string) (wtypes.Wallet, common.Address, error) {
-	return walletUnlockWithPath(cmd, addressStr, "")
+func walletUnlock(cmd *cobra.Command, addressStr string, password string) (wtypes.Wallet, common.Address, error) {
+	return walletUnlockWithPath(cmd, addressStr, "", password)
 }
 
-func walletUnlockWithPath(cmd *cobra.Command, addressStr string, path string) (wtypes.Wallet, common.Address, error) {
+func walletUnlockWithPath(cmd *cobra.Command, addressStr string, path string, password string) (wtypes.Wallet, common.Address, error) {
 	var wallet wtypes.Wallet
 	var address common.Address
 	var err error
 	walletType := getWalletType(cmd)
 	if walletType == wtypes.WalletTypeSoft {
 		cfgPath := cmd.Flag("config").Value.String()
-		wallet, address, err = SoftWalletUnlock(cfgPath, addressStr)
+		wallet, address, err = SoftWalletUnlock(cfgPath, addressStr, password)
 	} else {
 		derivationPath, err := parseDerivationPath(path, walletType)
 		if err != nil {
@@ -71,18 +71,20 @@ func ColdWalletUnlock(walletType wtypes.WalletType, derivationPath types.Derivat
 	return wallet, address, nil
 }
 
-func SoftWalletUnlock(cfgPath, addressStr string) (wtypes.Wallet, common.Address, error) {
+func SoftWalletUnlock(cfgPath, addressStr string, password string) (wtypes.Wallet, common.Address, error) {
 	wallet, err := wallet.OpenWallet(cfgPath, wtypes.WalletTypeSoft, true)
 	if err != nil {
 		fmt.Printf("Failed to open wallet: %v\n", err)
 		return nil, common.Address{}, err
 	}
 
-	prompt := fmt.Sprintf("Please enter password: ")
-	password, err := utils.GetPassword(prompt)
-	if err != nil {
-		fmt.Printf("Failed to get password: %v\n", err)
-		return nil, common.Address{}, err
+	if password == "" || len(password) == 0 {
+		prompt := fmt.Sprintf("Please enter password: ")
+		password, err = utils.GetPassword(prompt)
+		if err != nil {
+			fmt.Printf("Failed to get password: %v\n", err)
+			return nil, common.Address{}, err
+		}
 	}
 
 	address := common.HexToAddress(addressStr)
