@@ -108,6 +108,8 @@ const (
 	// CfgP2PMaxConnections specifies the number of max connections a node can accept
 	CfgP2PMaxConnections                  = "p2p.maxConnections"
 	CfgP2PPrioritizeSeedPeersForBlockSync = "p2p.prioritizeSeedPeersForBlockSync"
+	CfgP2PSendRate                        = "p2p.sendRate"
+	CfgP2PRecvRate                        = "p2p.recvRate"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -200,11 +202,14 @@ func init() {
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
 	viper.SetDefault(CfgP2PMaxNumPeersToBroadcast, 64)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
-	viper.SetDefault(CfgBufferPoolSize, 8)
+	// viper.SetDefault(CfgBufferPoolSize, 8)
+	viper.SetDefault(CfgBufferPoolSize, 256)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
 	viper.SetDefault(CfgP2PMaxConnections, 2048)
 	viper.SetDefault(CfgP2PPrioritizeSeedPeersForBlockSync, false)
+	viper.SetDefault(CfgP2PSendRate, 1024000) // 1 Mbps
+	viper.SetDefault(CfgP2PRecvRate, 5120000) // 5 Mbps
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
