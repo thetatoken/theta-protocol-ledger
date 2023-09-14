@@ -204,14 +204,15 @@ func init() {
 	viper.SetDefault(CfgP2PMaxNumPeers, 64)
 	viper.SetDefault(CfgP2PMaxNumPeersToBroadcast, 64)
 	viper.SetDefault(CfgMaxNumPersistentPeers, 10)
-	// viper.SetDefault(CfgBufferPoolSize, 8)
-	viper.SetDefault(CfgBufferPoolSize, 256)
+	viper.SetDefault(CfgBufferPoolSize, 8)
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
 	viper.SetDefault(CfgP2PMaxConnections, 2048)
 	viper.SetDefault(CfgP2PPrioritizeSeedPeersForBlockSync, false)
-	viper.SetDefault(CfgP2PSendRate, 2048000)  // 2 Mbps
-	viper.SetDefault(CfgP2PRecvRate, 10240000) // 10 Mbps
+	viper.SetDefault(CfgP2PSendRate, 512000) // 500 KB/s
+	viper.SetDefault(CfgP2PRecvRate, 512000) // 500 KB/s
+	// viper.SetDefault(CfgP2PSendRate, 2048000)  // 2 MB/s
+	// viper.SetDefault(CfgP2PRecvRate, 10240000) // 10 MB/s
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
