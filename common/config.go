@@ -111,6 +111,7 @@ const (
 	CfgP2PPrioritizeSeedPeersForBlockSync = "p2p.prioritizeSeedPeersForBlockSync"
 	CfgP2PSendRate                        = "p2p.sendRate"
 	CfgP2PRecvRate                        = "p2p.recvRate"
+	CfgP2PSendBufferTimoutInSeconds       = "p2p.sendBufferTimoutInSeconds"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -211,6 +212,7 @@ func init() {
 	viper.SetDefault(CfgP2PPrioritizeSeedPeersForBlockSync, false)
 	viper.SetDefault(CfgP2PSendRate, 512000) // 500 KB/s
 	viper.SetDefault(CfgP2PRecvRate, 512000) // 500 KB/s
+	viper.SetDefault(CfgP2PSendBufferTimoutInSeconds, 10)
 	// viper.SetDefault(CfgP2PSendRate, 2048000)  // 2 MB/s
 	// viper.SetDefault(CfgP2PRecvRate, 10240000) // 10 MB/s
 
