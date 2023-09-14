@@ -533,27 +533,39 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 		} else {
 			rm.activePeers[pid]--
 		}
-
 	}
+
 	if rm.refreshCounter >= RefreshCounterLimit {
 		rm.refreshCounter = 0
-
 		rm.logger.Debugf("Reset refreshCounter")
 	}
-	if len(rm.activePeers) != 0 {
+
+	prioritizeSeedPeers := viper.GetBool(common.CfgP2PPrioritizeSeedPeersForBlockSync)
+	if prioritizeSeedPeers {
 		peersToRequest = []string{}
-		for pid, score := range rm.activePeers {
-			if score > 0 {
+		allPeers := rm.syncMgr.dispatcher.Peers(true) // skip edge nodes
+		for _, pid := range allPeers {
+			if rm.syncMgr.dispatcher.IsSeedPeer(pid) {
 				peersToRequest = append(peersToRequest, pid)
-			} else {
-				rm.logger.WithFields(log.Fields{
-					"peer":  pid,
-					"score": score,
-				}).Debugf("Skipping low score peer from active list")
 			}
 		}
-		rm.logger.Debugf("Reuse activePeers: %v", peersToRequest)
+	} else {
+		if len(rm.activePeers) != 0 {
+			peersToRequest = []string{}
+			for pid, score := range rm.activePeers {
+				if score > 0 {
+					peersToRequest = append(peersToRequest, pid)
+				} else {
+					rm.logger.WithFields(log.Fields{
+						"peer":  pid,
+						"score": score,
+					}).Debugf("Skipping low score peer from active list")
+				}
+			}
+			rm.logger.Debugf("Reuse activePeers: %v", peersToRequest)
+		}
 	}
+
 	rm.aplock.Unlock()
 
 	targetSize := MaxNumPeersToSendRequests

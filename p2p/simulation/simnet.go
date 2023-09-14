@@ -224,6 +224,10 @@ func (se *SimnetEndpoint) RegisterMessageHandler(handler p2p.MessageHandler) {
 	se.handlers = append(se.handlers, handler)
 }
 
+func (se *SimnetEndpoint) IsSeedPeer(peerID string) bool {
+	return false
+}
+
 // ID implements the Network interface.
 func (se *SimnetEndpoint) ID() string {
 	return se.id

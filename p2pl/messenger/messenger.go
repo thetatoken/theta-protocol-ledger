@@ -265,8 +265,8 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 	return messenger, nil
 }
 
-func (msgr *Messenger) isSeedPeer(pid pr.ID) bool {
-	_, isSeed := msgr.seedPeers[pid]
+func (msgr *Messenger) IsSeedPeer(pid string) bool {
+	_, isSeed := msgr.seedPeers[pr.ID(pid)]
 	return isSeed
 }
 
@@ -289,7 +289,7 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 
 			if msgr.seedPeerOnly {
-				if !msgr.isSeedPeer(pid) {
+				if !msgr.IsSeedPeer(string(pid)) {
 					msgr.host.Network().ClosePeer(pid)
 					// msgr.host.Peerstore().UpdateAddrs(pid, peerstore.ConnectedAddrTTL, time.Duration(1 * time.Millisecond))
 					continue
@@ -366,7 +366,7 @@ func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
 func (msgr *Messenger) maintainSeedsConnectivity(ctx context.Context) {
 	if !msgr.seedPeerOnly {
 		for _, pid := range *(msgr.peerTable.GetAllPeerIDs()) {
-			if msgr.isSeedPeer(pid) {
+			if msgr.IsSeedPeer(string(pid)) {
 				// don't proceed if there's at least one seed in peer table
 				return
 			}
@@ -611,7 +611,7 @@ func (msgr *Messenger) samplePeers(maxNumSampledPeers int, skipEdgeNode bool) []
 	neighborPIDs := []string{}
 	for _, peer := range neighbors {
 		pid := peer.ID()
-		if pid == msgr.host.ID() || msgr.isSeedPeer(pid) {
+		if pid == msgr.host.ID() || msgr.IsSeedPeer(string(pid)) {
 			continue
 		}
 		neighborPIDs = append(neighborPIDs, pid.String())
@@ -766,7 +766,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 		peerID := strm.Conn().RemotePeer()
 
 		if msgr.seedPeerOnly {
-			if !msgr.isSeedPeer(peerID) {
+			if !msgr.IsSeedPeer(string(peerID)) {
 				msgr.host.Network().ClosePeer(peerID)
 				return
 			}

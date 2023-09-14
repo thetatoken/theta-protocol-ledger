@@ -60,6 +60,8 @@ type Network interface {
 	// RegisterMessageHandler registers message handler
 	RegisterMessageHandler(messageHandler MessageHandler)
 
+	IsSeedPeer(peerID string) bool
+
 	// ID returns the ID of the network peer
 	ID() string
 }

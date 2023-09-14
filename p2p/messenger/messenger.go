@@ -267,6 +267,15 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 	}
 }
 
+func (msgr *Messenger) IsSeedPeer(peerID string) bool {
+	peer := msgr.peerTable.GetPeer(peerID)
+	if peer == nil {
+		return false
+	}
+	isSeedPeer := peer.IsSeed()
+	return isSeedPeer
+}
+
 // ID returns the ID of the current node
 func (msgr *Messenger) ID() string {
 	return msgr.nodeInfo.PubKey.Address().Hex()

@@ -180,6 +180,17 @@ func (dp *Dispatcher) PeerExists(peerID string) bool {
 	return false
 }
 
+// Peers returns the IDs of all peers
+func (dp *Dispatcher) IsSeedPeer(peerID string) bool {
+	if !reflect.ValueOf(dp.p2pnet).IsNil() {
+		return dp.p2pnet.IsSeedPeer(peerID)
+	}
+	if !reflect.ValueOf(dp.p2plnet).IsNil() {
+		return dp.p2plnet.IsSeedPeer(peerID)
+	}
+	return false
+}
+
 // send delivers message directly to a list of peers.
 func (dp *Dispatcher) send(peerIDs []string, channelID common.ChannelIDEnum, content interface{}) {
 	messageOld := p2ptypes.Message{
