@@ -801,6 +801,7 @@ func (sm *SyncManager) handleVote(vote core.Vote, pid string) {
 			"currentEpoch": currentEpoch,
 			"peer":         pid,
 		}).Warn("Ignoring outdated vote")
+		return
 	}
 
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
