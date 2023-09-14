@@ -549,6 +549,7 @@ func (rm *RequestManager) getInventory(req dispatcher.InventoryRequest) {
 				peersToRequest = append(peersToRequest, pid)
 			}
 		}
+		rm.logger.Debugf("Prioritizing seed peers: %v", peersToRequest)
 	} else {
 		if len(rm.activePeers) != 0 {
 			peersToRequest = []string{}
