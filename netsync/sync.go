@@ -791,6 +791,18 @@ func (sm *SyncManager) handleVote(vote core.Vote, pid string) {
 		return
 	}
 
+	outdatedVoteBlockGap := uint64(viper.GetInt64(common.CfgSyncOutdatedVoteBlockGap))
+	currentEpoch := sm.consensus.GetEpoch()
+	if vote.Epoch+outdatedVoteBlockGap < currentEpoch {
+		sm.logger.WithFields(log.Fields{
+			"vote.Hash":    vote.Block.Hex(),
+			"vote.ID":      vote.ID.Hex(),
+			"vote.Epoch":   vote.Epoch,
+			"currentEpoch": currentEpoch,
+			"peer":         pid,
+		}).Warn("Ignoring outdated vote")
+	}
+
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
 	for _, v := range votes {
 		// Check if vote already processed.
