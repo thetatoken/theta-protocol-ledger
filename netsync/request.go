@@ -27,7 +27,7 @@ const Expiration = 300 * time.Second
 const MinInventoryRequestInterval = 6 * time.Second
 const MaxInventoryRequestInterval = 6 * time.Second
 
-const FastsyncRequestQuota = 8 // Max number of outstanding block requests
+// const FastsyncRequestQuota = 8 // Max number of outstanding block requests
 const GossipRequestQuotaPerSecond = 10
 const MaxNumPeersToSendRequests = 4
 const RefreshCounterLimit = 4
@@ -297,7 +297,8 @@ func (rm *RequestManager) tryToDownload() {
 	defer rm.mu.RUnlock()
 
 	rm.gossipQuota = GossipRequestQuotaPerSecond
-	rm.fastsyncQuota = FastsyncRequestQuota
+	// rm.fastsyncQuota = FastsyncRequestQuota
+	rm.fastsyncQuota = viper.GetUint(common.CfgSyncFastsyncQuota)
 
 	hasUndownloadedBlocks := rm.pendingBlocks.Len() > 0 || len(rm.pendingBlocksByHash) > 0 || rm.pendingBlocksWithHeader.Len() > 0
 

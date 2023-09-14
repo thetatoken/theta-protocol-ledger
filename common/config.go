@@ -58,6 +58,7 @@ const (
 	CfgSyncDownloadByHash = "sync.downloadByHash"
 	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
 	CfgSyncDownloadByHeader = "sync.downloadByHeader"
+	CfgSyncFastsyncQuota    = "sync.fastsyncQuota"
 
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
@@ -175,6 +176,7 @@ func init() {
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 	viper.SetDefault(CfgSyncDownloadByHash, false)
 	viper.SetDefault(CfgSyncDownloadByHeader, true)
+	viper.SetDefault(CfgSyncFastsyncQuota, 8)
 
 	viper.SetDefault(CfgStorageRollingEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
