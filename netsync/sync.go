@@ -215,8 +215,22 @@ func (m *SyncManager) locateStart(starts []string) common.Hash {
 		if err == nil &&
 			b.Status != core.BlockStatusPending &&
 			b.Status != core.BlockStatusInvalid {
-			start = curr
-			break
+
+			// Check if block is on an obsolete chain.
+			isOnObsoleteChain := false
+			if blocks := m.chain.FindBlocksByHeight(b.Height); len(blocks) > 1 {
+				for _, block := range blocks {
+					if block.Hash() != curr && block.Status.IsFinalized() {
+						isOnObsoleteChain = true
+						break
+					}
+				}
+			}
+
+			if !isOnObsoleteChain {
+				start = curr
+				break
+			}
 		}
 	}
 	return start
