@@ -568,7 +568,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 					"block.Height": block.Height,
 					"peer":         peerID,
 				}).Debug("Received block")
-				m.handleBlock(block)
+				m.handleBlock(block, peerID, false)
 				if block.Height > maxReceivedHeight {
 					maxReceivedHeight = block.Height
 				}
@@ -580,7 +580,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 				"block.Height": block.Height,
 				"peer":         peerID,
 			}).Debug("Received block")
-			m.handleBlock(block)
+			m.handleBlock(block, peerID, false)
 			maxReceivedHeight = block.Height
 		}
 	case common.ChannelIDVote:
@@ -601,7 +601,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"vote.Epoch": vote.Epoch,
 			"peer":       peerID,
 		}).Debug("Received vote")
-		m.handleVote(vote)
+		m.handleVote(vote, peerID)
 	case common.ChannelIDProposal:
 		proposal := &core.Proposal{}
 		err := rlp.DecodeBytes(data.Payload, proposal)
@@ -618,7 +618,7 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 			"proposal": proposal,
 			"peer":     peerID,
 		}).Debug("Received proposal")
-		m.handleProposal(proposal)
+		m.handleProposal(proposal, peerID)
 	case common.ChannelIDGuardian:
 		vote := &core.AggregatedVotes{}
 		err := rlp.DecodeBytes(data.Payload, vote)
@@ -701,13 +701,13 @@ func (m *SyncManager) handleDataResponse(peerID string, data *dispatcher.DataRes
 	}
 }
 
-func (sm *SyncManager) handleProposal(p *core.Proposal) {
+func (sm *SyncManager) handleProposal(p *core.Proposal, pid string) {
 	if p.Votes != nil {
 		for _, vote := range p.Votes.Votes() {
-			sm.handleVote(vote)
+			sm.handleVote(vote, pid)
 		}
 	}
-	sm.handleBlock(p.Block)
+	sm.handleBlock(p.Block, pid, true)
 }
 
 func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
@@ -736,7 +736,16 @@ func (sm *SyncManager) handleHeader(header *core.BlockHeader, peerID []string) {
 	}
 }
 
-func (sm *SyncManager) handleBlock(block *core.Block) {
+func (sm *SyncManager) handleBlock(block *core.Block, pid string, shouldGossip bool) {
+	if res := block.Validate(sm.chain.ChainID); res.IsError() {
+		sm.logger.WithFields(log.Fields{
+			"block hash":   block.Hash().String(),
+			"block height": block.Height,
+			"peer":         pid,
+		}).Debug("received invalid block")
+		return
+	}
+
 	if eb, err := sm.chain.FindBlock(block.Hash()); err == nil && !eb.Status.IsPending() {
 		sm.logger.WithFields(log.Fields{
 			"block hash":   block.Hash().String(),
@@ -753,43 +762,62 @@ func (sm *SyncManager) handleBlock(block *core.Block) {
 			}).Debug("hardcoded block")
 			return
 		}
-	} else if res := block.Validate(sm.chain.ChainID); res.IsError() {
-		sm.logger.WithFields(log.Fields{
-			"block hash":   block.Hash().String(),
-			"block height": block.Height,
-		}).Debug("chain ID is invalid")
-		return
 	}
 
 	sm.requestMgr.AddBlock(block)
 
-	p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
-	if sm.requestMgr.IsGossipBlock(block.Hash()) && p2pOpt != common.P2POptLibp2p {
-		// Gossip the block out using hash
-		sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
-			ChannelID: common.ChannelIDBlock,
-			Entries:   []string{block.Hash().Hex()},
-		})
+	if shouldGossip {
+		p2pOpt := common.P2POptEnum(viper.GetInt(common.CfgP2POpt))
+		if sm.requestMgr.IsGossipBlock(block.Hash()) && p2pOpt != common.P2POptLibp2p {
+			// Gossip the block out using hash
+			sm.dispatcher.SendInventory([]string{}, dispatcher.InventoryResponse{
+				ChannelID: common.ChannelIDBlock,
+				Entries:   []string{block.Hash().Hex()},
+			})
 
-		// Gossip the block out using header
-		headers := Headers{
-			HeaderArray: []*core.BlockHeader{block.BlockHeader},
+			// Gossip the block out using header
+			headers := Headers{
+				HeaderArray: []*core.BlockHeader{block.BlockHeader},
+			}
+			payload, err := rlp.EncodeToBytes(headers)
+			if err != nil {
+				sm.logger.WithFields(log.Fields{
+					"block hash":   block.Hash().String(),
+					"block height": block.Height,
+					"err":          err.Error(),
+				}).Debug("failed to encode header")
+				return
+			}
+			hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
+			sm.dispatcher.SendData([]string{}, hresp)
 		}
-		payload, err := rlp.EncodeToBytes(headers)
-		if err != nil {
-			sm.logger.WithFields(log.Fields{
-				"block hash":   block.Hash().String(),
-				"block height": block.Height,
-				"err":          err.Error(),
-			}).Debug("failed to encode header")
-			return
-		}
-		hresp := dispatcher.DataResponse{ChannelID: common.ChannelIDHeader, Payload: payload}
-		sm.dispatcher.SendData([]string{}, hresp)
 	}
 }
 
-func (sm *SyncManager) handleVote(vote core.Vote) {
+func (sm *SyncManager) handleVote(vote core.Vote, pid string) {
+	if vote.Validate().IsError() {
+		sm.logger.WithFields(log.Fields{
+			"vote.Hash":  vote.Block.Hex(),
+			"vote.ID":    vote.ID.Hex(),
+			"vote.Epoch": vote.Epoch,
+			"peer":       pid,
+		}).Warn("Ignoring invalid vote")
+		return
+	}
+
+	outdatedVoteBlockGap := uint64(viper.GetInt64(common.CfgSyncOutdatedVoteBlockGap))
+	currentEpoch := sm.consensus.GetEpoch()
+	if vote.Epoch+outdatedVoteBlockGap < currentEpoch {
+		sm.logger.WithFields(log.Fields{
+			"vote.Hash":    vote.Block.Hex(),
+			"vote.ID":      vote.ID.Hex(),
+			"vote.Epoch":   vote.Epoch,
+			"currentEpoch": currentEpoch,
+			"peer":         pid,
+		}).Warn("Ignoring outdated vote")
+		return
+	}
+
 	votes := sm.chain.FindVotesByHash(vote.Block).Votes()
 	for _, v := range votes {
 		// Check if vote already processed.
@@ -825,6 +853,15 @@ func (sm *SyncManager) handleVote(vote core.Vote) {
 			Payload:   payload,
 		}
 		sm.dispatcher.SendData([]string{}, msg)
+
+		sm.logger.WithFields(log.Fields{
+			"vote.Block":  vote.Block.Hex(),
+			"vote.ID":     vote.ID,
+			"vote.Height": vote.Height,
+			"vote.sig":    vote.Signature,
+			"vote.Epoch":  vote.Epoch,
+		}).Debug("relaying vote")
+
 	}
 }
 

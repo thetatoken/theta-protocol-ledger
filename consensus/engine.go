@@ -907,7 +907,10 @@ func (e *ConsensusEngine) createVote(block *core.Block) core.Vote {
 func (e *ConsensusEngine) validateVote(vote core.Vote) bool {
 	if res := vote.Validate(); res.IsError() {
 		e.logger.WithFields(log.Fields{
-			"err": res.String(),
+			"vote":          vote,
+			"v.SignBytes()": vote.SignBytes(),
+			"v.ID":          vote.ID,
+			"err":           res.String(),
 		}).Warn("Ignoring invalid vote")
 		return false
 	}

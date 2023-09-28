@@ -12,6 +12,7 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/common/timer"
 	"github.com/thetatoken/theta/p2p/connection/flowrate"
@@ -158,9 +159,13 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 
 // GetDefaultConnectionConfig returns the default ConnectionConfig
 func GetDefaultConnectionConfig() ConnectionConfig {
+	sendRate := viper.GetInt64(common.CfgP2PSendRate)
+	recvRate := viper.GetInt64(common.CfgP2PRecvRate)
 	return ConnectionConfig{
-		SendRate:        int64(512000), // 500KB/s
-		RecvRate:        int64(512000), // 500KB/s
+		// SendRate:        int64(512000), // 500KB/s
+		// RecvRate:        int64(512000), // 500KB/s
+		SendRate:        sendRate,
+		RecvRate:        recvRate,
 		PacketBatchSize: int64(10),
 		FlushThrottle:   100 * time.Millisecond,
 		PingTimeout:     40 * time.Second,

@@ -57,7 +57,9 @@ const (
 	// CfgSyncDownloadByHash indicates whether should download blocks using hash.
 	CfgSyncDownloadByHash = "sync.downloadByHash"
 	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
-	CfgSyncDownloadByHeader = "sync.downloadByHeader"
+	CfgSyncDownloadByHeader     = "sync.downloadByHeader"
+	CfgSyncFastsyncQuota        = "sync.fastsyncQuota"
+	CfgSyncOutdatedVoteBlockGap = "sync.outdatedVoteBlockGap"
 
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
@@ -106,7 +108,11 @@ const (
 	// CfgP2PNatMapping sets whether to perform NAT mapping
 	CfgP2PNatMapping = "p2p.natMapping"
 	// CfgP2PMaxConnections specifies the number of max connections a node can accept
-	CfgP2PMaxConnections = "p2p.maxConnections"
+	CfgP2PMaxConnections                  = "p2p.maxConnections"
+	CfgP2PPrioritizeSeedPeersForBlockSync = "p2p.prioritizeSeedPeersForBlockSync"
+	CfgP2PSendRate                        = "p2p.sendRate"
+	CfgP2PRecvRate                        = "p2p.recvRate"
+	CfgP2PSendBufferTimoutInSeconds       = "p2p.sendBufferTimoutInSeconds"
 
 	// CfgSyncInboundResponseWhitelist filters inbound messages based on peer ID.
 	CfgSyncInboundResponseWhitelist = "sync.inboundResponseWhitelist"
@@ -172,6 +178,8 @@ func init() {
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 	viper.SetDefault(CfgSyncDownloadByHash, false)
 	viper.SetDefault(CfgSyncDownloadByHeader, true)
+	viper.SetDefault(CfgSyncFastsyncQuota, 8)
+	viper.SetDefault(CfgSyncOutdatedVoteBlockGap, 100800) // approximately 7 days worth of blocks
 
 	viper.SetDefault(CfgStorageRollingEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)
@@ -203,6 +211,12 @@ func init() {
 	viper.SetDefault(CfgP2PConnectionFIFO, false)
 	viper.SetDefault(CfgP2PNatMapping, false)
 	viper.SetDefault(CfgP2PMaxConnections, 2048)
+	viper.SetDefault(CfgP2PPrioritizeSeedPeersForBlockSync, false)
+	viper.SetDefault(CfgP2PSendRate, 512000) // 500 KB/s
+	viper.SetDefault(CfgP2PRecvRate, 512000) // 500 KB/s
+	viper.SetDefault(CfgP2PSendBufferTimoutInSeconds, 10)
+	// viper.SetDefault(CfgP2PSendRate, 2048000)  // 2 MB/s
+	// viper.SetDefault(CfgP2PRecvRate, 10240000) // 10 MB/s
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")

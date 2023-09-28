@@ -161,6 +161,9 @@ func (msgr *Messenger) Broadcast(message p2ptypes.Message, skipEdgeNode bool) (s
 		//logger.Debugf("Broadcasting message with hash %v to %v, channelID: %v", hex.EncodeToString(crypto.Keccak256([]byte(fmt.Sprintf("%v", message.Content)))), peer.ID(), message.ChannelID)
 		go func(peer *pr.Peer) {
 			success := msgr.Send(peer.ID(), message)
+			if !success {
+				logger.Debugf("Messenger: Failed to broadcast message to %v", peer.ID())
+			}
 			successes <- success
 		}(peer)
 	}
@@ -222,6 +225,7 @@ func (msgr *Messenger) samplePeers(maxNumSampledPeers int, skipEdgeNode bool) []
 func (msgr *Messenger) Send(peerID string, message p2ptypes.Message) bool {
 	peer := msgr.peerTable.GetPeer(peerID)
 	if peer == nil {
+		logger.Debugf("Messenger: Failed to lookup %v from peer table", peerID)
 		return false
 	}
 
@@ -265,6 +269,15 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2p.MessageHandler) {
 		}
 		msgr.msgHandlerMap[channelID] = msgHandler
 	}
+}
+
+func (msgr *Messenger) IsSeedPeer(peerID string) bool {
+	peer := msgr.peerTable.GetPeer(peerID)
+	if peer == nil {
+		return false
+	}
+	isSeedPeer := peer.IsSeed()
+	return isSeedPeer
 }
 
 // ID returns the ID of the current node

@@ -4,6 +4,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 )
 
@@ -32,9 +33,10 @@ func createSendBuffer(config SendBufferConfig) SendBuffer {
 
 // getDefaultSendBufferConfig returns the default config for the SendBuffer
 func getDefaultSendBufferConfig() SendBufferConfig {
+	sendBufferTimoutInSecs := viper.GetInt(common.CfgP2PSendBufferTimoutInSeconds)
 	return SendBufferConfig{
 		queueCapacity: 1,
-		timeOut:       10 * time.Second,
+		timeOut:       time.Duration(sendBufferTimoutInSecs) * time.Second,
 	}
 }
 
@@ -62,6 +64,7 @@ func (sb *SendBuffer) insert(bytes []byte) bool {
 		atomic.AddInt32(&sb.queueSize, 1)
 		return true
 	case <-time.After(sb.config.timeOut):
+		logger.Debugf("Messenger: Failed to insert message byets to the SendBuffer")
 		return false
 	}
 }
