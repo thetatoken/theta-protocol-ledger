@@ -33,9 +33,10 @@ const (
 	// CfgConsensusEdgeNodeVoteQueueSize defines the capacity of edge node vote message queue.
 	CfgConsensusEdgeNodeVoteQueueSize = "consensus.edgeNodeVoteQueueSize"
 	// CfgConsensusPassThroughGuardianVote defines the how guardian vote is handled.
-	CfgConsensusPassThroughGuardianVote  = "consensus.passThroughGuardianVote"
-	CfgConsensusForceLastVote            = "consensus.forceLastVote"
-	CfgConsensusForceLastVoteTargetBlock = "consensus.forceLastVoteTargetBlock"
+	CfgConsensusPassThroughGuardianVote   = "consensus.passThroughGuardianVote"
+	CfgConsensusForceLastVote             = "consensus.forceLastVote"
+	CfgConsensusForceLastVoteTargetBlock  = "consensus.forceLastVoteTargetBlock"
+	CfgConsensusForceLastVoteTargetHeight = "consensus.forceLastVoteTargetHeight"
 
 	// CfgStorageRollingEnabled indicates whether rolling is enabled
 	CfgStorageRollingEnabled = "storage.stateRollingEnabled"
@@ -179,6 +180,7 @@ func init() {
 	viper.SetDefault(CfgConsensusPassThroughGuardianVote, false)
 	viper.SetDefault(CfgConsensusForceLastVote, false)
 	viper.SetDefault(CfgConsensusForceLastVoteTargetBlock, "")
+	viper.SetDefault(CfgConsensusForceLastVoteTargetHeight, 0)
 
 	viper.SetDefault(CfgSyncMessageQueueSize, 512)
 	viper.SetDefault(CfgSyncDownloadByHash, false)

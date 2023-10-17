@@ -71,13 +71,17 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 			logger.Panicf("Need to set consensus.forceLastVoteTargetBlock")
 		}
 		forceVoteTargetBlockHash := common.HexToHash(targetBlockHashStr)
-		forceVoteTargetBlock, err := chain.FindBlock(forceVoteTargetBlockHash)
-		if err != nil {
-			logger.Panicf("Failed to load the target block for the forced vote: %v", err)
+		forceVoteTargetHeight := viper.GetInt64(common.CfgConsensusForceLastVoteTargetHeight)
+		if forceVoteTargetHeight == 0 {
+			logger.Panicf("Need to set consensus.CfgConsensusForceLastVoteTargetHeight")
 		}
+		// forceVoteTargetBlock, err := chain.FindBlock(forceVoteTargetBlockHash)
+		// if err != nil {
+		// 	logger.Panicf("Failed to load the target block %v for the forced vote: %v", forceVoteTargetBlockHash, err)
+		// }
 		forcedLastVote = &core.Vote{
-			Block:  forceVoteTargetBlock.Hash(),
-			Height: forceVoteTargetBlock.Height,
+			Block:  forceVoteTargetBlockHash,
+			Height: uint64(forceVoteTargetHeight),
 			ID:     privateKey.PublicKey().Address(),
 			Epoch:  chain.Root().Epoch,
 		}
