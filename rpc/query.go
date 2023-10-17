@@ -242,6 +242,81 @@ func (t *ThetaRPCService) GetPendingTransactions(args *GetPendingTransactionsArg
 	return nil
 }
 
+// ------------------------------ TraceBlocks -----------------------------------
+
+type TraceBlocksArgs struct {
+	Hash     common.Hash `json:"hash"`
+	Upstream bool        `json:"upstream"`
+}
+
+type TraceBlocksResults struct {
+	Blocks []common.Hash
+}
+
+func (t *ThetaRPCService) TraceBlocks(args *TraceBlocksArgs, result *TraceBlocksResults) (err error) {
+	if args.Hash.IsEmpty() {
+		return errors.New("Block hash must be specified")
+	}
+
+	MaxNumBlocks := 10000 // to prevent abuse
+
+	block, err := t.chain.FindBlock(args.Hash)
+	if err != nil {
+		return err
+	}
+
+	blockHashes := []common.Hash{}
+	blockHashes = append(blockHashes, args.Hash)
+	numBlocks := 1
+	if args.Upstream {
+		for {
+			parentHash := block.Parent
+			parentBlock, err := t.chain.FindBlock(parentHash)
+			if err != nil {
+				return err
+			}
+			blockHashes = append(blockHashes, parentHash)
+			numBlocks += 1
+			if numBlocks > MaxNumBlocks {
+				blockHashes = append(blockHashes, common.Hash{0x99}) // special marker
+				break
+			}
+			if parentBlock.Status == core.BlockStatusDirectlyFinalized || parentBlock.Status == core.BlockStatusIndirectlyFinalized {
+				break // stop at a finalized block
+			}
+			block = parentBlock
+		}
+	} else {
+		for {
+			childrenHashes := block.Children
+			numBlocks += 1
+			if numBlocks > MaxNumBlocks {
+				blockHashes = append(blockHashes, common.Hash{0x99}) // special marker
+				break
+			}
+			if len(childrenHashes) == 2 {
+				blockHashes = append(blockHashes, common.Hash{0x2}) // special marker
+				break
+			} else if len(childrenHashes) == 1 {
+				childHash := childrenHashes[0]
+				childBlock, err := t.chain.FindBlock(childHash)
+				if err != nil {
+					blockHashes = append(blockHashes, common.Hash{0x1}) // special marker
+					break
+				}
+				blockHashes = append(blockHashes, childHash)
+				block = childBlock
+			} else if len(childrenHashes) == 0 {
+				blockHashes = append(blockHashes, common.Hash{0x0}) // special marker
+				break
+			}
+		}
+	}
+
+	result.Blocks = blockHashes
+	return nil
+}
+
 // ------------------------------ GetBlock -----------------------------------
 
 type GetBlockArgs struct {
@@ -343,8 +418,9 @@ func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (
 // ------------------------------ GetBlockByHeight -----------------------------------
 
 type GetBlockByHeightArgs struct {
-	Height             common.JSONUint64 `json:"height"`
-	IncludeEthTxHashes bool              `json:"include_eth_tx_hashes"`
+	Height                   common.JSONUint64 `json:"height"`
+	IncludeEthTxHashes       bool              `json:"include_eth_tx_hashes"`
+	IncludeUnfinalizedBlocks bool              `json:"include_unfinalized_blocks"`
 }
 
 func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
@@ -357,9 +433,13 @@ func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *G
 
 	var block *core.ExtendedBlock
 	for _, b := range blocks {
-		if b.Status.IsFinalized() {
+		if args.IncludeUnfinalizedBlocks {
 			block = b
-			break
+		} else {
+			if b.Status.IsFinalized() {
+				block = b
+				break
+			}
 		}
 	}
 

@@ -43,8 +43,9 @@ var blockCmd = &cobra.Command{
 			})
 		} else {
 			res, err = client.Call("theta.GetBlockByHeight", rpc.GetBlockByHeightArgs{
-				Height:             common.JSONUint64(heightFlag),
-				IncludeEthTxHashes: includeEthTxHashFlag,
+				Height:                   common.JSONUint64(heightFlag),
+				IncludeUnfinalizedBlocks: includeUnfinalizedBlocksFlag,
+				IncludeEthTxHashes:       includeEthTxHashFlag,
 			})
 		}
 
@@ -68,4 +69,5 @@ func init() {
 	blockCmd.Flags().Uint64Var(&startFlag, "start", uint64(0), "starting height of the blocks")
 	blockCmd.Flags().Uint64Var(&endFlag, "end", uint64(0), "ending height of the blocks")
 	blockCmd.Flags().BoolVar(&includeEthTxHashFlag, "include_eth_tx_hashes", false, "include eth tx hash for the smart contract transactions")
+	blockCmd.Flags().BoolVar(&includeUnfinalizedBlocksFlag, "include_unfinalized_blocks", false, "include unfinalized blocks")
 }
