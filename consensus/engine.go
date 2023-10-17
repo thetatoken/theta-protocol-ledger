@@ -64,6 +64,26 @@ type ConsensusEngine struct {
 
 // NewConsensusEngine creates a instance of ConsensusEngine.
 func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *blockchain.Chain, dispatcher *dispatcher.Dispatcher, validatorManager core.ValidatorManager) *ConsensusEngine {
+	var forcedLastVote *core.Vote = nil
+	if viper.GetBool(common.CfgConsensusForceLastVote) {
+		targetBlockHashStr := viper.GetString(common.CfgConsensusForceLastVoteTargetBlock)
+		if len(targetBlockHashStr) == 0 {
+			logger.Panicf("Need to set consensus.forceLastVoteTargetBlock")
+		}
+		forceVoteTargetBlockHash := common.HexToHash(targetBlockHashStr)
+		forceVoteTargetBlock, err := chain.FindBlock(forceVoteTargetBlockHash)
+		if err != nil {
+			logger.Panicf("Failed to load the target block for the forced vote: %v", err)
+		}
+		forcedLastVote = &core.Vote{
+			Block:  forceVoteTargetBlock.Hash(),
+			Height: forceVoteTargetBlock.Height,
+			ID:     privateKey.PublicKey().Address(),
+			Epoch:  chain.Root().Epoch,
+		}
+		forcedLastVote.Sign(privateKey)
+	}
+
 	e := &ConsensusEngine{
 		chain:      chain,
 		dispatcher: dispatcher,
@@ -76,7 +96,7 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 		wg: &sync.WaitGroup{},
 
 		mu:    &sync.Mutex{},
-		state: NewState(db, chain),
+		state: NewState(db, chain, forcedLastVote),
 
 		validatorManager: validatorManager,
 

@@ -622,6 +622,7 @@ type GetStatusResult struct {
 	CurrentHeight              common.JSONUint64 `json:"current_height"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
+	tipHash                    common.Hash       `json:"tipHash"`
 	GenesisBlockHash           common.Hash       `json:"genesis_block_hash"`
 	SnapshotBlockHeight        common.JSONUint64 `json:"snapshot_block_height"`
 	SnapshotBlockHash          common.Hash       `json:"snapshot_block_hash"`
@@ -663,6 +664,10 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	}
 
 	result.Syncing = !t.consensus.HasSynced()
+	tipBlock := t.consensus.GetTip(true)
+	if tipBlock != nil && tipBlock.BlockHeader != nil {
+		result.tipHash = tipBlock.Hash()
+	}
 
 	var genesisHash common.Hash
 	if t.consensus.Chain().ChainID == core.MainnetChainID {

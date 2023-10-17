@@ -40,7 +40,7 @@ type State struct {
 	epoch        uint64
 }
 
-func NewState(db store.Store, chain *blockchain.Chain) *State {
+func NewState(db store.Store, chain *blockchain.Chain, forcedLastVote *core.Vote) *State {
 	s := &State{
 		mu:                 &sync.RWMutex{},
 		db:                 db,
@@ -49,7 +49,7 @@ func NewState(db store.Store, chain *blockchain.Chain) *State {
 		lastFinalizedBlock: chain.Root().Hash(),
 		epoch:              chain.Root().Epoch,
 	}
-	err := s.Load()
+	err := s.Load(forcedLastVote)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -93,7 +93,7 @@ func (s *State) commit() error {
 	return s.db.Put(key, stub)
 }
 
-func (s *State) Load() (err error) {
+func (s *State) Load(forcedLastVote *core.Vote) (err error) {
 	key := []byte(DBStateStubKey)
 	stub := &StateStub{}
 	s.db.Get(key, stub)
@@ -107,7 +107,11 @@ func (s *State) Load() (err error) {
 	}
 
 	s.LastProposal = stub.LastProposal
-	s.LastVote = stub.LastVote
+	if forcedLastVote == nil {
+		s.LastVote = stub.LastVote
+	} else {
+		s.LastVote = *forcedLastVote
+	}
 	s.epoch = stub.Epoch
 	s.lastFinalizedBlock = stub.LastFinalizedBlock
 	s.highestCCBlock = stub.HighestCCBlock
