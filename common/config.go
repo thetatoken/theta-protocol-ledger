@@ -57,9 +57,10 @@ const (
 	// CfgSyncDownloadByHash indicates whether should download blocks using hash.
 	CfgSyncDownloadByHash = "sync.downloadByHash"
 	// CfgSyncDownloadByHeader indicates whether should download blocks using header.
-	CfgSyncDownloadByHeader     = "sync.downloadByHeader"
-	CfgSyncFastsyncQuota        = "sync.fastsyncQuota"
-	CfgSyncOutdatedVoteBlockGap = "sync.outdatedVoteBlockGap"
+	CfgSyncDownloadByHeader        = "sync.downloadByHeader"
+	CfgSyncFastsyncQuota           = "sync.fastsyncQuota"
+	CfgSyncOutdatedVoteBlockGap    = "sync.outdatedVoteBlockGap"
+	CfgSyncForcedDownloadBlockHash = "sync.forcedDownloadBlockHash"
 
 	// CfgP2POpt sets which P2P network to use: p2p, libp2p, or both.
 	CfgP2POpt = "p2p.opt"
@@ -180,6 +181,7 @@ func init() {
 	viper.SetDefault(CfgSyncDownloadByHeader, true)
 	viper.SetDefault(CfgSyncFastsyncQuota, 8)
 	viper.SetDefault(CfgSyncOutdatedVoteBlockGap, 100800) // approximately 7 days worth of blocks
+	viper.SetDefault(CfgSyncForcedDownloadBlockHash, "")
 
 	viper.SetDefault(CfgStorageRollingEnabled, true)
 	viper.SetDefault(CfgStorageStatePruningEnabled, true)

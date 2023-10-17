@@ -286,6 +286,11 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 	//  Push last finalized block.
 	starts = append(starts, lfb.Hash().Hex())
 
+	forcedBlockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+	if forcedBlockHash != "" {
+		starts = append(starts, forcedBlockHash)
+	}
+
 	return dispatcher.InventoryRequest{
 		ChannelID: common.ChannelIDBlock,
 		Starts:    starts,
@@ -378,6 +383,12 @@ func (rm *RequestManager) downloadBlockFromHash() {
 				ChannelID: common.ChannelIDBlock,
 				Entries:   []string{pendingBlock.hash.String()},
 			}
+
+			forcedBlockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+			if forcedBlockHash != "" {
+				request.Entries = append(request.Entries, forcedBlockHash)
+			}
+
 			rm.logger.WithFields(log.Fields{
 				"channelID":       request.ChannelID,
 				"request.Entries": request.Entries,
