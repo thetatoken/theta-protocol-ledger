@@ -202,8 +202,17 @@ func (rm *RequestManager) mainLoop() {
 			return
 		case <-rm.ticker.C:
 			rm.tryToDownload()
+		}
+	}
+}
+
+func (rm *RequestManager) recoveryModeLoop() {
+	defer rm.wg.Done()
+
+	for {
+		select {
 		case <-rm.recoveryModeTicker.C:
-			rm.runRecoveryMode()
+			rm.attemptToRunRecoveryMode()
 		}
 	}
 }
@@ -220,6 +229,9 @@ func (rm *RequestManager) Start(ctx context.Context) {
 
 	rm.wg.Add(1)
 	go rm.passReadyBlocks()
+
+	rm.wg.Add(1)
+	go rm.recoveryModeLoop()
 }
 
 func (rm *RequestManager) Stop() {
@@ -307,6 +319,49 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 	}
 }
 
+func (rm *RequestManager) getHighestVotedBlockHeightAndHash() (bool, uint64, common.Hash) {
+	epochVotes, err := rm.syncMgr.consensus.GetEpochVotes()
+	if err != nil {
+		log.Debugf("Recovery mode check: Failed to retrieve epoch votes - %v", err)
+		return false, 0, common.Hash{}
+	}
+	if epochVotes == nil {
+		log.Debugf("Recovery mode check: epochVotes is nil")
+		return false, 0, common.Hash{}
+	}
+
+	lastFinalizedBlock := rm.syncMgr.consensus.GetLastFinalizedBlock()
+	if lastFinalizedBlock == nil {
+		log.Debugf("Recovery mode check: Failed to lookup the last finalized block")
+		return false, 0, common.Hash{}
+	}
+	// Assuming that the validator set hasn't change drastically from the last validator set
+	validatorSet := rm.syncMgr.consensus.GetValidatorSet(lastFinalizedBlock.Hash())
+	if validatorSet == nil {
+		log.Debugf("Recovery mode check: Failed to lookup validator set")
+		return false, 0, common.Hash{}
+	}
+
+	maxVoteHeight := uint64(0)
+	highestVotedBlockHash := common.Hash{}
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			_, err := validatorSet.GetValidator(v.ID)
+			if err != nil {
+				logger.Debugf("Recovery mode check: Skip a vote from a non-validator %v", v.ID)
+				continue
+			}
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+				highestVotedBlockHash = v.Block
+			}
+		}
+	}
+
+	success := (maxVoteHeight != 0)
+	return success, maxVoteHeight, highestVotedBlockHash
+}
+
 func (rm *RequestManager) isInRecoveryMode() bool {
 	latestFinalizedBlock := rm.syncMgr.consensus.GetLastFinalizedBlock()
 	if latestFinalizedBlock == nil {
@@ -315,18 +370,9 @@ func (rm *RequestManager) isInRecoveryMode() bool {
 	}
 	latestFinalizedBlockHeight := latestFinalizedBlock.Height
 
-	epochVotes, err := rm.syncMgr.consensus.GetEpochVotes()
-	if err != nil {
-		log.Debugf("Recovery mode check: failed to retrieve epoch votes - %v", err)
+	success, maxVoteHeight, _ := rm.getHighestVotedBlockHeightAndHash()
+	if !success {
 		return false
-	}
-	maxVoteHeight := uint64(0)
-	if epochVotes != nil {
-		for _, v := range epochVotes.Votes() {
-			if v.Height > maxVoteHeight {
-				maxVoteHeight = v.Height
-			}
-		}
 	}
 
 	blockGapThreshold := uint64(viper.GetInt(common.CfgSyncRecoveryModeBlockGapThreshold))
@@ -339,24 +385,9 @@ func (rm *RequestManager) isInRecoveryMode() bool {
 }
 
 func (rm *RequestManager) getHighestVotedBlockHash() (common.Hash, error) {
-	epochVotes, err := rm.syncMgr.consensus.GetEpochVotes()
-	if err != nil {
-		log.Debugf("getHighestVotedBlockHash: failed to retrieve epoch votes - %v", err)
-		return common.Hash{}, err
-	}
-	if epochVotes == nil {
-		log.Debugf("getHighestVotedBlockHash: epochVotes is nil")
-		return common.Hash{}, fmt.Errorf("epochVotes is nil")
-	}
-	maxVoteHeight := uint64(0)
-	highestVotedBlockHash := common.Hash{}
-	if epochVotes != nil {
-		for _, v := range epochVotes.Votes() {
-			if v.Height > maxVoteHeight {
-				maxVoteHeight = v.Height
-				highestVotedBlockHash = v.Block
-			}
-		}
+	success, _, highestVotedBlockHash := rm.getHighestVotedBlockHeightAndHash()
+	if !success {
+		return common.Hash{}, fmt.Errorf("getHighestVotedBlockHash: failed to obtain the highest voted block hash")
 	}
 
 	log.Debugf("getHighestVotedBlockHash: highestVotedBlockHash = %v", highestVotedBlockHash.String())
@@ -364,7 +395,7 @@ func (rm *RequestManager) getHighestVotedBlockHash() (common.Hash, error) {
 	return highestVotedBlockHash, nil
 }
 
-func (rm *RequestManager) runRecoveryMode() {
+func (rm *RequestManager) attemptToRunRecoveryMode() {
 	rm.recoveryModeLock.Lock()
 	defer rm.recoveryModeLock.Unlock()
 

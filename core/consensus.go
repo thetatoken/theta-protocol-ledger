@@ -16,6 +16,7 @@ type ConsensusEngine interface {
 	FinalizedBlocks() chan *Block
 	GetLastFinalizedBlock() *ExtendedBlock
 	GetEpochVotes() (*VoteSet, error)
+	GetValidatorSet(blockHash common.Hash) *ValidatorSet
 }
 
 // ValidatorManager is the component for managing validator related logic for consensus engine.

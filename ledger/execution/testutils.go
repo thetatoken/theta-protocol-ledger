@@ -27,13 +27,14 @@ type TestConsensusEngine struct {
 	privKey *crypto.PrivateKey
 }
 
-func (tce *TestConsensusEngine) ID() string                        { return tce.privKey.PublicKey().Address().Hex() }
-func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey    { return tce.privKey }
-func (tce *TestConsensusEngine) GetTip(bool) *core.ExtendedBlock   { return nil }
-func (tce *TestConsensusEngine) GetEpoch() uint64                  { return 100 }
-func (tce *TestConsensusEngine) AddMessage(msg interface{})        {}
-func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block { return nil }
-func (tce *TestConsensusEngine) GetLedger() core.Ledger            { return nil }
+func (tce *TestConsensusEngine) ID() string                                               { return tce.privKey.PublicKey().Address().Hex() }
+func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey                           { return tce.privKey }
+func (tce *TestConsensusEngine) GetTip(bool) *core.ExtendedBlock                          { return nil }
+func (tce *TestConsensusEngine) GetEpoch() uint64                                         { return 100 }
+func (tce *TestConsensusEngine) AddMessage(msg interface{})                               {}
+func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block                        { return nil }
+func (tce *TestConsensusEngine) GetLedger() core.Ledger                                   { return nil }
+func (tce *TestConsensusEngine) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet { return nil }
 func (tce *TestConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock {
 	return &core.ExtendedBlock{}
 }

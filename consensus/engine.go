@@ -1124,9 +1124,12 @@ func (e *ConsensusEngine) GetSummary() *StateStub {
 	return e.state.GetSummary()
 }
 
-// GetSummary returns a summary of consensus state.
 func (e *ConsensusEngine) GetEpochVotes() (*core.VoteSet, error) {
 	return e.state.GetEpochVotes()
+}
+
+func (e *ConsensusEngine) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet {
+	return e.validatorManager.GetValidatorSet(blockHash)
 }
 
 // FinalizedBlocks returns a channel that will be published with finalized blocks by the engine.
