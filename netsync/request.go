@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"container/list"
 	"context"
+	"fmt"
 	"math/rand"
 	"sync"
 	"sync/atomic"
@@ -189,8 +190,6 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 func (rm *RequestManager) mainLoop() {
 	defer rm.wg.Done()
 
-	go rm.forceDownloadBranch()
-
 	for {
 		select {
 		case <-rm.ctx.Done():
@@ -206,6 +205,8 @@ func (rm *RequestManager) Start(ctx context.Context) {
 	c, cancel := context.WithCancel(ctx)
 	rm.ctx = c
 	rm.cancel = cancel
+
+	go rm.forceDownloadBranch()
 
 	rm.wg.Add(1)
 	go rm.mainLoop()
@@ -299,9 +300,69 @@ func (rm *RequestManager) buildInventoryRequest() dispatcher.InventoryRequest {
 	}
 }
 
+func (rm *RequestManager) isInRecoveryMode() bool {
+	latestFinalizedBlock := rm.syncMgr.consensus.GetLastFinalizedBlock()
+	if latestFinalizedBlock == nil {
+		log.Debugf("Recovery mode check: latestFinalizedBlock is nil")
+		return false
+	}
+	latestFinalizedBlockHeight := latestFinalizedBlock.Height
+
+	epochVotes, err := rm.syncMgr.consensus.GetEpochVotes()
+	if err != nil {
+		log.Debugf("Recovery mode check: failed to retrieve epoch votes - %v", err)
+		return false
+	}
+	maxVoteHeight := uint64(0)
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+			}
+		}
+	}
+
+	blockGapThreshold := uint64(viper.GetInt(common.CfgSyncRecoveryModeBlockGapThreshold))
+	inRecoveryMode := latestFinalizedBlockHeight+blockGapThreshold <= maxVoteHeight
+	return inRecoveryMode
+}
+
+func (rm *RequestManager) getHighestVotedBlockHash() (common.Hash, error) {
+	epochVotes, err := rm.syncMgr.consensus.GetEpochVotes()
+	if err != nil {
+		log.Debugf("getHighestVotedBlockHash: failed to retrieve epoch votes - %v", err)
+		return common.Hash{}, err
+	}
+	if epochVotes == nil {
+		log.Debugf("getHighestVotedBlockHash: epochVotes is nil")
+		return common.Hash{}, fmt.Errorf("epochVotes is nil")
+	}
+	maxVoteHeight := uint64(0)
+	highestVotedBlockHash := common.Hash{}
+	if epochVotes != nil {
+		for _, v := range epochVotes.Votes() {
+			if v.Height > maxVoteHeight {
+				maxVoteHeight = v.Height
+				highestVotedBlockHash = v.Block
+			}
+		}
+	}
+	return highestVotedBlockHash, nil
+}
+
 func (rm *RequestManager) tryToDownload() {
 	rm.mu.RLock()
 	defer rm.mu.RUnlock()
+
+	// Recovery mode: When the last finalized block is lagging
+	// behind the highest voted block more than a certain threshold, attempt to download the
+	// block branch between the last finalized block and the highest voted block
+	if rm.isInRecoveryMode() {
+		highestVotedBlockHash, err := rm.getHighestVotedBlockHash()
+		if err != nil {
+			rm.downloadBranch(highestVotedBlockHash)
+		}
+	}
 
 	rm.gossipQuota = GossipRequestQuotaPerSecond
 	// rm.fastsyncQuota = FastsyncRequestQuota
@@ -347,38 +408,86 @@ func (rm *RequestManager) tryToDownload() {
 	rm.pendingBlocksWithHeader = newQ
 }
 
-func (rm *RequestManager) forceDownloadBranch() {
-	logger.Debugf("Download branch")
-	blockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
-	if blockHash == "" {
-		return
-	}
-
+func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
+	logger.Debugf("Branch download: Downloading a branch with tip %v...", branchTipHash)
+	blockHash := branchTipHash
 	for {
-		request := dispatcher.DataRequest{
-			ChannelID: common.ChannelIDBlock,
-			Entries:   []string{},
-		}
-		if blockHash != "" {
-			logger.Debugf("Forcing download %v", blockHash)
-			request.Entries = append(request.Entries, blockHash)
-		} else {
+		if (blockHash == common.Hash{} || blockHash.IsEmpty()) {
+			logger.Debugf("Branch download: current blockHash is empty")
 			break
 		}
-		allPeers := rm.syncMgr.dispatcher.Peers(true)
-		rm.syncMgr.dispatcher.GetData(allPeers, request)
 
-		time.Sleep(200 * time.Millisecond)
-		block, err := rm.chain.FindBlock(common.HexToHash(blockHash))
-		if err != nil {
-			continue // wait a bit longer
-		}
+		block, err := rm.chain.FindBlock(blockHash)
 		if block.Status == core.BlockStatusDirectlyFinalized || block.Status == core.BlockStatusIndirectlyFinalized {
 			break // stop at a finalized block
 		}
-		blockHash = block.Parent.String()
+
+		if block == nil || err != nil {
+			request := dispatcher.DataRequest{
+				ChannelID: common.ChannelIDBlock,
+				Entries:   []string{},
+			}
+
+			logger.Debugf("Branch download: Download block %v", blockHash)
+			request.Entries = append(request.Entries, blockHash.String())
+			allPeers := rm.syncMgr.dispatcher.Peers(true)
+			rm.syncMgr.dispatcher.GetData(allPeers, request)
+			time.Sleep(time.Duration(viper.GetInt(common.CfgSyncDownloadBranchTimeGapInMilliseconds)) * time.Millisecond)
+		} else {
+			// skip download and move to the parent if the block already exists
+			blockHash = block.Parent
+			logger.Debugf("Branch download: Skip block %v", blockHash)
+		}
 	}
 }
+
+func (rm *RequestManager) forceDownloadBranch() {
+	blockHashStr := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+	logger.Debugf("Force downloading branch with tip %v...", blockHashStr)
+	if blockHashStr == "" {
+		return
+	}
+
+	blockHash := common.HexToHash(blockHashStr)
+	if (blockHash == common.Hash{} || blockHash.IsEmpty()) {
+		return
+	}
+
+	rm.downloadBranch(blockHash)
+}
+
+// func (rm *RequestManager) forceDownloadBranch() {
+// 	logger.Debugf("Download branch")
+// 	blockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+// 	if blockHash == "" {
+// 		return
+// 	}
+
+// 	for {
+// 		request := dispatcher.DataRequest{
+// 			ChannelID: common.ChannelIDBlock,
+// 			Entries:   []string{},
+// 		}
+// 		if blockHash != "" {
+// 			logger.Debugf("Forcing download %v", blockHash)
+// 			request.Entries = append(request.Entries, blockHash)
+// 		} else {
+// 			break
+// 		}
+// 		allPeers := rm.syncMgr.dispatcher.Peers(true)
+// 		rm.syncMgr.dispatcher.GetData(allPeers, request)
+
+// 		time.Sleep(200 * time.Millisecond)
+// 		block, err := rm.chain.FindBlock(common.HexToHash(blockHash))
+// 		if err != nil {
+// 			continue // wait a bit longer
+// 		}
+// 		if block.Status == core.BlockStatusDirectlyFinalized || block.Status == core.BlockStatusIndirectlyFinalized {
+// 			break // stop at a finalized block
+// 		}
+// 		blockHash = block.Parent.String()
+// 	}
+// }
 
 //compatible with older version, download block from hash
 func (rm *RequestManager) downloadBlockFromHash() {

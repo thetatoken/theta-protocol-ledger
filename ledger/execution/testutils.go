@@ -37,6 +37,9 @@ func (tce *TestConsensusEngine) GetLedger() core.Ledger            { return nil 
 func (tce *TestConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock {
 	return &core.ExtendedBlock{}
 }
+func (tce *TestConsensusEngine) GetEpochVotes() (*core.VoteSet, error) {
+	return nil, nil
+}
 
 func NewTestConsensusEngine(seed string) *TestConsensusEngine {
 	privKey, _, _ := crypto.TEST_GenerateKeyPairWithSeed(seed)

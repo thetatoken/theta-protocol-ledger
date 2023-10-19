@@ -15,6 +15,7 @@ type ConsensusEngine interface {
 	AddMessage(msg interface{})
 	FinalizedBlocks() chan *Block
 	GetLastFinalizedBlock() *ExtendedBlock
+	GetEpochVotes() (*VoteSet, error)
 }
 
 // ValidatorManager is the component for managing validator related logic for consensus engine.
