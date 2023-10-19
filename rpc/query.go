@@ -620,9 +620,10 @@ type GetStatusResult struct {
 	LatestFinalizedBlockEpoch  common.JSONUint64 `json:"latest_finalized_block_epoch"`
 	CurrentEpoch               common.JSONUint64 `json:"current_epoch"`
 	CurrentHeight              common.JSONUint64 `json:"current_height"`
+	CurrentHash                common.Hash       `json:"current_hash"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
-	tipHash                    common.Hash       `json:"tipHash"`
+	TipHash                    common.Hash       `json:"tipHash"`
 	GenesisBlockHash           common.Hash       `json:"genesis_block_hash"`
 	SnapshotBlockHeight        common.JSONUint64 `json:"snapshot_block_height"`
 	SnapshotBlockHash          common.Hash       `json:"snapshot_block_hash"`
@@ -658,6 +659,7 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 		for _, v := range epochVotes.Votes() {
 			if v.Height > maxVoteHeight {
 				maxVoteHeight = v.Height
+				result.CurrentHash = v.Block
 			}
 		}
 		result.CurrentHeight = common.JSONUint64(maxVoteHeight - 1) // current finalized height is at most maxVoteHeight-1
@@ -666,7 +668,7 @@ func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult
 	result.Syncing = !t.consensus.HasSynced()
 	tipBlock := t.consensus.GetTip(true)
 	if tipBlock != nil && tipBlock.BlockHeader != nil {
-		result.tipHash = tipBlock.Hash()
+		result.TipHash = tipBlock.Hash()
 	}
 
 	var genesisHash common.Hash
