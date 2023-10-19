@@ -189,6 +189,8 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 func (rm *RequestManager) mainLoop() {
 	defer rm.wg.Done()
 
+	go rm.forceDownloadBranch()
+
 	for {
 		select {
 		case <-rm.ctx.Done():
@@ -345,8 +347,56 @@ func (rm *RequestManager) tryToDownload() {
 	rm.pendingBlocksWithHeader = newQ
 }
 
+func (rm *RequestManager) forceDownloadBranch() {
+	logger.Debugf("Download branch")
+	blockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+	if blockHash == "" {
+		return
+	}
+
+	for {
+		request := dispatcher.DataRequest{
+			ChannelID: common.ChannelIDBlock,
+			Entries:   []string{},
+		}
+		if blockHash != "" {
+			logger.Debugf("Forcing download %v", blockHash)
+			request.Entries = append(request.Entries, blockHash)
+		} else {
+			break
+		}
+		allPeers := rm.syncMgr.dispatcher.Peers(true)
+		rm.syncMgr.dispatcher.GetData(allPeers, request)
+
+		time.Sleep(200 * time.Millisecond)
+		block, err := rm.chain.FindBlock(common.HexToHash(blockHash))
+		if err != nil {
+			continue // wait a bit longer
+		}
+		if block.Status == core.BlockStatusDirectlyFinalized || block.Status == core.BlockStatusIndirectlyFinalized {
+			break // stop at a finalized block
+		}
+		blockHash = block.Parent.String()
+	}
+}
+
 //compatible with older version, download block from hash
 func (rm *RequestManager) downloadBlockFromHash() {
+	// logger.Debugf("Download block from hash...")
+	// {
+	// 	forcedBlockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+	// 	request := dispatcher.DataRequest{
+	// 		ChannelID: common.ChannelIDBlock,
+	// 		Entries:   []string{},
+	// 	}
+	// 	if forcedBlockHash != "" {
+	// 		logger.Debugf("Forcing download %v", forcedBlockHash)
+	// 		request.Entries = append(request.Entries, forcedBlockHash)
+	// 	}
+	// 	allPeers := rm.syncMgr.dispatcher.Peers(true)
+	// 	rm.syncMgr.dispatcher.GetData(allPeers, request)
+	// }
+
 	//loop over downloaded hash
 	var curr *list.Element
 	elToRemove := []*list.Element{}
@@ -384,10 +434,10 @@ func (rm *RequestManager) downloadBlockFromHash() {
 				Entries:   []string{pendingBlock.hash.String()},
 			}
 
-			forcedBlockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
-			if forcedBlockHash != "" {
-				request.Entries = append(request.Entries, forcedBlockHash)
-			}
+			// forcedBlockHash := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
+			// if forcedBlockHash != "" {
+			// 	request.Entries = append(request.Entries, forcedBlockHash)
+			// }
 
 			rm.logger.WithFields(log.Fields{
 				"channelID":       request.ChannelID,
