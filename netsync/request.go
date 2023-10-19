@@ -467,8 +467,8 @@ func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
 			time.Sleep(time.Duration(viper.GetInt(common.CfgSyncDownloadBranchTimeGapInMilliseconds)) * time.Millisecond)
 		} else {
 			// skip download and move to the parent if the block already exists
-			blockHash = block.Parent
 			logger.Debugf("Branch download: Skip block %v", blockHash.String())
+			blockHash = block.Parent
 		}
 	}
 }
