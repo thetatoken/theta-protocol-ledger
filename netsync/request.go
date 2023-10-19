@@ -332,8 +332,8 @@ func (rm *RequestManager) isInRecoveryMode() bool {
 	blockGapThreshold := uint64(viper.GetInt(common.CfgSyncRecoveryModeBlockGapThreshold))
 	inRecoveryMode := latestFinalizedBlockHeight+blockGapThreshold <= maxVoteHeight
 
-	log.Debugf("Recovery mode check: latestFinalizedBlockHeight = %v, blockGapThreshold = %v, maxVoteHeight = %v, inRecoveryMode = %v",
-		latestFinalizedBlockHeight, blockGapThreshold, maxVoteHeight, inRecoveryMode)
+	log.Debugf("Recovery mode check: blockGapThreshold = %v, latestFinalizedBlockHeight = %v, maxVoteHeight = %v, inRecoveryMode = %v",
+		blockGapThreshold, latestFinalizedBlockHeight, maxVoteHeight, inRecoveryMode)
 
 	return inRecoveryMode
 }
