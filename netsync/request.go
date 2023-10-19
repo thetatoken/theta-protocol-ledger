@@ -108,7 +108,8 @@ func (h *HeaderHeap) Pop() interface{} {
 type RequestManager struct {
 	logger *log.Entry
 
-	ticker *time.Ticker
+	ticker             *time.Ticker
+	recoveryModeTicker *time.Ticker
 
 	wg      *sync.WaitGroup
 	ctx     context.Context
@@ -123,7 +124,9 @@ type RequestManager struct {
 	blockNotify          chan *core.ExtendedBlock
 	tip                  atomic.Value
 
-	mu                      *sync.RWMutex
+	mu               *sync.RWMutex
+	recoveryModeLock *sync.Mutex
+
 	pendingBlocks           *list.List
 	pendingBlocksByHash     map[string]*list.Element
 	pendingBlocksWithHeader *HeaderHeap
@@ -151,7 +154,8 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 	}
 
 	rm := &RequestManager{
-		ticker: time.NewTicker(1 * time.Second),
+		ticker:             time.NewTicker(1 * time.Second),
+		recoveryModeTicker: time.NewTicker(6 * time.Second),
 
 		wg: &sync.WaitGroup{},
 
@@ -162,6 +166,7 @@ func NewRequestManager(syncMgr *SyncManager, reporter *rp.Reporter) *RequestMana
 		dispatcher: syncMgr.dispatcher,
 
 		mu:                      &sync.RWMutex{},
+		recoveryModeLock:        &sync.Mutex{},
 		pendingBlocks:           list.New(),
 		pendingBlocksByHash:     make(map[string]*list.Element),
 		pendingBlocksWithHeader: &HeaderHeap{},
@@ -197,6 +202,8 @@ func (rm *RequestManager) mainLoop() {
 			return
 		case <-rm.ticker.C:
 			rm.tryToDownload()
+		case <-rm.recoveryModeTicker.C:
+			rm.runRecoveryMode()
 		}
 	}
 }
@@ -324,6 +331,10 @@ func (rm *RequestManager) isInRecoveryMode() bool {
 
 	blockGapThreshold := uint64(viper.GetInt(common.CfgSyncRecoveryModeBlockGapThreshold))
 	inRecoveryMode := latestFinalizedBlockHeight+blockGapThreshold <= maxVoteHeight
+
+	log.Debugf("Recovery mode check: latestFinalizedBlockHeight = %v, blockGapThreshold = %v, maxVoteHeight = %v, inRecoveryMode = %v",
+		latestFinalizedBlockHeight, blockGapThreshold, maxVoteHeight, inRecoveryMode)
+
 	return inRecoveryMode
 }
 
@@ -347,22 +358,30 @@ func (rm *RequestManager) getHighestVotedBlockHash() (common.Hash, error) {
 			}
 		}
 	}
+
+	log.Debugf("getHighestVotedBlockHash: highestVotedBlockHash = %v", highestVotedBlockHash.String())
+
 	return highestVotedBlockHash, nil
 }
 
-func (rm *RequestManager) tryToDownload() {
-	rm.mu.RLock()
-	defer rm.mu.RUnlock()
+func (rm *RequestManager) runRecoveryMode() {
+	rm.recoveryModeLock.Lock()
+	defer rm.recoveryModeLock.Unlock()
 
 	// Recovery mode: When the last finalized block is lagging
 	// behind the highest voted block more than a certain threshold, attempt to download the
 	// block branch between the last finalized block and the highest voted block
 	if rm.isInRecoveryMode() {
 		highestVotedBlockHash, err := rm.getHighestVotedBlockHash()
-		if err != nil {
+		if err == nil {
 			rm.downloadBranch(highestVotedBlockHash)
 		}
 	}
+}
+
+func (rm *RequestManager) tryToDownload() {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
 
 	rm.gossipQuota = GossipRequestQuotaPerSecond
 	// rm.fastsyncQuota = FastsyncRequestQuota
@@ -409,7 +428,7 @@ func (rm *RequestManager) tryToDownload() {
 }
 
 func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
-	logger.Debugf("Branch download: Downloading a branch with tip %v...", branchTipHash)
+	logger.Debugf("Branch download: Downloading a branch with tip %v...", branchTipHash.String())
 	blockHash := branchTipHash
 	for {
 		if (blockHash == common.Hash{} || blockHash.IsEmpty()) {
@@ -418,8 +437,11 @@ func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
 		}
 
 		block, err := rm.chain.FindBlock(blockHash)
-		if block.Status == core.BlockStatusDirectlyFinalized || block.Status == core.BlockStatusIndirectlyFinalized {
-			break // stop at a finalized block
+		if block != nil {
+			logger.Debugf("Branch download: block %v downloaded, height = %v", blockHash.String(), block.Height)
+			if block.Status == core.BlockStatusDirectlyFinalized || block.Status == core.BlockStatusIndirectlyFinalized {
+				break // stop at a finalized block
+			}
 		}
 
 		if block == nil || err != nil {
@@ -428,15 +450,25 @@ func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
 				Entries:   []string{},
 			}
 
-			logger.Debugf("Branch download: Download block %v", blockHash)
 			request.Entries = append(request.Entries, blockHash.String())
-			allPeers := rm.syncMgr.dispatcher.Peers(true)
-			rm.syncMgr.dispatcher.GetData(allPeers, request)
+			selectedPeers := rm.syncMgr.dispatcher.Peers(true)
+			rand.Seed(time.Now().UnixNano())
+			rand.Shuffle(len(selectedPeers), func(i, j int) {
+				selectedPeers[i], selectedPeers[j] = selectedPeers[j], selectedPeers[i]
+			})
+			maxNumPeers := 3
+			if len(selectedPeers) > maxNumPeers {
+				selectedPeers = selectedPeers[:maxNumPeers]
+			}
+
+			rm.syncMgr.dispatcher.GetData(selectedPeers, request)
+			logger.Debugf("Branch download: Download block %v", blockHash.String())
+			logger.Debugf("Branch download: Downloading from peers: %v", selectedPeers)
 			time.Sleep(time.Duration(viper.GetInt(common.CfgSyncDownloadBranchTimeGapInMilliseconds)) * time.Millisecond)
 		} else {
 			// skip download and move to the parent if the block already exists
 			blockHash = block.Parent
-			logger.Debugf("Branch download: Skip block %v", blockHash)
+			logger.Debugf("Branch download: Skip block %v", blockHash.String())
 		}
 	}
 }

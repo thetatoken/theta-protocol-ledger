@@ -623,7 +623,7 @@ type GetStatusResult struct {
 	CurrentHash                common.Hash       `json:"current_hash"`
 	CurrentTime                *common.JSONBig   `json:"current_time"`
 	Syncing                    bool              `json:"syncing"`
-	TipHash                    common.Hash       `json:"tipHash"`
+	TipHash                    common.Hash       `json:"tip_hash"`
 	GenesisBlockHash           common.Hash       `json:"genesis_block_hash"`
 	SnapshotBlockHeight        common.JSONUint64 `json:"snapshot_block_height"`
 	SnapshotBlockHash          common.Hash       `json:"snapshot_block_hash"`
