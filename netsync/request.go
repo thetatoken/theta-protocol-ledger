@@ -475,7 +475,6 @@ func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
 
 func (rm *RequestManager) forceDownloadBranch() {
 	blockHashStr := viper.GetString(common.CfgSyncForcedDownloadBlockHash)
-	logger.Debugf("Force downloading branch with tip %v...", blockHashStr)
 	if blockHashStr == "" {
 		return
 	}
@@ -485,6 +484,7 @@ func (rm *RequestManager) forceDownloadBranch() {
 		return
 	}
 
+	logger.Debugf("Force downloading branch with tip %v...", blockHashStr)
 	rm.downloadBranch(blockHash)
 }
 
