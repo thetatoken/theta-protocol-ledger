@@ -801,7 +801,7 @@ func (sm *SyncManager) handleVote(vote core.Vote, pid string) {
 			"vote.ID":    vote.ID.Hex(),
 			"vote.Epoch": vote.Epoch,
 			"peer":       pid,
-		}).Warn("Ignoring invalid vote")
+		}).Debug("Ignoring invalid vote")
 		return
 	}
 
@@ -814,7 +814,7 @@ func (sm *SyncManager) handleVote(vote core.Vote, pid string) {
 			"vote.Epoch":   vote.Epoch,
 			"currentEpoch": currentEpoch,
 			"peer":         pid,
-		}).Warn("Ignoring outdated vote")
+		}).Debug("Ignoring outdated vote")
 		return
 	}
 
