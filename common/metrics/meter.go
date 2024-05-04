@@ -46,7 +46,7 @@ func NewMeter() Meter {
 	return m
 }
 
-// NewMeter constructs and registers a new StandardMeter and launches a
+// NewRegisteredMeter constructs and registers a new StandardMeter and launches a
 // goroutine.
 // Be sure to unregister the meter from the registry once it is of no use to
 // allow for garbage collection.
@@ -110,7 +110,7 @@ func (NilMeter) Rate1() float64 { return 0.0 }
 // Rate5 is a no-op.
 func (NilMeter) Rate5() float64 { return 0.0 }
 
-// Rate15is a no-op.
+// Rate15 is a no-op.
 func (NilMeter) Rate15() float64 { return 0.0 }
 
 // RateMean is a no-op.
