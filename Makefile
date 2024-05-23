@@ -18,6 +18,11 @@ docker:
 
 install: gen_version release
 
+# Cross compile AMD64 binaries on Apple Silicon (M1/M2 chips, etc)
+install_as: gen_version
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o ${GOBIN}/theta ./cmd/theta/ 
+	CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -o  ${GOBIN}/thetacli ./cmd/thetacli/ 
+
 exe:
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -o theta.exe ./cmd/theta/
 	CGO_ENABLED=1 GOOS=windows GOARCH=amd64 CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ go build -o thetacli.exe ./cmd/thetacli/
