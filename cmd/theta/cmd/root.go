@@ -47,6 +47,10 @@ func init() {
 	RootCmd.PersistentFlags().StringVar(&chainCorrectionPath, "chain_correction", "", "chain correction path")
 	//RootCmd.PersistentFlags().StringVar(&snapshotPath, "snapshot", getDefaultSnapshotPath(), fmt.Sprintf("snapshot path (default is %s)", getDefaultSnapshotPath()))
 	RootCmd.PersistentFlags().StringVar(&nodePassword, "password", "", "password for the node")
+	passwordFromEnv := os.Getenv("THETA_NODE_PASSWORD")
+	if len(passwordFromEnv) > 0 {
+		nodePassword = passwordFromEnv
+	}
 
 	// Support for custom db path
 	RootCmd.PersistentFlags().String("data", "", "data path (default to config path)")
