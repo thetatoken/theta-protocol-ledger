@@ -198,6 +198,9 @@ func validateInputAdvanced(acc *types.Account, signBytes []byte, in types.TxInpu
 	if blockHeight >= common.HeightTxWrapperExtension {
 		signBytesV2 := types.ChangeEthereumTxWrapper(signBytes, 2)
 		signatureValid = signatureValid || in.Signature.Verify(signBytesV2, acc.Address)
+
+		logger.Infof(">>> validateInputAdvanced - signatureValid: %v, acc.Address: %v, signBytesV2: %v, ", signatureValid, acc.Address, hex.EncodeToString(signBytesV2))
+
 	}
 
 	if !signatureValid {
@@ -227,7 +230,8 @@ func sumOutputs(outs []types.TxOutput) types.Coins {
 }
 
 // Note: Since totalInput == totalOutput + fee, the transaction fee is charged implicitly
-//       by the following adjustByInputs() function. No special handling needed
+//
+//	by the following adjustByInputs() function. No special handling needed
 func adjustByInputs(view *state.StoreView, accounts map[string]*types.Account, ins []types.TxInput) {
 	for _, in := range ins {
 		acc := accounts[string(in.Address[:])]

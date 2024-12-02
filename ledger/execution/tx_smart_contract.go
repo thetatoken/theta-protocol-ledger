@@ -53,7 +53,10 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 		nativeSignatureValid = nativeSignatureValid || tx.From.Signature.Verify(signBytesV2, tx.From.Address)
 	}
 
+	logger.Infof(">>> SmartContractTxExecutor.sanityCheck - nativeSignatureValid: %v", nativeSignatureValid)
+
 	if !nativeSignatureValid {
+
 		if blockHeight < common.HeightRPCCompatibility {
 			return result.Error("Signature verification failed, SignBytes: %v",
 				hex.EncodeToString(signBytes)).WithErrorCode(result.CodeInvalidSignature)
@@ -66,7 +69,12 @@ func (exec *SmartContractTxExecutor) sanityCheck(chainID string, view *st.StoreV
 
 		ethSigningHash := tx.EthSigningHash(chainID, blockHeight)
 		err := crypto.ValidateEthSignature(tx.From.Address, ethSigningHash, tx.From.Signature)
+		logger.Infof(">>> SmartContractTxExecutor.sanityCheck - tx.From.Address: %v, ethSigningHash: %v, tx.From.Signature",
+			tx.From.Address, ethSigningHash.Hex(), hex.EncodeToString(tx.From.Signature.ToBytes()))
+
 		if err != nil {
+			logger.Infof(">>> SmartContractTxExecutor.sanityCheck - ETH Signature verification failed, error: %v", err.Error())
+
 			return result.Error("ETH Signature verification failed, SignBytes: %v, error: %v",
 				hex.EncodeToString(signBytes), err.Error()).WithErrorCode(result.CodeInvalidSignature)
 		}

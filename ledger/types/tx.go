@@ -974,7 +974,6 @@ func (tx *WithdrawStakeTx) String() string {
 
 //-----------------------------------------------------------------------------
 
-//
 // StakeRewardDistributionTx needs to be signed and submitted by the "stake holders", i.e. a guardian or an elite edge node.
 // It allows the stake holder to specify a "beneficiary" to receive a fraction of the Theta/TFuel staking reward. The split fraction
 // is defined by SplitBasisPoint/10000. The remainder of the staking reward goes back to the staker wallet.
@@ -984,7 +983,6 @@ func (tx *WithdrawStakeTx) String() string {
 // The stakers can choose whether to stake to a node based on the fee it charges. Note that an operator can change the fee anytime, and
 // as a response, a staker might choose to deposit/withdraw stake depending if he/she thinks the fee is fair. This thus creates
 // a free market for guardian/elite edge node hosting service.
-//
 type StakeRewardDistributionTx struct {
 	Fee             Coins    `json:"fee"`               // transction fee, NOT the hosting service fee
 	Holder          TxInput  `json:"holder"`            // stake holder account, i.e., a guardian or an elite edge node
@@ -1080,6 +1078,10 @@ func ChangeEthereumTxWrapper(origSignBytes common.Bytes, wrapperVersion uint) co
 			EIP155Field1: uint(0),
 			EIP155Field2: uint(0),
 		}
+
+		logger.Infof(">>> ChangeEthereumTxWrapper - accountNonce: %v, price: %v, gasLimit: %v, recipient: %v, amount: %v, payload: %v, chainID: %v, EIP155Field1: %v, EIP155Field2: %v",
+			wrappedTx.AccountNonce, wrappedTx.Price, wrappedTx.GasLimit, wrappedTx.Recipient, wrappedTx.Amount, hex.EncodeToString(wrappedTx.Payload), wrappedTx.ChainID, wrappedTx.EIP155Field1, wrappedTx.EIP155Field2)
+
 		signBytes, err := rlp.EncodeToBytes(wrappedTx)
 		if err != nil {
 			log.Panic(err)
