@@ -93,6 +93,11 @@ func (ch *Chain) addBlock(block *core.Block, isSnapshotRoot bool) (*core.Extende
 
 	extendedBlock := &core.ExtendedBlock{Block: block}
 
+	// Set status to trusted for snapshot root
+	if isSnapshotRoot {
+		extendedBlock.Status = core.BlockStatusTrusted
+	}
+
 	// Update children if present.
 	children := ch.findBlocksByHeight(block.Height + 1)
 	extendedBlock.Children = []common.Hash{}

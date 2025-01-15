@@ -209,9 +209,6 @@ func (rm *RequestManager) mainLoop() {
 func (rm *RequestManager) recoveryModeLoop() {
 	defer rm.wg.Done()
 
-
-	time.Sleep(10 * time.Second)
-
 	for {
 		select {
 		case <-rm.recoveryModeTicker.C:
