@@ -137,6 +137,9 @@ func unmarshalPubkey(pub []byte) (*ecdsa.PublicKey, error) {
 	if x == nil {
 		return nil, errInvalidPubkey
 	}
+	if !S256().IsOnCurve(x, y) {
+		return nil, errInvalidPubkey
+	}
 	return &ecdsa.PublicKey{Curve: s256(), X: x, Y: y}, nil
 }
 
