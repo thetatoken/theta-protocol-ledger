@@ -149,7 +149,7 @@ func (pt *PeerTable) GetAllPeers(skipEdgeNode bool) *([]*Peer) {
 	return &ret
 }
 
-// GetAllPeers returns all the peers
+// GetAllPeerIDs returns all the peers
 func (pt *PeerTable) GetAllPeerIDs() *[]pr.ID {
 	pt.mutex.Lock()
 	defer pt.mutex.Unlock()
