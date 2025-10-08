@@ -38,6 +38,9 @@ func (tce *TestConsensusEngine) GetValidatorSet(blockHash common.Hash) *core.Val
 func (tce *TestConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock {
 	return &core.ExtendedBlock{}
 }
+func (tce *TestConsensusEngine) GetHighestCCBlock() *core.ExtendedBlock {
+	return &core.ExtendedBlock{}
+}
 func (tce *TestConsensusEngine) GetEpochVotes() (*core.VoteSet, error) {
 	return nil, nil
 }
@@ -95,7 +98,7 @@ func NewExecTest() *execTest {
 	return et
 }
 
-//reset everything. state is empty
+// reset everything. state is empty
 func (et *execTest) reset() {
 	et.accIn = types.MakeAccWithInitBalance("foo", types.NewCoins(700000, 50*getMinimumTxFee()))
 	et.accOut = types.MakeAccWithInitBalance("bar", types.NewCoins(700000, 50*getMinimumTxFee()))
