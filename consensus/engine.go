@@ -1142,6 +1142,10 @@ func (e *ConsensusEngine) GetLastFinalizedBlock() *core.ExtendedBlock {
 	return e.state.GetLastFinalizedBlock()
 }
 
+func (e *ConsensusEngine) GetHighestCCBlock() *core.ExtendedBlock {
+	return e.state.GetHighestCCBlock()
+}
+
 func (e *ConsensusEngine) processCCBlock(ccBlock *core.ExtendedBlock) {
 	if ccBlock.Height <= e.state.GetHighestCCBlock().Height {
 		return

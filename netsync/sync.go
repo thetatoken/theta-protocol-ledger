@@ -374,6 +374,30 @@ func (m *SyncManager) handleInvRequest(peerID string, req *dispatcher.InventoryR
 
 		// Send header response
 		headers := m.collectHeaders(start, end)
+
+		// Ensure HCC is in the response
+		hcc := m.consensus.GetHighestCCBlock()
+		isHCCInBlocks := false
+		for _, hash := range blocks {
+			if hash == hcc.Hash().Hex() {
+				isHCCInBlocks = true
+				break
+			}
+		}
+		if !isHCCInBlocks {
+			blocks = append([]string{hcc.Hash().Hex()}, blocks...)
+		}
+		isHCCInHeaders := false
+		for _, header := range headers.HeaderArray {
+			if header.Hash().Hex() == hcc.Hash().Hex() {
+				isHCCInHeaders = true
+				break
+			}
+		}
+		if !isHCCInHeaders {
+			headers.HeaderArray = append([]*core.BlockHeader{hcc.BlockHeader}, headers.HeaderArray...)
+		}
+
 		payload, err := rlp.EncodeToBytes(headers)
 		if err != nil {
 			m.logger.WithFields(log.Fields{

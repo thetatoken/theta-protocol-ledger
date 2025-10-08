@@ -15,6 +15,7 @@ type ConsensusEngine interface {
 	AddMessage(msg interface{})
 	FinalizedBlocks() chan *Block
 	GetLastFinalizedBlock() *ExtendedBlock
+	GetHighestCCBlock() *ExtendedBlock
 	GetEpochVotes() (*VoteSet, error)
 	GetValidatorSet(blockHash common.Hash) *ValidatorSet
 }
