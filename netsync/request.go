@@ -405,7 +405,7 @@ func (rm *RequestManager) attemptToRunRecoveryMode() {
 	if rm.isInRecoveryMode() {
 		highestVotedBlockHash, err := rm.getHighestVotedBlockHash()
 		if err == nil {
-			rm.downloadBranch(highestVotedBlockHash)
+			rm.DownloadBranch(highestVotedBlockHash)
 		}
 	}
 }
@@ -458,7 +458,9 @@ func (rm *RequestManager) tryToDownload() {
 	rm.pendingBlocksWithHeader = newQ
 }
 
-func (rm *RequestManager) downloadBranch(branchTipHash common.Hash) {
+// DownloadBranch downloads a branch starting from the tip hash back to a finalized block.
+// This is a blocking operation.
+func (rm *RequestManager) DownloadBranch(branchTipHash common.Hash) {
 	logger.Debugf("Branch download: Downloading a branch with tip %v...", branchTipHash.String())
 	blockHash := branchTipHash
 	for {
@@ -516,7 +518,7 @@ func (rm *RequestManager) forceDownloadBranch() {
 	}
 
 	logger.Debugf("Force downloading branch with tip %v...", blockHashStr)
-	rm.downloadBranch(blockHash)
+	rm.DownloadBranch(blockHash)
 }
 
 // func (rm *RequestManager) forceDownloadBranch() {
@@ -552,7 +554,7 @@ func (rm *RequestManager) forceDownloadBranch() {
 // 	}
 // }
 
-//compatible with older version, download block from hash
+// compatible with older version, download block from hash
 func (rm *RequestManager) downloadBlockFromHash() {
 	// logger.Debugf("Download block from hash...")
 	// {
@@ -644,7 +646,7 @@ func (rm *RequestManager) downloadBlockFromHash() {
 	}
 }
 
-//download block from header
+// download block from header
 func (rm *RequestManager) downloadBlockFromHeader() {
 	addBack := HeaderHeap{}
 	elToRemove := []*list.Element{}

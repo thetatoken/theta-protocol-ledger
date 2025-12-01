@@ -38,6 +38,7 @@ type ConsensusEngine struct {
 	dispatcher       *dispatcher.Dispatcher
 	validatorManager core.ValidatorManager
 	ledger           core.Ledger
+	branchDownloader core.BranchDownloader
 	guardian         *GuardianEngine
 	eliteEdgeNode    *EliteEdgeNodeEngine
 
@@ -130,6 +131,11 @@ func (e *ConsensusEngine) SetLedger(ledger core.Ledger) {
 // GetLedger returns the ledger instance attached to the consensus engine
 func (e *ConsensusEngine) GetLedger() core.Ledger {
 	return e.ledger
+}
+
+// SetBranchDownloader sets the branch downloader for the consensus engine
+func (e *ConsensusEngine) SetBranchDownloader(downloader core.BranchDownloader) {
+	e.branchDownloader = downloader
 }
 
 // ID returns the identifier of current node.
@@ -365,7 +371,7 @@ func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {
 	case core.Vote:
 		e.logger.WithFields(log.Fields{"vote": m}).Debug("Received vote")
 		endEpoch = e.handleVote(m)
-		e.checkCC(m.Block)
+		e.checkCCFromVote(m)
 		return endEpoch
 	case *core.Block:
 		e.logger.WithFields(log.Fields{
@@ -993,6 +999,49 @@ func (e *ConsensusEngine) handleVote(vote core.Vote) (endEpoch bool) {
 		}
 	}
 	return
+}
+
+// checkCCFromVote validates the vote before checking CC and potentially triggering a download.
+// This makes extra validations before triggering a download.
+func (e *ConsensusEngine) checkCCFromVote(vote core.Vote) {
+	if vote.Block.IsEmpty() {
+		return
+	}
+
+	if _, err := e.Chain().FindBlock(vote.Block); err == nil {
+		e.checkCC(vote.Block)
+		return
+	}
+
+	// Block doesn't exist - validate vote before triggering download
+	// Check if vote is from a validator
+	lfb := e.state.GetLastFinalizedBlock()
+	validators := e.validatorManager.GetValidatorSet(lfb.Hash())
+	if validators == nil {
+		e.logger.WithFields(log.Fields{
+			"vote.Block": vote.Block.Hex(),
+			"vote.ID":    vote.ID.Hex(),
+		}).Debug("checkCCFromVote: Cannot get validator set, skipping download")
+		return
+	}
+
+	_, err := validators.GetValidator(vote.ID)
+	if err != nil {
+		e.logger.WithFields(log.Fields{
+			"vote.Block": vote.Block.Hex(),
+			"vote.ID":    vote.ID.Hex(),
+		}).Debug("checkCCFromVote: Vote not from a validator, skipping download")
+		return
+	}
+
+	// Vote is valid - trigger branch download
+	e.logger.WithFields(log.Fields{
+		"vote.Block": vote.Block.Hex(),
+		"vote.ID":    vote.ID.Hex(),
+	}).Debug("checkCCFromVote: Block not found, triggering branch download")
+	if e.branchDownloader != nil {
+		e.branchDownloader.DownloadBranch(vote.Block)
+	}
 }
 
 func (e *ConsensusEngine) checkCC(hash common.Hash) {

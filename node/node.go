@@ -77,6 +77,7 @@ func NewNode(params *Params) *Node {
 
 	validatorManager.SetConsensusEngine(consensus)
 	consensus.SetLedger(ledger)
+	consensus.SetBranchDownloader(syncMgr)
 	mempool.SetLedger(ledger)
 	txMsgHandler := mp.CreateMempoolMessageHandler(mempool)
 

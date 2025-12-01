@@ -28,3 +28,8 @@ type ValidatorManager interface {
 	GetValidatorSet(blockHash common.Hash) *ValidatorSet
 	GetNextValidatorSet(blockHash common.Hash) *ValidatorSet
 }
+
+// BranchDownloader is the interface for downloading missing block branches.
+type BranchDownloader interface {
+	DownloadBranch(blockHash common.Hash)
+}

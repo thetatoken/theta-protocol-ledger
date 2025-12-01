@@ -59,6 +59,9 @@ type SyncManager struct {
 	logger *log.Entry
 
 	voteCache *lru.Cache // Cache for votes
+
+	// Track in-progress branch downloads to avoid duplicate downloads
+	pendingBranchDownloads sync.Map // map[common.Hash]bool
 }
 
 func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer, reporter *rp.Reporter) *SyncManager {
@@ -113,6 +116,33 @@ func (sm *SyncManager) Stop() {
 func (sm *SyncManager) Wait() {
 	sm.requestMgr.Wait()
 	sm.wg.Wait()
+}
+
+// DownloadBranch triggers a download request for the specified block hash and its ancestors.
+// This implements the core.BranchDownloader interface.
+func (sm *SyncManager) DownloadBranch(blockHash common.Hash) {
+	if blockHash.IsEmpty() {
+		return
+	}
+	// Check if the block already exists
+	if _, err := sm.chain.FindBlock(blockHash); err == nil {
+		return
+	}
+	// Deduplicate: skip if a download for this block is already in progress
+	if _, exists := sm.pendingBranchDownloads.LoadOrStore(blockHash, true); exists {
+		sm.logger.WithFields(log.Fields{
+			"blockHash": blockHash.Hex(),
+		}).Debug("Branch download already in progress, skipping")
+		return
+	}
+	sm.logger.WithFields(log.Fields{
+		"blockHash": blockHash.Hex(),
+	}).Debug("Triggering branch download from consensus")
+
+	go func() {
+		defer sm.pendingBranchDownloads.Delete(blockHash)
+		sm.requestMgr.DownloadBranch(blockHash)
+	}()
 }
 
 func (sm *SyncManager) mainLoop() {
