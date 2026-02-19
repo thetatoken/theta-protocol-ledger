@@ -13,6 +13,7 @@ type ConsensusEngine interface {
 	GetEpoch() uint64
 	GetLedger() Ledger
 	AddMessage(msg interface{})
+	AddPriorityMessage(msg interface{})
 	FinalizedBlocks() chan *Block
 	GetLastFinalizedBlock() *ExtendedBlock
 	GetHighestCCBlock() *ExtendedBlock

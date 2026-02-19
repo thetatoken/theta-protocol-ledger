@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	lru "github.com/hashicorp/golang-lru"
 	log "github.com/sirupsen/logrus"
@@ -60,8 +61,8 @@ type SyncManager struct {
 
 	voteCache *lru.Cache // Cache for votes
 
-	// Track in-progress branch downloads to avoid duplicate downloads
-	pendingBranchDownloads sync.Map // map[common.Hash]bool
+	// Track in-progress branch download to avoid concurrent downloads
+	branchDownloadInProgress int32
 }
 
 func NewSyncManager(chain *blockchain.Chain, cons core.ConsensusEngine, networkOld p2p.Network, network p2pl.Network, disp *dispatcher.Dispatcher, consumer MessageConsumer, reporter *rp.Reporter) *SyncManager {
@@ -120,6 +121,7 @@ func (sm *SyncManager) Wait() {
 
 // DownloadBranch triggers a download request for the specified block hash and its ancestors.
 // This implements the core.BranchDownloader interface.
+// Only one branch download runs at a time to avoid flooding the network with redundant requests.
 func (sm *SyncManager) DownloadBranch(blockHash common.Hash) {
 	if blockHash.IsEmpty() {
 		return
@@ -128,11 +130,8 @@ func (sm *SyncManager) DownloadBranch(blockHash common.Hash) {
 	if _, err := sm.chain.FindBlock(blockHash); err == nil {
 		return
 	}
-	// Deduplicate: skip if a download for this block is already in progress
-	if _, exists := sm.pendingBranchDownloads.LoadOrStore(blockHash, true); exists {
-		sm.logger.WithFields(log.Fields{
-			"blockHash": blockHash.Hex(),
-		}).Debug("Branch download already in progress, skipping")
+	// Only allow one branch download at a time
+	if !atomic.CompareAndSwapInt32(&sm.branchDownloadInProgress, 0, 1) {
 		return
 	}
 	sm.logger.WithFields(log.Fields{
@@ -140,7 +139,7 @@ func (sm *SyncManager) DownloadBranch(blockHash common.Hash) {
 	}).Debug("Triggering branch download from consensus")
 
 	go func() {
-		defer sm.pendingBranchDownloads.Delete(blockHash)
+		defer atomic.StoreInt32(&sm.branchDownloadInProgress, 0)
 		sm.requestMgr.DownloadBranch(blockHash)
 	}()
 }
@@ -231,9 +230,9 @@ func (sm *SyncManager) processMessage(message p2ptypes.Message) {
 	}
 }
 
-// PassdownMessage passes message through to the consumer.
+// PassdownMessage passes message through to the consumer with high priority.
 func (sm *SyncManager) PassdownMessage(msg interface{}) {
-	sm.consumer.AddMessage(msg)
+	sm.consensus.AddPriorityMessage(msg)
 }
 
 // locateStart finds first start hash that exists in local chain.

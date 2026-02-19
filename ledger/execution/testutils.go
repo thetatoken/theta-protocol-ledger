@@ -32,6 +32,7 @@ func (tce *TestConsensusEngine) PrivateKey() *crypto.PrivateKey                 
 func (tce *TestConsensusEngine) GetTip(bool) *core.ExtendedBlock                          { return nil }
 func (tce *TestConsensusEngine) GetEpoch() uint64                                         { return 100 }
 func (tce *TestConsensusEngine) AddMessage(msg interface{})                               {}
+func (tce *TestConsensusEngine) AddPriorityMessage(msg interface{})                       {}
 func (tce *TestConsensusEngine) FinalizedBlocks() chan *core.Block                        { return nil }
 func (tce *TestConsensusEngine) GetLedger() core.Ledger                                   { return nil }
 func (tce *TestConsensusEngine) GetValidatorSet(blockHash common.Hash) *core.ValidatorSet { return nil }

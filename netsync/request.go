@@ -986,6 +986,9 @@ func (rm *RequestManager) passReadyBlocks() {
 		height := lfb.Height + 1
 		parents := []*core.ExtendedBlock{lfb}
 
+		// Optimistically send blocks in batch
+		queuedBlocks := make(map[common.Hash]bool)
+
 		for {
 			blocks := rm.chain.FindBlocksByHeight(height)
 
@@ -998,10 +1001,10 @@ func (rm *RequestManager) passReadyBlocks() {
 					continue
 				}
 
-				// Check if block's parent has already been added to chain. If not, skip block
+				// Check if block's parent is valid or was queued earlier in this scan
 				found := false
 				for _, parent := range parents {
-					if parent.Hash() == block.Parent && parent.Status.IsValid() {
+					if parent.Hash() == block.Parent && (parent.Status.IsValid() || queuedBlocks[parent.Hash()]) {
 						found = true
 						break
 					}
@@ -1013,6 +1016,7 @@ func (rm *RequestManager) passReadyBlocks() {
 				rm.dumpBlockCache.Add(block.Hash(), struct{}{})
 				if block.Status.IsPending() {
 					rm.syncMgr.PassdownMessage(block.Block)
+					queuedBlocks[block.Hash()] = true
 					rm.tip.Store(block)
 				}
 			}

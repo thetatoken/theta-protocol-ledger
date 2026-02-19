@@ -42,9 +42,10 @@ type ConsensusEngine struct {
 	guardian         *GuardianEngine
 	eliteEdgeNode    *EliteEdgeNodeEngine
 
-	incoming        chan interface{}
-	finalizedBlocks chan *core.Block
-	hasSynced       bool
+	incoming         chan interface{}
+	priorityIncoming chan interface{} // High-priority channel
+	finalizedBlocks  chan *core.Block
+	hasSynced        bool
 
 	// Life cycle
 	wg      *sync.WaitGroup
@@ -95,8 +96,9 @@ func NewConsensusEngine(privateKey *crypto.PrivateKey, db store.Store, chain *bl
 
 		privateKey: privateKey,
 
-		incoming:        make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
-		finalizedBlocks: make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		incoming:         make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		priorityIncoming: make(chan interface{}, viper.GetInt(common.CfgConsensusMessageQueueSize)),
+		finalizedBlocks:  make(chan *core.Block, viper.GetInt(common.CfgConsensusMessageQueueSize)),
 
 		wg: &sync.WaitGroup{},
 
@@ -294,10 +296,29 @@ func (e *ConsensusEngine) mainLoop() {
 		e.propose()
 	Epoch:
 		for {
+			// Drain priority messages (catch-up blocks) before processing regular messages
+			for {
+				select {
+				case msg := <-e.priorityIncoming:
+					endEpoch := e.processMessage(msg)
+					if endEpoch {
+						break Epoch
+					}
+					continue
+				default:
+				}
+				break
+			}
+
 			select {
 			case <-e.ctx.Done():
 				e.stopped = true
 				return
+			case msg := <-e.priorityIncoming:
+				endEpoch := e.processMessage(msg)
+				if endEpoch {
+					break Epoch
+				}
 			case msg := <-e.incoming:
 				endEpoch := e.processMessage(msg)
 				if endEpoch {
@@ -364,6 +385,11 @@ func (e *ConsensusEngine) GetChannelIDs() []common.ChannelIDEnum {
 // AddMessage adds a message to engine's message queue.
 func (e *ConsensusEngine) AddMessage(msg interface{}) {
 	e.incoming <- msg
+}
+
+// AddPriorityMessage adds a message to the high-priority queue, processed before regular messages.
+func (e *ConsensusEngine) AddPriorityMessage(msg interface{}) {
+	e.priorityIncoming <- msg
 }
 
 func (e *ConsensusEngine) processMessage(msg interface{}) (endEpoch bool) {

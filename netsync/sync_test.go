@@ -215,6 +215,9 @@ func (c *MockConsensus) GetLedger() core.Ledger {
 func (c *MockConsensus) AddMessage(msg interface{}) {
 
 }
+func (c *MockConsensus) AddPriorityMessage(msg interface{}) {
+
+}
 func (c *MockConsensus) FinalizedBlocks() chan *core.Block {
 	return make(chan *core.Block)
 }
