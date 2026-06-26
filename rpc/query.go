@@ -2,6 +2,7 @@ package rpc
 
 import (
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -24,6 +25,15 @@ import (
 	"github.com/thetatoken/theta/version"
 )
 
+func logRPCArgs(method string, args interface{}) {
+	argsJSON, err := json.Marshal(args)
+	if err != nil {
+		logger.Debugf("%s: args=%+v (json marshal error: %v)", method, args, err)
+		return
+	}
+	logger.Debugf("%s: args=%s", method, argsJSON)
+}
+
 // ------------------------------- GetVersion -----------------------------------
 
 type GetVersionArgs struct {
@@ -36,6 +46,7 @@ type GetVersionResult struct {
 }
 
 func (t *ThetaRPCService) GetVersion(args *GetVersionArgs, result *GetVersionResult) (err error) {
+	logRPCArgs("GetVersion", args)
 	result.Version = version.Version
 	result.GitHash = version.GitHash
 	result.Timestamp = version.Timestamp
@@ -57,6 +68,7 @@ type GetAccountResult struct {
 }
 
 func (t *ThetaRPCService) GetAccount(args *GetAccountArgs, result *GetAccountResult) (err error) {
+	logRPCArgs("GetAccount", args)
 	if args.Address == "" {
 		return errors.New("Address must be specified")
 	}
@@ -132,6 +144,7 @@ type GetSplitRuleResult struct {
 }
 
 func (t *ThetaRPCService) GetSplitRule(args *GetSplitRuleArgs, result *GetSplitRuleResult) (err error) {
+	logRPCArgs("GetSplitRule", args)
 	if args.ResourceID == "" {
 		return errors.New("ResourceID must be specified")
 	}
@@ -171,6 +184,7 @@ const (
 )
 
 func (t *ThetaRPCService) GetTransaction(args *GetTransactionArgs, result *GetTransactionResult) (err error) {
+	logRPCArgs("GetTransaction", args)
 	if args.Hash == "" {
 		return errors.New("Transanction hash must be specified")
 	}
@@ -237,6 +251,7 @@ type GetPendingTransactionsResult struct {
 }
 
 func (t *ThetaRPCService) GetPendingTransactions(args *GetPendingTransactionsArgs, result *GetPendingTransactionsResult) (err error) {
+	logRPCArgs("GetPendingTransactions", args)
 	pendingTxHashes := t.mempool.GetCandidateTransactionHashes()
 	result.TxHashes = pendingTxHashes
 	return nil
@@ -254,6 +269,7 @@ type TraceBlocksResults struct {
 }
 
 func (t *ThetaRPCService) TraceBlocks(args *TraceBlocksArgs, result *TraceBlocksResults) (err error) {
+	logRPCArgs("TraceBlocks", args)
 	if args.Hash.IsEmpty() {
 		return errors.New("Block hash must be specified")
 	}
@@ -385,6 +401,7 @@ const (
 )
 
 func (t *ThetaRPCService) GetBlock(args *GetBlockArgs, result *GetBlockResult) (err error) {
+	logRPCArgs("GetBlock", args)
 	if args.Hash.IsEmpty() {
 		return errors.New("Block hash must be specified")
 	}
@@ -424,6 +441,7 @@ type GetBlockByHeightArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlockByHeight(args *GetBlockByHeightArgs, result *GetBlockResult) (err error) {
+	logRPCArgs("GetBlockByHeight", args)
 	// if args.Height == 0 {
 	// 	return errors.New("Block height must be specified")
 	// }
@@ -495,6 +513,7 @@ type GetBlocksByRangeArgs struct {
 }
 
 func (t *ThetaRPCService) GetBlocksByRange(args *GetBlocksByRangeArgs, result *GetBlocksResult) (err error) {
+	logRPCArgs("GetBlocksByRange", args)
 	// if args.Start == 0 && args.End == 0 {
 	// 	return errors.New("Starting block and ending block must be specified")
 	// }
@@ -630,6 +649,7 @@ type GetStatusResult struct {
 }
 
 func (t *ThetaRPCService) GetStatus(args *GetStatusArgs, result *GetStatusResult) (err error) {
+	logRPCArgs("GetStatus", args)
 	s := t.consensus.GetSummary()
 	result.Address = t.consensus.ID()
 	//result.PeerID = t.dispatcher.ID()
@@ -695,6 +715,7 @@ type GetPeerURLsResult struct {
 }
 
 func (t *ThetaRPCService) GetPeerURLs(args *GetPeersArgs, result *GetPeerURLsResult) (err error) {
+	logRPCArgs("GetPeerURLs", args)
 	peerURLs := t.dispatcher.PeerURLs(args.SkipEdgeNode)
 
 	numPeers := len(peerURLs)
@@ -721,6 +742,7 @@ type GetPeersResult struct {
 }
 
 func (t *ThetaRPCService) GetPeers(args *GetPeersArgs, result *GetPeersResult) (err error) {
+	logRPCArgs("GetPeers", args)
 	peers := t.dispatcher.Peers(args.SkipEdgeNode)
 	result.Peers = peers
 
@@ -744,6 +766,7 @@ type BlockHashVcpPair struct {
 }
 
 func (t *ThetaRPCService) GetVcpByHeight(args *GetVcpByHeightArgs, result *GetVcpResult) (err error) {
+	logRPCArgs("GetVcpByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -791,6 +814,7 @@ type BlockHashGcpPair struct {
 }
 
 func (t *ThetaRPCService) GetGcpByHeight(args *GetGcpByHeightArgs, result *GetGcpResult) (err error) {
+	logRPCArgs("GetGcpByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -832,6 +856,7 @@ type GetGuardianInfoResult struct {
 }
 
 func (t *ThetaRPCService) GetGuardianInfo(args *GetGuardianInfoArgs, result *GetGuardianInfoResult) (err error) {
+	logRPCArgs("GetGuardianInfo", args)
 	privKey := t.consensus.PrivateKey()
 	blsKey, err := bls.GenKey(strings.NewReader(common.Bytes2Hex(privKey.PublicKey().ToBytes())))
 	if err != nil {
@@ -868,6 +893,7 @@ type BlockHashEenpPair struct {
 }
 
 func (t *ThetaRPCService) GetEenpByHeight(args *GetEenpByHeightArgs, result *GetEenpResult) (err error) {
+	logRPCArgs("GetEenpByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -912,6 +938,7 @@ type GetEenpStakeResult struct {
 }
 
 func (t *ThetaRPCService) GetEenpStakeByHeight(args *GetEenpStakeByHeightArgs, result *GetEenpStakeResult) (err error) {
+	logRPCArgs("GetEenpStakeByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -960,6 +987,7 @@ type BlockHashStakeRewardDistributionRuleSetPair struct {
 
 func (t *ThetaRPCService) GetStakeRewardDistributionByHeight(
 	args *GetStakeRewardDistributionRuleSetByHeightArgs, result *GetStakeRewardDistributionRuleSetResult) (err error) {
+	logRPCArgs("GetStakeRewardDistributionByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -1012,6 +1040,7 @@ type GetEliteEdgeNodeStakeReturnsByHeightResult struct {
 
 func (t *ThetaRPCService) GetEliteEdgeNodeStakeReturnsByHeight(
 	args *GetEliteEdgeNodeStakeReturnsByHeightArgs, result *GetEliteEdgeNodeStakeReturnsByHeightResult) (err error) {
+	logRPCArgs("GetEliteEdgeNodeStakeReturnsByHeight", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -1039,6 +1068,7 @@ type GetAllPendingEliteEdgeNodeStakeReturnsResult struct {
 
 func (t *ThetaRPCService) GetAllPendingEliteEdgeNodeStakeReturns(
 	args *GetAllPendingEliteEdgeNodeStakeReturnsArgs, result *GetAllPendingEliteEdgeNodeStakeReturnsResult) (err error) {
+	logRPCArgs("GetAllPendingEliteEdgeNodeStakeReturns", args)
 	deliveredView, err := t.ledger.GetDeliveredSnapshot()
 	if err != nil {
 		return err
@@ -1081,6 +1111,7 @@ type GetCodeResult struct {
 }
 
 func (t *ThetaRPCService) GetCode(args *GetCodeArgs, result *GetCodeResult) (err error) {
+	logRPCArgs("GetCode", args)
 	if args.Address == "" {
 		return errors.New("address must be specified")
 	}
@@ -1141,6 +1172,7 @@ type GetStorageAtResult struct {
 }
 
 func (t *ThetaRPCService) GetStorageAt(args *GetStorageAtArgs, result *GetStorageAtResult) (err error) {
+	logRPCArgs("GetStorageAt", args)
 	if args.Address == "" || args.StoragePosition == "" {
 		return fmt.Errorf("address and storage_position must be specified, address: %v, storage_position: %v", args.Address, args.StoragePosition)
 	}
