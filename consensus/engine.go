@@ -298,10 +298,15 @@ func (e *ConsensusEngine) mainLoop() {
 		for {
 			// Drain priority messages (catch-up blocks) before processing regular messages
 			for {
+				e.serviceReadyVoteTimer()
+
 				select {
 				case msg := <-e.priorityIncoming:
+					e.serviceReadyVoteTimer()
+
 					endEpoch := e.processMessage(msg)
 					if endEpoch {
+						e.logLocalVoteTimerNotReadyOnEpochAdvance()
 						break Epoch
 					}
 					continue
@@ -315,20 +320,23 @@ func (e *ConsensusEngine) mainLoop() {
 				e.stopped = true
 				return
 			case msg := <-e.priorityIncoming:
+				e.serviceReadyVoteTimer()
+
 				endEpoch := e.processMessage(msg)
 				if endEpoch {
+					e.logLocalVoteTimerNotReadyOnEpochAdvance()
 					break Epoch
 				}
 			case msg := <-e.incoming:
+				e.serviceReadyVoteTimer()
+
 				endEpoch := e.processMessage(msg)
 				if endEpoch {
+					e.logLocalVoteTimerNotReadyOnEpochAdvance()
 					break Epoch
 				}
 			case <-e.voteTimer.C:
-				e.voteTimerReady = true
-				if e.blockProcessed {
-					e.vote()
-				}
+				e.onVoteTimerReady()
 			case <-e.epochTimer.C:
 				e.logger.WithFields(log.Fields{"e.epoch": e.GetEpoch()}).Debug("Epoch timeout. Repeating epoch")
 				e.vote()
@@ -352,6 +360,39 @@ func (e *ConsensusEngine) mainLoop() {
 			}
 		}
 	}
+}
+
+func (e *ConsensusEngine) serviceReadyVoteTimer() {
+	if e.voteTimer == nil || e.voteTimerReady {
+		return
+	}
+
+	// Do not let priority-message bursts starve a vote timer that is already ready.
+	select {
+	case <-e.voteTimer.C:
+		e.onVoteTimerReady()
+	default:
+	}
+}
+
+func (e *ConsensusEngine) onVoteTimerReady() {
+	e.voteTimerReady = true
+	if e.blockProcessed {
+		e.vote()
+	}
+}
+
+func (e *ConsensusEngine) logLocalVoteTimerNotReadyOnEpochAdvance() {
+	if !e.blockProcessed || e.voteTimerReady {
+		return
+	}
+
+	tip := e.GetTipToVote()
+	e.logger.WithFields(log.Fields{
+		"epoch":      e.GetEpoch(),
+		"tip":        tip.Hash().Hex(),
+		"tip.Height": tip.Height,
+	}).Debug("Epoch advanced before local vote timer was ready")
 }
 
 // enterEpoch is called when engine enters a new epoch.
@@ -851,7 +892,13 @@ func (e *ConsensusEngine) handleNormalBlock(eb *core.ExtendedBlock) {
 	// before block is processed.
 	if localEpoch := e.GetEpoch(); block.Epoch == localEpoch-1 || block.Epoch == localEpoch {
 		e.blockProcessed = true
-		if e.voteTimerReady {
+		shouldVoteNow := e.voteTimerReady
+		if !shouldVoteNow && block.Proposer == e.privateKey.PublicKey().Address() {
+			// A proposer should contribute its vote for its own current tip even if the
+			// vote timer has not fired yet.
+			shouldVoteNow = e.GetTipToVote().Hash() == block.Hash()
+		}
+		if shouldVoteNow {
 			e.vote()
 		}
 	} else {
