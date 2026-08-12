@@ -125,6 +125,8 @@ const (
 
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
+	// CfgRPCEnableAdminMethods controls access to filesystem- and ledger-affecting RPC methods.
+	CfgRPCEnableAdminMethods = "rpc.enableAdminMethods"
 	// CfgRPCAddress sets the binding address of RPC service.
 	CfgRPCAddress = "rpc.address"
 	// CfgRPCPort sets the port of RPC service.
@@ -232,6 +234,7 @@ func init() {
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
+	viper.SetDefault(CfgRPCEnableAdminMethods, false)
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 	viper.SetDefault(CfgRPCTimeoutSecs, 60)
 	viper.SetDefault(CfgRPCGetBlocksHeavyQueryThreshold, 500)
