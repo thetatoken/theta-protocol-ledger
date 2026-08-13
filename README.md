@@ -11,7 +11,7 @@ To learn more about the Theta Network in general, please visit the **Theta Docum
 
 ## Setup
 
-### Intall Go
+### Install Go
 
 Install Go and set environment variables `GOPATH` , `GOBIN`, and `PATH`. The current code base should compile with **Go 1.14.2**. On macOS, install Go with the following command
 
