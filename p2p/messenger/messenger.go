@@ -114,7 +114,7 @@ func (msgr *Messenger) SetPeerDiscoveryManager(discMgr *PeerDiscoveryManager) {
 	msgr.discMgr = discMgr
 }
 
-// SetPeerDiscoveryManager sets the PeerDiscoveryManager for the Messenger
+// SetNATManager sets the PeerDiscoveryManager for the Messenger
 func (msgr *Messenger) SetNATManager(natMgr *NATManager) {
 	msgr.natMgr = natMgr
 }
