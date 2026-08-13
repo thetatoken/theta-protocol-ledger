@@ -15,15 +15,14 @@ import (
 	"github.com/thetatoken/theta/common/util"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
+	cn "github.com/thetatoken/theta/p2p/connection"
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
 
-//
 // Messenger implements the Network interface
-//
 var _ p2p.Network = (*Messenger)(nil)
 
 type Messenger struct {
@@ -44,14 +43,13 @@ type Messenger struct {
 	stopped bool
 }
 
-//
 // MessengerConfig specifies the configuration for Messenger
-//
 type MessengerConfig struct {
-	addrBookFilePath    string
-	routabilityRestrict bool
-	skipUPNP            bool
-	networkProtocol     string
+	addrBookFilePath       string
+	routabilityRestrict    bool
+	skipUPNP               bool
+	networkProtocol        string
+	disablePeerPersistence bool
 }
 
 // CreateMessenger creates an instance of Messenger
@@ -68,9 +66,16 @@ func CreateMessenger(privKey *crypto.PrivateKey, seedPeerNetAddresses []string,
 		}
 	}
 
+	var peerTable pr.PeerTable
+	if msgrConfig.disablePeerPersistence {
+		peerTable = pr.CreateInMemoryPeerTable()
+	} else {
+		peerTable = pr.CreatePeerTable()
+	}
+
 	messenger := &Messenger{
 		msgHandlerMap: make(map[common.ChannelIDEnum](p2p.MessageHandler)),
-		peerTable:     pr.CreatePeerTable(),
+		peerTable:     peerTable,
 		nodeInfo:      p2ptypes.CreateLocalNodeInfo(privKey, uint16(eport)),
 		config:        msgrConfig,
 		wg:            &sync.WaitGroup{},
@@ -315,7 +320,11 @@ func (msgr *Messenger) AttachMessageHandlersToPeer(peer *pr.Peer) {
 	}
 	peer.GetConnection().SetReceiveHandler(receiveHandler)
 
-	errorHandler := func(interface{}) {
+	errorHandler := func(reason interface{}) {
+		if cn.IsProtocolError(reason) {
+			msgr.discMgr.HandlePeerProtocolError(peer, reason)
+			return
+		}
 		msgr.discMgr.HandlePeerWithErrors(peer)
 	}
 	peer.GetConnection().SetErrorHandler(errorHandler)

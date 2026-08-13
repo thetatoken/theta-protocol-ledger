@@ -26,13 +26,14 @@ const (
 /*
 Chunk Format:
 
-  bytes[0..3]  : seqID, 32 bits (int32)
-  bytes[4..7]  : payloadSize, 32 bits (int32)
-  bytes[8]     : isEOF, 8 bits
-  bytes[9..15] : reserved
-  bytes[16..payloadSize+15]: the actual payload
+	bytes[0..3]  : seqID, 32 bits (int32)
+	bytes[4..7]  : payloadSize, 32 bits (int32)
+	bytes[8]     : isEOF, 8 bits
+	bytes[9..15] : reserved
+	bytes[16..payloadSize+15]: the actual payload
 
-                      Chunk Bit Map
+	                    Chunk Bit Map
+
 0                   1                   2                   3
 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
 +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -121,7 +122,7 @@ func (chunk *Chunk) IsEmpty() bool {
 }
 
 func (chunk *Chunk) IsValid() bool {
-	return chunk.sanityCheck() != nil
+	return chunk.sanityCheck() == nil
 }
 
 func (chunk *Chunk) SeqID() int32 {
@@ -145,11 +146,26 @@ func (chunk *Chunk) Payload() []byte {
 }
 
 func (chunk *Chunk) sanityCheck() error {
-	numBytes := int32(len(chunk.bytes))
+	numBytes := len(chunk.bytes)
+	if numBytes < headerSize {
+		errMsg := fmt.Sprintf("Invalid chunk, numBytes = %v, headerSize = %v", numBytes, headerSize)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
 	payloadSize := chunk.payloadSize()
-	exptedMinNumBytes := payloadSize + headerSize
-	if numBytes < exptedMinNumBytes {
-		errMsg := fmt.Sprintf("Invalid chunk, numBytes = %v, exptedMinNumBytes = %v", numBytes, exptedMinNumBytes)
+	if payloadSize < 0 || payloadSize > maxChunkPayloadSize {
+		errMsg := fmt.Sprintf("Invalid chunk payloadSize %v", payloadSize)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	expectedNumBytes := headerSize + int(payloadSize)
+	if numBytes != expectedNumBytes {
+		errMsg := fmt.Sprintf("Invalid chunk, numBytes = %v, expectedNumBytes = %v", numBytes, expectedNumBytes)
+		log.Errorf(errMsg)
+		return fmt.Errorf(errMsg)
+	}
+	if chunk.bytes[isEOFOffset] != markerNotEOF && chunk.bytes[isEOFOffset] != markerEOF {
+		errMsg := fmt.Sprintf("Invalid chunk EOF marker %v", chunk.bytes[isEOFOffset])
 		log.Errorf(errMsg)
 		return fmt.Errorf(errMsg)
 	}

@@ -3,6 +3,7 @@ package messenger
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -15,17 +16,21 @@ import (
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
-//
+const (
+	legacyMalformedPeerPenaltyDuration = time.Minute
+	maxLegacyPenalizedPeers            = 4096
+)
+
 // PeerDiscoveryManager manages the peer discovery process
-//
 type PeerDiscoveryManager struct {
 	messenger *Messenger
 
 	//addrBook  *AddrBook
-	peerTable *pr.PeerTable
-	nodeInfo  *p2ptypes.NodeInfo
-	seedPeers map[string]*pr.Peer
-	mutex     *sync.Mutex
+	peerTable      *pr.PeerTable
+	nodeInfo       *p2ptypes.NodeInfo
+	seedPeers      map[string]*pr.Peer
+	penalizedPeers map[string]time.Time
+	mutex          *sync.Mutex
 
 	seedPeerOnly bool
 
@@ -42,9 +47,7 @@ type PeerDiscoveryManager struct {
 	stopped bool
 }
 
-//
 // PeerDiscoveryManagerConfig specifies the configuration for PeerDiscoveryManager
-//
 type PeerDiscoveryManagerConfig struct {
 	MaxNumPeers        int
 	SufficientNumPeers uint
@@ -57,13 +60,14 @@ func CreatePeerDiscoveryManager(msgr *Messenger, nodeInfo *p2ptypes.NodeInfo, ad
 	config PeerDiscoveryManagerConfig) (*PeerDiscoveryManager, error) {
 
 	discMgr := &PeerDiscoveryManager{
-		messenger:    msgr,
-		nodeInfo:     nodeInfo,
-		peerTable:    peerTable,
-		seedPeers:    make(map[string]*pr.Peer),
-		mutex:        &sync.Mutex{},
-		seedPeerOnly: viper.GetBool(common.CfgP2PSeedPeerOnly),
-		wg:           &sync.WaitGroup{},
+		messenger:      msgr,
+		nodeInfo:       nodeInfo,
+		peerTable:      peerTable,
+		seedPeers:      make(map[string]*pr.Peer),
+		penalizedPeers: make(map[string]time.Time),
+		mutex:          &sync.Mutex{},
+		seedPeerOnly:   viper.GetBool(common.CfgP2PSeedPeerOnly),
+		wg:             &sync.WaitGroup{},
 	}
 
 	//discMgr.addrBook = NewAddrBook(addrBookFilePath, routabilityRestrict)
@@ -201,6 +205,65 @@ func (discMgr *PeerDiscoveryManager) HandlePeerWithErrors(peer *pr.Peer) {
 	}
 }
 
+// HandlePeerProtocolError disconnects and temporarily quarantines a peer that
+// sent invalid framing or payload data. Unlike ordinary transport failures,
+// protocol violations must not trigger an immediate reconnect.
+func (discMgr *PeerDiscoveryManager) HandlePeerProtocolError(peer *pr.Peer, reason interface{}) {
+	now := time.Now()
+	penaltyExpiresAt := discMgr.recordProtocolPenalty(peer.ID(), now)
+	logger.Warnf("Temporarily isolating legacy peer %v after malformed P2P input until %v: %v",
+		peer.ID(), penaltyExpiresAt, reason)
+
+	if current := discMgr.peerTable.GetPeer(peer.ID()); current != peer {
+		return
+	}
+	discMgr.peerTable.DeletePeer(peer.ID())
+	peer.Stop()
+}
+
+func (discMgr *PeerDiscoveryManager) recordProtocolPenalty(peerID string, now time.Time) time.Time {
+	penaltyExpiresAt := now.Add(legacyMalformedPeerPenaltyDuration)
+
+	discMgr.mutex.Lock()
+	defer discMgr.mutex.Unlock()
+	if discMgr.penalizedPeers == nil {
+		discMgr.penalizedPeers = make(map[string]time.Time)
+	}
+	for penalizedID, expiresAt := range discMgr.penalizedPeers {
+		if !now.Before(expiresAt) {
+			delete(discMgr.penalizedPeers, penalizedID)
+		}
+	}
+	if _, exists := discMgr.penalizedPeers[peerID]; !exists && len(discMgr.penalizedPeers) >= maxLegacyPenalizedPeers {
+		var earliestID string
+		var earliestExpiry time.Time
+		for penalizedID, expiresAt := range discMgr.penalizedPeers {
+			if earliestExpiry.IsZero() || expiresAt.Before(earliestExpiry) {
+				earliestID = penalizedID
+				earliestExpiry = expiresAt
+			}
+		}
+		delete(discMgr.penalizedPeers, earliestID)
+	}
+	discMgr.penalizedPeers[peerID] = penaltyExpiresAt
+	return penaltyExpiresAt
+}
+
+func (discMgr *PeerDiscoveryManager) isPeerProtocolPenalized(peerID string, now time.Time) bool {
+	discMgr.mutex.Lock()
+	defer discMgr.mutex.Unlock()
+
+	penaltyExpiresAt, ok := discMgr.penalizedPeers[peerID]
+	if !ok {
+		return false
+	}
+	if !now.Before(penaltyExpiresAt) {
+		delete(discMgr.penalizedPeers, peerID)
+		return false
+	}
+	return true
+}
+
 func (discMgr *PeerDiscoveryManager) connectToOutboundPeer(peerNetAddress *netutil.NetAddress, persistent bool) (*pr.Peer, error) {
 	logger.Debugf("Connecting to outbound peer: %v...", peerNetAddress)
 	peerConfig := pr.GetDefaultPeerConfig()
@@ -235,6 +298,10 @@ func (discMgr *PeerDiscoveryManager) handshakeAndAddPeer(peer *pr.Peer) error {
 	if err := peer.Handshake(discMgr.nodeInfo); err != nil {
 		logger.Warnf("Failed to handshake with peer, error: %v", err)
 		return err
+	}
+	if discMgr.isPeerProtocolPenalized(peer.ID(), time.Now()) {
+		peer.Stop()
+		return fmt.Errorf("peer %v is temporarily isolated after a P2P protocol violation", peer.ID())
 	}
 
 	isSeed := discMgr.seedPeerConnector.isASeedPeer(peer.NetAddress())

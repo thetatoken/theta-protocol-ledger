@@ -75,9 +75,9 @@ const (
 	frameWriteTimeout = 20 * time.Second
 )
 
-// errPlainMessageTooLarge is returned if a decompressed message length exceeds
-// the allowed 24 bits (i.e. length >= 16MB).
-var errPlainMessageTooLarge = errors.New("message length >= 16MB")
+// errPlainMessageTooLarge is returned before allocating or decoding an
+// encrypted frame larger than a protocol packet.
+var errPlainMessageTooLarge = errors.New("p2p packet exceeds encoded size limit")
 
 // DoEncHandshake runs the protocol handshake using authenticated
 // messages. the protocol handshake is the first authenticated message
@@ -499,6 +499,9 @@ func newRLPXFrameRW(conn io.ReadWriter, s secrets) *rlpxFrameRW {
 
 func (rw *rlpxFrameRW) WritePacket(packet *Packet) error {
 	raw, _ := rlp.EncodeToBytes(packet)
+	if err := validatePacketFrameSize(uint32(len(raw))); err != nil {
+		return err
+	}
 
 	// if snappy is enabled, compress message now
 	if rw.snappy {
@@ -510,8 +513,8 @@ func (rw *rlpxFrameRW) WritePacket(packet *Packet) error {
 	// write header
 	headbuf := make([]byte, 32)
 	fsize := uint32(len(raw))
-	if fsize > maxUint24 {
-		return errors.New("message size overflows uint24")
+	if err := validatePacketWireSize(fsize); err != nil {
+		return err
 	}
 	putInt24(fsize, headbuf) // TODO: check overflow
 	copy(headbuf[3:], zeroHeader)
@@ -556,6 +559,9 @@ func (rw *rlpxFrameRW) ReadPacket() (*Packet, error) {
 	}
 	rw.dec.XORKeyStream(headbuf[:16], headbuf[:16]) // first half is now decrypted
 	fsize := readInt24(headbuf)
+	if err := validatePacketWireSize(fsize); err != nil {
+		return nil, err
+	}
 	// ignore protocol type for now
 
 	// read the frame content
@@ -594,7 +600,7 @@ func (rw *rlpxFrameRW) ReadPacket() (*Packet, error) {
 		if err != nil {
 			return nil, err
 		}
-		if size > int(maxUint24) {
+		if size > maxPacketTotalSize {
 			return nil, errPlainMessageTooLarge
 		}
 		payload, err = snappy.Decode(nil, payload)
@@ -608,6 +614,20 @@ func (rw *rlpxFrameRW) ReadPacket() (*Packet, error) {
 		return nil, err
 	}
 	return packet, nil
+}
+
+func validatePacketFrameSize(size uint32) error {
+	if size > uint32(maxPacketTotalSize) {
+		return errPlainMessageTooLarge
+	}
+	return nil
+}
+
+func validatePacketWireSize(size uint32) error {
+	if size > uint32(maxPacketWireSize) {
+		return errPlainMessageTooLarge
+	}
+	return nil
 }
 
 // updateMAC reseeds the given hash with encrypted seed.
