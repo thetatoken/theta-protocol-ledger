@@ -3,3 +3,4 @@
 vendor/
 local/
 p2p/messenger/.addrbooks
+p2p/messenger/db/

@@ -31,9 +31,7 @@ const (
 	dbKey = "peers"
 )
 
-//
 // PeerTable is a lookup table for peers
-//
 type PeerTable struct {
 	mutex *sync.Mutex
 
@@ -41,6 +39,8 @@ type PeerTable struct {
 	peers   []*Peer         // For iteration with deterministic order
 
 	db *leveldb.DB // peerTable persistence for restart
+
+	persistenceDisabled bool
 }
 
 // CreatePeerTable creates an instance of the PeerTable
@@ -66,6 +66,15 @@ func CreatePeerTable() PeerTable {
 		mutex:   &sync.Mutex{},
 		peerMap: make(map[pr.ID]*Peer),
 		db:      db,
+	}
+}
+
+// CreateInMemoryPeerTable creates a peer table without restart persistence.
+func CreateInMemoryPeerTable() PeerTable {
+	return PeerTable{
+		mutex:               &sync.Mutex{},
+		peerMap:             make(map[pr.ID]*Peer),
+		persistenceDisabled: true,
 	}
 }
 
@@ -162,6 +171,13 @@ func (pt *PeerTable) GetAllPeerIDs() *[]pr.ID {
 }
 
 func (pt *PeerTable) RetrievePreviousPeers() (res []*pr.AddrInfo, err error) {
+	if pt.persistenceDisabled {
+		return
+	}
+	if pt.db == nil {
+		logger.Warnf("Peer table db is unavailable; skipping peer retrieval")
+		return
+	}
 	dat, err := pt.db.Get([]byte(dbKey), nil)
 	if err != nil {
 		logger.Warnf("Failed to retrieve previously persisted peers")
@@ -181,7 +197,17 @@ func (pt *PeerTable) RetrievePreviousPeers() (res []*pr.AddrInfo, err error) {
 }
 
 func (pt *PeerTable) persistPeers() {
+	if pt.persistenceDisabled {
+		return
+	}
+	if pt.db == nil {
+		logger.Warnf("Peer table db is unavailable; skipping peer persistence")
+		return
+	}
 	maxPeerPersistence := viper.GetInt(common.CfgMaxNumPersistentPeers)
+	if maxPeerPersistence <= 0 {
+		return
+	}
 	numPeers := len(pt.peers)
 	numInDB := numPeers
 	if numPeers > maxPeerPersistence {
@@ -200,6 +226,12 @@ func (pt *PeerTable) persistPeers() {
 }
 
 func (pt *PeerTable) writeToDB(key, value string) {
+	if pt.persistenceDisabled {
+		return
+	}
+	if pt.db == nil {
+		return
+	}
 	pt.db.Put([]byte(key), []byte(value), nil)
 }
 

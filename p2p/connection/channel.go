@@ -4,9 +4,7 @@ import (
 	"github.com/thetatoken/theta/common"
 )
 
-//
 // Channel models a bi-directional channel for messsaging between two peers
-//
 type Channel struct {
 	id common.ChannelIDEnum
 
@@ -16,9 +14,7 @@ type Channel struct {
 	config ChannelConfig
 }
 
-//
 // ChannelConfig specifies the configuration of a Channel
-//
 type ChannelConfig struct {
 	priority uint
 }
@@ -28,6 +24,7 @@ func createDefaultChannel(channelID common.ChannelIDEnum) Channel {
 	chCfg := getDefaultChannelConfig()
 	sbCfg := getDefaultSendBufferConfig()
 	rbCfg := getDefaultRecvBufferConfig()
+	rbCfg.maxMessageSize = common.MaxP2PMessageSize(channelID)
 
 	channel := createChannel(channelID, chCfg, sbCfg, rbCfg)
 	return channel
@@ -73,6 +70,10 @@ func (ch *Channel) attemptToEnqueueMessage(bytes []byte) bool {
 func (ch *Channel) receivePacket(packet *Packet) ([]byte, bool) {
 	bytes, success := ch.recvBuf.receivePacket(packet)
 	return bytes, success
+}
+
+func (ch *Channel) receivePacketWithError(packet *Packet) ([]byte, bool, error) {
+	return ch.recvBuf.receivePacketWithError(packet)
 }
 
 // sendPacketTo serializes and sends the next packet to the given writer

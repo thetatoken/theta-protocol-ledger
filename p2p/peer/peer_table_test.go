@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/thetatoken/theta/crypto"
 	cn "github.com/thetatoken/theta/p2p/connection"
+	nu "github.com/thetatoken/theta/p2p/netutil"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
 
@@ -139,7 +140,7 @@ func TestDefaultPeerIterationOrder(t *testing.T) {
 // --------------- Test Utilities --------------- //
 
 func newTestEmptyPeerTable() PeerTable {
-	pt := CreatePeerTable()
+	pt := CreateInMemoryPeerTable()
 	return pt
 }
 
@@ -154,6 +155,7 @@ func newSimulatedInboundPeer(netconn net.Conn, pubKey *crypto.PublicKey) *Peer {
 	_, portStr, _ := net.SplitHostPort(netconn.LocalAddr().String())
 	port, _ := strconv.ParseUint(portStr, 16, 16)
 	inboundPeer.nodeInfo = p2ptypes.CreateNodeInfo(pubKey, uint16(port))
+	inboundPeer.SetNetAddress(nu.NewNetAddress(netconn.RemoteAddr()))
 	return inboundPeer
 }
 

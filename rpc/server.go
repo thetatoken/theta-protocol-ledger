@@ -59,6 +59,14 @@ type ThetaRPCServer struct {
 	handler  *rpc.Server
 	router   *mux.Router
 	listener net.Listener
+
+	// Optional second listener that serves ONLY peer discovery (theta.GetPeerURLs)
+	// on a separate address/port, so the full RPC surface on rpc.port can be
+	// firewalled independently. Nil unless common.CfgRPCPeerDiscoveryEnabled is set.
+	peerDiscoveryServer   *http.Server
+	peerDiscoveryHandler  *rpc.Server
+	peerDiscoveryRouter   *mux.Router
+	peerDiscoveryListener net.Listener
 }
 
 // NewThetaRPCServer creates a new instance of ThetaRPCServer.
@@ -94,8 +102,26 @@ func NewThetaRPCServer(mempool *mempool.Mempool, ledger *ledger.Ledger, dispatch
 	}))
 
 	t.server = &http.Server{
-		Handler: t.router,
-		IdleTimeout: viper.GetDuration(common.CfgRPCIdleTimeoutSecs)*time.Second,
+		Handler:     t.router,
+		IdleTimeout: viper.GetDuration(common.CfgRPCIdleTimeoutSecs) * time.Second,
+	}
+
+	if viper.GetBool(common.CfgRPCPeerDiscoveryEnabled) {
+		pds := rpc.NewServer()
+		pds.RegisterName("theta", &ThetaRPCPeerDiscoveryService{svc: t.ThetaRPCService})
+		t.peerDiscoveryHandler = pds
+
+		t.peerDiscoveryRouter = mux.NewRouter()
+		t.peerDiscoveryRouter.Handle("/", &defaultHTTPHandler{})
+		t.peerDiscoveryRouter.Handle("/rpc", corsMiddleware(TimeoutHandler(jsonrpc2.HTTPHandler(pds), viper.GetDuration(common.CfgRPCTimeoutSecs)*time.Second, "")))
+		t.peerDiscoveryRouter.Handle("/ws", websocket.Handler(func(ws *websocket.Conn) {
+			pds.ServeCodec(jsonrpc2.NewServerCodec(ws, pds))
+		}))
+
+		t.peerDiscoveryServer = &http.Server{
+			Handler:     t.peerDiscoveryRouter,
+			IdleTimeout: viper.GetDuration(common.CfgRPCIdleTimeoutSecs) * time.Second,
+		}
 	}
 
 	logger = util.GetLoggerForModule("rpc")
@@ -111,6 +137,11 @@ func (t *ThetaRPCServer) Start(ctx context.Context) {
 
 	t.wg.Add(1)
 	go t.mainLoop()
+
+	if t.peerDiscoveryServer != nil {
+		t.wg.Add(1)
+		go t.peerDiscoveryMainLoop()
+	}
 
 	t.wg.Add(1)
 	go t.heavyQueryCounterLoop()
@@ -160,6 +191,33 @@ func (t *ThetaRPCServer) serve() {
 	t.listener = ll
 
 	logger.Info(t.server.Serve(ll))
+}
+
+func (t *ThetaRPCServer) peerDiscoveryMainLoop() {
+	defer t.wg.Done()
+
+	go t.servePeerDiscovery()
+
+	<-t.ctx.Done()
+	t.stopped = true
+	t.peerDiscoveryServer.Shutdown(t.ctx)
+}
+
+func (t *ThetaRPCServer) servePeerDiscovery() {
+	address := viper.GetString(common.CfgRPCPeerDiscoveryAddress)
+	port := viper.GetString(common.CfgRPCPeerDiscoveryPort)
+	l, err := net.Listen("tcp", address+":"+port)
+	if err != nil {
+		logger.WithFields(log.Fields{"error": err}).Fatal("Failed to create peer discovery listener")
+	} else {
+		logger.WithFields(log.Fields{"address": address, "port": port}).Info("RPC peer discovery server started")
+	}
+	defer l.Close()
+
+	ll := netutil.LimitListener(l, viper.GetInt(common.CfgRPCMaxConnections))
+	t.peerDiscoveryListener = ll
+
+	logger.Info(t.peerDiscoveryServer.Serve(ll))
 }
 
 func corsMiddleware(handler http.Handler) http.Handler {

@@ -32,9 +32,7 @@ const (
 	dbKey = "p2pPeer"
 )
 
-//
 // PeerTable is a lookup table for peers
-//
 type PeerTable struct {
 	mutex *sync.Mutex
 
@@ -42,7 +40,18 @@ type PeerTable struct {
 	peers   []*Peer          // For iteration with deterministic order
 	addrMap map[string]*Peer
 
-	db *leveldb.DB // peerTable persistence for restart
+	db                  *leveldb.DB // peerTable persistence for restart
+	persistenceDisabled bool
+}
+
+// CreateInMemoryPeerTable creates a peer table without restart persistence.
+func CreateInMemoryPeerTable() PeerTable {
+	return PeerTable{
+		mutex:               &sync.Mutex{},
+		peerMap:             make(map[string]*Peer),
+		addrMap:             make(map[string]*Peer),
+		persistenceDisabled: true,
+	}
 }
 
 type PeerIDAddress struct {
@@ -273,6 +282,9 @@ func (pt *PeerTable) GetTotalNumPeers(skipEdgeNode bool) uint {
 }
 
 func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {
+	if pt.persistenceDisabled {
+		return []*nu.NetAddress{}, nil
+	}
 	if pt.db == nil {
 		return []*nu.NetAddress{}, fmt.Errorf("peerTable DB not ready yet")
 	}
@@ -287,7 +299,13 @@ func (pt *PeerTable) RetrievePreviousPeers() ([]*nu.NetAddress, error) {
 }
 
 func (pt *PeerTable) persistPeers() {
+	if pt.persistenceDisabled || pt.db == nil {
+		return
+	}
 	maxPeerPersistence := viper.GetInt(common.CfgMaxNumPersistentPeers)
+	if maxPeerPersistence <= 0 {
+		return
+	}
 	numPeers := len(pt.peers)
 	numInDB := numPeers
 	if numPeers > maxPeerPersistence {
@@ -303,7 +321,7 @@ func (pt *PeerTable) persistPeers() {
 }
 
 func (pt *PeerTable) writeToDB(key, value string) {
-	if pt.db != nil {
+	if !pt.persistenceDisabled && pt.db != nil {
 		pt.db.Put([]byte(key), []byte(value), nil)
 	}
 }
