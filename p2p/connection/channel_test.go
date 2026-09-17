@@ -188,12 +188,12 @@ func TestDefaultChannelRecvMultipleMsgs(t *testing.T) {
 	assert.Equal(completeMsgBytes, recvBytes)
 }
 
-func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
+func TestDefaultChannelRecvMessageAtLimit(t *testing.T) {
 	assert := assert.New(t)
 	ch := createDefaultChannel(common.ChannelIDTransaction)
 
 	expectedMsgBytes := []byte{}
-	msgBytes := []byte("01234567890123450123456789012345012345678901234501234567890123450123456789012345012345678901234501234567890123450123456789012345") // 128 Bytes
+	msgBytes := bytes.Repeat([]byte{0x42}, maxPayloadSize)
 	packet := &Packet{
 		ChannelID: common.ChannelIDTransaction,
 		Bytes:     msgBytes,
@@ -203,7 +203,7 @@ func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
 	var success bool
 	var recvBytes []byte
 	i := uint(0)
-	for ; i < 32767; i++ {
+	for ; i < common.MaxNormalMessageSize/maxPayloadSize-1; i++ {
 		packet.SeqID = i
 		recvBytes, success = ch.receivePacket(packet)
 		assert.True(success)
@@ -226,8 +226,40 @@ func TestDefaultChannelRecvExtraLongMsg(t *testing.T) {
 	t.Logf("Length of the expectedMsgBytes: %v", len(expectedMsgBytes))
 	t.Logf("Length of the aggregatedBytes:  %v", len(aggregatedBytes))
 
-	assert.Equal(4194304, len(expectedMsgBytes)) // should be 4 MB
-	assert.Equal(4194304, len(aggregatedBytes))  // should be 4 MB
+	assert.Equal(common.MaxNormalMessageSize, len(expectedMsgBytes))
+	assert.Equal(common.MaxNormalMessageSize, len(aggregatedBytes))
 	sameBytes := (bytes.Compare(expectedMsgBytes, aggregatedBytes) == 0)
 	assert.True(sameBytes)
+}
+
+func TestChannelRejectsMessageAboveLimit(t *testing.T) {
+	assert := assert.New(t)
+	rbCfg := getDefaultRecvBufferConfig()
+	rbCfg.maxMessageSize = 300
+	ch := createChannel(common.ChannelIDTransaction, getDefaultChannelConfig(), getDefaultSendBufferConfig(), rbCfg)
+
+	msgBytes := bytes.Repeat([]byte{0x42}, 128)
+	for i := uint(0); i < 2; i++ {
+		packet := &Packet{
+			ChannelID: common.ChannelIDTransaction,
+			Bytes:     msgBytes,
+			IsEOF:     byte(0x00),
+			SeqID:     i,
+		}
+		recvBytes, success, err := ch.receivePacketWithError(packet)
+		assert.Nil(err)
+		assert.True(success)
+		assert.Nil(recvBytes)
+	}
+
+	endPacket := &Packet{
+		ChannelID: common.ChannelIDTransaction,
+		Bytes:     msgBytes,
+		IsEOF:     byte(0x01),
+		SeqID:     2,
+	}
+	aggregatedBytes, success, err := ch.receivePacketWithError(endPacket)
+	assert.NotNil(err)
+	assert.False(success)
+	assert.Nil(aggregatedBytes)
 }

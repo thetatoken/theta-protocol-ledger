@@ -1,12 +1,23 @@
 package rpc
 
 import (
+	"errors"
 	"os"
 	"path"
 
+	"github.com/spf13/viper"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/snapshot"
 )
+
+var errRPCAdminMethodsDisabled = errors.New("RPC admin methods are disabled; set rpc.enableAdminMethods=true on a protected node to enable them")
+
+func requireRPCAdminMethodsEnabled() error {
+	if !viper.GetBool(common.CfgRPCEnableAdminMethods) {
+		return errRPCAdminMethodsDisabled
+	}
+	return nil
+}
 
 // ------------------------------- BackupSnapshot -----------------------------------
 
@@ -21,6 +32,10 @@ type BackupSnapshotResult struct {
 }
 
 func (t *ThetaRPCService) BackupSnapshot(args *BackupSnapshotArgs, result *BackupSnapshotResult) error {
+	if err := requireRPCAdminMethodsEnabled(); err != nil {
+		return err
+	}
+
 	// Default to older verison
 	if args.Version == 0 {
 		args.Version = 2
@@ -65,6 +80,10 @@ type BackupChainResult struct {
 }
 
 func (t *ThetaRPCService) BackupChain(args *BackupChainArgs, result *BackupChainResult) error {
+	if err := requireRPCAdminMethodsEnabled(); err != nil {
+		return err
+	}
+
 	chain := t.chain
 	startHeight := args.Start
 	endHeight := args.End
@@ -97,6 +116,10 @@ type BackupChainCorrectionResult struct {
 }
 
 func (t *ThetaRPCService) BackupChainCorrection(args *BackupChainCorrectionArgs, result *BackupChainCorrectionResult) error {
+	if err := requireRPCAdminMethodsEnabled(); err != nil {
+		return err
+	}
+
 	chain := t.chain
 	ledger := t.consensus.GetLedger()
 	snapshotHeight := args.SnapshotHeight

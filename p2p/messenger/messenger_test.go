@@ -5,19 +5,82 @@ import (
 	"fmt"
 	"strconv"
 	"testing"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	"github.com/thetatoken/theta/p2p"
+	cn "github.com/thetatoken/theta/p2p/connection"
+	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 	"github.com/thetatoken/theta/rlp"
 )
 
+func TestLegacyMalformedFrameQuarantinesPeer(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	const attackerPort, victimPort = 24621, 24622
+	attacker := newTestMessenger(nil, attackerPort)
+	victim := newTestMessenger([]string{"127.0.0.1:" + strconv.Itoa(attackerPort)}, victimPort)
+	attacker.RegisterMessageHandler(newTestMessageHandler(attacker.ID(), t, assert.New(t)))
+	victim.RegisterMessageHandler(newTestMessageHandler(victim.ID(), t, assert.New(t)))
+	require.NoError(t, attacker.Start(ctx))
+	require.NoError(t, victim.Start(ctx))
+	t.Cleanup(func() {
+		victim.Stop()
+		attacker.Stop()
+	})
+
+	select {
+	case connected := <-victim.discMgr.seedPeerConnector.Connected:
+		require.True(t, connected)
+	case <-time.After(10 * time.Second):
+		t.Fatal("victim did not connect to the test peer")
+	}
+	waitForLegacyPeerCount(t, victim, 1)
+	waitForLegacyPeerCount(t, attacker, 1)
+
+	victimPeer := victim.peerTable.GetPeer(attacker.ID())
+	require.NotNil(t, victimPeer)
+	// Exercise the branch that used to reconnect outbound non-seed peers.
+	victimPeer.SetSeed(false)
+	attackerPeer := attacker.peerTable.GetPeer(victim.ID())
+	require.NotNil(t, attackerPeer)
+
+	attackConn := attackerPeer.GetConnection().GetNetconn()
+	require.NoError(t, attackConn.SetWriteDeadline(time.Now().Add(2*time.Second)))
+	written, err := attackConn.Write(make([]byte, 32))
+	require.NoError(t, err)
+	require.Equal(t, 32, written)
+
+	waitForLegacyCondition(t, 3*time.Second, func() bool {
+		return victim.discMgr.isPeerProtocolPenalized(attacker.ID(), time.Now())
+	}, "victim did not quarantine the malformed legacy peer")
+	waitForLegacyCondition(t, 3*time.Second, func() bool {
+		return victim.peerTable.GetPeer(attacker.ID()) == nil
+	}, "victim retained the malformed legacy peer")
+
+	reconnectPeer, err := pr.CreateOutboundPeer(
+		victim.discMgr.inboundPeerListener.InternalAddress(), pr.GetDefaultPeerConfig(),
+		cn.GetDefaultConnectionConfig())
+	require.NoError(t, err)
+	require.NoError(t, reconnectPeer.Handshake(&attacker.nodeInfo))
+	reconnectPeer.Stop()
+
+	time.Sleep(250 * time.Millisecond)
+	require.Nil(t, victim.peerTable.GetPeer(attacker.ID()),
+		"victim accepted a quarantined peer's fresh authenticated connection")
+	require.True(t, victim.discMgr.isPeerProtocolPenalized(attacker.ID(), time.Now()))
+}
+
 func TestMessengerBroadcastMessages(t *testing.T) {
 	assert := assert.New(t)
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	peerAPort := 24611
 	peerBPort := 24612
@@ -89,6 +152,7 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 
 	_ = <-peerAReady
 	_ = <-peerBReady
+	waitForPeerCount(t, messenger, 2)
 
 	// ---------------- PeerC broadcasts messages to PeerA and PeerB ---------------- //
 
@@ -97,14 +161,14 @@ func TestMessengerBroadcastMessages(t *testing.T) {
 			ChannelID: common.ChannelIDTransaction,
 			Content:   peerCMsg,
 		}
-		messenger.Broadcast(message)
+		messenger.Broadcast(message, false)
 	}
 
 	// ---------------- Check PeerA and PeerB both received the broadcasted messages ---------------- //
 	numExpectedMsgs := len(peerCMessages)
 	for i := 0; i < numExpectedMsgs; i++ {
-		msgA := <-(peerAMessageHandler.(*TestMessageHandler)).recvMsgChan
-		msgB := <-(peerBMessageHandler.(*TestMessageHandler)).recvMsgChan
+		msgA := receiveTestMessage(t, peerAMessageHandler.(*TestMessageHandler).recvMsgChan)
+		msgB := receiveTestMessage(t, peerBMessageHandler.(*TestMessageHandler).recvMsgChan)
 		assert.True(checkReceivedMessage(&msgA, &peerCMessages))
 		assert.True(checkReceivedMessage(&msgB, &peerCMessages))
 	}
@@ -125,8 +189,50 @@ func newTestMessageHandler(selfPeerID string, t *testing.T, assert *assert.Asser
 		selfPeerID:  selfPeerID,
 		t:           t,
 		assert:      assert,
-		recvMsgChan: make(chan string),
+		recvMsgChan: make(chan string, 16),
 	}
+}
+
+func receiveTestMessage(t *testing.T, messages <-chan string) string {
+	t.Helper()
+	select {
+	case message := <-messages:
+		return message
+	case <-time.After(10 * time.Second):
+		t.Fatal("timed out waiting for a broadcast message")
+		return ""
+	}
+}
+
+func waitForPeerCount(t *testing.T, messenger *Messenger, expected int) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if len(messenger.Peers(false)) == expected {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %d peers; got %d", expected, len(messenger.Peers(false)))
+}
+
+func waitForLegacyPeerCount(t *testing.T, messenger *Messenger, expected int) {
+	t.Helper()
+	waitForLegacyCondition(t, 10*time.Second, func() bool {
+		return len(messenger.Peers(false)) == expected
+	}, fmt.Sprintf("timed out waiting for %d peers", expected))
+}
+
+func waitForLegacyCondition(t *testing.T, timeout time.Duration, condition func() bool, message string) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatal(message)
 }
 
 func (thm *TestMessageHandler) GetChannelIDs() []common.ChannelIDEnum {
@@ -165,10 +271,11 @@ func newTestMessenger(seedPeerNetAddressStrs []string, port int) *Messenger {
 	randPeerPrivKey, _, _ := crypto.GenerateKeyPair()
 	localNetworkAddress := "127.0.0.1:" + strconv.Itoa(port)
 	testMsgrConfig := MessengerConfig{
-		addrBookFilePath:    "./.addrbooks/addrbook_" + localNetworkAddress + ".json",
-		routabilityRestrict: false,
-		skipUPNP:            true,
-		networkProtocol:     "tcp",
+		addrBookFilePath:       "./.addrbooks/addrbook_" + localNetworkAddress + ".json",
+		routabilityRestrict:    false,
+		skipUPNP:               true,
+		networkProtocol:        "tcp",
+		disablePeerPersistence: true,
 	}
 	messenger, err := CreateMessenger(randPeerPrivKey, seedPeerNetAddressStrs, port, testMsgrConfig)
 	if err != nil {

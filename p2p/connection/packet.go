@@ -8,11 +8,13 @@ import (
 
 const (
 	maxPayloadSize        = 1024 // 1k bytes
-	maxAdditionalDataSize = 10
+	maxAdditionalDataSize = 16
 	maxPacketTotalSize    = maxPayloadSize + maxAdditionalDataSize
-	packetTypePing        = byte(0x01)
-	packetTypePong        = byte(0x02)
-	packetTypeMsg         = byte(0x03)
+	// Snappy's documented worst case is 32 + n + n/6 bytes.
+	maxPacketWireSize = 32 + maxPacketTotalSize + maxPacketTotalSize/6
+	packetTypePing    = byte(0x01)
+	packetTypePong    = byte(0x02)
+	packetTypeMsg     = byte(0x03)
 )
 
 type Packet struct {

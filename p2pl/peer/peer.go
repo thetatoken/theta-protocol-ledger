@@ -20,11 +20,14 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
+var openStreamsDelay = 3 * time.Second
+
 var Channels = []cmn.ChannelIDEnum{
 	cmn.ChannelIDCheckpoint,
 	cmn.ChannelIDHeader,
 	cmn.ChannelIDBlock,
 	cmn.ChannelIDProposal,
+	cmn.ChannelIDCC,
 	cmn.ChannelIDVote,
 	cmn.ChannelIDTransaction,
 	cmn.ChannelIDPeerDiscovery,
@@ -34,9 +37,7 @@ var Channels = []cmn.ChannelIDEnum{
 	cmn.ChannelIDAggregatedEliteEdgeNodeVotes,
 }
 
-//
 // Peer models a peer node in a network
-//
 type Peer struct {
 	addrInfo   pr.AddrInfo
 	isOutbound bool
@@ -74,17 +75,29 @@ func CreatePeer(addrInfo pr.AddrInfo, isOutbound bool) *Peer {
 }
 
 func (peer *Peer) OpenStreams() error {
+	if !viper.GetBool(cmn.CfgP2PReuseStream) {
+		return nil
+	}
 	if peer.isOutbound {
-		peer.openStreamsTimer = time.NewTimer(3 * time.Second)
+		peer.openStreamsTimer = time.NewTimer(openStreamsDelay)
 		go func() {
-			<-peer.openStreamsTimer.C
-			peer.openStreams()
+			select {
+			case <-peer.openStreamsTimer.C:
+				peer.openStreams()
+			case <-peer.ctx.Done():
+			}
 		}()
 	}
 	return nil
 }
 
 func (peer *Peer) openStreams() {
+	select {
+	case <-peer.ctx.Done():
+		return
+	default:
+	}
+
 	peer.mutex.Lock()
 	defer peer.mutex.Unlock()
 
@@ -116,8 +129,12 @@ func (peer *Peer) AcceptStream(channel cmn.ChannelIDEnum, stream *transport.Buff
 
 func (peer *Peer) StopStream(channel cmn.ChannelIDEnum) {
 	peer.mutex.Lock()
-	defer peer.mutex.Unlock()
-	if stream, ok := peer.streamMap[channel]; ok {
+	stream, ok := peer.streamMap[channel]
+	if ok {
+		delete(peer.streamMap, channel)
+	}
+	peer.mutex.Unlock()
+	if ok {
 		stream.Stop()
 	}
 }
@@ -137,17 +154,24 @@ func (peer *Peer) Wait() {
 
 // Stop is called when the peer stops
 func (peer *Peer) Stop() {
+	if peer.cancel != nil {
+		peer.cancel()
+	}
 	if peer.openStreamsTimer != nil {
 		peer.openStreamsTimer.Stop()
 	}
 
 	peer.mutex.Lock()
-	defer peer.mutex.Unlock()
-
+	streams := make([]*transport.BufferedStream, 0, len(peer.streamMap))
 	for _, stream := range peer.streamMap {
+		streams = append(streams, stream)
+	}
+	peer.streamMap = make(map[cmn.ChannelIDEnum]*transport.BufferedStream)
+	peer.mutex.Unlock()
+
+	for _, stream := range streams {
 		stream.Stop()
 	}
-	// peer.streamMap = nil
 }
 
 // Send sends the given message through the specified channel to the target peer
@@ -155,6 +179,11 @@ func (peer *Peer) Send(channelID cmn.ChannelIDEnum, message interface{}) bool {
 	msgBytes, err := peer.onEncode(channelID, message)
 	if err != nil {
 		logger.Errorf("Failed to encode message to bytes: %v, err: %v", message, err)
+		return false
+	}
+	if !cmn.IsP2PMessageSizeAllowed(channelID, len(msgBytes)) {
+		logger.Errorf("Refusing to send oversized message to peer %v for channel %v, size: %v, limit: %v",
+			peer.addrInfo.ID, channelID, len(msgBytes), cmn.MaxP2PMessageSize(channelID))
 		return false
 	}
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +14,34 @@ import (
 	pr "github.com/thetatoken/theta/p2p/peer"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
 )
+
+func TestLegacyProtocolPenaltyExpires(t *testing.T) {
+	now := time.Now()
+	discMgr := &PeerDiscoveryManager{
+		mutex:          &sync.Mutex{},
+		penalizedPeers: make(map[string]time.Time),
+	}
+
+	discMgr.recordProtocolPenalty("malformed-peer", now)
+	assert.True(t, discMgr.isPeerProtocolPenalized("malformed-peer", now))
+	assert.False(t, discMgr.isPeerProtocolPenalized(
+		"malformed-peer", now.Add(legacyMalformedPeerPenaltyDuration)))
+	assert.NotContains(t, discMgr.penalizedPeers, "malformed-peer")
+}
+
+func TestLegacyProtocolPenaltyTableIsBounded(t *testing.T) {
+	discMgr := &PeerDiscoveryManager{
+		mutex:          &sync.Mutex{},
+		penalizedPeers: make(map[string]time.Time),
+	}
+	now := time.Now()
+
+	for i := 0; i < maxLegacyPenalizedPeers+100; i++ {
+		discMgr.recordProtocolPenalty(fmt.Sprintf("peer-%d", i), now)
+	}
+
+	assert.Len(t, discMgr.penalizedPeers, maxLegacyPenalizedPeers)
+}
 
 func TestSeedPeerConnector(t *testing.T) {
 	assert := assert.New(t)

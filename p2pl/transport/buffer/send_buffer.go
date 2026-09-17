@@ -36,11 +36,13 @@ type SendBuffer struct {
 	errorCount int
 
 	// Life cycle
-	wg      *sync.WaitGroup
-	quit    chan struct{}
-	ctx     context.Context
-	cancel  context.CancelFunc
-	stopped bool
+	wg       *sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	done     chan struct{}
+	stopOnce sync.Once
+	stopped  uint32
+	stateMu  sync.Mutex
 }
 
 type SendBufferConfig struct {
@@ -61,7 +63,8 @@ func NewSendBuffer(config SendBufferConfig, rawStream cmn.ReadWriteCloser, onErr
 		config:      config,
 		wg:          &sync.WaitGroup{},
 		onError:     onError,
-		stopped:     true,
+		done:        make(chan struct{}),
+		stopped:     1,
 	}
 }
 
@@ -79,7 +82,7 @@ func (sb *SendBuffer) Start(ctx context.Context) bool {
 	ctx, cancel := context.WithCancel(ctx)
 	sb.ctx = ctx
 	sb.cancel = cancel
-	sb.stopped = false
+	atomic.StoreUint32(&sb.stopped, 0)
 
 	sb.wg.Add(1)
 	go sb.sendRoutine()
@@ -94,17 +97,15 @@ func (sb *SendBuffer) Wait() {
 
 // Stop is called when the SendBuffer stops
 func (sb *SendBuffer) Stop() {
-	defer func() {
-		recover() // Ignore closing closed channel exception.
-	}()
-
-	if sb.stopped {
-		return
-	}
-	sb.stopped = true
-	sb.workspace = nil
-	sb.cancel()
-	close(sb.queue)
+	sb.stopOnce.Do(func() {
+		sb.stateMu.Lock()
+		atomic.StoreUint32(&sb.stopped, 1)
+		close(sb.done)
+		sb.stateMu.Unlock()
+		if sb.cancel != nil {
+			sb.cancel()
+		}
+	})
 }
 
 // GetSize returns the size of the SendBuffer. It is goroutine safe
@@ -114,7 +115,7 @@ func (sb *SendBuffer) GetSize() int {
 
 // IsEmpty indicates whether the SendBuffer is empty
 func (sb *SendBuffer) IsEmpty() bool {
-	return (len(sb.workspace) == 0 && len(sb.queue) == 0)
+	return sb.GetSize() == 0
 }
 
 // CanInsert return whether more bytes can be inserted into the send buffer.
@@ -126,16 +127,21 @@ func (sb *SendBuffer) CanInsert() bool {
 // Write insert the bytes to queue, and times out after
 // the configured timeout. It is goroutine safe
 func (sb *SendBuffer) Write(bytes []byte) bool {
-	defer sb.recover()
-
-	if sb.stopped {
+	if atomic.LoadUint32(&sb.stopped) != 0 {
 		return false
 	}
+	timer := time.NewTimer(sb.config.timeOut)
+	defer timer.Stop()
 	select {
 	case sb.queue <- bytes:
 		atomic.AddInt32(&sb.queueSize, 1)
-		return true
-	case <-time.After(sb.config.timeOut):
+		sb.stateMu.Lock()
+		running := atomic.LoadUint32(&sb.stopped) == 0
+		sb.stateMu.Unlock()
+		return running
+	case <-sb.done:
+		return false
+	case <-timer.C:
 		return false
 	}
 }
@@ -249,7 +255,7 @@ func (sb *SendBuffer) emitChunk() *Chunk {
 func (sb *SendBuffer) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := fmt.Errorf(string(stack))
+		err := fmt.Errorf("%s", stack)
 		if sb.onError != nil {
 			sb.onError(err)
 		}

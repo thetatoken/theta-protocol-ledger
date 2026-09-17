@@ -2,6 +2,7 @@ package connection
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,23 @@ func TestPacketEmptiness(t *testing.T) {
 
 	packet.Bytes = []byte("hello world")
 	assert.False(packet.isEmpty())
+}
+
+func TestEncodedPacketSizeLimitFitsProtocolPackets(t *testing.T) {
+	packet := Packet{
+		ChannelID: common.ChannelIDBlock,
+		Bytes:     bytes.Repeat([]byte{0x42}, maxPayloadSize),
+		IsEOF:     byte(0x00),
+		SeqID:     uint(common.MaxBlockMessageSize/maxPayloadSize - 1),
+	}
+
+	encoded, err := rlp.EncodeToBytes(packet)
+	assert.NoError(t, err)
+	assert.LessOrEqual(t, len(encoded), maxPacketTotalSize)
+	assert.NoError(t, validatePacketFrameSize(uint32(len(encoded))))
+	assert.True(t, errors.Is(validatePacketFrameSize(maxPacketTotalSize+1), errPlainMessageTooLarge))
+	assert.NoError(t, validatePacketWireSize(maxPacketWireSize))
+	assert.True(t, errors.Is(validatePacketWireSize(maxPacketWireSize+1), errPlainMessageTooLarge))
 }
 
 func TestPacketRLPEncoding1(t *testing.T) {

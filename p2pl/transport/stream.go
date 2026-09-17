@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	p2pcmn "github.com/thetatoken/theta/p2pl/common"
 	buf "github.com/thetatoken/theta/p2pl/transport/buffer"
 )
 
-// BufferedStream is a bidirectional I/O pipe that supports
-// sending/receiving arbitrarily long messages
+// BufferedStream is a bidirectional I/O pipe for bounded, chunked messages.
 type BufferedStream struct {
 	rawStream p2pcmn.ReadWriteCloser
 
@@ -20,19 +20,25 @@ type BufferedStream struct {
 	recvBuf buf.RecvBuffer
 
 	// Life cycle
-	wg      *sync.WaitGroup
-	quit    chan struct{}
-	ctx     context.Context
-	cancel  context.CancelFunc
-	stopped bool
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stopOnce sync.Once
+	stopped  uint32
 }
 
 func NewBufferedStream(rawStream p2pcmn.ReadWriteCloser, onError p2pcmn.ErrorHandler) *BufferedStream {
+	return NewBufferedStreamWithMaxMessageSize(rawStream, onError, p2pcmn.MaxNormalMessageSize)
+}
+
+func NewBufferedStreamWithMaxMessageSize(rawStream p2pcmn.ReadWriteCloser, onError p2pcmn.ErrorHandler, maxMessageSize int) *BufferedStream {
+	recvConfig := buf.GetDefaultRecvBufferConfig()
+	recvConfig.MaxMessageSize = maxMessageSize
+
 	s := &BufferedStream{
 		rawStream: rawStream,
 		sendBuf:   buf.NewSendBuffer(buf.GetDefaultSendBufferConfig(), rawStream, onError),
-		recvBuf:   buf.NewRecvBuffer(buf.GetDefaultRecvBufferConfig(), rawStream, onError),
-		stopped:   true,
+		recvBuf:   buf.NewRecvBuffer(recvConfig, rawStream, onError),
+		stopped:   1,
 	}
 
 	return s
@@ -46,29 +52,28 @@ func (s *BufferedStream) Start(ctx context.Context) bool {
 	s.sendBuf.Start(ctx)
 	s.recvBuf.Start(ctx)
 
-	s.stopped = false
+	atomic.StoreUint32(&s.stopped, 0)
 
 	return true
 }
 
 // Wait suspends the caller goroutine
 func (s *BufferedStream) Wait() {
-	s.wg.Wait()
+	s.sendBuf.Wait()
+	s.recvBuf.Wait()
 }
 
 // Stop is called when the BufferedStream stops
 func (s *BufferedStream) Stop() {
-	if s.stopped {
-		return
-	}
-
-	s.stopped = true
-
-	s.recvBuf.Stop()
-	s.sendBuf.Stop()
-	s.Close()
-
-	s.cancel()
+	s.stopOnce.Do(func() {
+		atomic.StoreUint32(&s.stopped, 1)
+		if s.cancel != nil {
+			s.cancel()
+		}
+		s.recvBuf.Stop()
+		s.sendBuf.Stop()
+		_ = s.Close()
+	})
 }
 
 // TODO: Read implements the io.Reader
@@ -89,8 +94,7 @@ func (s *BufferedStream) Read(bufferPool chan []byte) ([]byte, int, error) {
 	return msg, n, err
 }
 
-// Write implements the io.Writer, and supports writting
-// arbitrarily long messages
+// Write implements the io.Writer.
 func (s *BufferedStream) Write(msg []byte) (int, error) {
 	success := s.sendBuf.Write(msg)
 	if !success {

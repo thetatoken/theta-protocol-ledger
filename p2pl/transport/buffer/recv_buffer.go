@@ -9,10 +9,9 @@ import (
 	"time"
 
 	log "github.com/sirupsen/logrus"
+	rootcmn "github.com/thetatoken/theta/common"
 	cmn "github.com/thetatoken/theta/p2pl/common"
 	"github.com/thetatoken/theta/p2pl/transport/buffer/flowrate"
-
-	"github.com/libp2p/go-libp2p-core/network"
 )
 
 //
@@ -37,18 +36,24 @@ type RecvBuffer struct {
 	config RecvBufferConfig
 	seqID  int32
 
+	chunkCount               int
+	reassemblyStartedAt      time.Time
+	reassemblyLastProgressAt time.Time
+
 	onError cmn.ErrorHandler
 
 	// Life cycle
-	wg      *sync.WaitGroup
-	quit    chan struct{}
-	ctx     context.Context
-	cancel  context.CancelFunc
-	stopped bool
+	wg       *sync.WaitGroup
+	ctx      context.Context
+	cancel   context.CancelFunc
+	done     chan struct{}
+	stopOnce sync.Once
+	stopped  uint32
 }
 
 type RecvBufferConfig struct {
 	workspaceCapacity int
+	MaxMessageSize    int
 	RecvRate          int64
 	queueCapacity     int
 	timeOut           time.Duration
@@ -71,7 +76,8 @@ func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser, onErr
 		config:      config,
 		wg:          &sync.WaitGroup{},
 		onError:     onError,
-		stopped:     true,
+		done:        make(chan struct{}),
+		stopped:     1,
 	}
 }
 
@@ -79,6 +85,7 @@ func NewRecvBuffer(config RecvBufferConfig, rawStream cmn.ReadWriteCloser, onErr
 func GetDefaultRecvBufferConfig() RecvBufferConfig {
 	return RecvBufferConfig{
 		workspaceCapacity: cmn.MaxChunkSize,
+		MaxMessageSize:    cmn.MaxNormalMessageSize,
 		RecvRate:          cmn.MaxRecvRate, // 64 Mbps
 		queueCapacity:     1,
 		timeOut:           10 * time.Second,
@@ -89,7 +96,7 @@ func (rb *RecvBuffer) Start(ctx context.Context) bool {
 	ctx, cancel := context.WithCancel(ctx)
 	rb.ctx = ctx
 	rb.cancel = cancel
-	rb.stopped = false
+	atomic.StoreUint32(&rb.stopped, 0)
 
 	rb.wg.Add(1)
 	go rb.recvRoutine()
@@ -104,34 +111,48 @@ func (rb *RecvBuffer) Wait() {
 
 // Stop is called when the RecvBuffer stops
 func (rb *RecvBuffer) Stop() {
-	defer func() {
-		recover() // Ignore closing closed channel exception.
-	}()
-
-	if rb.stopped {
-		return
-	}
-	rb.stopped = true
-	rb.workspace = nil
-
-	rb.rolloverBytes = nil
-	rb.precedingBytes = nil
-
-	rb.cancel()
-	close(rb.queue)
+	rb.stopOnce.Do(func() {
+		atomic.StoreUint32(&rb.stopped, 1)
+		if rb.cancel != nil {
+			rb.cancel()
+		}
+		close(rb.done)
+	})
 }
 
 // Read blocks until a message can be retrived from the queue
 func (rb *RecvBuffer) Read() ([]byte, error) {
-	if rb.stopped {
+	if msg, ok := rb.tryReadQueuedMessage(); ok {
+		return msg, nil
+	}
+	if atomic.LoadUint32(&rb.stopped) != 0 {
+		// A complete message may have been queued immediately before EOF stopped
+		// the receive routine. Preserve that final validated message.
+		if msg, ok := rb.tryReadQueuedMessage(); ok {
+			return msg, nil
+		}
 		return nil, fmt.Errorf("RecvBuffer is already stopped")
 	}
-	msg, ok := <-rb.queue
-	if !ok {
-		return nil, fmt.Errorf("queue closed")
+	select {
+	case msg := <-rb.queue:
+		atomic.AddInt32(&rb.queueSize, -1)
+		return msg, nil
+	case <-rb.done:
+		if msg, ok := rb.tryReadQueuedMessage(); ok {
+			return msg, nil
+		}
+		return nil, fmt.Errorf("RecvBuffer is already stopped")
 	}
-	atomic.AddInt32(&rb.queueSize, -1)
-	return msg, nil
+}
+
+func (rb *RecvBuffer) tryReadQueuedMessage() ([]byte, bool) {
+	select {
+	case msg := <-rb.queue:
+		atomic.AddInt32(&rb.queueSize, -1)
+		return msg, true
+	default:
+		return nil, false
+	}
 }
 
 // GetSize returns the size of the SendBuffer. It is goroutine safe
@@ -139,10 +160,11 @@ func (rb *RecvBuffer) GetSize() int {
 	return int(atomic.LoadInt32(&rb.queueSize))
 }
 
-// TODO: protection for attacks, e.g. send a very large message to peers
 func (rb *RecvBuffer) recvRoutine() {
 	defer rb.wg.Done()
+	defer rb.Stop()
 	defer rb.recover()
+	defer rb.resetReassemblyState()
 
 	bytes := make([]byte, cmn.MaxChunkSize)
 	defer func() { bytes = nil }()
@@ -156,15 +178,20 @@ func (rb *RecvBuffer) recvRoutine() {
 
 		// Block until recvMonitor allows reading
 		rb.recvMonitor.Limit(cmn.MaxChunkSize, atomic.LoadInt64(&rb.config.RecvRate), true)
+		rb.applyReadDeadline()
 		numBytesRead, err := rb.rawStream.Read(bytes)
-		if err != nil {
-			rawStream := rb.rawStream.(network.Stream)
-			log.Warnf("Raw stream %v read error: %v", rawStream.Conn().RemotePeer(), err)
-			break
+		if numBytesRead > 0 {
+			rb.extractChunks(bytes, numBytesRead)
+			rb.recvMonitor.Update(numBytesRead)
 		}
-
-		rb.extractChunks(bytes, numBytesRead)
-		rb.recvMonitor.Update(numBytesRead)
+		if err != nil {
+			if rb.reassemblyTimedOut(time.Now()) {
+				rb.fail(fmt.Errorf("message reassembly exceeded deadline %v", rb.reassemblyDeadline()))
+				return
+			}
+			log.Warnf("Raw stream read error: %v", err)
+			return
+		}
 	}
 }
 
@@ -172,94 +199,107 @@ func (rb *RecvBuffer) recvRoutine() {
 // read from the stream might contain multiple chunks or partial chunk from the sender. Hence
 // we need to handle rollover and preceding bytes properly
 func (rb *RecvBuffer) extractChunks(bytes []byte, numBytesRead int) {
-	const int32Bytes = 4
-	for start := 0; start < numBytesRead; {
-		var chunkBytes []byte
-		var increment int
-		rolloverLen := len(rb.rolloverBytes)
-		rolloverCap := cap(rb.rolloverBytes)
+	if numBytesRead > 0 {
+		now := time.Now()
+		if rb.reassemblyTimedOut(now) {
+			rb.fail(fmt.Errorf("message reassembly exceeded deadline %v", rb.reassemblyDeadline()))
+			return
+		}
+		if rb.reassemblyStartedAt.IsZero() {
+			rb.reassemblyStartedAt = now
+		}
+		rb.reassemblyLastProgressAt = now
+	}
+	pending := bytes[:numBytesRead]
+	if len(rb.rolloverBytes) > 0 {
+		pending = append(rb.rolloverBytes, pending...)
+		rb.rolloverBytes = nil
+	}
+	rb.precedingBytes = nil
 
-		if start == 0 && rolloverLen > 0 {
-			residueLen := rolloverCap - rolloverLen
-			if residueLen > numBytesRead {
-				rb.rolloverBytes = rb.rolloverBytes[:rolloverLen+numBytesRead]
-				copy(rb.rolloverBytes[rolloverLen:rolloverLen+numBytesRead], bytes[:numBytesRead])
-				break
-			}
-
-			rb.rolloverBytes = rb.rolloverBytes[:rolloverCap]
-			copy(rb.rolloverBytes[rolloverLen:rolloverCap], bytes[:residueLen])
-			chunkBytes = rb.rolloverBytes
-			increment = residueLen
-		} else {
-			if start+isEOFOffset > numBytesRead {
-				rb.precedingBytes = make([]byte, numBytesRead-start, isEOFOffset)
-				copy(rb.precedingBytes, bytes[start:numBytesRead])
-				break
-			}
-
-			var payloadSize int
-			precedingLen := len(rb.precedingBytes)
-			if precedingLen > 0 {
-				rb.precedingBytes = rb.precedingBytes[:isEOFOffset]
-				copy(rb.precedingBytes[precedingLen:], bytes[:isEOFOffset-precedingLen])
-				payloadSize = int(int32FromBytes(rb.precedingBytes[payloadSizeOffset : payloadSizeOffset+int32Bytes]))
-				start -= precedingLen
-			} else {
-				payloadSize = int(int32FromBytes(bytes[start+payloadSizeOffset : start+payloadSizeOffset+int32Bytes]))
-			}
-
-			chunkSize := headerSize + payloadSize
-
-			if start+chunkSize > numBytesRead {
-				rb.rolloverBytes = make([]byte, numBytesRead-start, chunkSize) // memory usage: will garbage collect previous rolloverBytes?
-				copy(rb.rolloverBytes, bytes[start:numBytesRead])
-				break
-			}
-
-			if start < 0 {
-				chunkBytes = append(rb.precedingBytes, bytes[isEOFOffset-precedingLen:chunkSize-precedingLen]...)
-			} else {
-				chunkBytes = bytes[start : start+chunkSize]
-			}
-			increment = chunkSize
+	for len(pending) > 0 {
+		if rb.reassemblyStartedAt.IsZero() {
+			now := time.Now()
+			rb.reassemblyStartedAt = now
+			rb.reassemblyLastProgressAt = now
+		}
+		chunkSize, err := validateChunkHeader(pending)
+		if err != nil {
+			rb.fail(err)
+			return
+		}
+		if chunkSize == 0 {
+			rb.storeRollover(pending, 0)
+			return
+		}
+		if len(pending) < chunkSize {
+			rb.storeRollover(pending, chunkSize)
+			return
 		}
 
-		chunk, err := NewChunkFromRawBytes(chunkBytes)
+		chunk, err := NewChunkFromRawBytes(pending[:chunkSize])
 		if err == nil {
-			completeMessage, success := rb.aggregateChunk(chunk)
+			completeMessage, success, err := rb.aggregateChunk(chunk)
+			if err != nil {
+				rb.fail(err)
+				return
+			}
 			if success {
 				if completeMessage != nil {
-					rb.queue <- completeMessage
 					atomic.AddInt32(&rb.queueSize, 1)
+					select {
+					case rb.queue <- completeMessage:
+					case <-rb.done:
+						atomic.AddInt32(&rb.queueSize, -1)
+						return
+					}
 				}
 			}
 		} else {
-			log.Errorf("RecvBuffer failed to create new chunk from raw bytes: %v", err)
+			rb.fail(fmt.Errorf("RecvBuffer failed to create new chunk from raw bytes: %v", err))
+			return
 		}
 
-		rb.rolloverBytes = nil //rolloverBytes[:0]
-		rb.precedingBytes = nil
-		start += increment
+		pending = pending[chunkSize:]
 	}
 }
 
 // aggregateChunk aggregates incoming chunks. It returns the message bytes if the message is
 // complete (i.e. ends with EOF). It is not goroutine safe
-func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, success bool) {
+func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, success bool, err error) {
 	// Note: We do NOT need to worry about the order of the chunks.
 	//       TCP guarantees that if bytes arrive, they will be in the
 	//       order they were sent, as long as the TCP connection stays open.
 	//       But we do need to check if there's any missing chunk
 	if rb.seqID != chunk.SeqID() {
-		log.Warnf("chunk seqID mismatch. expected: %v, actual: %v", rb.seqID, chunk.SeqID())
-		return nil, false
+		return nil, false, fmt.Errorf("chunk seqID mismatch, expected %v, actual %v", rb.seqID, chunk.SeqID())
+	}
+	if rb.reassemblyTimedOut(time.Now()) {
+		deadline := rb.reassemblyDeadline()
+		rb.resetReassemblyState()
+		return nil, false, fmt.Errorf("message reassembly exceeded deadline %v", deadline)
 	}
 
 	chunkPayload := chunk.Payload()
 	log.Debugf("Aggregate chunk: payloadSize = %v, seqID = %v, isEOF = %v", len(chunkPayload), chunk.SeqID(), chunk.IsEOF())
+	maxMessageSize := rb.config.MaxMessageSize
+	if maxMessageSize <= 0 {
+		maxMessageSize = cmn.MaxNormalMessageSize
+	}
+	maxChunkCount := maxMessageSize/maxChunkPayloadSize + 2
+	if rb.chunkCount >= maxChunkCount {
+		rb.resetReassemblyState()
+		return nil, false, fmt.Errorf("message exceeds chunk count limit %v", maxChunkCount)
+	}
+	if len(chunkPayload) > maxMessageSize || len(rb.workspace) > maxMessageSize-len(chunkPayload) {
+		currentSize := len(rb.workspace)
+		rb.resetReassemblyState()
+		return nil, false, fmt.Errorf("message exceeds receive limit, current %v, chunk %v, limit %v",
+			currentSize, len(chunkPayload), maxMessageSize)
+	}
 
 	rb.workspace = append(rb.workspace, chunkPayload...)
+	rb.chunkCount++
 	if chunk.IsEOF() {
 		msgSize := len(rb.workspace)
 		completeMessage := make([]byte, msgSize)
@@ -269,20 +309,99 @@ func (rb *RecvBuffer) aggregateChunk(chunk *Chunk) (completeMessage []byte, succ
 		// http://stackoverflow.com/questions/16971741/how-do-you-clear-a-slice-in-go
 		//   suggests this could be a memory leak, but we might as well keep the memory for the buffer until it closes,
 		//	at which point the recving slice stops being used and should be garbage collected
-		rb.workspace = rb.workspace[:0] // make([]byte, 0, rb.config.workspaceCapacity)
-		rb.seqID = 0
+		rb.resetReassemblyState()
 
-		return completeMessage, true
+		return completeMessage, true, nil
 	}
 
 	rb.seqID++
-	return nil, true
+	return nil, true, nil
+}
+
+func validateChunkHeader(bytes []byte) (int, error) {
+	const payloadSizeBytes = 4
+	if len(bytes) < payloadSizeOffset+payloadSizeBytes {
+		return 0, nil
+	}
+	seqID := int32FromBytes(bytes[seqIDOffset : seqIDOffset+payloadSizeBytes])
+	if seqID < 0 {
+		return 0, fmt.Errorf("invalid chunk seqID %v", seqID)
+	}
+	payloadSize := int32FromBytes(bytes[payloadSizeOffset : payloadSizeOffset+payloadSizeBytes])
+	if payloadSize < 0 || payloadSize > maxChunkPayloadSize {
+		return 0, fmt.Errorf("invalid chunk payloadSize %v", payloadSize)
+	}
+	if len(bytes) > isEOFOffset && bytes[isEOFOffset] != markerNotEOF && bytes[isEOFOffset] != markerEOF {
+		return 0, fmt.Errorf("invalid chunk EOF marker %v", bytes[isEOFOffset])
+	}
+	return headerSize + int(payloadSize), nil
+}
+
+func (rb *RecvBuffer) storeRollover(bytes []byte, chunkSize int) {
+	if chunkSize > 0 {
+		rb.rolloverBytes = make([]byte, len(bytes), chunkSize)
+	} else {
+		rb.rolloverBytes = make([]byte, len(bytes), headerSize)
+	}
+	copy(rb.rolloverBytes, bytes)
+}
+
+func (rb *RecvBuffer) resetWorkspace() {
+	if cap(rb.workspace) > rb.config.workspaceCapacity {
+		rb.workspace = make([]byte, 0, rb.config.workspaceCapacity)
+	} else {
+		rb.workspace = rb.workspace[:0]
+	}
+}
+
+func (rb *RecvBuffer) resetReassemblyState() {
+	rb.resetWorkspace()
+	rb.rolloverBytes = rb.rolloverBytes[:0]
+	rb.precedingBytes = rb.precedingBytes[:0]
+	rb.seqID = 0
+	rb.chunkCount = 0
+	rb.reassemblyStartedAt = time.Time{}
+	rb.reassemblyLastProgressAt = time.Time{}
+}
+
+type readDeadlineSetter interface {
+	SetReadDeadline(time.Time) error
+}
+
+func (rb *RecvBuffer) applyReadDeadline() {
+	stream, ok := rb.rawStream.(readDeadlineSetter)
+	if !ok {
+		return
+	}
+	deadline := rb.reassemblyDeadline()
+	if err := stream.SetReadDeadline(deadline); err != nil {
+		log.Warnf("Failed to set raw stream read deadline: %v", err)
+	}
+}
+
+func (rb *RecvBuffer) reassemblyTimedOut(now time.Time) bool {
+	deadline := rb.reassemblyDeadline()
+	return !deadline.IsZero() && !now.Before(deadline)
+}
+
+func (rb *RecvBuffer) reassemblyDeadline() time.Time {
+	return rootcmn.P2PReassemblyDeadline(rb.reassemblyStartedAt, rb.reassemblyLastProgressAt,
+		rb.config.MaxMessageSize, rb.config.timeOut)
+}
+
+func (rb *RecvBuffer) fail(err error) {
+	log.Warnf("RecvBuffer protocol error: %v", err)
+	rb.resetReassemblyState()
+	if rb.onError != nil {
+		rb.onError(err)
+	}
+	rb.Stop()
 }
 
 func (rb *RecvBuffer) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
-		err := fmt.Errorf(string(stack))
+		err := fmt.Errorf("%s", stack)
 		if rb.onError != nil {
 			rb.onError(err)
 		}

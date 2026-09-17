@@ -23,10 +23,8 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2p"})
 
-//
 // Connection models the connection between the current node and a peer node.
 // A connection has a ChannelGroup which can contain multiple Channels
-//
 type Connection struct {
 	netconn net.Conn
 
@@ -34,6 +32,7 @@ type Connection struct {
 	sendMonitor *flowrate.Monitor
 
 	bufReader   *bufio.Reader
+	frameReader *frameDeadlineReader
 	recvMonitor *flowrate.Monitor
 
 	bufConn io.ReadWriter
@@ -67,9 +66,7 @@ type Connection struct {
 	stopped bool
 }
 
-//
 // ConnectionConfig specifies the configurations of the Connection
-//
 type ConnectionConfig struct {
 	SendRate        int64
 	RecvRate        int64
@@ -133,11 +130,14 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 		return nil
 	}
 
+	bufReader := bufio.NewReader(netconn)
+	frameReader := newFrameDeadlineReader(bufReader, netconn, frameReadTimeout)
 	conn := &Connection{
 		netconn:      netconn,
 		bufWriter:    bufio.NewWriter(netconn),
 		sendMonitor:  flowrate.New(0, 0),
-		bufReader:    bufio.NewReader(netconn),
+		bufReader:    bufReader,
+		frameReader:  frameReader,
 		recvMonitor:  flowrate.New(0, 0),
 		channelGroup: channelGroup,
 		sendPulse:    make(chan bool, 1),
@@ -153,7 +153,7 @@ func CreateConnection(netconn net.Conn, config ConnectionConfig) *Connection {
 	conn.bufConn = struct {
 		io.Reader
 		io.Writer
-	}{Reader: conn.bufReader, Writer: conn.netconn}
+	}{Reader: conn.frameReader, Writer: conn.netconn}
 	return conn
 }
 
@@ -210,6 +210,9 @@ func (conn *Connection) Stop() {
 	if conn.GetNetconn() == nil {
 		return
 	}
+	if conn.cancel != nil {
+		conn.cancel()
+	}
 
 	logger.Warnf("Stopping connection, local: %v, remote: %v", conn.GetNetconn().LocalAddr(), conn.GetNetconn().RemoteAddr())
 	err := conn.netconn.Close()
@@ -217,9 +220,6 @@ func (conn *Connection) Stop() {
 		logger.Warnf("Failed to close connection: %v", err)
 	}
 
-	if conn.cancel != nil {
-		conn.cancel()
-	}
 }
 
 // SetMessageParser sets the message parser for the connection
@@ -256,6 +256,11 @@ func (conn *Connection) EnqueueMessage(channelID common.ChannelIDEnum, message i
 		logger.Errorf("Failed to encode message to bytes: %v, err: %v", message, err)
 		return false
 	}
+	if !common.IsP2PMessageSizeAllowed(channelID, len(msgBytes)) {
+		logger.Errorf("Refusing to enqueue oversized message for channel %v, size: %v, limit: %v",
+			channelID, len(msgBytes), common.MaxP2PMessageSize(channelID))
+		return false
+	}
 	success := channel.enqueueMessage(msgBytes)
 	if success {
 		conn.scheduleSendPulse()
@@ -276,6 +281,11 @@ func (conn *Connection) AttemptToEnqueueMessage(channelID common.ChannelIDEnum, 
 	msgBytes, err := conn.onEncode(channelID, message)
 	if err != nil {
 		logger.Errorf("Failed to encode message to bytes: %v, error: %v", message, err)
+		return false
+	}
+	if !common.IsP2PMessageSizeAllowed(channelID, len(msgBytes)) {
+		logger.Errorf("Refusing to enqueue oversized message for channel %v, size: %v, limit: %v",
+			channelID, len(msgBytes), common.MaxP2PMessageSize(channelID))
 		return false
 	}
 	success := channel.attemptToEnqueueMessage(msgBytes)
@@ -381,21 +391,51 @@ func (conn *Connection) sendPacketBatchAndScheduleSendPulse() {
 
 // --------------------- Recv goroutine --------------------- //
 
-func (conn *Connection) readPacket() (*Packet, error) {
+func (conn *Connection) readPacket() (packet *Packet, err error) {
+	reassemblyDeadline := conn.pendingReassemblyDeadline()
+	if err = conn.frameReader.beginFrame(reassemblyDeadline); err != nil {
+		return nil, err
+	}
+	defer func() {
+		localShutdown := conn.ctx != nil && conn.ctx.Err() != nil
+		if err != nil && !localShutdown && (conn.frameReader.frameStarted || !reassemblyDeadline.IsZero()) {
+			err = markProtocolError(err)
+		}
+		conn.frameReader.endFrame()
+	}()
+
 	// Plaintext transport.
 	if conn.rw == nil {
-		packet := &Packet{}
-		s := rlp.NewStream(conn.bufReader, maxPayloadSize*1024)
-		err := s.Decode(packet)
+		packet = &Packet{}
+		s := rlp.NewStream(conn.frameReader, maxPacketTotalSize)
+		err = s.Decode(packet)
 		return packet, err
 	}
 	// Encrypted transport.
 	conn.rmu.Lock()
 	defer conn.rmu.Unlock()
-	return conn.rw.ReadPacket()
+	packet, err = conn.rw.ReadPacket()
+	return packet, err
+}
+
+func (conn *Connection) pendingReassemblyDeadline() time.Time {
+	var deadline time.Time
+	for _, channel := range conn.channelGroup.channels {
+		candidate := channel.recvBuf.reassemblyDeadline()
+		if candidate.IsZero() || (!deadline.IsZero() && !candidate.Before(deadline)) {
+			continue
+		}
+		deadline = candidate
+	}
+	return deadline
 }
 
 func (conn *Connection) writePacket(packet *Packet) error {
+	if conn.netconn != nil {
+		if err := conn.netconn.SetWriteDeadline(time.Now().Add(frameWriteTimeout)); err != nil {
+			return err
+		}
+	}
 	// Plaintext transport.
 	if conn.rw == nil {
 		return rlp.Encode(conn.bufWriter, packet)
@@ -426,14 +466,20 @@ func (conn *Connection) recvRoutine() {
 		packet, err := conn.readPacket()
 		if err != nil {
 			logger.Warnf("recvRoutine: failed to decode packet: %v, error: %v", packet, err)
+			conn.stopForError(err)
 			return
 		}
 		conn.recvMonitor.Update(int(1))
 		switch packet.ChannelID {
 		case common.ChannelIDPing:
-			conn.handlePingPong(packet)
+			if !conn.handlePingPong(packet) {
+				conn.stopForError(markProtocolError(fmt.Errorf("invalid ping packet")))
+				return
+			}
 		default:
-			conn.handleReceivedPacket(packet)
+			if !conn.handleReceivedPacket(packet) && atomic.LoadUint32(&conn.errored) != 0 {
+				return
+			}
 		}
 
 		//conn.pingTimer.Reset() // TODO: replace with lightweight Reset()
@@ -469,11 +515,16 @@ func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
 	channelID := packet.ChannelID
 	channel := conn.channelGroup.getChannel(channelID)
 	if channel == nil {
+		conn.stopForError(markProtocolError(fmt.Errorf("invalid channel %v", channelID)))
 		return false
 	}
 
-	aggregatedBytes, success := channel.receivePacket(packet)
+	aggregatedBytes, success, err := channel.receivePacketWithError(packet)
 	if !success {
+		if err == nil {
+			err = fmt.Errorf("failed to receive packet on channel %v", channelID)
+		}
+		conn.stopForError(markProtocolError(err))
 		return false
 	}
 
@@ -484,6 +535,7 @@ func (conn *Connection) handleReceivedPacket(packet *Packet) (success bool) {
 	message, err := conn.onParse(packet.ChannelID, aggregatedBytes)
 	if err != nil {
 		logger.Errorf("Error parsing packet: %v, err: %v", packet, err)
+		conn.stopForError(markProtocolError(err))
 		return false
 	}
 
@@ -578,7 +630,8 @@ func (conn *Connection) recover() {
 	if r := recover(); r != nil {
 		stack := debug.Stack()
 		err := types.StackError{
-			r, stack,
+			Err:   r,
+			Stack: stack,
 		}
 		conn.stopForError(err)
 	}

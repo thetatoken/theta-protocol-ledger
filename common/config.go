@@ -125,6 +125,8 @@ const (
 
 	// CfgRPCEnabled sets whether to run RPC service.
 	CfgRPCEnabled = "rpc.enabled"
+	// CfgRPCEnableAdminMethods controls access to filesystem- and ledger-affecting RPC methods.
+	CfgRPCEnableAdminMethods = "rpc.enableAdminMethods"
 	// CfgRPCAddress sets the binding address of RPC service.
 	CfgRPCAddress = "rpc.address"
 	// CfgRPCPort sets the port of RPC service.
@@ -136,6 +138,16 @@ const (
 	CfgRPCGetBlocksHeavyQueryThreshold = "rpc.getBlocksHeavyQueryThreshold"
 	CfgRPCMaxHeavyGetBlocksQueryCount  = "rpc.maxHeavyGetBlocksQueryCount"
 	CfgRPCIdleTimeoutSecs              = "rpc.idleTimeoutSecs"
+
+	// CfgRPCPeerDiscoveryEnabled runs a second RPC listener that serves ONLY the
+	// peer-discovery method (theta.GetPeerURLs), on a separate address/port. This
+	// lets operators firewall the full RPC surface on rpc.port while keeping peer
+	// discovery reachable by edge nodes. Requires rpc.enabled to also be true.
+	CfgRPCPeerDiscoveryEnabled = "rpc.peerDiscoveryEnabled"
+	// CfgRPCPeerDiscoveryAddress sets the binding address of the peer-discovery RPC listener.
+	CfgRPCPeerDiscoveryAddress = "rpc.peerDiscoveryAddress"
+	// CfgRPCPeerDiscoveryPort sets the port of the peer-discovery RPC listener.
+	CfgRPCPeerDiscoveryPort = "rpc.peerDiscoveryPort"
 
 	// CfgLogLevels sets the log level.
 	CfgLogLevels = "log.levels"
@@ -232,11 +244,15 @@ func init() {
 
 	viper.SetDefault(CfgRPCAddress, "0.0.0.0")
 	viper.SetDefault(CfgRPCPort, "16888")
+	viper.SetDefault(CfgRPCEnableAdminMethods, false)
 	viper.SetDefault(CfgRPCMaxConnections, 200)
 	viper.SetDefault(CfgRPCTimeoutSecs, 60)
 	viper.SetDefault(CfgRPCGetBlocksHeavyQueryThreshold, 500)
 	viper.SetDefault(CfgRPCMaxHeavyGetBlocksQueryCount, 30)
 	viper.SetDefault(CfgRPCIdleTimeoutSecs, 1)
+	viper.SetDefault(CfgRPCPeerDiscoveryEnabled, false)
+	viper.SetDefault(CfgRPCPeerDiscoveryAddress, "0.0.0.0")
+	viper.SetDefault(CfgRPCPeerDiscoveryPort, "16889")
 
 	viper.SetDefault(CfgLogLevels, "*:debug")
 	viper.SetDefault(CfgLogPrintSelfID, false)

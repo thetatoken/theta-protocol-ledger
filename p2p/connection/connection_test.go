@@ -1,13 +1,18 @@
 package connection
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io/ioutil"
+	"net"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/thetatoken/theta/common"
 	"github.com/thetatoken/theta/crypto"
 	p2ptypes "github.com/thetatoken/theta/p2p/types"
@@ -35,6 +40,93 @@ func TestNetconnBasics(t *testing.T) {
 
 	t.Logf(string(buf[:]))
 	assert.Equal(buf, msgBytes)
+}
+
+func TestConnectionRejectsOversizedOutgoingMessages(t *testing.T) {
+	left, right := net.Pipe()
+	defer left.Close()
+	defer right.Close()
+
+	conn := CreateConnection(left, GetDefaultConnectionConfig())
+	conn.SetMessageEncoder(func(_ common.ChannelIDEnum, message interface{}) (common.Bytes, error) {
+		return message.([]byte), nil
+	})
+
+	overLimit := bytes.Repeat([]byte{0x42}, common.MaxNormalMessageSize+1)
+	assert.False(t, conn.EnqueueMessage(common.ChannelIDTransaction, overLimit))
+	assert.False(t, conn.AttemptToEnqueueMessage(common.ChannelIDTransaction, overLimit))
+
+	atLimit := bytes.Repeat([]byte{0x42}, common.MaxNormalMessageSize)
+	assert.True(t, conn.EnqueueMessage(common.ChannelIDTransaction, atLimit))
+}
+
+func TestConnectionDisconnectsOnOversizedIncomingMessage(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	conn := CreateConnection(left, GetDefaultConnectionConfig())
+	channel := conn.channelGroup.getChannel(common.ChannelIDTransaction)
+	channel.recvBuf.setMaxMessageSize(2 * maxPayloadSize)
+	errCh := make(chan interface{}, 1)
+	conn.SetErrorHandler(func(reason interface{}) {
+		errCh <- reason
+	})
+	conn.Start(context.Background())
+	defer conn.Stop()
+
+	go func() {
+		for seq := uint(0); seq < 2; seq++ {
+			_ = rlp.Encode(right, &Packet{
+				ChannelID: common.ChannelIDTransaction,
+				Bytes:     bytes.Repeat([]byte{0x42}, maxPayloadSize),
+				SeqID:     seq,
+			})
+		}
+		_ = rlp.Encode(right, &Packet{
+			ChannelID: common.ChannelIDTransaction,
+			Bytes:     []byte{0x42},
+			IsEOF:     byte(0x01),
+			SeqID:     2,
+		})
+	}()
+
+	select {
+	case reason := <-errCh:
+		require.Contains(t, fmt.Sprint(reason), "message exceeds receive limit")
+		require.True(t, IsProtocolError(reason))
+	case <-time.After(2 * time.Second):
+		t.Fatal("connection did not reject an oversized reassembled message")
+	}
+	require.Equal(t, uint32(1), atomic.LoadUint32(&conn.errored))
+}
+
+func TestConnectionDisconnectsWhenMessageNeverFinishes(t *testing.T) {
+	left, right := net.Pipe()
+	defer right.Close()
+
+	conn := CreateConnection(left, GetDefaultConnectionConfig())
+	channel := conn.channelGroup.getChannel(common.ChannelIDTransaction)
+	channel.recvBuf.config.messageTimeout = 25 * time.Millisecond
+	errCh := make(chan interface{}, 1)
+	conn.SetErrorHandler(func(reason interface{}) {
+		errCh <- reason
+	})
+	conn.Start(context.Background())
+	defer conn.Stop()
+
+	require.NoError(t, rlp.Encode(right, &Packet{
+		ChannelID: common.ChannelIDTransaction,
+		Bytes:     []byte("partial"),
+		SeqID:     0,
+	}))
+
+	select {
+	case reason := <-errCh:
+		require.Contains(t, fmt.Sprint(reason), "timeout")
+	case <-time.After(time.Second):
+		t.Fatal("connection did not expire an incomplete message")
+	}
+	require.Equal(t, uint32(1), atomic.LoadUint32(&conn.errored))
 }
 
 func TestNetconnSendPacket(t *testing.T) {
@@ -140,12 +232,15 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 	}
 
 	numMessages := 1
+	senderDone := make(chan struct{})
+	stopSender := make(chan struct{})
 	go func(port int, origNodeInfo p2ptypes.NodeInfo) {
+		defer close(senderDone)
 		netconn := p2ptypes.GetTestNetconn(port)
 		cfg := GetDefaultConnectionConfig()
 		conn := CreateConnection(netconn, cfg)
 		conn.Start(ctx)
-		//defer conn.Stop()
+		defer conn.Stop()
 		numMsgSent := 0
 		for {
 			if conn.CanEnqueueMessage(common.ChannelIDTransaction) {
@@ -157,20 +252,20 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
+		<-stopSender
 	}(port, origNodeInfo)
 
 	matched := make(chan bool)
+	receiverDone := make(chan struct{})
 	go func() {
+		defer close(receiverDone)
 		listener := p2ptypes.GetTestListener(port)
+		defer listener.Close()
 		netconn, err := listener.Accept()
 		assert.Nil(err)
 		defer netconn.Close()
 
-		for {
-			if len(matched) >= numMessages {
-				break
-			}
-
+		for i := 0; i < numMessages; i++ {
 			var packet Packet
 			err = rlp.Decode(netconn, &packet)
 			if err != nil {
@@ -208,6 +303,9 @@ func TestConnectionSendNodeInfo(t *testing.T) {
 		resultMatched := <-matched
 		assert.True(resultMatched)
 	}
+	<-receiverDone
+	close(stopSender)
+	<-senderDone
 }
 
 func TestConnectionRecvNodeInfo(t *testing.T) {

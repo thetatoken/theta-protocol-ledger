@@ -2,9 +2,12 @@ package messenger
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/rand"
+	"net"
 	"strconv"
 	"strings"
 	"sync"
@@ -48,9 +51,7 @@ import (
 
 var logger *log.Entry = log.WithFields(log.Fields{"prefix": "p2pl"})
 
-//
 // Messenger implements the Network interface
-//
 var _ p2pl.Network = (*Messenger)(nil)
 
 const (
@@ -59,7 +60,20 @@ const (
 	connectInterval                   = 1000 // 1 sec
 	lowConnectivityCheckInterval      = 60
 	highConnectivityCheckInterval     = 10
+	maxInboundStreamsPerPeer          = 16
+	maxInboundReservedBytesPerPeer    = 3 * common.MaxBlockMessageSize
+	maxPenalizedPeers                 = 4096
+	malformedPeerPenaltyDuration      = time.Minute
+	nonReusableStreamReadTimeout      = 10 * time.Second
 )
+
+var errP2PMessageTooLarge = errors.New("p2p message exceeds size limit")
+
+type inboundStreamUsage struct {
+	count         int
+	reservedBytes int
+	channels      map[common.ChannelIDEnum]int
+}
 
 type Messenger struct {
 	host          host.Host
@@ -86,6 +100,10 @@ type Messenger struct {
 	statsLock    sync.Mutex
 	statsCounter map[common.ChannelIDEnum]uint64
 
+	securityLock       sync.Mutex
+	inboundStreamUsage map[pr.ID]*inboundStreamUsage
+	penalizedPeers     map[pr.ID]time.Time
+
 	// Life cycle
 	wg      *sync.WaitGroup
 	quit    chan struct{}
@@ -94,11 +112,10 @@ type Messenger struct {
 	stopped bool
 }
 
-//
 // MessengerConfig specifies the configuration for Messenger
-//
 type MessengerConfig struct {
-	networkProtocol string
+	networkProtocol        string
+	disablePeerPersistence bool
 }
 
 // GetDefaultMessengerConfig returns the default config for messenger, not necessary
@@ -132,7 +149,12 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	ctx, cancel := context.WithCancel(ctx)
 
-	pt := peer.CreatePeerTable()
+	var pt peer.PeerTable
+	if msgrConfig.disablePeerPersistence {
+		pt = peer.CreateInMemoryPeerTable()
+	} else {
+		pt = peer.CreatePeerTable()
+	}
 
 	bufferPoolSize := viper.GetInt(common.CfgBufferPoolSize)
 
@@ -157,8 +179,11 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 		protocolPrefix:      protocolPrefix,
 		config:              msgrConfig,
 		statsCounter:        make(map[common.ChannelIDEnum]uint64),
+		inboundStreamUsage:  make(map[pr.ID]*inboundStreamUsage),
+		penalizedPeers:      make(map[pr.ID]time.Time),
 		wg:                  &sync.WaitGroup{},
 		ctx:                 ctx,
+		cancel:              cancel,
 	}
 
 	for i := 0; i < bufferPoolSize; i++ {
@@ -168,10 +193,12 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 	hostId, _, err := cr.GenerateEd25519Key(strings.NewReader(common.Bytes2Hex(pubKey.ToBytes())))
 	if err != nil {
+		cancel()
 		return messenger, err
 	}
 	localNetAddress, err := createP2PAddr("0.0.0.0", strconv.Itoa(port), msgrConfig.networkProtocol)
 	if err != nil {
+		cancel()
 		return messenger, err
 	}
 
@@ -186,6 +213,7 @@ func CreateMessenger(pubKey *crypto.PublicKey, seedPeerMultiAddresses []string,
 
 		extMultiAddr, err = createP2PAddr(externalIP, strconv.Itoa(port), msgrConfig.networkProtocol)
 		if err != nil {
+			cancel()
 			return messenger, err
 		}
 	}
@@ -270,6 +298,107 @@ func (msgr *Messenger) IsSeedPeer(pid string) bool {
 	return isSeed
 }
 
+func (msgr *Messenger) acquireInboundStream(pid pr.ID, channelID common.ChannelIDEnum, reuseStream bool) bool {
+	reservedBytes := common.MaxP2PMessageSize(channelID)
+
+	msgr.securityLock.Lock()
+	defer msgr.securityLock.Unlock()
+
+	usage := msgr.inboundStreamUsage[pid]
+	if usage == nil {
+		usage = &inboundStreamUsage{channels: make(map[common.ChannelIDEnum]int)}
+		msgr.inboundStreamUsage[pid] = usage
+	}
+	if reuseStream && usage.channels[channelID] > 0 {
+		return false
+	}
+	if usage.count >= maxInboundStreamsPerPeer ||
+		usage.reservedBytes > maxInboundReservedBytesPerPeer-reservedBytes {
+		return false
+	}
+
+	usage.count++
+	usage.reservedBytes += reservedBytes
+	usage.channels[channelID]++
+	return true
+}
+
+func (msgr *Messenger) releaseInboundStream(pid pr.ID, channelID common.ChannelIDEnum) {
+	reservedBytes := common.MaxP2PMessageSize(channelID)
+
+	msgr.securityLock.Lock()
+	defer msgr.securityLock.Unlock()
+
+	usage := msgr.inboundStreamUsage[pid]
+	if usage == nil || usage.channels[channelID] == 0 {
+		return
+	}
+	usage.count--
+	usage.reservedBytes -= reservedBytes
+	usage.channels[channelID]--
+	if usage.channels[channelID] == 0 {
+		delete(usage.channels, channelID)
+	}
+	if usage.count == 0 {
+		delete(msgr.inboundStreamUsage, pid)
+	}
+}
+
+func (msgr *Messenger) penalizeMalformedPeer(pid pr.ID, reason interface{}) {
+	penaltyExpiresAt := msgr.recordMalformedPeerPenalty(pid, time.Now())
+
+	logger.Warnf("Temporarily isolating peer %v after malformed P2P input until %v: %v",
+		pid, penaltyExpiresAt, reason)
+	if remotePeer := msgr.peerTable.GetPeer(pid); remotePeer != nil {
+		remotePeer.Stop()
+		msgr.peerTable.DeletePeer(pid)
+	}
+	_ = msgr.host.Network().ClosePeer(pid)
+}
+
+func (msgr *Messenger) recordMalformedPeerPenalty(pid pr.ID, now time.Time) time.Time {
+	penaltyExpiresAt := now.Add(malformedPeerPenaltyDuration)
+
+	msgr.securityLock.Lock()
+	defer msgr.securityLock.Unlock()
+	if msgr.penalizedPeers == nil {
+		msgr.penalizedPeers = make(map[pr.ID]time.Time)
+	}
+	for penalizedPID, expiresAt := range msgr.penalizedPeers {
+		if !now.Before(expiresAt) {
+			delete(msgr.penalizedPeers, penalizedPID)
+		}
+	}
+	if _, exists := msgr.penalizedPeers[pid]; !exists && len(msgr.penalizedPeers) >= maxPenalizedPeers {
+		var earliestPID pr.ID
+		var earliestExpiry time.Time
+		for penalizedPID, expiresAt := range msgr.penalizedPeers {
+			if earliestExpiry.IsZero() || expiresAt.Before(earliestExpiry) {
+				earliestPID = penalizedPID
+				earliestExpiry = expiresAt
+			}
+		}
+		delete(msgr.penalizedPeers, earliestPID)
+	}
+	msgr.penalizedPeers[pid] = penaltyExpiresAt
+	return penaltyExpiresAt
+}
+
+func (msgr *Messenger) isPeerPenalized(pid pr.ID, now time.Time) bool {
+	msgr.securityLock.Lock()
+	defer msgr.securityLock.Unlock()
+
+	penaltyExpiresAt, ok := msgr.penalizedPeers[pid]
+	if !ok {
+		return false
+	}
+	if !now.Before(penaltyExpiresAt) {
+		delete(msgr.penalizedPeers, pid)
+		return false
+	}
+	return true
+}
+
 func (msgr *Messenger) processLoop(ctx context.Context) {
 	defer func() {
 		// Clean up go routines.
@@ -284,6 +413,10 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 	for {
 		select {
 		case pid := <-msgr.newPeers:
+			if msgr.isPeerPenalized(pid, time.Now()) {
+				_ = msgr.host.Network().ClosePeer(pid)
+				continue
+			}
 			if msgr.peerTable.PeerExists(pid) {
 				continue
 			}
@@ -307,9 +440,9 @@ func (msgr *Messenger) processLoop(ctx context.Context) {
 			}
 			isOutbound := strings.Compare(msgr.host.ID().String(), pid.String()) > 0
 			peer := peer.CreatePeer(pr, isOutbound)
-			msgr.peerTable.AddPeer(peer)
 			msgr.attachHandlersToPeer(peer)
 			peer.Start(msgr.ctx)
+			msgr.peerTable.AddPeer(peer)
 			peer.OpenStreams()
 			logger.Infof("Peer connected, id: %v, addrs: %v", pr.ID, pr.Addrs)
 		case pid := <-msgr.newPeerError:
@@ -352,6 +485,8 @@ func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
 		seedsConnectivityCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
 	}
 	sufficientConnectionsCheckPulse = time.NewTicker(lowConnectivityCheckInterval * time.Second)
+	defer seedsConnectivityCheckPulse.Stop()
+	defer sufficientConnectionsCheckPulse.Stop()
 
 	for {
 		select {
@@ -359,6 +494,8 @@ func (msgr *Messenger) maintainConnectivityRoutine(ctx context.Context) {
 			msgr.maintainSeedsConnectivity(ctx)
 		case <-sufficientConnectionsCheckPulse.C:
 			msgr.maintainSufficientConnections(ctx)
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -452,9 +589,15 @@ func (msgr *Messenger) maintainSufficientConnections(ctx context.Context) {
 
 // Start is called when the Messenger starts
 func (msgr *Messenger) Start(ctx context.Context) error {
-	c, cancel := context.WithCancel(ctx)
-	msgr.ctx = c
-	msgr.cancel = cancel
+	if ctx != nil {
+		go func(startCtx context.Context) {
+			select {
+			case <-startCtx.Done():
+				msgr.cancel()
+			case <-msgr.ctx.Done():
+			}
+		}(ctx)
+	}
 
 	// seeds & previously persisted peers
 	connections := make([]*pr.AddrInfo, 0)
@@ -491,7 +634,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 
 			j := perm[i]
 			seedPeer := connections[j]
-			err := msgr.host.Connect(ctx, *seedPeer)
+			err := msgr.host.Connect(msgr.ctx, *seedPeer)
 			if err != nil {
 				logger.Warnf("Failed to connect to peer %v: %v. connectedness: %v", seedPeer, err, msgr.host.Network().Connectedness(seedPeer.ID))
 			}
@@ -502,7 +645,7 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	if msgr.dht != nil {
 		bcfg := kaddht.DefaultBootstrapConfig
 		bcfg.Period = time.Duration(defaultPeerDiscoveryPulseInterval)
-		if err := msgr.dht.BootstrapWithConfig(ctx, bcfg); err != nil {
+		if err := msgr.dht.BootstrapWithConfig(msgr.ctx, bcfg); err != nil {
 			logger.Errorf("Failed to bootstrap DHT: %v", err)
 		}
 	}
@@ -516,19 +659,24 @@ func (msgr *Messenger) Start(ctx context.Context) error {
 	// 	mdnsService.RegisterNotifee(&discoveryNotifee{ctx, msgr.host})
 	// }
 
-	go msgr.processLoop(ctx)
-	go msgr.maintainConnectivityRoutine(ctx)
+	go msgr.processLoop(msgr.ctx)
+	go msgr.maintainConnectivityRoutine(msgr.ctx)
 
 	msgr.statsEnabled = viper.GetBool(common.CfgProfEnabled)
 	if msgr.statsEnabled {
-		go func() {
+		go func(ctx context.Context) {
 			t := time.NewTicker(3 * time.Second)
+			defer t.Stop()
 
 			for {
-				<-t.C
-				msgr.printStats()
+				select {
+				case <-t.C:
+					msgr.printStats()
+				case <-ctx.Done():
+					return
+				}
 			}
-		}()
+		}(msgr.ctx)
 	}
 
 	return nil
@@ -560,6 +708,10 @@ func (msgr *Messenger) Publish(message p2ptypes.Message) error {
 	if err != nil {
 		logger.Errorf("Encoding error: %v", err)
 		return err
+	}
+	if !common.IsP2PMessageSizeAllowed(message.ChannelID, len(bytes)) {
+		return fmt.Errorf("refusing to publish oversized message, size: %v, limit: %v, channel: %v",
+			len(bytes), common.MaxP2PMessageSize(message.ChannelID), message.ChannelID)
 	}
 
 	err = msgr.pubsub.Publish(msgr.protocolPrefix+strconv.Itoa(int(message.ChannelID)), bytes)
@@ -745,11 +897,17 @@ func (msgr *Messenger) RegisterMessageHandler(msgHandler p2pl.MessageHandler) {
 				if msg == nil || msg.GetFrom() == msgr.host.ID() {
 					continue
 				}
+				maxMessageSize := common.MaxP2PMessageSize(channelID)
+				if len(msg.Data) > maxMessageSize {
+					logger.Errorf("Pubsub message ignored since it exceeds the peer message size limit, size: %v, limit: %v, channel: %v, peer: %v",
+						len(msg.Data), maxMessageSize, channelID, msg.GetFrom())
+					continue
+				}
 
 				message, err := msgHandler.ParseMessage(msg.GetFrom().String(), channelID, msg.Data)
 				if err != nil {
 					logger.Errorf("Failed to parse message, %v", err)
-					return
+					continue
 				}
 
 				msgr.recordReceivedBytes(channelID, len(msg.Data))
@@ -764,16 +922,30 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	logger.Debugf("Registered stream handler for channel %v", channelID)
 	msgr.host.SetStreamHandler(protocol.ID(msgr.protocolPrefix+strconv.Itoa(int(channelID))), func(strm network.Stream) {
 		peerID := strm.Conn().RemotePeer()
+		if msgr.isPeerPenalized(peerID, time.Now()) {
+			_ = strm.Reset()
+			_ = msgr.host.Network().ClosePeer(peerID)
+			return
+		}
 
 		if msgr.seedPeerOnly {
 			if !msgr.IsSeedPeer(string(peerID)) {
-				msgr.host.Network().ClosePeer(peerID)
+				_ = strm.Reset()
+				_ = msgr.host.Network().ClosePeer(peerID)
 				return
 			}
 		}
 
-		if strings.Compare(msgr.host.ID().String(), peerID.String()) > 0 {
+		reuseStream := viper.GetBool(common.CfgP2PReuseStream)
+		if reuseStream && strings.Compare(msgr.host.ID().String(), peerID.String()) > 0 {
 			logger.Warnf("Received stream from an outbound peer")
+			_ = strm.Reset()
+			return
+		}
+
+		if !msgr.acquireInboundStream(peerID, channelID, reuseStream) {
+			logger.Warnf("Rejected excess inbound stream for channel %v from peer %v", channelID, peerID)
+			_ = strm.Reset()
 			return
 		}
 
@@ -782,34 +954,44 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 			var addrInfo pr.AddrInfo
 			addrInfo.ID = peerID
 			addrInfo.Addrs = append(addrInfo.Addrs, strm.Conn().RemoteMultiaddr())
-			remotePeer = peer.CreatePeer(addrInfo, true)
-			msgr.peerTable.AddPeer(remotePeer)
+			remotePeer = peer.CreatePeer(addrInfo, false)
 			msgr.attachHandlersToPeer(remotePeer)
 			remotePeer.Start(msgr.ctx)
+			msgr.peerTable.AddPeer(remotePeer)
 
-			logger.Infof("Peer connected (via stream), id: %v, addrs: %v", remotePeer.ID, remotePeer.Addrs)
+			logger.Infof("Peer connected (via stream), id: %v, addrs: %v", remotePeer.ID(), remotePeer.Addrs())
 		}
 
-		reuseStream := viper.GetBool(common.CfgP2PReuseStream)
 		if reuseStream {
-			errorHandler := func(interface{}) {
-				remotePeer.StopStream(channelID)
+			errorHandler := func(reason interface{}) {
+				msgr.penalizeMalformedPeer(peerID, reason)
 			}
-			stream := transport.NewBufferedStream(strm, errorHandler)
-			stream.Start(msgr.ctx)
-			go msgr.readPeerMessageRoutine(stream, peerID.String(), channelID)
+			stream := transport.NewBufferedStreamWithMaxMessageSize(
+				strm, errorHandler, common.MaxP2PMessageSize(channelID))
 			remotePeer.AcceptStream(channelID, stream)
+			stream.Start(msgr.ctx)
+			go func() {
+				defer msgr.releaseInboundStream(peerID, channelID)
+				msgr.readPeerMessageRoutine(stream, peerID, channelID)
+			}()
 
 		} else {
-			rawPeerMsg, err := ioutil.ReadAll(strm)
+			defer msgr.releaseInboundStream(peerID, channelID)
+			defer strm.Close()
+			rawPeerMsg, err := readAllWithProgressDeadline(strm,
+				common.MaxP2PMessageSize(channelID), nonReusableStreamReadTimeout)
 			if err != nil {
 				logger.Warnf("Failed to read stream, %v. channel: %v, peer: %v", err, channelID, peerID)
+				if isProtocolReadError(err) {
+					msgr.penalizeMalformedPeer(peerID, err)
+				}
 				return
 			}
 			msgHandler := msgr.msgHandlerMap[channelID]
 			message, err := msgHandler.ParseMessage(peerID.String(), channelID, rawPeerMsg)
 			if err != nil {
-				logger.Errorf("Failed to parse message, %v. len(): %v, channel: %v, peer: %v, msg: %v", err, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
+				logger.Errorf("Failed to parse message, %v. len(): %v, channel: %v, peer: %v", err, len(rawPeerMsg), channelID, peerID)
+				msgr.penalizeMalformedPeer(peerID, err)
 				return
 			}
 
@@ -820,7 +1002,7 @@ func (msgr *Messenger) registerStreamHandler(channelID common.ChannelIDEnum) {
 	})
 }
 
-func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, peerID string, channelID common.ChannelIDEnum) {
+func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, peerID pr.ID, channelID common.ChannelIDEnum) {
 	defer stream.Stop()
 
 	for {
@@ -836,10 +1018,10 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 		var bufferSize int
 		var bufferPool chan []byte
 		if channelID == common.ChannelIDBlock || channelID == common.ChannelIDProposal {
-			bufferSize = p2pcmn.MaxBlockMessageSize
+			bufferSize = common.MaxBlockMessageSize
 			bufferPool = msgr.msgBlockBufferPool
 		} else {
-			bufferSize = p2pcmn.MaxNormalMessageSize
+			bufferSize = common.MaxNormalMessageSize
 			bufferPool = msgr.msgNormalBufferPool
 		}
 
@@ -865,10 +1047,11 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 		rawPeerMsg := msgBuffer[:msgSize]
 
 		msgHandler := msgr.msgHandlerMap[channelID]
-		message, err := msgHandler.ParseMessage(peerID, channelID, rawPeerMsg)
+		message, err := msgHandler.ParseMessage(peerID.String(), channelID, rawPeerMsg)
 		bufferPool <- msgBuffer
 		if err != nil {
-			logger.Errorf("Failed to parse message, %v. msgSize: %v, len(): %v, channel: %v, peer: %v, msg: %v", err, msgSize, len(rawPeerMsg), channelID, peerID, rawPeerMsg)
+			logger.Errorf("Failed to parse message, %v. msgSize: %v, len(): %v, channel: %v, peer: %v", err, msgSize, len(rawPeerMsg), channelID, peerID)
+			msgr.penalizeMalformedPeer(peerID, err)
 			return
 		}
 
@@ -876,6 +1059,69 @@ func (msgr *Messenger) readPeerMessageRoutine(stream *transport.BufferedStream, 
 
 		msgHandler.HandleMessage(message)
 	}
+}
+
+func readAllWithLimit(reader io.Reader, limit int) ([]byte, error) {
+	if limit <= 0 {
+		return nil, fmt.Errorf("invalid read limit %v", limit)
+	}
+	limitedReader := io.LimitReader(reader, int64(limit)+1)
+	data, err := ioutil.ReadAll(limitedReader)
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > limit {
+		return nil, fmt.Errorf("%w, size: %v, limit: %v", errP2PMessageTooLarge, len(data), limit)
+	}
+	return data, nil
+}
+
+type readDeadlineReader interface {
+	io.Reader
+	SetReadDeadline(time.Time) error
+}
+
+type progressDeadlineReader struct {
+	reader            readDeadlineReader
+	maxMessageSize    int
+	inactivityTimeout time.Duration
+	startedAt         time.Time
+	lastProgressAt    time.Time
+}
+
+func (reader *progressDeadlineReader) Read(buffer []byte) (int, error) {
+	now := time.Now()
+	if reader.startedAt.IsZero() {
+		reader.startedAt = now
+		reader.lastProgressAt = now
+	}
+	deadline := common.P2PReassemblyDeadline(reader.startedAt, reader.lastProgressAt,
+		reader.maxMessageSize, reader.inactivityTimeout)
+	if err := reader.reader.SetReadDeadline(deadline); err != nil {
+		return 0, fmt.Errorf("failed to set stream progress deadline: %w", err)
+	}
+	n, err := reader.reader.Read(buffer)
+	if n > 0 {
+		reader.lastProgressAt = time.Now()
+	}
+	return n, err
+}
+
+func readAllWithProgressDeadline(reader readDeadlineReader, limit int,
+	inactivityTimeout time.Duration) ([]byte, error) {
+	return readAllWithLimit(&progressDeadlineReader{
+		reader:            reader,
+		maxMessageSize:    limit,
+		inactivityTimeout: inactivityTimeout,
+	}, limit)
+}
+
+func isProtocolReadError(err error) bool {
+	if errors.Is(err, errP2PMessageTooLarge) {
+		return true
+	}
+	netErr, ok := err.(net.Error)
+	return ok && netErr.Timeout()
 }
 
 // attachHandlersToPeer attaches the registerred message/stream handlers to the given peer
@@ -922,12 +1168,13 @@ func (msgr *Messenger) attachHandlersToPeer(peer *peer.Peer) {
 			return nil, nil
 		}
 
-		errorHandler := func(interface{}) {
-			peer.StopStream(channelID)
+		errorHandler := func(reason interface{}) {
+			msgr.penalizeMalformedPeer(peer.ID(), reason)
 		}
-		stream := transport.NewBufferedStream(strm, errorHandler)
+		stream := transport.NewBufferedStreamWithMaxMessageSize(
+			strm, errorHandler, common.MaxP2PMessageSize(channelID))
 		stream.Start(msgr.ctx)
-		go msgr.readPeerMessageRoutine(stream, peer.ID().String(), channelID)
+		go msgr.readPeerMessageRoutine(stream, peer.ID(), channelID)
 		return stream, nil
 	}
 	peer.SetStreamCreator(streamCreator)

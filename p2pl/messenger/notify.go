@@ -25,7 +25,7 @@ func (p *PeerNotif) Connected(n network.Network, c network.Conn) {
 	go func() {
 		select {
 		case p.newPeers <- c.RemotePeer():
-		// case <-p.ctx.Done():
+		case <-p.ctx.Done():
 		}
 	}()
 }
@@ -34,7 +34,7 @@ func (p *PeerNotif) Disconnected(n network.Network, c network.Conn) {
 	go func() {
 		select {
 		case p.peerDead <- c.RemotePeer():
-		// case <-p.ctx.Done():
+		case <-p.ctx.Done():
 		}
 	}()
 }
