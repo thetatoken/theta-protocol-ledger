@@ -52,7 +52,7 @@ type trezorDriver struct {
 	failure error         // Any failure that would make the device unusable
 }
 
-// newTrezorDriver creates a new instance of a Trezor USB protocol driver.
+// NewTrezorDriver creates a new instance of a Trezor USB protocol driver.
 func NewTrezorDriver() Driver {
 	return &trezorDriver{bridge: trezor.BridgeTransport{}, ui: trezor.NewTrezorUI(false)}
 }
