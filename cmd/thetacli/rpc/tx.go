@@ -65,6 +65,8 @@ func (t *ThetaCliRPCService) Send(args *SendArgs, result *SendResult) (err error
 		return fmt.Errorf("The from address %v has not been unlocked yet", from.Hex())
 	}
 
+	defer t.wallet.Lock(from)
+
 	inputs := []types.TxInput{{
 		Address: from,
 		Coins: types.Coins{
