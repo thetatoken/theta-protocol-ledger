@@ -14,6 +14,7 @@ import (
 
 type CallSmartContractArgs struct {
 	SctxBytes string `json:"sctx_bytes"`
+	Preview   bool   `json:"preview"` // preview the account balance from the ScreenedView
 }
 
 type CallSmartContractResult struct {
@@ -28,7 +29,12 @@ type CallSmartContractResult struct {
 // without actually spending gas.
 func (t *ThetaRPCService) CallSmartContract(args *CallSmartContractArgs, result *CallSmartContractResult) (err error) {
 	var ledgerState *state.StoreView
-	ledgerState, err = t.ledger.GetDeliveredSnapshot()
+
+	if args.Preview {
+		ledgerState, err = t.ledger.GetScreenedSnapshot()
+	} else {
+		ledgerState, err = t.ledger.GetFinalizedSnapshot()
+	}
 	if err != nil {
 		return err
 	}
