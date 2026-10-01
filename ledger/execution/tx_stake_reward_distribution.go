@@ -56,12 +56,9 @@ func (exec *StakeRewardDistributionTxExecutor) sanityCheck(chainID string, view 
 		return res
 	}
 
-	if blockHeight < common.HeightRemoveRewardSplitCap {
-		if tx.SplitBasisPoint > 1000 { // initially we only allow up to 10.00% reward split
-			return result.Error("Only allow at most 10.00%% reward split for the beneficiary for now (i.e., SplitBasisPoint <= 1000)")
-		}
-	} else if tx.SplitBasisPoint > 10000 {
-		return result.Error("Reward split cannot exceed 100.00%% (i.e., SplitBasisPoint <= 10000)")
+	res = validateSplitBasisPoint(tx.SplitBasisPoint, blockHeight)
+	if res.IsError() {
+		return res
 	}
 
 	// stakeHolderAddress := tx.Holder.Address
@@ -175,4 +172,16 @@ func (exec *StakeRewardDistributionTxExecutor) calculateEffectiveGasPrice(transa
 	gas := new(big.Int).SetUint64(getRegularTxGas(exec.state))
 	effectiveGasPrice := new(big.Int).Div(fee.TFuelWei, gas)
 	return effectiveGasPrice
+}
+
+// validateSplitBasisPoint checks the reward split against the cap in effect at the given block height
+func validateSplitBasisPoint(splitBasisPoint uint, blockHeight uint64) result.Result {
+	if blockHeight < common.HeightRemoveRewardSplitCap {
+		if splitBasisPoint > 1000 { // initially we only allow up to 10.00% reward split
+			return result.Error("Only allow at most 10.00%% reward split for the beneficiary for now (i.e., SplitBasisPoint <= 1000)")
+		}
+	} else if splitBasisPoint > 10000 {
+		return result.Error("Reward split cannot exceed 100.00%% (i.e., SplitBasisPoint <= 10000)")
+	}
+	return result.OK
 }
