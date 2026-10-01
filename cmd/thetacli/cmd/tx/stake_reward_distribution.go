@@ -37,6 +37,10 @@ func doStakeRewardDistributionCmd(cmd *cobra.Command, args []string) {
 		utils.Error("Failed to parse fee")
 	}
 
+	if splitBasisPointFlag > 10000 {
+		utils.Error("split_basis_point cannot exceed 10000 (100.00%%)")
+	}
+
 	holder := types.TxInput{
 		Address:  holderAddress,
 		Sequence: uint64(seqFlag),
@@ -92,7 +96,7 @@ func init() {
 	stakeRewardDistributionCmd.Flags().StringVar(&feeFlag, "fee", fmt.Sprintf("%dwei", types.MinimumTransactionFeeTFuelWei), "Fee")
 	stakeRewardDistributionCmd.Flags().Uint64Var(&seqFlag, "seq", 0, "Sequence number of the transaction")
 	stakeRewardDistributionCmd.Flags().StringVar(&beneficiaryFlag, "beneficiary", "", "Address of the beneficiary")
-	stakeRewardDistributionCmd.Flags().Uint64Var(&splitBasisPointFlag, "split_basis_point", 0, "fraction of the reward split in terms of basis point (1/10000). 100 basis point = 100/10000 = 1.00%")
+	stakeRewardDistributionCmd.Flags().Uint64Var(&splitBasisPointFlag, "split_basis_point", 0, "fraction of the reward split in terms of basis point (1/10000), between 0 and 10000. 100 basis point = 100/10000 = 1.00%. Values above 1000 (10.00%) are only accepted after the HeightRemoveRewardSplitCap fork")
 	//stakeRewardDistributionCmd.Flags().Uint8Var(&purposeFlag, "purpose", 0, "Purpose of staking")
 	stakeRewardDistributionCmd.Flags().StringVar(&walletFlag, "wallet", "soft", "Wallet type (soft|nano)")
 	stakeRewardDistributionCmd.Flags().BoolVar(&asyncFlag, "async", false, "block until tx has been included in the blockchain")

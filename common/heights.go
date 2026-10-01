@@ -39,6 +39,10 @@ const HeightSupportWrappedTheta uint64 = 17285755 // approximate time: 7pm Sep 2
 // HeightEnableMetachainSupport specifies the block height to enable Theta Metachain support (i.e. Mainnet 4.0)
 const HeightEnableMetachainSupport uint64 = 17790756 // approximate time: 7pm Nov 3, 2022 PT
 
+// HeightRemoveRewardSplitCap specifies the block height from which the 10% cap on the
+// StakeRewardDistributionTx reward split is lifted (up to 100%, i.e. SplitBasisPoint <= 10000)
+const HeightRemoveRewardSplitCap uint64 = 1<<64 - 1 // TODO: set the fork height before release
+
 // CheckpointInterval defines the interval between checkpoints.
 const CheckpointInterval = int64(100)
 
